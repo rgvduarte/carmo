@@ -16,7 +16,6 @@ export const SITE = {
   // Optional: the phone number linked to MB WAY (e.g. '916395103'). Leave empty to hide it.
   mbway: '',
   updated: '2026-10-22',
-  kona: '2027-10-09T07:00:00-10:00',
 };
 
 // Official results (timing companies / IRONMAN), checked 22 Oct 2026.
@@ -73,13 +72,14 @@ export const SEASON = [
   { date: '2027-05-02', pt: 'Lidl Setúbal Triathlon', en: 'Lidl Setúbal Triathlon', where: { pt: 'Setúbal, Portugal', en: 'Setúbal, Portugal' }, what: { pt: 'Meia distância', en: 'Middle distance' }, km: 113, status: 'entry' },
   { date: '2027-05-09', end: '2027-05-14', pt: 'Gravel Birds XL', en: 'Gravel Birds XL', where: { pt: 'Castro Verde, Alentejo', en: 'Castro Verde, Alentejo' }, what: { pt: 'Ultra gravel · ~1 000 km', en: 'Ultra gravel · ~1,000 km' }, km: 1000, status: 'planned' },
   { date: '2027-07', pt: 'IRONMAN de qualificação', en: 'Qualifying IRONMAN', where: { pt: 'Península Ibérica', en: 'Iberian Peninsula' }, what: { pt: 'Qualificação para Kona', en: 'Kona qualifier' }, km: 226, status: 'tbc' },
-  { date: '2027-10-09', pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
+  // Kona has no date until the slot is won: it is the goal, not a counted race
+  { date: '', label: { pt: 'Quando houver vaga', en: 'Once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
 ];
 
 // Season budget estimate (EUR). Entry fees from official race pages, Oct 2026.
 export const BUDGET = [
-  { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: 7000, note: { pt: 'Kona (voos, 10 noites, transporte da bicicleta), Espanha e deslocações em Portugal', en: 'Kona (flights, 10 nights, bike transport), Spain and trips in Portugal' } },
-  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Sete provas, com Setúbal já garantida por mérito.', en: 'Seven races, with Setúbal already earned on merit.' } },
+  { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: 7000, note: { pt: 'Provas em Espanha e em Portugal e, com a vaga, a viagem a Kona (voos, 10 noites, transporte da bicicleta)', en: 'Races in Spain and Portugal and, once qualified, the trip to Kona (flights, 10 nights, bike transport)' } },
+  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Seis provas e, com a vaga, Kona. Setúbal já está garantida por mérito.', en: 'Six races and, once qualified, Kona. Setúbal already earned on merit.' } },
   { pt: 'Treino, nutrição e saúde', en: 'Coaching, nutrition and health', eur: 3000, note: { pt: 'Treinador, suplementação, fisioterapia e testes', en: 'Coach, nutrition, physio and testing' } },
   { pt: 'Material e manutenção', en: 'Equipment and maintenance', eur: 2500, note: { pt: 'Pneus, transmissão, sapatilhas, fato de neoprene', en: 'Tyres, drivetrain, shoes, wetsuit' } },
 ];

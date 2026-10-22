@@ -99,7 +99,8 @@ if (url) { try { url = new URL(url).href; } catch (_) { fail('o link da marca n�
 let until = field('Reservado até');
 if (status === 'reserved') {
   if (!until) { const d = new Date(); d.setUTCDate(d.getUTCDate() + 3); until = d.toISOString().slice(0, 10); }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until))) fail('a data de reserva tem de estar no formato 2026-10-31.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(until) || Number.isNaN(Date.parse(until)) || new Date(until).toISOString().slice(0, 10) !== until) fail('a data de reserva tem de estar no formato 2026-10-31.');
+  if (until < new Date().toISOString().slice(0, 10)) fail(`a data ${until} já passou.`);
 }
 
 // ---------- logo ----------
@@ -124,9 +125,11 @@ async function saveLogo() {
 }
 
 // ---------- apply ----------
+const prevBrand = target.brand;
 for (const k of ['brand', 'url', 'until']) delete target[k];
 target.status = status;
-if (status === 'available') { delete target.logo; delete target.logoMono; await clearLogos(); }
+// a logo belongs to the brand that bought the spot: it goes when the spot is freed, held or changes hands
+if (status !== 'sold' || brand !== prevBrand) { delete target.logo; delete target.logoMono; await clearLogos(); }
 if (brand && status !== 'available') target.brand = brand;
 if (url && status !== 'available') target.url = url;
 if (status === 'reserved') target.until = until;

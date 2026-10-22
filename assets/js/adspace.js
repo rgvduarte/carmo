@@ -21,7 +21,7 @@ const pad2 = (n) => String(n).padStart(2, '0');
 // a reservation lapses on its own once its `until` day is over, so a stale hold never blocks a sale
 const lapsed = (x) => x.status === 'reserved' && x.until && Date.parse(`${x.until}T23:59:59Z`) < Date.now();
 const ibanPretty = (s) => s.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
-const toast = (msg) => { const el = $('#toast'); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 3200); };
+const toast = (msg) => { const el = $('#toast'); const dlg = $('#claim'); const host = dlg && dlg.open ? dlg : document.body; if (el.parentElement !== host) host.appendChild(el); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 3200); };
 
 export async function initAdspace({ onSuitReady } = {}) {
   try {
@@ -32,6 +32,8 @@ export async function initAdspace({ onSuitReady } = {}) {
     return;
   }
   for (const x of [...DATA.spots, DATA.title]) if (lapsed(x)) x.status = 'available';
+  // a title partner on hold holds every free spot until the same day
+  if (DATA.title.status === 'reserved') for (const s of DATA.spots) if (s.status === 'available') Object.assign(s, { status: 'reserved', until: DATA.title.until });
   // a title partner takes the whole suit: every spot closes under its name, its logo goes on the chest
   if (DATA.title.status === 'sold') {
     for (const s of DATA.spots) if (s.status !== 'sold') Object.assign(s, { status: 'sold', brand: DATA.title.brand, url: DATA.title.url });
@@ -43,6 +45,7 @@ export async function initAdspace({ onSuitReady } = {}) {
   readHash();
   renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
   bindUI();
+  if (selected) select(selected);
   onLang(() => { renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); if (suit) { suit.labels = suitLabels(); suit.money = money; suit.drawOverlay(); suit.kick(); } });
   // the 3D stage loads when the section approaches the viewport
   const stage = $('#stage');
@@ -146,6 +149,7 @@ function renderStats() {
   const av = available();
   const prices = SPOTS.map((s) => s.price);
   flowSet($('#avail-n'), av.length);
+  flowSet($('#hero-spots'), av.length);
   $('#avail-t').textContent = SPOTS.length;
   $('#avail-pct').textContent = `${Math.round((av.length / SPOTS.length) * 100)}%`;
   $('#avail-bar').style.width = `${(av.length / SPOTS.length) * 100}%`;
@@ -153,11 +157,12 @@ function renderStats() {
   flowSet($('#st-n'), SPOTS.length);
   flowSet($('#st-from'), Math.min(...prices), { format: eur });
   const top = av.slice().sort((a, b) => b.price - a.price)[0];
-  if (top) flowSet($('#st-top'), top.price, { format: eur }); else $('#st-top').textContent = t('st.sold');
+  if (top) flowSet($('#st-top'), top.price, { format: eur }); else $('#st-top').textContent = t(SPOTS.some((s) => s.status === 'reserved') ? 'st.reserved' : 'st.sold');
   flowSet($('#st-title'), DATA.title.price, { format: eur });
   $('#tp-price').textContent = money(DATA.title.price);
   const tpBtn = $('#tp-btn');
   tpBtn.disabled = DATA.title.status !== 'available' || av.length !== SPOTS.length;
+  if (DATA.title.status !== 'available') tpBtn.textContent = statusText(DATA.title);
 }
 
 function renderLegend() {
@@ -424,7 +429,7 @@ function readHash() {
     if (ids.length) { basket = new Set(ids); try { localStorage.setItem(STORE, JSON.stringify(ids)); } catch (_) {} }
     history.replaceState(null, '', `${location.pathname}${location.search}#fato`);
   } else if (h === 'fato/title') {
-    wantTitle = true;
+    wantTitle = DATA.title.status === 'available' && available().length === SPOTS.length;
   } else if (h.startsWith('fato/')) {
     const id = h.slice(5);
     if (byId(id)) selected = id;

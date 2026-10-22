@@ -314,6 +314,8 @@ section { position: relative; }
   .flight-hud .wrap:first-child { grid-template-columns: 1fr; }
   .flight-km { text-align: left; order: -1; }
   .flight-cap { min-height: 200px; }
+  .flight-scene::after { background: linear-gradient(180deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.05) 22%, rgba(0,0,0,.6) 40%, rgba(0,0,0,.88) 70%); }
+  .flight-km { text-shadow: 0 1px 14px rgba(0,0,0,.55); }
   .flight-bar, .flight-bar + .legend { grid-template-columns: 10fr 70fr 20fr; }
 }
 
@@ -721,7 +723,8 @@ section { position: relative; }
   .m2, .m3 { grid-column: span 3; grid-row: span 2; }
   .m4, .m5 { grid-column: span 3; grid-row: span 1; }
   .m6 { grid-column: span 6; grid-row: span 2; }
-  .channels { grid-template-columns: 1fr 1fr; row-gap: 18px; }
+  .channels { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 18px; }
+  .channels span { display: block; overflow-wrap: anywhere; }
   .channels a:nth-child(odd) { padding-left: 0; border-left: 0; }
 }
 
@@ -759,7 +762,7 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .cl-list { list-style: none; margin: 0 0 10px; padding: 0 0 10px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
 .cl-list li { display: flex; justify-content: space-between; gap: 12px; }
 .cl-disc { color: var(--gold); margin-bottom: 4px !important; }
-body.pk-on main { padding-bottom: 96px; }
+body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 @media (min-width: 1081px) { body.pk-on .stage { height: calc(100svh - var(--nav-h) - 84px - 92px); } }
 .stage.no3d { height: auto; min-height: 160px; }
 .field { display: grid; gap: 6px; margin-top: 14px; }

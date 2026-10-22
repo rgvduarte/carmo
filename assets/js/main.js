@@ -46,15 +46,6 @@ const navObserver = new IntersectionObserver((entries) => {
 }, { rootMargin: '-45% 0px -50% 0px' });
 sections.forEach((s) => navObserver.observe(s));
 
-// ---------- countdown ----------
-// calendar days to race day, counted in Lisbon, so the number only changes at midnight there
-function countdown() {
-  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date()).split('-').map(Number);
-  const [ky, km, kd] = SITE.kona.slice(0, 10).split('-').map(Number);
-  const days = Math.max(0, Math.round((Date.UTC(ky, km - 1, kd) - Date.UTC(y, m - 1, d)) / 864e5));
-  flowSet($('#countdown'), days);
-}
-
 // ---------- results ----------
 function renderResults() {
   const host = $('#sheet');
@@ -82,6 +73,7 @@ function renderResults() {
 
 // ---------- season ----------
 function fmtWhen(r) {
+  if (r.label) return pick(r.label);
   if (/^\d{4}-\d{2}$/.test(r.date)) return fmtDay(`${r.date}-01`, { day: false });
   const main = fmtDay(r.date, { year: false });
   return r.end ? `${main.split(' ')[0]} ${getLang() === 'en' ? 'to' : 'a'} ${fmtDay(r.end, { year: false })}` : main;
@@ -103,8 +95,10 @@ function renderSeason() {
     d.append(w, h, p, st);
     host.appendChild(d);
   }
-  const km = SEASON.reduce((a, r) => a + r.km, 0);
-  flowSet($('#sk-races'), SEASON.length);
+  // the counts are the races on the calendar; Kona is the goal they lead to
+  const races = SEASON.filter((r) => r.status !== 'goal');
+  const km = races.reduce((a, r) => a + r.km, 0);
+  flowSet($('#sk-races'), races.length);
   flowSet($('#sk-km'), Math.round(km / 10) * 10, { prefix: '~' });
 }
 
@@ -346,7 +340,7 @@ function renderSocial() {
 }
 const safe = (f) => { try { f(); } catch (e) { console.error(e); } };
 function renderFooter() { $('#ft-date').textContent = fmtDay(SITE.updated); }
-function renderAll() { [renderSocial, renderResults, renderSeason, renderBudget, renderGofundme, renderStrava, countdown, renderFooter].forEach(safe); }
+function renderAll() { [renderSocial, renderResults, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter].forEach(safe); }
 renderAll();
 onLang(() => { renderAll(); safe(refreshMarks); safe(flowStatic); });
 let lastW = innerWidth;
@@ -369,7 +363,7 @@ let suitRef = null;
 const startMotion = () => {
   let lenis = null;
   try { ({ lenis } = initMotion(() => suitRef)); } catch (e) { console.error(e); }
-  const toStudio = () => { const el = $('#fato'); if (!el) return; if (lenis) lenis.scrollTo(el, { offset: -nav.offsetHeight, immediate: true }); else el.scrollIntoView(); };
+  const toStudio = () => { const el = $(/^#fato\/./.test(location.hash) ? '.studio' : '#fato'); if (!el) return; if (lenis) lenis.scrollTo(el, { offset: -nav.offsetHeight, immediate: true }); else el.scrollIntoView(); };
   initAdspace({
     onSuitReady: (s) => {
       suitRef = s;

@@ -11,7 +11,7 @@ const EN = {
   "nav.cta": "Sponsor",
   "hero.alt": "Gonçalo Carmo smiling at the finish line, wearing sunglasses",
   "hero.role": "Triathlete · Lisbon",
-  "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. In 2027 I want to be on the start line of the World Championship in Kona.",
+  "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. Now I want to make triathlon my living and race the World Championship in Kona as soon as I qualify.",
   "hero.cta1": "See the spots on the suit",
   "hero.cta2": "Support",
   "hero.t1": "Marathon",
@@ -19,11 +19,11 @@ const EN = {
   "hero.t1v": "SEVILLE 26",
   "hero.t3": "Age group",
   "hero.t3v": "1st",
-  "hero.t5": "Kona · 9 Oct 2027",
-  "hero.days": "days",
+  "hero.t5": "2027 suit",
+  "hero.spots": "spots left",
   "thesis.k": "Why now",
   "thesis.h": "From first triathlon to IRONMAN in 17 months.",
-  "thesis.p": "This year I finished in the top 3% overall at Setúbal, Sines and IRONMAN Cascais. Kona qualification comes next, and 2027 is still priced as a first season.",
+  "thesis.p": "This year I finished in the top 3% overall at Setúbal, Sines and IRONMAN Cascais. The next step is qualifying for Kona, and I need brands with me to get there. 2027 is still priced as a first season.",
   "thesis.y1k": "Year 1",
   "thesis.y1h": "First triathlon and first 70.3.",
   "thesis.y1p": "4th in my age group on debut at Caminha. In October, 4:27 at IRONMAN 70.3 Cascais, 31st of 2,353 overall.",
@@ -32,8 +32,8 @@ const EN = {
   "thesis.y2p": "1st in my age group at Sines, 2nd at Setúbal, 2:44 at the Seville Marathon and 9:35:08 at IRONMAN Portugal-Cascais.",
   "thesis.y3k": "Year 3",
   "thesis.goal": "Goal",
-  "thesis.y3h": "Qualify for Kona.",
-  "thesis.y3p": "In 2027, a qualifying IRONMAN on the Iberian Peninsula, to be confirmed once the official list is out. The World Championship is on 9 October 2027.",
+  "thesis.y3h": "On the way to Kona.",
+  "thesis.y3p": "A season chasing a slot, at a qualifying IRONMAN still to be chosen. Kona comes as soon as the slot is secured.",
   "thesis.k2": "at IRONMAN Portugal-Cascais, 52nd overall of 1,981",
   "thesis.k3": "overall at Setúbal, Sines and IRONMAN Cascais",
   "thesis.k1": "at middle distance, from Caminha 2025 (4:32) to Setúbal 2026 (4:26)",
@@ -91,13 +91,13 @@ const EN = {
   "data.sb": "Open in Strava",
   "season.k": "04 · Goals",
   "season.h": "The 2027<br>season",
-  "season.p": "Seven races in three countries, from February to the World Championship in October. IRONMAN races have official photographers. Before and after every race, I post with my sponsors tagged.",
+  "season.p": "Six races in Portugal and Spain, from February to July, including a qualifying IRONMAN for Kona. IRONMAN races have official photographers. Before and after every race, I post with my sponsors tagged.",
   "season.s1": "races",
   "season.s2": "countries",
   "season.s3": "race km",
   "season.s4": "entry secured",
   "season.tv": "<b>Kona, live.</b> In 2025 the World Championship streamed live and free on YouTube, DAZN and the IRONMAN website, with helicopter and drone footage.",
-  "season.note": "Official dates as of 22 October 2026. The qualifying IRONMAN has not been chosen yet. Broadcast: IRONMAN 2025 media kit.",
+  "season.note": "Official dates as of 22 October 2026. The qualifying IRONMAN has not been chosen yet. Kona joins the calendar once the slot is secured. Broadcast: IRONMAN 2025 media kit.",
   "season.route": "TO THE START LINE",
   "season.from": "LISBON",
   "suit.k": "05 · Sponsorship",
@@ -206,7 +206,7 @@ const EN = {
   "media.note": "Engagement rate is likes plus comments per post, divided by followers. Average of the 12 latest posts on @goncalo.carmo99, October 2026.",
   "sup.k": "07 · Support",
   "sup.h": "Kona<br>Crew",
-  "sup.p": "You don't need to be a brand to help. Contributions go towards race entries, travel and kit on the way to Kona.",
+  "sup.p": "You don't need to be a brand to help. Contributions go towards race entries, travel and kit, in the season that can take me to Kona.",
   "sup.b1": "Support on GoFundMe",
   "sup.b2": "In-kind support",
   "sup.i1h": "Equipment",
@@ -271,8 +271,8 @@ const PT_JS = {
   'st.until': (d) => `Reservado até ${d}`,
   'toast.copy': 'Copiado.', 'toast.iban': 'IBAN copiado.', 'toast.amt': 'Montante copiado.', 'toast.ref': 'Descritivo copiado.', 'toast.mb': 'Número copiado.',
   'chart.time': 'Tempo final', 'chart.place': 'Lugar', 'chart.top': 'top', 'chart.pace': 'Ritmo', 'chart.race': 'Prova', 'chart.week': 'Semana', 'chart.hours': 'Horas',
-  'st.status.planned': 'Planeada', 'st.status.entry': 'Inscrição garantida', 'st.status.pending': 'Inscrição por confirmar', 'st.status.tbc': 'A definir', 'st.status.goal': 'Objetivo',
-  'season.main': 'Objetivo principal',
+  'st.status.planned': 'Planeada', 'st.status.entry': 'Inscrição garantida', 'st.status.pending': 'Inscrição por confirmar', 'st.status.tbc': 'A definir', 'st.status.goal': 'Vaga por conquistar',
+  'season.main': 'Próximo objetivo',
   'strava.kpi.hours': 'horas de treino', 'strava.kpi.swim': 'km a nadar', 'strava.kpi.bike': 'km de bicicleta', 'strava.kpi.run': 'km a correr', 'strava.kpi.n': 'sessões',
   'strava.upd': (d) => `Atualizado ${d}`, 'strava.swim': 'Natação', 'strava.bike': 'Ciclismo', 'strava.run': 'Corrida',
   'strava.heat': 'Horas por dia, últimas 52 semanas',
@@ -295,8 +295,8 @@ const EN_JS = {
   'st.until': (d) => `Reserved until ${d}`,
   'toast.copy': 'Copied.', 'toast.iban': 'IBAN copied.', 'toast.amt': 'Amount copied.', 'toast.ref': 'Reference copied.', 'toast.mb': 'Number copied.',
   'chart.time': 'Finish time', 'chart.place': 'Place', 'chart.top': 'top', 'chart.pace': 'Pace', 'chart.race': 'Race', 'chart.week': 'Week', 'chart.hours': 'Hours',
-  'st.status.planned': 'Planned', 'st.status.entry': 'Entry secured', 'st.status.pending': 'Entry pending', 'st.status.tbc': 'To be chosen', 'st.status.goal': 'Goal',
-  'season.main': 'Main goal',
+  'st.status.planned': 'Planned', 'st.status.entry': 'Entry secured', 'st.status.pending': 'Entry pending', 'st.status.tbc': 'To be chosen', 'st.status.goal': 'Slot to win',
+  'season.main': 'Next goal',
   'strava.kpi.hours': 'training hours', 'strava.kpi.swim': 'km swum', 'strava.kpi.bike': 'km ridden', 'strava.kpi.run': 'km run', 'strava.kpi.n': 'sessions',
   'strava.upd': (d) => `Updated ${d}`, 'strava.swim': 'Swim', 'strava.bike': 'Bike', 'strava.run': 'Run',
   'strava.heat': 'Hours per day, last 52 weeks',
@@ -356,7 +356,11 @@ export function setLang(next, { save = true } = {}) {
     }
   });
   document.querySelectorAll('[data-lang]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.lang === lang)));
-  if (save) { try { localStorage.setItem('gc.lang', lang); } catch (_) {} }
+  if (save) {
+    try { localStorage.setItem('gc.lang', lang); } catch (_) {}
+    const u = new URL(location.href);
+    if (u.searchParams.has('lang')) { u.searchParams.delete('lang'); history.replaceState(null, '', u.pathname + u.search + u.hash); }
+  }
   listeners.forEach((fn) => fn(lang));
 }
 
