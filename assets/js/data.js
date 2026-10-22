@@ -1,5 +1,5 @@
 // Content that changes during the season lives here: links, results, calendar, budget.
-// Edit this file (or data/spots.json for the suit) and push — the page rebuilds itself.
+// Edit this file (or data/spots.json for the suit) and push; the page updates itself.
 
 export const SITE = {
   name: 'Gonçalo Carmo',
