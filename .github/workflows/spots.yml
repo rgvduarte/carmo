@@ -11,6 +11,7 @@ on:
 permissions:
   contents: write
   issues: write
+  pages: write
 
 concurrency:
   group: spots
@@ -46,6 +47,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # belt and braces: ask Pages to rebuild, in case the bot push does not trigger it
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" > /dev/null || true
           gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/reply.md"
           gh issue close "${{ github.event.issue.number }}" --repo "${{ github.repository }}"
       - name: Explain a failure

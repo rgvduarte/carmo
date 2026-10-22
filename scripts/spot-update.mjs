@@ -57,7 +57,7 @@ ${opts}
     id: logo
     attributes:
       label: Logótipo
-      description: Arrasta para aqui um PNG com fundo transparente (ou SVG). Aparece no fato 3D. Opcional.
+      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no fato 3D. Opcional.
   - type: input
     id: until
     attributes:
