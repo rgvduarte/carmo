@@ -11,7 +11,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **A prova**: cena controlada pelo scroll (natação, bicicleta, corrida e meta) com o contador dos 226 km.
 - **Resultados**: resultados oficiais e gráficos (meias distâncias, parciais do IRONMAN, lugar na geral).
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
-- **Época 2027**: seis provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
+- **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
 - **O fato**: modelo 3D com 20 espaços à venda. Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar num pacote e reservar por WhatsApp, email ou Instagram.
 - **Apoiar**: GoFundMe, apoio em espécie e orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).

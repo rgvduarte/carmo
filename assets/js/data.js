@@ -42,6 +42,9 @@ export const RESULTS = [
   { year: 2026, pt: 'Zurich Maratón de Sevilla', en: 'Zurich Seville Marathon', place: { pt: 'Sevilha, Espanha', en: 'Seville, Spain' }, dist: '42,2 km', time: '2:44:13', rank: 698, field: 12449, date: '2026-02-15',
     note: { pt: 'Primeira maratona abaixo das 2h45.', en: 'First marathon under 2:45.' },
     badges: [{ pt: '698.º de 12 449', en: '698th of 12,449' }, { pt: '3:54 /km', en: '3:54 /km', dim: true }] },
+  { year: 2025, pt: 'Meia Maratona dos Descobrimentos', en: 'Descobrimentos Half Marathon', place: { pt: 'Lisboa, Portugal', en: 'Lisbon, Portugal' }, dist: '21,1 km', time: '1:16:56', rank: 28, field: 5305, date: '2025-11-30',
+    note: { pt: 'A minha melhor meia maratona, a 3:39 por quilómetro.', en: 'My best half marathon, at 3:39 per kilometre.' },
+    badges: [{ pt: '28.º de 5 305', en: '28th of 5,305', gold: true }, { pt: '3:39 /km', en: '3:39 /km', dim: true }] },
   { year: 2025, pt: 'IRONMAN 70.3 Cascais', en: 'IRONMAN 70.3 Cascais', place: 'Cascais, Portugal', dist: '1,9 · 90 · 21,1 km', time: '4:27:16', min: 267.27, md: true, rank: 31, field: 2353, date: '2025-10-18',
     note: { pt: 'Estreia no IRONMAN 70.3. 7.º de 151 no escalão M18-24.', en: 'IRONMAN 70.3 debut. 7th of 151 in M18-24.' },
     splits: { swim: '31:22', t1: '4:23', bike: '2:22:30', t2: '2:35', run: '1:26:25' },
@@ -72,6 +75,7 @@ export const SEASON = [
   { date: '2027-05-02', pt: 'Lidl Setúbal Triathlon', en: 'Lidl Setúbal Triathlon', where: { pt: 'Setúbal, Portugal', en: 'Setúbal, Portugal' }, what: { pt: 'Meia distância', en: 'Middle distance' }, km: 113, status: 'entry' },
   { date: '2027-05-09', end: '2027-05-14', pt: 'Gravel Birds XL', en: 'Gravel Birds XL', where: { pt: 'Castro Verde, Alentejo', en: 'Castro Verde, Alentejo' }, what: { pt: 'Ultra gravel · ~1 000 km', en: 'Ultra gravel · ~1,000 km' }, km: 1000, status: 'planned' },
   { date: '2027-07', pt: 'IRONMAN de qualificação', en: 'Qualifying IRONMAN', where: { pt: 'Península Ibérica', en: 'Iberian Peninsula' }, what: { pt: 'Qualificação para Kona', en: 'Kona qualifier' }, km: 226, status: 'tbc' },
+  { date: '2027-09', pt: 'Triatlo de Sines', en: 'Sines Triathlon', where: { pt: 'Sines, Portugal', en: 'Sines, Portugal' }, what: { pt: 'Triatlo · 2 · 80 · 18 km', en: 'Triathlon · 2 · 80 · 18 km' }, km: 100, status: 'entry' },
   // Kona has no date until the slot is won: it is the goal, not a counted race
   { date: '', label: { pt: 'Quando houver vaga', en: 'Once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
 ];
@@ -79,7 +83,7 @@ export const SEASON = [
 // Season budget estimate (EUR). Entry fees from official race pages, Oct 2026.
 export const BUDGET = [
   { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: 7000, note: { pt: 'Provas em Espanha e em Portugal e, com a vaga, a viagem a Kona (voos, 10 noites, transporte da bicicleta)', en: 'Races in Spain and Portugal and, once qualified, the trip to Kona (flights, 10 nights, bike transport)' } },
-  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Seis provas e, com a vaga, Kona. Setúbal já está garantida por mérito.', en: 'Six races and, once qualified, Kona. Setúbal already earned on merit.' } },
+  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Sete provas e, com a vaga, Kona. Setúbal e Sines já estão garantidas por mérito.', en: 'Seven races and, once qualified, Kona. Setúbal and Sines already earned on merit.' } },
   { pt: 'Treino, nutrição e saúde', en: 'Coaching, nutrition and health', eur: 3000, note: { pt: 'Treinador, suplementação, fisioterapia e testes', en: 'Coach, nutrition, physio and testing' } },
   { pt: 'Material e manutenção', en: 'Equipment and maintenance', eur: 2500, note: { pt: 'Pneus, transmissão, sapatilhas, fato de neoprene', en: 'Tyres, drivetrain, shoes, wetsuit' } },
 ];
