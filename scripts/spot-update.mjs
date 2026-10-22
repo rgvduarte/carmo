@@ -140,5 +140,5 @@ await writeFile(SPOTS, `${JSON.stringify(data, null, 2)}\n`);
 const word = { sold: 'vendido', reserved: `reservado até ${until}`, available: 'disponível' }[status];
 const lines = [`Feito. **${label}** está agora ${word}${brand && status !== 'available' ? ` (${brand})` : ''}.`];
 if (status === 'sold') lines.push(target.logo ? 'O logótipo já está no fato 3D.' : 'Sem logótipo: o espaço aparece como vendido, com o nome da marca na lista "Já no fato".');
-lines.push('', 'O site atualiza-se em cerca de um minuto: https://rgvduarte.github.io/carmo/#fato');
+lines.push('', 'O site atualiza-se em cerca de um minuto: https://gocarmo.com/#fato');
 console.log(lines.join('\n'));

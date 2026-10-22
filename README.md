@@ -3,7 +3,7 @@
 Página de atleta e plataforma de patrocínio do fato de competição da época 2027.
 Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor.
 
-**Live:** https://rgvduarte.github.io/carmo/
+**Live:** https://gocarmo.com/
 
 ## O que está na página
 
@@ -74,7 +74,7 @@ põe o logótipo no peito.
 
 Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo:
 
-1. Em https://www.strava.com/settings/api cria uma aplicação (Website: `https://rgvduarte.github.io/carmo/`, Authorization Callback Domain: `localhost`).
+1. Em https://www.strava.com/settings/api cria uma aplicação (Website: `https://gocarmo.com/`, Authorization Callback Domain: `localhost`).
 2. Abre, com a conta do Gonçalo:
    `https://www.strava.com/oauth/authorize?client_id=CLIENT_ID&response_type=code&redirect_uri=http://localhost&approval_prompt=force&scope=read,activity:read_all`
 3. Depois de autorizar, o browser vai para `http://localhost/?code=XXXX…`. Copia o valor de `code`.
