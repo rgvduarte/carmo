@@ -1,0 +1,813 @@
+// Procedural 3D trisuit: geometry, print texture, spot tiles, picking, focus/tour, scroll poses
+// and logo try-on. Everything is generated in code (no external mesh), so the suit, its panels
+// and every sponsor spot stay editable from data/spots.json.
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const TAU = Math.PI * 2;
+const DEG = Math.PI / 180;
+const ATLAS = 2048;
+
+// colourway: white top, black shorts, charcoal side panels, gold accent
+export const COLORS = {
+  top: '#f2f1ec', shorts: '#111112', panel: '#2a2a2c', hem: '#0b0b0c',
+  seamOnLight: 'rgba(0,0,0,0.16)', seamOnDark: 'rgba(255,255,255,0.07)',
+  gold: '#e6b450', inkDark: '#141414', inkLight: '#f2f1ec',
+};
+export const HOME = { rot: -18 * DEG, dist: 2.2, ty: 0.19, y: 0.23 };
+
+// Atlas regions (canvas px). Each part of the suit owns one rectangle of the texture.
+const REGIONS = {
+  torso:   { x: 0,    y: 0,    w: 2048, h: 1228 },
+  legL:    { x: 0,    y: 1256, w: 1024, h: 452 },
+  legR:    { x: 1024, y: 1256, w: 1024, h: 452 },
+  sleeveL: { x: 0,    y: 1736, w: 1024, h: 312 },
+  sleeveR: { x: 1024, y: 1736, w: 1024, h: 312 },
+};
+
+// Torso profile from below the crotch to the collar (m): y, half width, front depth, back depth, squareness.
+const TORSO = [
+  [-0.040, 0.112, 0.070, 0.080, 2.0],
+  [-0.015, 0.150, 0.090, 0.104, 2.1],
+  [0.010, 0.167, 0.100, 0.114, 2.2],
+  [0.060, 0.171, 0.103, 0.118, 2.2],
+  [0.120, 0.166, 0.100, 0.110, 2.25],
+  [0.200, 0.154, 0.097, 0.099, 2.3],
+  [0.300, 0.160, 0.104, 0.101, 2.4],
+  [0.400, 0.180, 0.121, 0.108, 2.5],
+  [0.470, 0.192, 0.119, 0.112, 2.6],
+  [0.530, 0.198, 0.105, 0.104, 2.8],
+  [0.575, 0.181, 0.087, 0.087, 2.8],
+  [0.605, 0.127, 0.071, 0.071, 2.4],
+  [0.630, 0.081, 0.061, 0.061, 2.0],
+  [0.662, 0.072, 0.059, 0.059, 2.0],
+];
+const TORSO_Y0 = -0.04;
+const TORSO_LEN = 0.702;
+const WAIST_Y = 0.165;   // top/shorts seam
+const ZIP_END = 0.485;   // the zip runs from the collar down to here
+
+const sgnPow = (x, p) => Math.sign(x) * Math.pow(Math.abs(x), p);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const smooth = (t) => t * t * (3 - 2 * t);
+
+// Cubic Hermite through non-uniform control points (Catmull-Rom style tangents).
+function profileAt(y) {
+  const P = TORSO;
+  if (y <= P[0][0]) return P[0].slice(1);
+  if (y >= P[P.length - 1][0]) return P[P.length - 1].slice(1);
+  let i = 0;
+  while (y > P[i + 1][0]) i++;
+  const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+  const h = p2[0] - p1[0];
+  const t = (y - p1[0]) / h, t2 = t * t, t3 = t2 * t;
+  const out = [];
+  for (let k = 1; k < 5; k++) {
+    const m1 = ((p2[k] - p0[k]) / (p2[0] - p0[0] || 1)) * h;
+    const m2 = ((p3[k] - p1[k]) / (p3[0] - p1[0] || 1)) * h;
+    out.push((2 * t3 - 3 * t2 + 1) * p1[k] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2[k] + (t3 - t2) * m2);
+  }
+  return out;
+}
+
+// A suit part is a stack of super-elliptic rings. Each ring keeps an arc-length table so that
+// texture u is proportional to distance around the body (logos keep their proportions).
+class Part {
+  constructor(name, rings, seamDeg, length, t0 = 0) {
+    this.name = name;
+    this.rings = rings;
+    this.seam = seamDeg * DEG;   // angle (0 = front, +90 = towards +x) where the texture wraps
+    this.length = length;
+    this.t0 = t0;                // spot heights (t) are measured from here along the part
+    this.K = 480;
+    this.tables = rings.map((r) => this.table(r));
+  }
+  point(r, phi, out = new THREE.Vector3()) {
+    const sn = Math.sin(phi), cs = Math.cos(phi), e = 2 / r.n;
+    return out.copy(r.c).addScaledVector(r.s, r.a * sgnPow(sn, e)).addScaledVector(r.f, (cs >= 0 ? r.bf : r.bb) * sgnPow(cs, e));
+  }
+  table(r) {
+    const L = new Float32Array(this.K + 1);
+    const a = this.point(r, this.seam), b = new THREE.Vector3();
+    for (let k = 1; k <= this.K; k++) {
+      this.point(r, this.seam + (k / this.K) * TAU, b);
+      L[k] = L[k - 1] + a.distanceTo(b);
+      a.copy(b);
+    }
+    return L;
+  }
+  phiForU(ti, u) {
+    const L = this.tables[ti], target = u * L[this.K];
+    let lo = 0, hi = this.K;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (L[mid] < target) lo = mid; else hi = mid; }
+    const f = (target - L[lo]) / ((L[hi] - L[lo]) || 1);
+    return this.seam + ((lo + f) / this.K) * TAU;
+  }
+  uForPhiRing(ti, phi) {
+    let d = (phi - this.seam) % TAU; if (d < 0) d += TAU;
+    const L = this.tables[ti], k = (d / TAU) * this.K, k0 = Math.floor(k), k1 = Math.min(this.K, k0 + 1);
+    return lerp(L[k0], L[k1], k - k0) / L[this.K];
+  }
+  ringIndex(v) { const x = clamp(v, 0, 1) * (this.rings.length - 1); const i = Math.min(this.rings.length - 2, Math.floor(x)); return [i, i + 1, x - i]; }
+  vFor(t) { return (t - this.t0) / this.length; }
+  uAt(phiDeg, v) { const [i0, i1, f] = this.ringIndex(v); return lerp(this.uForPhiRing(i0, phiDeg * DEG), this.uForPhiRing(i1, phiDeg * DEG), f); }
+  circAt(v) { const [i0, i1, f] = this.ringIndex(v); return lerp(this.tables[i0][this.K], this.tables[i1][this.K], f); }
+  // surface point + outward normal at (phi, v), in model space
+  anchor(phiDeg, v) {
+    const [i0, i1, f] = this.ringIndex(v);
+    const a = this.point(this.rings[i0], phiDeg * DEG), b = this.point(this.rings[i1], phiDeg * DEG);
+    const p = a.lerp(b, f);
+    const c = new THREE.Vector3().lerpVectors(this.rings[i0].c, this.rings[i1].c, f);
+    const n = new THREE.Vector3().subVectors(p, c);
+    const ax = new THREE.Vector3().subVectors(this.rings[i1].c, this.rings[i0].c).normalize();
+    n.addScaledVector(ax, -n.dot(ax)).normalize();
+    return { p, n };
+  }
+  geometry(cols, region) {
+    const R = this.rings.length;
+    const pos = new Float32Array(R * (cols + 1) * 3), uv = new Float32Array(R * (cols + 1) * 2);
+    const p = new THREE.Vector3();
+    for (let i = 0; i < R; i++) {
+      const v = i / (R - 1);
+      for (let j = 0; j <= cols; j++) {
+        const u = j / cols, k = i * (cols + 1) + j;
+        this.point(this.rings[i], this.phiForU(i, u), p);
+        pos.set([p.x, p.y, p.z], k * 3);
+        uv.set([(region.x + u * region.w) / ATLAS, 1 - (region.y + (1 - v) * region.h) / ATLAS], k * 2);
+      }
+    }
+    const idx = [];
+    for (let i = 0; i < R - 1; i++) for (let j = 0; j < cols; j++) {
+      const a = i * (cols + 1) + j, b = a + 1, c = a + cols + 2, d = a + cols + 1;
+      idx.push(a, b, c, a, c, d);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    g.setIndex(idx);
+    g.computeVertexNormals();
+    const n = g.attributes.normal;   // weld normals across the texture seam
+    for (let i = 0; i < R; i++) {
+      const a = i * (cols + 1), b = a + cols;
+      const x = n.getX(a) + n.getX(b), y = n.getY(a) + n.getY(b), z = n.getZ(a) + n.getZ(b), l = Math.hypot(x, y, z) || 1;
+      n.setXYZ(a, x / l, y / l, z / l); n.setXYZ(b, x / l, y / l, z / l);
+    }
+    g.computeBoundingSphere();
+    return g;
+  }
+}
+
+function buildTorso() {
+  const rings = [], N = 118;
+  for (let i = 0; i < N; i++) {
+    const y = TORSO_Y0 + (i / (N - 1)) * TORSO_LEN;
+    const [a, bf, bb, n] = profileAt(y);
+    rings.push({ c: new THREE.Vector3(0, y, 0), s: new THREE.Vector3(1, 0, 0), f: new THREE.Vector3(0, 0, 1), a, bf, bb, n });
+  }
+  return new Part('torso', rings, 225, TORSO_LEN, TORSO_Y0);
+}
+
+// Tube along an axis, rings ordered hem -> top so the winding matches the torso.
+function buildTube(name, hem, top, seamDeg, radius, N = 56) {
+  const up = new THREE.Vector3().subVectors(top, hem);
+  const length = up.length();
+  up.normalize();
+  const f = new THREE.Vector3(0, 0, 1);
+  const s = new THREE.Vector3(1, 0, 0).addScaledVector(up, -up.x).normalize();
+  const rings = [];
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1), r = radius(t);
+    rings.push({ c: new THREE.Vector3().copy(hem).addScaledVector(up, t * length), s, f, a: r.a, bf: r.bf, bb: r.bb, n: r.n || 2.05 });
+  }
+  return new Part(name, rings, seamDeg, length);
+}
+
+function buildParts() {
+  const torso = buildTorso();
+  // thigh: the top fifth tucks inside the hips so its rim never shows
+  const leg = (t) => {
+    const k = smooth(Math.min(1, t / 0.78));
+    const tuck = t > 0.78 ? 1 - 0.26 * smooth((t - 0.78) / 0.22) : 1;
+    return { a: lerp(0.071, 0.084, k) * tuck, bf: lerp(0.074, 0.086, k) * tuck, bb: lerp(0.076, 0.094, k) * tuck };
+  };
+  const legL = buildTube('legL', new THREE.Vector3(0.095, -0.26, 0.010), new THREE.Vector3(0.080, 0.08, -0.008), 270, leg);
+  const legR = buildTube('legR', new THREE.Vector3(-0.095, -0.26, 0.010), new THREE.Vector3(-0.080, 0.08, -0.008), 90, leg);
+  // sleeve: open hem, then a domed cap that reads as the deltoid
+  const sleeve = (t) => {
+    if (t < 0.68) { const k = smooth(t / 0.68); return { a: lerp(0.051, 0.060, k), bf: lerp(0.049, 0.058, k), bb: lerp(0.049, 0.058, k) }; }
+    const c = Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.68) / 0.32, 2)));
+    return { a: 0.060 * c + 0.002, bf: 0.058 * c + 0.002, bb: 0.058 * c + 0.002 };
+  };
+  const sleeveL = buildTube('sleeveL', new THREE.Vector3(0.238, 0.405, -0.004), new THREE.Vector3(0.168, 0.602, -0.006), 270, sleeve, 44);
+  const sleeveR = buildTube('sleeveR', new THREE.Vector3(-0.238, 0.405, -0.004), new THREE.Vector3(-0.168, 0.602, -0.006), 90, sleeve, 44);
+  return { torso, legL, legR, sleeveL, sleeveR };
+}
+
+// ---------- 2D helpers ----------
+function roundRect(ctx, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function fitText(ctx, text, maxW, size, weight, family) {
+  let s = Math.floor(size);
+  ctx.font = `${weight} ${s}px ${family}`;
+  while (ctx.measureText(text).width > maxW && s > 9) { s -= 1; ctx.font = `${weight} ${s}px ${family}`; }
+  return s;
+}
+
+// ---------- shader ----------
+const VERT_HEAD = `#include <common>\nvarying float vWy;`;
+const VERT_BODY = `#include <begin_vertex>\nvWy = (modelMatrix * vec4(transformed, 1.0)).y;`;
+const FRAG_HEAD = `#include <common>
+varying float vWy;
+uniform sampler2D uOverlay;
+uniform float uSpots, uReveal, uTime, uDim, uSelOn, uHovOn, uYMin, uYMax;
+uniform vec4 uSel, uHov;
+uniform vec3 uGold;
+float sdRect(vec2 p, vec4 r) {
+  vec2 c = (r.xy + r.zw) * 0.5;
+  vec2 h = abs(r.zw - r.xy) * 0.5 - 0.0025;
+  vec2 d = abs(p - c) - h;
+  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - 0.0025;
+}`;
+const FRAG_MAP = `#include <map_fragment>
+{
+  float sweep = 1.0 - (vWy - uYMin) / (uYMax - uYMin);
+  float hide = smoothstep(uReveal - 0.12, uReveal, sweep);
+  vec4 ov = texture2D(uOverlay, vMapUv);
+  diffuseColor.rgb = mix(diffuseColor.rgb, ov.rgb, ov.a * uSpots * (1.0 - hide));
+  float inSel = 1.0 - step(0.0, sdRect(vMapUv, uSel));
+  diffuseColor.rgb *= mix(1.0, 0.42, uDim * uSelOn * (1.0 - inSel));
+}`;
+const FRAG_EMIT = `#include <emissivemap_fragment>
+{
+  float pulse = 0.5 + 0.5 * sin(uTime * 4.2);
+  float sdS = sdRect(vMapUv, uSel);
+  float ringS = (1.0 - smoothstep(0.0011, 0.0026, abs(sdS))) * uSelOn;
+  totalEmissiveRadiance += uGold * ringS * (0.55 + 0.9 * pulse);
+  totalEmissiveRadiance += uGold * (1.0 - step(0.0, sdS)) * uSelOn * 0.06 * pulse;
+  float ringH = (1.0 - smoothstep(0.0008, 0.0019, abs(sdRect(vMapUv, uHov)))) * uHovOn;
+  totalEmissiveRadiance += vec3(0.55) * ringH;
+}`;
+
+export class Suit {
+  constructor(container, { spots, onSelect, onHover, money, labels = {} }) {
+    this.el = container;
+    this.spots = spots;
+    this.onSelect = onSelect || (() => {});
+    this.onHover = onHover || (() => {});
+    this.money = money || ((n) => `${n} €`);
+    this.labels = { sold: 'VENDIDO', reserved: 'RESERVADO', top: 'TOP SPOT', ...labels };
+    this.selected = null; this.hovered = null; this.basket = new Set();
+    this.logos = new Map();   // spot id -> canvas (prepared logo)
+    this.reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.state = { ...HOME };
+    this.goal = { ...HOME };
+    this.vel = 0; this.auto = !this.reduce; this.autoSpeed = 0.0026;
+    this.uni = {
+      uOverlay: { value: null }, uSpots: { value: 1 }, uReveal: { value: -0.2 },
+      uTime: { value: 0 }, uDim: { value: 0 }, uSelOn: { value: 0 }, uHovOn: { value: 0 },
+      uSel: { value: new THREE.Vector4(-1, -1, -1, -1) }, uHov: { value: new THREE.Vector4(-1, -1, -1, -1) },
+      uGold: { value: new THREE.Color(COLORS.gold) }, uYMin: { value: -0.3 }, uYMax: { value: 0.66 },
+    };
+    this.spotsGoal = 1; this.revealGoal = -0.2; this.dimGoal = 0;
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.NeutralToneMapping !== undefined ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    this.canvas = this.renderer.domElement;
+    this.canvas.setAttribute('aria-hidden', 'true');
+    this.el.appendChild(this.canvas);
+
+    this.scene = new THREE.Scene();
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    this.scene.environmentIntensity = 0.75;
+    this.camera = new THREE.PerspectiveCamera(28, 1, 0.05, 20);
+    const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(1.2, 1.9, 3.0);
+    const rim = new THREE.DirectionalLight(0xdfe6ff, 1.5); rim.position.set(-2.4, 1.6, -2.0);
+    const rim2 = new THREE.DirectionalLight(0xfff1dc, 0.8); rim2.position.set(2.4, 0.6, -2.2);
+    this.scene.add(key, rim, rim2, new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 0.3));
+
+    this.parts = buildParts();
+    this.base = document.createElement('canvas'); this.base.width = this.base.height = ATLAS;
+    this.over = document.createElement('canvas'); this.over.width = this.over.height = ATLAS;
+    this.bctx = this.base.getContext('2d', { willReadFrequently: true });
+    this.octx = this.over.getContext('2d');
+    const maxAniso = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    this.baseTex = new THREE.CanvasTexture(this.base); this.baseTex.colorSpace = THREE.SRGBColorSpace; this.baseTex.anisotropy = maxAniso;
+    this.overTex = new THREE.CanvasTexture(this.over); this.overTex.colorSpace = THREE.SRGBColorSpace; this.overTex.anisotropy = maxAniso;
+    this.uni.uOverlay.value = this.overTex;
+
+    const mat = new THREE.MeshPhysicalMaterial({ map: this.baseTex, roughness: 0.62, metalness: 0, sheen: 0.8, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8a8a8a) });
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, this.uni);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', VERT_HEAD).replace('#include <begin_vertex>', VERT_BODY);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', FRAG_HEAD).replace('#include <map_fragment>', FRAG_MAP).replace('#include <emissivemap_fragment>', FRAG_EMIT);
+    };
+    const inner = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 1, side: THREE.BackSide });
+    this.model = new THREE.Group();
+    this.meshes = [];
+    const cols = { torso: 168, legL: 96, legR: 96, sleeveL: 64, sleeveR: 64 };
+    for (const [name, part] of Object.entries(this.parts)) {
+      const g = part.geometry(cols[name], REGIONS[name]);
+      const m = new THREE.Mesh(g, mat); m.userData.part = name;
+      this.model.add(m, new THREE.Mesh(g, inner)); this.meshes.push(m);
+    }
+    this.addDetails();
+    this.scene.add(this.model);
+    this.scene.add(this.shadowPlane());
+
+    this.layoutSpots();
+    this.drawBase();
+    this.drawOverlay();
+    this.bind();
+    this.resize();
+    this.visible = true; this.running = false;
+    this.loop = this.loop.bind(this);
+    this.kick();
+  }
+
+  addDetails() {
+    // dark recess inside each sleeve so the hollow reads as depth
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 1 });
+    for (const k of ['sleeveL', 'sleeveR']) {
+      const part = this.parts[k], r = part.rings[5];
+      const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), capMat);
+      cap.position.copy(r.c); cap.scale.set(r.a * 0.98, r.bf * 0.98, 1);
+      const up = new THREE.Vector3().subVectors(part.rings[part.rings.length - 1].c, part.rings[0].c).normalize();
+      cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), up);
+      this.model.add(cap);
+    }
+    // zip puller just under the collar
+    const T = this.parts.torso;
+    const { p, n } = T.anchor(0, T.vFor(0.625));
+    const pull = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.026, 0.004), new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: 0.35, metalness: 0.6 }));
+    pull.position.copy(p).addScaledVector(n, 0.004).add(new THREE.Vector3(0, -0.012, 0));
+    pull.lookAt(pull.position.clone().add(n));
+    pull.rotateX(-0.25);
+    this.model.add(pull);
+  }
+
+  shadowPlane() {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+    grd.addColorStop(0, 'rgba(0,0,0,0.5)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = -0.275;
+    return m;
+  }
+
+  // ---------- spots on the atlas ----------
+  layoutSpots() {
+    this.rects = new Map();
+    for (const s of this.spots) {
+      const part = this.parts[s.part];
+      if (!part) continue;
+      const R = REGIONS[s.part];
+      const v = part.vFor(s.t), u = part.uAt(s.phi, v), circ = part.circAt(v);
+      const du = (s.w / 100) / circ, dv = (s.h / 100) / part.length;
+      const r = {
+        part: s.part,
+        x: R.x + (u - du / 2) * R.w, y: R.y + (1 - v - dv / 2) * R.h, w: du * R.w, h: dv * R.h,
+        pxcmX: R.w / (circ * 100), pxcmY: R.h / (part.length * 100),
+        anchor: part.anchor(s.phi, v),
+      };
+      r.uv = new THREE.Vector4(r.x / ATLAS, 1 - (r.y + r.h) / ATLAS, (r.x + r.w) / ATLAS, 1 - r.y / ATLAS);
+      this.rects.set(s.id, r);
+    }
+  }
+
+  // panel band centred on an angle, following the arc-length layout row by row
+  band(part, R, phiDeg, widthM, v0, v1, color, offsetM = 0) {
+    const ctx = this.bctx;
+    ctx.fillStyle = color;
+    for (let py = Math.round(R.y + (1 - v1) * R.h); py < R.y + (1 - v0) * R.h; py++) {
+      const v = 1 - (py - R.y) / R.h, C = part.circAt(v);
+      const u = part.uAt(phiDeg, v) + offsetM / C, du = widthM / C;
+      ctx.fillRect(R.x + (u - du / 2) * R.w, py, du * R.w + 0.6, 1);
+    }
+  }
+  rowY(part, R, t) { return R.y + (1 - part.vFor(t)) * R.h; }
+
+  drawBase() {
+    const ctx = this.bctx, P = this.parts, T = P.torso, RT = REGIONS.torso;
+    // shorts everywhere, then the white top over the torso above the waist and on the sleeves
+    ctx.fillStyle = COLORS.shorts; ctx.fillRect(0, 0, ATLAS, ATLAS);
+    const waistPx = this.rowY(T, RT, WAIST_Y);
+    ctx.fillStyle = COLORS.top; ctx.fillRect(RT.x, RT.y, RT.w, waistPx - RT.y);
+    for (const k of ['sleeveL', 'sleeveR']) { const R = REGIONS[k]; ctx.fillRect(R.x, R.y, R.w, R.h); }
+    // charcoal side panels down the ribs and the outer thighs
+    const vWaist = T.vFor(WAIST_Y), vArm = T.vFor(0.505);
+    for (const side of [90, 270]) {
+      this.band(T, RT, side, 0.12, T.vFor(-0.02), vArm, COLORS.panel);
+      this.band(T, RT, side, 0.0025, vWaist, vArm, COLORS.gold, side === 90 ? -0.06 : 0.06);
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (const [k, outer] of [['legL', 90], ['legR', 270]]) {
+      const part = P[k], R = REGIONS[k];
+      this.band(part, R, outer, 0.11, 0.07, 1, COLORS.panel);
+      // silicone gripper hem with a hairline of gold and a stitched edge
+      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.92, R.w, R.h * 0.08);
+      ctx.fillStyle = COLORS.gold; ctx.fillRect(R.x, R.y + R.h * 0.92 - 2, R.w, 2);
+      this.stitch(R.x, R.y + R.h * 0.905, R.x + R.w, COLORS.seamOnDark);
+      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '600 14px "JetBrains Mono", ui-monospace, monospace';
+      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.04) * R.w, R.y + R.h * 0.962);
+    }
+    for (const k of ['sleeveL', 'sleeveR']) {
+      const R = REGIONS[k];
+      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.88, R.w, R.h * 0.12);
+      ctx.fillStyle = COLORS.gold; ctx.fillRect(R.x, R.y + R.h * 0.88 - 2, R.w, 2);
+      this.stitch(R.x, R.y + R.h * 0.86, R.x + R.w, COLORS.seamOnLight);
+    }
+    // waist seam and stitching
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(RT.x, waistPx - 1, RT.w, 3);
+    this.stitch(RT.x, waistPx - 8, RT.x + RT.w, COLORS.seamOnLight);
+    // collar band
+    const collarPx = this.rowY(T, RT, 0.642);
+    ctx.fillStyle = COLORS.hem; ctx.fillRect(RT.x, RT.y, RT.w, collarPx - RT.y);
+    ctx.fillStyle = COLORS.gold; ctx.fillRect(RT.x, collarPx, RT.w, 2);
+    // front zip: tape and teeth from the collar to ZIP_END
+    const zx = RT.x + T.uAt(0, T.vFor(0.56)) * RT.w;
+    const zTop = collarPx, zBot = this.rowY(T, RT, ZIP_END);
+    ctx.fillStyle = '#2b2b2e'; ctx.fillRect(zx - 11, zTop, 22, zBot - zTop);
+    ctx.fillStyle = '#5c5c60';
+    for (let y = zTop + 2; y < zBot - 2; y += 5) { ctx.fillRect(zx - 5, y, 4, 2.4); ctx.fillRect(zx + 1, y + 2.5, 4, 2.4); }
+    ctx.fillStyle = '#1a1a1c'; roundRect(ctx, zx - 9, zBot - 6, 18, 10, 4); ctx.fill();
+    // printed logos: sold sponsors and any logo being tried on
+    for (const s of this.spots) {
+      const r = this.rects.get(s.id);
+      if (!r) continue;
+      r.light = this.isLightAt(r);
+      const logo = this.logos.get(s.id) || (s.status === 'sold' && s._logo);
+      if (logo) this.drawLogo(logo, s, r);
+    }
+    this.baseTex.needsUpdate = true;
+  }
+
+  stitch(x0, y, x1, color) {
+    const ctx = this.bctx;
+    ctx.fillStyle = color;
+    for (let x = x0; x < x1; x += 12) ctx.fillRect(x, y, 6, 2);
+  }
+
+  isLightAt(r) {
+    const d = this.bctx.getImageData(Math.round(r.x + r.w / 2), Math.round(r.y + r.h / 2), 1, 1).data;
+    return 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2] > 140;
+  }
+
+  drawLogo(img, s, r) {
+    const ctx = this.bctx, rot = s.rot || 0;
+    const wcm = rot ? s.h : s.w, hcm = rot ? s.w : s.h;    // logo axes in surface cm
+    const fit = Math.min((wcm * 0.84) / img.width, (hcm * 0.78) / img.height);
+    const lw = img.width * fit, lh = img.height * fit;
+    ctx.save();
+    ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
+    if (rot) { ctx.rotate(rot * DEG); ctx.drawImage(img, (-lw * r.pxcmY) / 2, (-lh * r.pxcmX) / 2, lw * r.pxcmY, lh * r.pxcmX); }
+    else ctx.drawImage(img, (-lw * r.pxcmX) / 2, (-lh * r.pxcmY) / 2, lw * r.pxcmX, lh * r.pxcmY);
+    ctx.restore();
+  }
+
+  // the tile printed on each spot: dashed frame, number and price (or its status)
+  drawOverlay() {
+    const ctx = this.octx;
+    ctx.clearRect(0, 0, ATLAS, ATLAS);
+    const topId = this.topId();
+    for (const s of this.spots) {
+      const r = this.rects.get(s.id);
+      if (!r) continue;
+      const hasLogo = this.logos.has(s.id) || (s.status === 'sold' && !!s._logo);
+      const ink = r.light ? COLORS.inkDark : COLORS.inkLight;
+      const isTop = s.id === topId, sold = s.status === 'sold', reserved = s.status === 'reserved', inBasket = this.basket.has(s.id);
+      const x = r.x + 3, y = r.y + 3, w = r.w - 6, h = r.h - 6;
+      ctx.save();
+      if (isTop && !hasLogo) { roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(230,180,80,0.16)'; ctx.fill(); }
+      if (sold && !hasLogo) {
+        roundRect(ctx, x, y, w, h, 10); ctx.save(); ctx.clip();
+        ctx.strokeStyle = r.light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 3;
+        for (let k = x - h; k < x + w; k += 15) { ctx.beginPath(); ctx.moveTo(k, y + h); ctx.lineTo(k + h, y); ctx.stroke(); }
+        ctx.restore();
+      }
+      if (!hasLogo || inBasket) {
+        ctx.lineWidth = inBasket ? 5 : 3;
+        ctx.strokeStyle = isTop ? COLORS.gold : inBasket ? ink : r.light ? 'rgba(20,20,20,0.6)' : 'rgba(242,241,236,0.62)';
+        ctx.setLineDash(sold || inBasket ? [] : reserved ? [3, 8] : [13, 9]);
+        roundRect(ctx, x, y, w, h, 10); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      if (!hasLogo) {
+        const small = Math.min(r.w, r.h) < 90;
+        ctx.fillStyle = isTop ? COLORS.gold : ink;
+        ctx.globalAlpha = 0.85;
+        ctx.font = `600 ${small ? 13 : 16}px "JetBrains Mono", ui-monospace, monospace`;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        ctx.fillText(String(s.n).padStart(2, '0'), x + 10, y + 8);
+        ctx.globalAlpha = 1;
+        const label = sold ? this.labels.sold : reserved ? this.labels.reserved : this.money(s.price);
+        const rot = s.rot || 0;
+        ctx.save();
+        ctx.translate(r.x + r.w / 2, r.y + r.h / 2 + (rot ? 0 : small ? 4 : 7));
+        if (rot) ctx.rotate(rot * DEG);
+        const span = rot ? h : w, depth = rot ? w : h;
+        const fs = fitText(ctx, label, span * 0.74, Math.min(depth * 0.4, 64), 700, 'Inter, system-ui, sans-serif');
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = ink;
+        ctx.fillText(label, 0, 0);
+        if (isTop && depth > 110) {
+          ctx.font = '600 13px "JetBrains Mono", ui-monospace, monospace';
+          ctx.fillStyle = COLORS.gold;
+          ctx.fillText(this.labels.top, 0, -fs * 0.95);
+        }
+        ctx.restore();
+      }
+      ctx.restore();
+    }
+    this.overTex.needsUpdate = true;
+  }
+
+  topId() {
+    let best = null;
+    for (const s of this.spots) if (s.status === 'available' && (!best || s.price > best.price)) best = s;
+    return best && best.id;
+  }
+
+  // ---------- interaction ----------
+  bind() {
+    const c = this.canvas;
+    c.style.touchAction = 'pan-y';   // vertical swipes keep scrolling the page
+    this.ray = new THREE.Raycaster();
+    this.ptr = new THREE.Vector2();
+    let down = null, lastX = 0, lastT = 0;
+    c.addEventListener('pointerdown', (e) => {
+      down = { x: e.clientX, y: e.clientY, rot: this.goal.rot, moved: false, id: e.pointerId };
+      lastX = e.clientX; lastT = performance.now(); this.vel = 0;
+      this.el.dispatchEvent(new CustomEvent('suit:interact'));
+    });
+    this.onMove = (e) => {
+      if (down && e.pointerId === down.id) {
+        const dx = e.clientX - down.x, dy = e.clientY - down.y;
+        if (!down.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) { down.moved = true; this.auto = false; try { c.setPointerCapture(e.pointerId); } catch (_) {} }
+        if (down.moved) {
+          const now = performance.now();
+          this.goal.rot = down.rot + dx * 0.0105;
+          this.vel = (((e.clientX - lastX) * 0.0105) / Math.max(8, now - lastT)) * 16;
+          lastX = e.clientX; lastT = now; this.kick();
+        }
+        return;
+      }
+      if (e.target === c && e.pointerType === 'mouse') { this.pendingHover = e; this.kick(); }
+    };
+    this.onUp = (e) => {
+      if (!down || e.pointerId !== down.id) return;
+      if (!down.moved && e.target === c) this.clickAt(e);
+      down = null;
+    };
+    window.addEventListener('pointermove', this.onMove);
+    window.addEventListener('pointerup', this.onUp);
+    window.addEventListener('pointercancel', () => { down = null; });
+    c.addEventListener('pointerleave', () => { if (this.hovered) this.setHover(null); c.style.cursor = ''; });
+    this.ro = new ResizeObserver(() => this.resize());
+    this.ro.observe(this.el);
+    this.io = new IntersectionObserver((en) => { this.visible = en[0].isIntersecting; this.kick(); });
+    this.io.observe(this.el);
+    document.addEventListener('visibilitychange', () => this.kick());
+  }
+
+  pick(e) {
+    const b = this.canvas.getBoundingClientRect();
+    this.ptr.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
+    this.ray.setFromCamera(this.ptr, this.camera);
+    const hit = this.ray.intersectObjects(this.meshes, false)[0];
+    if (!hit || !hit.uv || this.uni.uSpots.value < 0.5) return null;
+    const px = hit.uv.x * ATLAS, py = (1 - hit.uv.y) * ATLAS, part = hit.object.userData.part;
+    for (const s of this.spots) {
+      const r = this.rects.get(s.id);
+      if (r && r.part === part && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return s.id;
+    }
+    return null;
+  }
+
+  setHover(id) {
+    this.hovered = id;
+    const r = id && this.rects.get(id);
+    if (r) this.uni.uHov.value.copy(r.uv);
+    this.uni.uHovOn.value = r && id !== this.selected ? 1 : 0;
+    this.onHover(id);
+    this.kick();
+  }
+
+  clickAt(e) {
+    const id = this.pick(e);
+    this.auto = false;
+    if (id) this.select(id, { focus: true, emit: true });
+  }
+
+  select(id, { focus = true, emit = false } = {}) {
+    this.selected = id;
+    const r = id && this.rects.get(id);
+    if (r) this.uni.uSel.value.copy(r.uv);
+    this.uni.uSelOn.value = r ? 1 : 0;
+    this.dimGoal = r ? 1 : 0;
+    if (this.hovered === id) this.uni.uHovOn.value = 0;
+    if (r && focus) this.focus(id);
+    if (emit) this.onSelect(id);
+    this.kick();
+  }
+
+  setBasket(ids) { this.basket = new Set(ids); this.drawOverlay(); this.kick(); }
+  setShowSpots(on) { this.spotsGoal = on ? 1 : 0; if (!on) this.select(null); this.kick(); }
+  setAuto(on) { this.auto = on && !this.reduce; this.kick(); }
+  update(spots) { this.spots = spots; this.layoutSpots(); this.drawBase(); this.drawOverlay(); this.kick(); }
+  // hide every tile, then sweep them in from the collar down
+  hideSpots() { this.uni.uReveal.value = -0.2; this.revealGoal = -0.2; this.kick(); }
+  reveal() { if (this.reduce) { this.uni.uReveal.value = this.revealGoal = 1.2; } else { this.uni.uReveal.value = -0.2; this.revealGoal = 1.2; } this.kick(); }
+
+  // turn the model so the spot faces the camera and frame it
+  focus(id) {
+    const s = this.spots.find((x) => x.id === id), r = this.rects.get(id);
+    if (!s || !r) return;
+    const size = Math.max(s.w, s.h);
+    const wy = r.anchor.p.y;
+    const tilt = s.part.startsWith('sleeve') ? (s.phi > 0 ? -12 : 12) * DEG : 0;
+    this.setPose({ rot: -s.phi * DEG + tilt, dist: clamp(1.05 + size * 0.028, 1.15, 1.9), ty: wy, y: wy + 0.05 });
+  }
+
+  setPose(p, { shortest = true } = {}) {
+    if (p.rot !== undefined) {
+      let target = p.rot;
+      if (shortest) {
+        let d = (target - this.goal.rot) % TAU;
+        if (d > Math.PI) d -= TAU; if (d < -Math.PI) d += TAU;
+        target = this.goal.rot + d;
+      }
+      this.goal.rot = target; this.vel = 0; this.auto = false;
+    }
+    for (const k of ['dist', 'ty', 'y']) if (p[k] !== undefined) this.goal[k] = p[k];
+    this.kick();
+  }
+
+  view(name) {
+    const a = { hero: HOME.rot / DEG, front: 0, left: -90, back: 180, right: 90 }[name] ?? 0;
+    this.select(null);
+    this.setPose({ rot: a * DEG, dist: HOME.dist, ty: HOME.ty, y: HOME.y });
+  }
+
+  home() { this.select(null); this.setPose({ ...HOME }); }
+  zoom(dir) { this.setPose({ dist: clamp(this.goal.dist * (dir > 0 ? 0.84 : 1.19), 1.1, 3.2) }); }
+
+  async tour(ids, onStep, signal) {
+    let first = true;
+    for (const id of ids) {
+      if (signal.aborted) return;
+      this.select(id, { focus: true });
+      onStep && onStep(id);
+      const wait = (first ? 2200 : 1500) + (this.reduce ? 600 : 0);
+      first = false;
+      await new Promise((res) => { const t = setTimeout(res, wait); signal.addEventListener('abort', () => { clearTimeout(t); res(); }, { once: true }); });
+    }
+    if (!signal.aborted) { this.home(); onStep && onStep(null); }
+  }
+
+  // screen position of a spot centre, and whether it faces the camera
+  project(id) {
+    const r = this.rects.get(id);
+    if (!r) return null;
+    this.model.updateMatrixWorld();
+    const p = r.anchor.p.clone().applyMatrix4(this.model.matrixWorld);
+    const n = r.anchor.n.clone().transformDirection(this.model.matrixWorld);
+    const facing = n.dot(new THREE.Vector3().subVectors(this.camera.position, p).normalize());
+    const q = p.clone().project(this.camera);
+    const b = this.canvas.getBoundingClientRect();
+    return { x: (q.x * 0.5 + 0.5) * b.width, y: (-q.y * 0.5 + 0.5) * b.height, visible: facing > 0.2 && q.z < 1 };
+  }
+
+  // ---------- logos ----------
+  static async prepareLogo(file, { removeWhite = true, invert = false } = {}) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      const W0 = img.naturalWidth || 600, H0 = img.naturalHeight || 300;
+      const k = Math.min(1, 900 / Math.max(W0, H0)), w = Math.max(1, Math.round(W0 * k)), h = Math.max(1, Math.round(H0 * k));
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
+      if (removeWhite || invert) {
+        const d = g.getImageData(0, 0, w, h), p = d.data;
+        for (let i = 0; i < p.length; i += 4) {
+          const r = p[i], gg = p[i + 1], b = p[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+          if (removeWhite && mn > 232 && mx - mn < 18) p[i + 3] = 0;
+          else if (removeWhite && mn > 205 && mx - mn < 24) p[i + 3] = Math.min(p[i + 3], (232 - mn) * 9);
+          if (invert) { p[i] = 255 - r; p[i + 1] = 255 - gg; p[i + 2] = 255 - b; }
+        }
+        g.putImageData(d, 0, 0);
+      }
+      return trim(c);
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  setLogo(id, canvas) {
+    if (canvas) this.logos.set(id, canvas); else this.logos.delete(id);
+    this.drawBase(); this.drawOverlay(); this.kick();
+  }
+
+  async snapshot({ title = '', subtitle = '', width = 1080, height = 1350 } = {}) {
+    const u = this.uni, prev = [u.uSpots.value, u.uSelOn.value, u.uDim.value, u.uHovOn.value];
+    u.uSpots.value = 0; u.uSelOn.value = 0; u.uDim.value = 0; u.uHovOn.value = 0;
+    const size = new THREE.Vector2(); this.renderer.getSize(size);
+    const pr = this.renderer.getPixelRatio();
+    const H = Math.round(height * 0.84);
+    this.renderer.setPixelRatio(1); this.renderer.setSize(width, H, false);
+    this.camera.aspect = width / H; this.camera.updateProjectionMatrix();
+    this.renderer.render(this.scene, this.camera);
+    const out = document.createElement('canvas'); out.width = width; out.height = height;
+    const g = out.getContext('2d');
+    g.fillStyle = '#0b0b0c'; g.fillRect(0, 0, width, height);
+    const grd = g.createRadialGradient(width / 2, H * 0.45, 0, width / 2, H * 0.45, width * 0.7);
+    grd.addColorStop(0, '#1d1d20'); grd.addColorStop(1, '#0b0b0c');
+    g.fillStyle = grd; g.fillRect(0, 0, width, H);
+    g.drawImage(this.canvas, 0, 0, width, H);
+    g.fillStyle = COLORS.gold; g.fillRect(64, H + 34, 48, 4);
+    g.fillStyle = '#f2f1ec'; g.font = '700 40px Inter, system-ui, sans-serif'; g.textBaseline = 'top';
+    g.fillText(title, 64, H + 56);
+    g.fillStyle = '#9a9a95'; g.font = '500 26px Inter, system-ui, sans-serif';
+    g.fillText(subtitle, 64, H + 110);
+    this.renderer.setPixelRatio(pr); this.renderer.setSize(size.x, size.y, false); this.resize();
+    [u.uSpots.value, u.uSelOn.value, u.uDim.value, u.uHovOn.value] = prev;
+    this.kick();
+    return await new Promise((res) => out.toBlob(res, 'image/png'));
+  }
+
+  // ---------- loop ----------
+  resize() {
+    const w = this.el.clientWidth || 1, h = this.el.clientHeight || 1;
+    this.renderer.setSize(w, h, false);
+    this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+    this.camera.aspect = w / h;
+    this.fit = w / h < 0.85 ? 1 + (0.85 - w / h) * 1.05 : 1;   // keep the whole suit framed on tall screens
+    this.camera.updateProjectionMatrix();
+    this.kick();
+  }
+
+  kick() { if (!this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
+
+  loop(t) {
+    if (!this.visible || document.hidden) { this.running = false; return; }
+    if (this.pendingHover) {
+      const e = this.pendingHover; this.pendingHover = null;
+      const id = this.pick(e);
+      this.canvas.style.cursor = id ? 'pointer' : 'grab';
+      if (id !== this.hovered) this.setHover(id);
+    }
+    if (this.auto) this.goal.rot += this.autoSpeed;
+    else if (Math.abs(this.vel) > 0.0004) { this.goal.rot += this.vel; this.vel *= 0.93; }
+    const k = this.reduce ? 1 : 0.075;
+    let moving = this.auto || Math.abs(this.vel) > 0.0004;
+    for (const key of ['rot', 'dist', 'ty', 'y']) {
+      const d = this.goal[key] - this.state[key];
+      this.state[key] += d * k;
+      if (Math.abs(d) > 1e-4) moving = true;
+    }
+    const u = this.uni;
+    const ease = (cur, goal, rate) => { const d = goal - cur; if (Math.abs(d) > 1e-3) moving = true; return this.reduce ? goal : cur + d * rate; };
+    u.uSpots.value = ease(u.uSpots.value, this.spotsGoal, 0.12);
+    u.uDim.value = ease(u.uDim.value, this.dimGoal, 0.1);
+    u.uReveal.value = ease(u.uReveal.value, this.revealGoal, 0.03);
+    u.uTime.value = t / 1000;
+    if (u.uSelOn.value > 0 && !this.reduce) moving = true;   // the selection ring pulses
+    this.model.rotation.y = this.state.rot;
+    this.camera.position.set(0, this.state.y, this.state.dist * (this.fit || 1));
+    this.camera.lookAt(0, this.state.ty, 0);
+    this.renderer.render(this.scene, this.camera);
+    this.el.dispatchEvent(new CustomEvent('suit:frame'));
+    if (moving) requestAnimationFrame(this.loop); else this.running = false;
+  }
+
+  destroy() {
+    this.visible = false; this.ro.disconnect(); this.io.disconnect();
+    window.removeEventListener('pointermove', this.onMove); window.removeEventListener('pointerup', this.onUp);
+    this.renderer.dispose();
+  }
+}
+
+function trim(c) {
+  const g = c.getContext('2d'), w = c.width, h = c.height;
+  const p = g.getImageData(0, 0, w, h).data;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (p[(y * w + x) * 4 + 3] > 12) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  if (x1 < 0) return c;
+  const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1;
+  o.getContext('2d').drawImage(c, x0, y0, o.width, o.height, 0, 0, o.width, o.height);
+  return o;
+}
+
+export function webglAvailable() {
+  try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (_) { return false; }
+}

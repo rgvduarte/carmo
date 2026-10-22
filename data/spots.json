@@ -1,0 +1,564 @@
+{
+  "season": "2027",
+  "currency": "EUR",
+  "updated": "2026-10-22",
+  "bundle": {
+    "min": 3,
+    "discount": 0.1
+  },
+  "title": {
+    "price": 6000,
+    "status": "available"
+  },
+  "tiers": [
+    {
+      "key": "principal",
+      "min": 700,
+      "pt": "Principal",
+      "en": "Principal"
+    },
+    {
+      "key": "oficial",
+      "min": 350,
+      "pt": "Oficial",
+      "en": "Official"
+    },
+    {
+      "key": "fornecedor",
+      "min": 0,
+      "pt": "Apoio",
+      "en": "Supporter"
+    }
+  ],
+  "spots": [
+    {
+      "id": "peito",
+      "n": 1,
+      "part": "torso",
+      "phi": 0,
+      "t": 0.43,
+      "w": 26,
+      "h": 8,
+      "area": "front",
+      "price": 1000,
+      "status": "available",
+      "top": true,
+      "vis": {
+        "bike": 2,
+        "run": 3,
+        "finish": 3,
+        "social": 3
+      },
+      "pt": {
+        "name": "Peito",
+        "pitch": "O primeiro sítio para onde se olha. Em todas as fotos de meta, entrevistas e conteúdos."
+      },
+      "en": {
+        "name": "Chest",
+        "pitch": "Where every eye lands first. Every finish photo, interview and post."
+      }
+    },
+    {
+      "id": "clavicula-e",
+      "n": 2,
+      "part": "torso",
+      "phi": 30,
+      "t": 0.535,
+      "w": 7,
+      "h": 4,
+      "area": "front",
+      "price": 200,
+      "status": "available",
+      "vis": {
+        "bike": 2,
+        "run": 2,
+        "finish": 2,
+        "social": 2
+      },
+      "pt": {
+        "name": "Clavícula esquerda",
+        "pitch": "Pequeno, discreto e sempre em grande plano."
+      },
+      "en": {
+        "name": "Left collarbone",
+        "pitch": "Small, discreet and always in the close-up."
+      }
+    },
+    {
+      "id": "clavicula-d",
+      "n": 3,
+      "part": "torso",
+      "phi": -30,
+      "t": 0.535,
+      "w": 7,
+      "h": 4,
+      "area": "front",
+      "price": 200,
+      "status": "available",
+      "vis": {
+        "bike": 2,
+        "run": 2,
+        "finish": 2,
+        "social": 2
+      },
+      "pt": {
+        "name": "Clavícula direita",
+        "pitch": "O par do grande plano. Junto ao rosto em cada entrevista."
+      },
+      "en": {
+        "name": "Right collarbone",
+        "pitch": "The other half of the close-up, right next to the face."
+      }
+    },
+    {
+      "id": "abdomen",
+      "n": 4,
+      "part": "torso",
+      "phi": 0,
+      "t": 0.29,
+      "w": 22,
+      "h": 7,
+      "area": "front",
+      "price": 600,
+      "status": "available",
+      "vis": {
+        "bike": 1,
+        "run": 3,
+        "finish": 3,
+        "social": 2
+      },
+      "pt": {
+        "name": "Abdómen",
+        "pitch": "Central e virado para a câmara durante toda a corrida."
+      },
+      "en": {
+        "name": "Abdomen",
+        "pitch": "Centred and facing the lens for the whole run."
+      }
+    },
+    {
+      "id": "cintura",
+      "n": 5,
+      "part": "torso",
+      "phi": 0,
+      "t": 0.215,
+      "w": 16,
+      "h": 5,
+      "area": "front",
+      "price": 300,
+      "status": "available",
+      "vis": {
+        "bike": 1,
+        "run": 2,
+        "finish": 2,
+        "social": 1
+      },
+      "pt": {
+        "name": "Cintura",
+        "pitch": "Na linha da cintura: visível na corrida e em cada transição."
+      },
+      "en": {
+        "name": "Waistline",
+        "pitch": "On the waistline: in shot on the run and in every transition."
+      }
+    },
+    {
+      "id": "lateral-e",
+      "n": 6,
+      "part": "torso",
+      "phi": 90,
+      "t": 0.3,
+      "w": 6,
+      "h": 18,
+      "area": "sides",
+      "price": 400,
+      "status": "available",
+      "light": true,
+      "rot": 90,
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 1,
+        "social": 2
+      },
+      "pt": {
+        "name": "Lateral esquerda",
+        "pitch": "Na posição aero o tronco fica horizontal: o logótipo lê-se direito nas fotos de perfil."
+      },
+      "en": {
+        "name": "Left side",
+        "pitch": "In the aero position the torso is horizontal, so the logo reads straight in side-on shots."
+      }
+    },
+    {
+      "id": "lateral-d",
+      "n": 7,
+      "part": "torso",
+      "phi": -90,
+      "t": 0.3,
+      "w": 6,
+      "h": 18,
+      "area": "sides",
+      "price": 400,
+      "status": "available",
+      "light": true,
+      "rot": -90,
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 1,
+        "social": 2
+      },
+      "pt": {
+        "name": "Lateral direita",
+        "pitch": "A mesma fotografia de perfil, filmada do outro lado da estrada."
+      },
+      "en": {
+        "name": "Right side",
+        "pitch": "The same side-on shot, from the other side of the road."
+      }
+    },
+    {
+      "id": "ombro-e",
+      "n": 8,
+      "part": "sleeveL",
+      "phi": 90,
+      "t": 0.085,
+      "w": 7,
+      "h": 6,
+      "area": "shoulders",
+      "price": 250,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 2,
+        "social": 2
+      },
+      "pt": {
+        "name": "Ombro esquerdo",
+        "pitch": "Visto de frente, de lado e de cima: os ângulos de mota e drone."
+      },
+      "en": {
+        "name": "Left shoulder",
+        "pitch": "Seen from the front, the side and above: the moto and drone angles."
+      }
+    },
+    {
+      "id": "ombro-d",
+      "n": 9,
+      "part": "sleeveR",
+      "phi": -90,
+      "t": 0.085,
+      "w": 7,
+      "h": 6,
+      "area": "shoulders",
+      "price": 250,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 2,
+        "social": 2
+      },
+      "pt": {
+        "name": "Ombro direito",
+        "pitch": "O outro ombro, o mesmo ângulo aéreo."
+      },
+      "en": {
+        "name": "Right shoulder",
+        "pitch": "The other shoulder, the same aerial angle."
+      }
+    },
+    {
+      "id": "coxa-frente-e",
+      "n": 10,
+      "part": "legL",
+      "phi": 0,
+      "t": 0.13,
+      "w": 12,
+      "h": 6,
+      "area": "legs",
+      "price": 350,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 2,
+        "social": 1
+      },
+      "pt": {
+        "name": "Coxa frente esquerda",
+        "pitch": "De frente para a câmara a cada pedalada."
+      },
+      "en": {
+        "name": "Left front thigh",
+        "pitch": "Facing the camera with every pedal stroke."
+      }
+    },
+    {
+      "id": "coxa-frente-d",
+      "n": 11,
+      "part": "legR",
+      "phi": 0,
+      "t": 0.13,
+      "w": 12,
+      "h": 6,
+      "area": "legs",
+      "price": 350,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 2,
+        "social": 1
+      },
+      "pt": {
+        "name": "Coxa frente direita",
+        "pitch": "A mesma vista, na outra perna."
+      },
+      "en": {
+        "name": "Right front thigh",
+        "pitch": "Same view, other leg."
+      }
+    },
+    {
+      "id": "coxa-lateral-e",
+      "n": 12,
+      "part": "legL",
+      "phi": 90,
+      "t": 0.13,
+      "w": 6,
+      "h": 16,
+      "area": "legs",
+      "price": 450,
+      "status": "available",
+      "light": true,
+      "rot": -90,
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 1,
+        "social": 2
+      },
+      "pt": {
+        "name": "Coxa lateral esquerda",
+        "pitch": "Na bicicleta a coxa fica horizontal: o logótipo lê-se direito em todas as fotos de perfil."
+      },
+      "en": {
+        "name": "Left outer thigh",
+        "pitch": "On the bike the thigh is horizontal, so the logo reads straight in every side-on photo."
+      }
+    },
+    {
+      "id": "coxa-lateral-d",
+      "n": 13,
+      "part": "legR",
+      "phi": -90,
+      "t": 0.13,
+      "w": 6,
+      "h": 16,
+      "area": "legs",
+      "price": 450,
+      "status": "available",
+      "light": true,
+      "rot": 90,
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 1,
+        "social": 2
+      },
+      "pt": {
+        "name": "Coxa lateral direita",
+        "pitch": "O mesmo plano de perfil, do lado da estrada que a câmara escolher."
+      },
+      "en": {
+        "name": "Right outer thigh",
+        "pitch": "The same side-on frame, whichever side of the road the camera picks."
+      }
+    },
+    {
+      "id": "coxa-tras-e",
+      "n": 14,
+      "part": "legL",
+      "phi": 180,
+      "t": 0.13,
+      "w": 10,
+      "h": 5,
+      "area": "legs",
+      "price": 150,
+      "status": "available",
+      "vis": {
+        "bike": 1,
+        "run": 2,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Coxa trás esquerda",
+        "pitch": "Na corrida, para quem vem atrás."
+      },
+      "en": {
+        "name": "Left rear thigh",
+        "pitch": "On the run, for everyone behind."
+      }
+    },
+    {
+      "id": "coxa-tras-d",
+      "n": 15,
+      "part": "legR",
+      "phi": 180,
+      "t": 0.13,
+      "w": 10,
+      "h": 5,
+      "area": "legs",
+      "price": 150,
+      "status": "available",
+      "vis": {
+        "bike": 1,
+        "run": 2,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Coxa trás direita",
+        "pitch": "O par, na outra perna."
+      },
+      "en": {
+        "name": "Right rear thigh",
+        "pitch": "Its pair, on the other leg."
+      }
+    },
+    {
+      "id": "nuca",
+      "n": 16,
+      "part": "torso",
+      "phi": 180,
+      "t": 0.598,
+      "w": 8,
+      "h": 3,
+      "area": "back",
+      "price": 150,
+      "status": "available",
+      "vis": {
+        "bike": 2,
+        "run": 1,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Nuca",
+        "pitch": "Uma assinatura discreta, em todos os planos de trás."
+      },
+      "en": {
+        "name": "Nape",
+        "pitch": "A quiet signature in every shot from behind."
+      }
+    },
+    {
+      "id": "costas-topo",
+      "n": 17,
+      "part": "torso",
+      "phi": 180,
+      "t": 0.47,
+      "w": 26,
+      "h": 8,
+      "area": "back",
+      "price": 800,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 3,
+        "finish": 1,
+        "social": 2
+      },
+      "pt": {
+        "name": "Costas — topo",
+        "pitch": "A vista de quem vem atrás e das câmaras de mota durante toda a prova."
+      },
+      "en": {
+        "name": "Upper back",
+        "pitch": "What the field behind and every moto camera see, all race long."
+      }
+    },
+    {
+      "id": "costas-centro",
+      "n": 18,
+      "part": "torso",
+      "phi": 180,
+      "t": 0.345,
+      "w": 20,
+      "h": 7,
+      "area": "back",
+      "price": 400,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Costas — centro",
+        "pitch": "Visível por trás, na bicicleta e na corrida."
+      },
+      "en": {
+        "name": "Mid back",
+        "pitch": "In view from behind, on the bike and on the run."
+      }
+    },
+    {
+      "id": "lombar",
+      "n": 19,
+      "part": "torso",
+      "phi": 180,
+      "t": 0.225,
+      "w": 18,
+      "h": 6,
+      "area": "back",
+      "price": 300,
+      "status": "available",
+      "vis": {
+        "bike": 2,
+        "run": 2,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Lombar",
+        "pitch": "Logo acima do selim: sempre em campo nas fotos de trás."
+      },
+      "en": {
+        "name": "Lower back",
+        "pitch": "Just above the saddle: always in frame from behind."
+      }
+    },
+    {
+      "id": "gluteos",
+      "n": 20,
+      "part": "torso",
+      "phi": 180,
+      "t": 0.085,
+      "w": 22,
+      "h": 7,
+      "area": "back",
+      "price": 650,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 2,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Glúteos",
+        "pitch": "Na bicicleta é o espaço mais exposto a quem segue atrás. Horas de visibilidade por prova."
+      },
+      "en": {
+        "name": "Seat",
+        "pitch": "On the bike it is the most exposed spot to anyone behind. Hours of airtime per race."
+      }
+    }
+  ]
+}

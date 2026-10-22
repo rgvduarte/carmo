@@ -1,0 +1,41 @@
+name: Strava sync
+
+# Refreshes data/strava.json every morning from Gonçalo's Strava account.
+# Needs three repository secrets: STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REFRESH_TOKEN
+# (see README → "Ligar o Strava"). Without them the job exits quietly.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: strava-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build data/strava.json
+        env:
+          STRAVA_CLIENT_ID: ${{ secrets.STRAVA_CLIENT_ID }}
+          STRAVA_CLIENT_SECRET: ${{ secrets.STRAVA_CLIENT_SECRET }}
+          STRAVA_REFRESH_TOKEN: ${{ secrets.STRAVA_REFRESH_TOKEN }}
+        run: |
+          if [ -z "$STRAVA_REFRESH_TOKEN" ]; then echo "Strava secrets not set yet — skipping."; exit 0; fi
+          node scripts/strava-sync.mjs
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/strava.json; then echo "No changes."; exit 0; fi
+          git config user.name "strava-sync"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/strava.json
+          git commit -m "Update Strava data"
+          git push
