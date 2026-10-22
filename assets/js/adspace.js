@@ -28,7 +28,7 @@ export async function initAdspace({ onSuitReady } = {}) {
     const res = await fetch('data/spots.json', { cache: 'no-cache' });
     DATA = await res.json();
   } catch (e) {
-    $('#rc-body').textContent = 'Não consegui carregar a tabela. Escreve-me para gcarmo.media@gmail.com.';
+    $('#rc-body').textContent = 'Não consegui carregar a tabela. Escreve-me para allez@gocarmo.com.';
     return;
   }
   for (const x of [...DATA.spots, DATA.title]) if (lapsed(x)) x.status = 'available';

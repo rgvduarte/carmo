@@ -5,7 +5,7 @@ export const SITE = {
   name: 'Gonçalo Carmo',
   instagram: 'goncalo.carmo99',
   whatsapp: '351916395103',
-  email: 'gcarmo.media@gmail.com',
+  email: 'allez@gocarmo.com',
   strava: 'https://www.strava.com/athletes/50182673',
   // Paste the campaign link here once it is live (e.g. https://gofund.me/xxxx).
   gofundme: '',
