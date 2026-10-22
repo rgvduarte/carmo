@@ -10,9 +10,9 @@ const ATLAS = 2048;
 
 // colourway: white top, black shorts, charcoal side panels, gold accent
 export const COLORS = {
-  top: '#f2f1ec', shorts: '#111112', panel: '#2a2a2c', hem: '#0b0b0c',
-  seamOnLight: 'rgba(0,0,0,0.16)', seamOnDark: 'rgba(255,255,255,0.07)',
-  gold: '#e6b450', inkDark: '#141414', inkLight: '#f2f1ec',
+  top: '#f6f7f9', shorts: '#121519', panel: '#f6f7f9', hem: '#f6f7f9', collar: '#8c8d90', zip: '#5a5d63',
+  seamOnLight: 'rgba(0,0,0,0.14)', seamOnDark: 'rgba(255,255,255,0.08)',
+  gold: '#e6b450', inkDark: '#141414', inkLight: '#f6f7f9',
 };
 export const HOME = { rot: -18 * DEG, dist: 2.2, ty: 0.19, y: 0.23 };
 
@@ -27,23 +27,22 @@ const REGIONS = {
 
 // Torso profile from below the crotch to the collar (m): y, half width, front depth, back depth, squareness.
 const TORSO = [
-  [-0.040, 0.112, 0.070, 0.080, 2.0],
-  [-0.015, 0.150, 0.090, 0.104, 2.1],
-  [0.010, 0.167, 0.100, 0.114, 2.2],
-  [0.060, 0.171, 0.103, 0.118, 2.2],
-  [0.120, 0.166, 0.100, 0.110, 2.25],
-  [0.200, 0.154, 0.097, 0.099, 2.3],
-  [0.300, 0.160, 0.104, 0.101, 2.4],
-  [0.400, 0.180, 0.121, 0.108, 2.5],
-  [0.470, 0.192, 0.119, 0.112, 2.6],
-  [0.530, 0.198, 0.105, 0.104, 2.8],
-  [0.575, 0.181, 0.087, 0.087, 2.8],
+  [0.030, 0.104, 0.058, 0.068, 2.0],
+  [0.060, 0.140, 0.084, 0.096, 2.1],
+  [0.092, 0.155, 0.095, 0.108, 2.2],
+  [0.130, 0.153, 0.096, 0.105, 2.25],
+  [0.200, 0.143, 0.094, 0.096, 2.3],
+  [0.300, 0.152, 0.102, 0.099, 2.35],
+  [0.400, 0.176, 0.119, 0.106, 2.4],
+  [0.470, 0.188, 0.117, 0.110, 2.45],
+  [0.530, 0.193, 0.104, 0.103, 2.5],
+  [0.575, 0.176, 0.087, 0.087, 2.45],
   [0.605, 0.127, 0.071, 0.071, 2.4],
   [0.630, 0.081, 0.061, 0.061, 2.0],
   [0.662, 0.072, 0.059, 0.059, 2.0],
 ];
-const TORSO_Y0 = -0.04;
-const TORSO_LEN = 0.702;
+const TORSO_Y0 = 0.03;
+const TORSO_LEN = 0.632;
 const WAIST_Y = 0.165;   // top/shorts seam
 const ZIP_END = 0.485;   // the zip runs from the collar down to here
 
@@ -187,20 +186,20 @@ function buildParts() {
   const torso = buildTorso();
   // thigh: the top fifth tucks inside the hips so its rim never shows
   const leg = (t) => {
-    const k = smooth(Math.min(1, t / 0.78));
-    const tuck = t > 0.78 ? 1 - 0.26 * smooth((t - 0.78) / 0.22) : 1;
-    return { a: lerp(0.071, 0.084, k) * tuck, bf: lerp(0.074, 0.086, k) * tuck, bb: lerp(0.076, 0.094, k) * tuck };
+    const k = smooth(Math.min(1, t / 0.8));
+    const tuck = t > 0.86 ? 1 - 0.3 * smooth((t - 0.86) / 0.14) : 1;
+    return { a: lerp(0.068, 0.080, k) * tuck, bf: lerp(0.071, 0.083, k) * tuck, bb: lerp(0.073, 0.090, k) * tuck };
   };
-  const legL = buildTube('legL', new THREE.Vector3(0.095, -0.26, 0.010), new THREE.Vector3(0.080, 0.08, -0.008), 270, leg);
-  const legR = buildTube('legR', new THREE.Vector3(-0.095, -0.26, 0.010), new THREE.Vector3(-0.080, 0.08, -0.008), 90, leg);
+  const legL = buildTube('legL', new THREE.Vector3(0.088, -0.25, 0.010), new THREE.Vector3(0.073, 0.135, -0.008), 270, leg);
+  const legR = buildTube('legR', new THREE.Vector3(-0.088, -0.25, 0.010), new THREE.Vector3(-0.073, 0.135, -0.008), 90, leg);
   // sleeve: open hem, then a domed cap that reads as the deltoid
   const sleeve = (t) => {
-    if (t < 0.68) { const k = smooth(t / 0.68); return { a: lerp(0.051, 0.060, k), bf: lerp(0.049, 0.058, k), bb: lerp(0.049, 0.058, k) }; }
-    const c = Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.68) / 0.32, 2)));
-    return { a: 0.060 * c + 0.002, bf: 0.058 * c + 0.002, bb: 0.058 * c + 0.002 };
+    if (t < 0.7) { const k = smooth(t / 0.7); return { a: lerp(0.047, 0.053, k), bf: lerp(0.046, 0.051, k), bb: lerp(0.046, 0.051, k) }; }
+    const c = Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.7) / 0.3, 2)));
+    return { a: 0.053 * c + 0.002, bf: 0.051 * c + 0.002, bb: 0.051 * c + 0.002 };
   };
-  const sleeveL = buildTube('sleeveL', new THREE.Vector3(0.238, 0.405, -0.004), new THREE.Vector3(0.168, 0.602, -0.006), 270, sleeve, 44);
-  const sleeveR = buildTube('sleeveR', new THREE.Vector3(-0.238, 0.405, -0.004), new THREE.Vector3(-0.168, 0.602, -0.006), 90, sleeve, 44);
+  const sleeveL = buildTube('sleeveL', new THREE.Vector3(0.228, 0.412, -0.004), new THREE.Vector3(0.166, 0.598, -0.006), 270, sleeve, 44);
+  const sleeveR = buildTube('sleeveR', new THREE.Vector3(-0.228, 0.412, -0.004), new THREE.Vector3(-0.166, 0.598, -0.006), 90, sleeve, 44);
   return { torso, legL, legR, sleeveL, sleeveR };
 }
 
@@ -310,7 +309,7 @@ export class Suit {
       sh.vertexShader = sh.vertexShader.replace('#include <common>', VERT_HEAD).replace('#include <begin_vertex>', VERT_BODY);
       sh.fragmentShader = sh.fragmentShader.replace('#include <common>', FRAG_HEAD).replace('#include <map_fragment>', FRAG_MAP).replace('#include <emissivemap_fragment>', FRAG_EMIT);
     };
-    const inner = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 1, side: THREE.BackSide });
+    const inner = new THREE.MeshStandardMaterial({ color: 0xb3b5b9, roughness: 1, side: THREE.BackSide });
     this.model = new THREE.Group();
     this.meshes = [];
     const cols = { torso: 168, legL: 96, legR: 96, sleeveL: 64, sleeveR: 64 };
@@ -335,7 +334,7 @@ export class Suit {
 
   addDetails() {
     // dark recess inside each sleeve so the hollow reads as depth
-    const capMat = new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 1 });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xc4c6ca, roughness: 1 });
     for (const k of ['sleeveL', 'sleeveR']) {
       const part = this.parts[k], r = part.rings[5];
       const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), capMat);
@@ -361,7 +360,7 @@ export class Suit {
     grd.addColorStop(0, 'rgba(0,0,0,0.5)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-    m.rotation.x = -Math.PI / 2; m.position.y = -0.275;
+    m.rotation.x = -Math.PI / 2; m.position.y = -0.265;
     return m;
   }
 
@@ -404,43 +403,35 @@ export class Suit {
     const waistPx = this.rowY(T, RT, WAIST_Y);
     ctx.fillStyle = COLORS.top; ctx.fillRect(RT.x, RT.y, RT.w, waistPx - RT.y);
     for (const k of ['sleeveL', 'sleeveR']) { const R = REGIONS[k]; ctx.fillRect(R.x, R.y, R.w, R.h); }
-    // charcoal side panels down the ribs and the outer thighs
-    const vWaist = T.vFor(WAIST_Y), vArm = T.vFor(0.505);
-    for (const side of [90, 270]) {
-      this.band(T, RT, side, 0.12, T.vFor(-0.02), vArm, COLORS.panel);
-      this.band(T, RT, side, 0.0025, vWaist, vArm, COLORS.gold, side === 90 ? -0.06 : 0.06);
-    }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // shorts: wide white stripe down the outer thigh and a white gripper hem
     for (const [k, outer] of [['legL', 90], ['legR', 270]]) {
       const part = P[k], R = REGIONS[k];
-      this.band(part, R, outer, 0.11, 0.07, 1, COLORS.panel);
-      // silicone gripper hem with a hairline of gold and a stitched edge
-      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.92, R.w, R.h * 0.08);
-      ctx.fillStyle = COLORS.gold; ctx.fillRect(R.x, R.y + R.h * 0.92 - 2, R.w, 2);
-      this.stitch(R.x, R.y + R.h * 0.905, R.x + R.w, COLORS.seamOnDark);
-      ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '600 14px "JetBrains Mono", ui-monospace, monospace';
-      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.04) * R.w, R.y + R.h * 0.962);
+      this.band(part, R, outer, 0.13, 0.05, 1, COLORS.panel);
+      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.93, R.w, R.h * 0.07);
+      this.stitch(R.x, R.y + R.h * 0.915, R.x + R.w, COLORS.seamOnDark);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = '600 13px "JetBrains Mono", ui-monospace, monospace';
+      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.035) * R.w, R.y + R.h * 0.965);
     }
+    // sleeves: plain white with a stitched cuff
     for (const k of ['sleeveL', 'sleeveR']) {
       const R = REGIONS[k];
-      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.88, R.w, R.h * 0.12);
-      ctx.fillStyle = COLORS.gold; ctx.fillRect(R.x, R.y + R.h * 0.88 - 2, R.w, 2);
-      this.stitch(R.x, R.y + R.h * 0.86, R.x + R.w, COLORS.seamOnLight);
+      ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(R.x, R.y + R.h * 0.9, R.w, R.h * 0.1);
+      this.stitch(R.x, R.y + R.h * 0.885, R.x + R.w, COLORS.seamOnLight);
     }
     // waist seam and stitching
-    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(RT.x, waistPx - 1, RT.w, 3);
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(RT.x, waistPx - 1, RT.w, 3);
     this.stitch(RT.x, waistPx - 8, RT.x + RT.w, COLORS.seamOnLight);
-    // collar band
+    // grey collar
     const collarPx = this.rowY(T, RT, 0.642);
-    ctx.fillStyle = COLORS.hem; ctx.fillRect(RT.x, RT.y, RT.w, collarPx - RT.y);
-    ctx.fillStyle = COLORS.gold; ctx.fillRect(RT.x, collarPx, RT.w, 2);
-    // front zip: tape and teeth from the collar to ZIP_END
+    ctx.fillStyle = COLORS.collar; ctx.fillRect(RT.x, RT.y, RT.w, collarPx - RT.y);
+    // front zip: grey tape and teeth from the collar to ZIP_END
     const zx = RT.x + T.uAt(0, T.vFor(0.56)) * RT.w;
     const zTop = collarPx, zBot = this.rowY(T, RT, ZIP_END);
-    ctx.fillStyle = '#2b2b2e'; ctx.fillRect(zx - 11, zTop, 22, zBot - zTop);
-    ctx.fillStyle = '#5c5c60';
-    for (let y = zTop + 2; y < zBot - 2; y += 5) { ctx.fillRect(zx - 5, y, 4, 2.4); ctx.fillRect(zx + 1, y + 2.5, 4, 2.4); }
-    ctx.fillStyle = '#1a1a1c'; roundRect(ctx, zx - 9, zBot - 6, 18, 10, 4); ctx.fill();
+    ctx.fillStyle = COLORS.zip; ctx.fillRect(zx - 8, zTop, 16, zBot - zTop);
+    ctx.fillStyle = '#8f9298';
+    for (let y = zTop + 2; y < zBot - 2; y += 5) { ctx.fillRect(zx - 4, y, 3, 2.2); ctx.fillRect(zx + 1, y + 2.5, 3, 2.2); }
+    ctx.fillStyle = '#3d4045'; roundRect(ctx, zx - 7, zBot - 5, 14, 9, 4); ctx.fill();
     // printed logos: sold sponsors and any logo being tried on
     for (const s of this.spots) {
       const r = this.rects.get(s.id);
@@ -484,20 +475,24 @@ export class Suit {
       const r = this.rects.get(s.id);
       if (!r) continue;
       const hasLogo = this.logos.has(s.id) || (s.status === 'sold' && !!s._logo);
-      const ink = r.light ? COLORS.inkDark : COLORS.inkLight;
       const isTop = s.id === topId, sold = s.status === 'sold', reserved = s.status === 'reserved', inBasket = this.basket.has(s.id);
       const x = r.x + 3, y = r.y + 3, w = r.w - 6, h = r.h - 6;
       ctx.save();
-      if (isTop && !hasLogo) { roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(230,180,80,0.16)'; ctx.fill(); }
+      // on the black shorts each free spot is a white patch, so every price reads at a glance
+      const patch = !r.light && !hasLogo;
+      if (patch) { roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(246,247,249,0.94)'; ctx.fill(); }
+      const dark = r.light || patch;
+      const ink = dark ? COLORS.inkDark : COLORS.inkLight;
+      if (isTop && !hasLogo) { roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(230,180,80,0.22)'; ctx.fill(); }
       if (sold && !hasLogo) {
         roundRect(ctx, x, y, w, h, 10); ctx.save(); ctx.clip();
-        ctx.strokeStyle = r.light ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 3;
+        ctx.strokeStyle = dark ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 3;
         for (let k = x - h; k < x + w; k += 15) { ctx.beginPath(); ctx.moveTo(k, y + h); ctx.lineTo(k + h, y); ctx.stroke(); }
         ctx.restore();
       }
       if (!hasLogo || inBasket) {
         ctx.lineWidth = inBasket ? 5 : 3;
-        ctx.strokeStyle = isTop ? COLORS.gold : inBasket ? ink : r.light ? 'rgba(20,20,20,0.6)' : 'rgba(242,241,236,0.62)';
+        ctx.strokeStyle = isTop ? COLORS.gold : inBasket ? ink : dark ? 'rgba(20,20,20,0.75)' : 'rgba(246,247,249,0.7)';
         ctx.setLineDash(sold || inBasket ? [] : reserved ? [3, 8] : [13, 9]);
         roundRect(ctx, x, y, w, h, 10); ctx.stroke();
         ctx.setLineDash([]);
@@ -516,7 +511,7 @@ export class Suit {
         ctx.translate(r.x + r.w / 2, r.y + r.h / 2 + (rot ? 0 : small ? 4 : 7));
         if (rot) ctx.rotate(rot * DEG);
         const span = rot ? h : w, depth = rot ? w : h;
-        const fs = fitText(ctx, label, span * 0.74, Math.min(depth * 0.4, 64), 700, 'Inter, system-ui, sans-serif');
+        const fs = fitText(ctx, label, span * 0.78, Math.min(depth * 0.5, 72), 800, 'Inter, system-ui, sans-serif');
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = ink;
         ctx.fillText(label, 0, 0);
@@ -533,9 +528,8 @@ export class Suit {
   }
 
   topId() {
-    let best = null;
-    for (const s of this.spots) if (s.status === 'available' && (!best || s.price > best.price)) best = s;
-    return best && best.id;
+    const s = this.spots.find((x) => x.top && x.status !== 'sold');
+    return s && s.id;
   }
 
   // ---------- interaction ----------
@@ -607,6 +601,7 @@ export class Suit {
     const id = this.pick(e);
     this.auto = false;
     if (id) this.select(id, { focus: true, emit: true });
+    else if (this.selected) { this.select(null); this.onSelect(null); }
   }
 
   select(id, { focus = true, emit = false } = {}) {
@@ -689,7 +684,7 @@ export class Suit {
   }
 
   // ---------- logos ----------
-  static async prepareLogo(file, { removeWhite = true, invert = false } = {}) {
+  static async prepareLogo(file, { removeWhite = true, mono = null } = {}) {
     const url = URL.createObjectURL(file);
     try {
       const img = new Image();
@@ -699,13 +694,14 @@ export class Suit {
       const k = Math.min(1, 900 / Math.max(W0, H0)), w = Math.max(1, Math.round(W0 * k)), h = Math.max(1, Math.round(H0 * k));
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, w, h);
-      if (removeWhite || invert) {
+      const mc = mono && [parseInt(mono.slice(1, 3), 16), parseInt(mono.slice(3, 5), 16), parseInt(mono.slice(5, 7), 16)];
+      if (removeWhite || mc) {
         const d = g.getImageData(0, 0, w, h), p = d.data;
         for (let i = 0; i < p.length; i += 4) {
           const r = p[i], gg = p[i + 1], b = p[i + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
           if (removeWhite && mn > 232 && mx - mn < 18) p[i + 3] = 0;
           else if (removeWhite && mn > 205 && mx - mn < 24) p[i + 3] = Math.min(p[i + 3], (232 - mn) * 9);
-          if (invert) { p[i] = 255 - r; p[i + 1] = 255 - gg; p[i + 2] = 255 - b; }
+          if (mc) { p[i] = mc[0]; p[i + 1] = mc[1]; p[i + 2] = mc[2]; }   // one-colour knockout, alpha kept
         }
         g.putImageData(d, 0, 0);
       }

@@ -1,0 +1,58 @@
+name: Atualizar espaço do fato
+
+# Runs when someone who manages the repo opens the "Atualizar espaço do fato" issue form.
+# It edits data/spots.json (and saves the logo), commits to gh-pages, replies and closes the issue.
+# Issue forms and issue-triggered workflows are read from the default branch, so the repo's
+# default branch must be gh-pages (Settings → General → Default branch).
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: spots
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: contains(github.event.issue.body, '### Espaço') && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply the form to data/spots.json
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          set -o pipefail
+          node scripts/spot-update.mjs | tee "$RUNNER_TEMP/reply.md"
+      - name: Commit
+        run: |
+          git config user.name "spots-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/spots.json
+          git add -A assets/img/brands 2>/dev/null || true
+          if git diff --cached --quiet; then echo "No changes."; exit 0; fi
+          git commit -m "Spot update from issue #${{ github.event.issue.number }}"
+          git push
+      - name: Reply and close
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/reply.md"
+          gh issue close "${{ github.event.issue.number }}" --repo "${{ github.repository }}"
+      - name: Explain a failure
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          { cat "$RUNNER_TEMP/reply.md" 2>/dev/null; echo; echo "Nada foi alterado no site. Corrige o pedido e abre um novo. Registo: $RUN_URL"; } > "$RUNNER_TEMP/fail.md"
+          gh issue comment "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --body-file "$RUNNER_TEMP/fail.md"

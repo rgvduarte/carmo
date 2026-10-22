@@ -1,8 +1,10 @@
 // Page bootstrap: language, nav, smooth scroll, scroll-driven scenes, data blocks and the sponsor studio.
-import { initLang, onLang, t, pick, money, numFmt, getLang } from './i18n.js';
+import { initLang, onLang, t, pick, money, numFmt, getLang, fmtDay } from './i18n.js';
 import { SITE, RESULTS, SEASON, BUDGET, IRONMAN_SPLITS, SOCIAL } from './data.js';
-import { lineChart, topStrip, weekMultiples, heatmap, splitBar } from './charts.js';
-import { initAdspace, userHasInteracted } from './adspace.js';
+import { weekMultiples, heatmap, splitBar } from './charts.js';
+import { initMarks, refreshMarks } from './marks.js';
+import { flowSet, flowStatic } from './flow.js';
+import { initAdspace, userHasInteracted, deepLinked } from './adspace.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -16,13 +18,28 @@ initLang();
 // ---------- nav ----------
 const nav = $('#nav');
 const menuBtn = $('.menu-btn');
-menuBtn.addEventListener('click', () => {
-  const open = !nav.classList.contains('open');
+// the full-screen menu takes focus while open and shuts the page behind it off from Tab and screen readers
+function setMenu(open, { restore = false } = {}) {
   nav.classList.toggle('open', open);
+  document.body.classList.toggle('menu-open', open);
   menuBtn.setAttribute('aria-expanded', String(open));
-});
-$$('#menu a').forEach((a) => a.addEventListener('click', () => { nav.classList.remove('open'); menuBtn.setAttribute('aria-expanded', 'false'); }));
+  for (const el of [$('main'), $('footer'), $('#package')]) if (el) el.inert = open;
+  if (open) $('#menu a')?.focus({ preventScroll: true });
+  else if (restore) menuBtn.focus({ preventScroll: true });
+}
+menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open'), { restore: true }));
+$$('#menu a').forEach((a) => a.addEventListener('click', () => setMenu(false)));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && nav.classList.contains('open')) { e.preventDefault(); setMenu(false, { restore: true }); } });
 const sections = $$('main section[id]');
+// the nav turns light over paper sections
+const lightSections = $$('.light');
+function navTone() {
+  const y = nav.offsetHeight / 2;
+  nav.classList.toggle('on-light', lightSections.some((s) => { const r = s.getBoundingClientRect(); return r.top <= y && r.bottom >= y; }));
+}
+addEventListener('scroll', navTone, { passive: true });
+// the contact portrait warms up to colour once it is in view
+new IntersectionObserver((en, ob) => { if (en[0].isIntersecting) { en[0].target.classList.add('in'); ob.disconnect(); } }, { threshold: 0.5 }).observe($('.contact-media'));
 const linkFor = (id) => $(`#menu a[href="#${id}"]`);
 const navObserver = new IntersectionObserver((entries) => {
   for (const e of entries) if (e.isIntersecting) { $$('#menu a').forEach((a) => a.classList.remove('active')); linkFor(e.target.id)?.classList.add('active'); }
@@ -30,21 +47,24 @@ const navObserver = new IntersectionObserver((entries) => {
 sections.forEach((s) => navObserver.observe(s));
 
 // ---------- countdown ----------
+// calendar days to race day, counted in Lisbon, so the number only changes at midnight there
 function countdown() {
-  const days = Math.max(0, Math.ceil((new Date(SITE.kona) - new Date()) / 86400000));
-  $('#countdown').textContent = numFmt(days);
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date()).split('-').map(Number);
+  const [ky, km, kd] = SITE.kona.slice(0, 10).split('-').map(Number);
+  const days = Math.max(0, Math.round((Date.UTC(ky, km - 1, kd) - Date.UTC(y, m - 1, d)) / 864e5));
+  flowSet($('#countdown'), days);
 }
 
 // ---------- results ----------
 function renderResults() {
   const host = $('#sheet');
   host.textContent = '';
-  for (const r of RESULTS) {
+  for (const r of RESULTS.slice().sort((a, b) => b.date.localeCompare(a.date))) {
     const row = document.createElement('div');
     row.className = 'sheet-row rv in';
     const yr = document.createElement('span'); yr.className = 'yr'; yr.textContent = String(r.year);
     const h = document.createElement('h3'); h.textContent = pick(r);
-    const sm = document.createElement('small'); sm.textContent = r.place; h.appendChild(sm);
+    const sm = document.createElement('small'); sm.textContent = pick(r.place); h.appendChild(sm);
     const dist = document.createElement('span'); dist.className = 'dist'; dist.textContent = getLang() === 'en' ? r.dist.replace(/(\d),(\d)/g, '$1.$2') : r.dist;
     const time = document.createElement('span'); time.className = 'time'; time.textContent = r.time;
     const pos = document.createElement('div'); pos.className = 'pos';
@@ -57,33 +77,14 @@ function renderResults() {
     }
     host.appendChild(row);
   }
-  // middle-distance progression, oldest first
-  const md = RESULTS.filter((r) => r.md).slice().reverse();
-  const pts = md.map((r) => ({ y: r.min, full: r.time, label: `${pick(r)} ${r.year}`, short: `${r.place.split(',')[0]} ’${String(r.year).slice(2)}` }));
-  const hm = (min) => `${Math.floor(min / 60)}:${String(Math.floor(min % 60)).padStart(2, '0')}`;
-  lineChart($('#chart-md'), pts, { yFmt: hm, tipFmt: (p) => p.full, ticks: [260, 265, 270, 275], label: (p) => p.label });
-  const tb = $('#table-md'); tb.textContent = '';
-  const head = tb.insertRow(); [t('chart.race'), t('chart.time')].forEach((x) => { const th = document.createElement('th'); th.textContent = x; head.appendChild(th); });
-  md.forEach((r) => { const tr = tb.insertRow(); tr.insertCell().textContent = `${pick(r)} ${r.year}`; tr.insertCell().textContent = r.time; });
   splitBar($('#chart-im'), IRONMAN_SPLITS.map((x) => ({ key: x.k, label: pick(x), s: x.s })));
-  // overall place as a share of the field
-  const ranked = RESULTS.filter((r) => r.rank && r.field).map((r) => ({ label: pick(r), year: r.year, pct: (r.rank / r.field) * 100, sub: getLang() === 'en' ? `${ord(r.rank)} of ${numFmt(r.field)}` : `${r.rank}.º de ${numFmt(r.field)}` }))
-    .sort((a, b) => a.pct - b.pct);
-  topStrip($('#chart-top'), ranked, { fmt: (v) => `${numFmt(v, 1)}%`, top: t('chart.top') });
-  const tt = $('#table-top'); tt.textContent = '';
-  const h2 = tt.insertRow(); [t('chart.race'), t('chart.place'), 'Top %'].forEach((x) => { const th = document.createElement('th'); th.textContent = x; h2.appendChild(th); });
-  ranked.forEach((r) => { const tr = tt.insertRow(); tr.insertCell().textContent = `${r.label} ${r.year}`; tr.insertCell().textContent = r.sub; tr.insertCell().textContent = `${numFmt(r.pct, 1)}%`; });
 }
-const ord = (n) => `${n}${[, 'st', 'nd', 'rd'][(n % 100 >> 3 ^ 1) && n % 10] || 'th'}`;
 
 // ---------- season ----------
 function fmtWhen(r) {
-  const loc = getLang() === 'en' ? 'en-GB' : 'pt-PT';
-  if (/^\d{4}-\d{2}$/.test(r.date)) return new Date(`${r.date}-15`).toLocaleDateString(loc, { month: 'short', year: 'numeric' }).replace('.', '');
-  const d = new Date(`${r.date}T12:00:00`);
-  const main = d.toLocaleDateString(loc, { day: 'numeric', month: 'short' }).replace('.', '');
-  if (!r.end) return main;
-  return `${main}–${new Date(`${r.end}T12:00:00`).getDate()}`;
+  if (/^\d{4}-\d{2}$/.test(r.date)) return fmtDay(`${r.date}-01`, { day: false });
+  const main = fmtDay(r.date, { year: false });
+  return r.end ? `${main.split(' ')[0]} ${getLang() === 'en' ? 'to' : 'a'} ${fmtDay(r.end, { year: false })}` : main;
 }
 function renderSeason() {
   const host = $('#season');
@@ -103,8 +104,8 @@ function renderSeason() {
     host.appendChild(d);
   }
   const km = SEASON.reduce((a, r) => a + r.km, 0);
-  $$('.season-kpis b')[0].textContent = SEASON.length;
-  $$('.season-kpis b')[2].textContent = `~${numFmt(Math.round(km / 10) * 10)}`;
+  flowSet($('#sk-races'), SEASON.length);
+  flowSet($('#sk-km'), Math.round(km / 10) * 10, { prefix: '~' });
 }
 
 function greatCircleKm(a, b) {
@@ -134,10 +135,15 @@ function renderBudget() {
 
 function renderGofundme() {
   const a = $('#gofundme');
-  const label = a.querySelector('span');
-  if (SITE.gofundme) { a.href = SITE.gofundme; return; }   // label comes from i18n
-  a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo! I would like to support your road to Kona.' : 'Olá Gonçalo! Quero apoiar a tua viagem até Kona.')}`;
-  label.textContent = t('gfm.soon');
+  const label = a.querySelector('span'), icon = a.querySelector('use');
+  const note = $('#gofundme-note');
+  if (SITE.gofundme) { a.href = SITE.gofundme; a.className = 'btn gold'; icon.setAttribute('href', '#i-heart'); if (note) note.hidden = true; return; }
+  // no campaign yet: a quiet WhatsApp button instead of a "coming soon" in gold
+  a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your road to Kona.' : 'Olá Gonçalo, quero apoiar a tua preparação para Kona.')}`;
+  a.className = 'btn';
+  icon.setAttribute('href', '#i-wa');
+  label.textContent = t('gfm.help');
+  if (note) { note.hidden = false; note.textContent = t('gfm.soon'); }
 }
 
 // ---------- Strava ----------
@@ -212,8 +218,8 @@ function meter(p) {
   kmEl.querySelector('small').textContent = label;
   kmEl.style.top = `${p * 100}%`;
   m.classList.toggle('on', window.scrollY > window.innerHeight * 0.6);
-  const fl = $('#prova').getBoundingClientRect();
-  m.classList.toggle('away', fl.top < innerHeight * 0.5 && fl.bottom > innerHeight * 0.5);
+  const inside = (el) => { const r = el.getBoundingClientRect(); return r.top < innerHeight * 0.5 && r.bottom > innerHeight * 0.5; };
+  m.classList.toggle('away', inside($('#prova')) || inside($('#marks-track')));
   $('.topbar i').style.width = `${p * 100}%`;
 }
 
@@ -282,13 +288,21 @@ function initMotion(getSuit) {
     if (target === null) return;
     e.preventDefault();
     const navH = nav.offsetHeight;
-    if (lenis) lenis.scrollTo(target, { offset: target === 0 ? 0 : -navH, duration: 1.4 });
-    else if (target === 0) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
-    else target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' });
+    // keyboard focus follows the link, so the next Tab starts inside the section
+    const el = target === 0 ? $('#top') : target;
+    const land = () => { if (!el.matches('a, button, input, select, textarea, [tabindex]')) el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); };
+    if (lenis) lenis.scrollTo(target, { offset: target === 0 ? 0 : -navH, duration: 1.4, onComplete: land });
+    else { if (target === 0) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); else target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); land(); }
     history.replaceState(null, '', id === '#top' ? location.pathname : id);
   }));
 
-  if (reduce || !G || !ST) { flight(1); return { lenis }; }
+  if (reduce || !G || !ST) {
+    // stacked, static scenes: just show the full distance (also when the GSAP scripts failed to load)
+    if (!reduce) document.documentElement.classList.add('static-flight');
+    $('#flight-km').textContent = numFmt(226, 1);
+    $$('.flight-bar i').forEach((b) => { b.style.width = '100%'; });
+    return { lenis };
+  }
   G.registerPlugin(ST);
   // hero: name rises in, photo drifts as you leave
   G.from('.hero .split-line > span', { yPercent: 105, duration: 1.3, ease: 'expo.out', stagger: 0.09, delay: 0.15 });
@@ -325,31 +339,41 @@ function initMotion(getSuit) {
 // ---------- boot ----------
 function renderSocial() {
   const per = SOCIAL.likesPerPost + SOCIAL.commentsPerPost;
-  $('#ig-followers').textContent = numFmt(SOCIAL.followers);
-  $('#ig-inter').textContent = `~${numFmt(Math.round(per / 10) * 10)}`;
-  $('#ig-rate').firstChild.textContent = numFmt(Math.round((per / SOCIAL.followers) * 100));
-  $('#ig-best').firstChild.textContent = numFmt(SOCIAL.bestPost);
+  flowSet($('#ig-followers'), SOCIAL.followers);
+  flowSet($('#ig-inter'), Math.round(per / 10) * 10, { prefix: '~' });
+  flowSet($('#ig-rate'), Math.round((per / SOCIAL.followers) * 100));
+  flowSet($('#ig-best'), SOCIAL.bestPost);
 }
-function renderAll() { renderSocial(); renderResults(); renderSeason(); renderBudget(); renderGofundme(); renderStrava(); countdown(); }
+const safe = (f) => { try { f(); } catch (e) { console.error(e); } };
+function renderFooter() { $('#ft-date').textContent = fmtDay(SITE.updated); }
+function renderAll() { [renderSocial, renderResults, renderSeason, renderBudget, renderGofundme, renderStrava, countdown, renderFooter].forEach(safe); }
 renderAll();
-onLang(() => renderAll());
+onLang(() => { renderAll(); safe(refreshMarks); safe(flowStatic); });
 let lastW = innerWidth;
 addEventListener('resize', () => {
   clearTimeout(renderAll.t);
   renderAll.t = setTimeout(() => { if (Math.abs(innerWidth - lastW) > 40) { lastW = innerWidth; renderResults(); renderStrava(); } }, 200);
 });
 $('#route-km').textContent = `${numFmt(Math.round(greatCircleKm([38.7223, -9.1393], [19.6400, -155.9969]) / 10) * 10)} km`;
-$('#ft-date').textContent = new Date(`${SITE.updated}T12:00:00`).toLocaleDateString(getLang() === 'en' ? 'en-GB' : 'pt-PT', { day: 'numeric', month: 'short', year: 'numeric' });
 $('#print-kit').addEventListener('click', () => window.print());
+// the printed media kit carries the full results list, even when it is folded on screen
+const folded = () => $$('details.all-results');
+addEventListener('beforeprint', () => folded().forEach((d) => { d.dataset.wasOpen = String(d.open); d.open = true; }));
+addEventListener('afterprint', () => folded().forEach((d) => { if (d.dataset.wasOpen === 'false') d.open = false; }));
 initReveal();
+document.documentElement.classList.add('ready');
+flowStatic();
 loadStrava();
 
 let suitRef = null;
 const startMotion = () => {
-  const { lenis } = initMotion(() => suitRef);
+  let lenis = null;
+  try { ({ lenis } = initMotion(() => suitRef)); } catch (e) { console.error(e); }
+  const toStudio = () => { const el = $('#fato'); if (!el) return; if (lenis) lenis.scrollTo(el, { offset: -nav.offsetHeight, immediate: true }); else el.scrollIntoView(); };
   initAdspace({
     onSuitReady: (s) => {
       suitRef = s;
+      if (userHasInteracted()) { s._revealed = true; s.reveal(); if (s.selected) s.focus(s.selected); return; }
       // match the scroll pose before the first frame so the suit never jumps
       const st = window.ScrollTrigger && window.ScrollTrigger.getAll().find((x) => x.trigger && x.trigger.classList && x.trigger.classList.contains('studio'));
       if (st && !reduce) {
@@ -359,9 +383,9 @@ const startMotion = () => {
         if (k > 0.35) { s._revealed = true; s.reveal(); }
         if (k >= 0.999) s.setAuto(true);
       } else { s.reveal(); s.setAuto(!reduce); }
-      if (location.hash.startsWith('#fato/') && lenis) lenis.scrollTo('#fato', { offset: -nav.offsetHeight, immediate: true });
     },
-  });
+  }).then(() => { if (deepLinked()) requestAnimationFrame(toStudio); });
+  safe(() => initMarks({ lenis }));
 };
 // GSAP/Lenis are deferred classic scripts; modules run after them, but guard anyway
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startMotion); else startMotion();

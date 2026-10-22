@@ -4,33 +4,53 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Gonçalo Carmo · Road to Kona</title>
-<meta name="description" content="Gonçalo Carmo, triatleta português. Do motocross ao IRONMAN em 9h35, com o Campeonato do Mundo em Kona como objetivo para 2027. Patrocina um espaço no fato de competição.">
+<meta name="description" content="Gonçalo Carmo, triatleta português e antigo piloto de motocross. Fez o IRONMAN Portugal-Cascais em 9h35 e o objetivo para 2027 é Kona. O fato de competição tem 20 espaços para marcas.">
 <meta name="theme-color" content="#0b0b0c">
 <link rel="canonical" href="https://rgvduarte.github.io/carmo/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Gonçalo Carmo · Road to Kona">
-<meta property="og:description" content="Triatleta português. Primeiro IRONMAN em 9h35, objetivo Kona 2027. O fato de competição tem 20 espaços para marcas.">
+<meta property="og:description" content="Triatleta português. IRONMAN Portugal-Cascais em 9h35, objetivo Kona 2027. O fato de competição tem 20 espaços para marcas.">
 <meta property="og:image" content="https://rgvduarte.github.io/carmo/assets/img/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Gonçalo Carmo a sorrir na meta. Road to Kona.">
+<meta property="og:url" content="https://rgvduarte.github.io/carmo/">
+<meta property="og:site_name" content="Gonçalo Carmo · Road to Kona">
 <meta property="og:locale" content="pt_PT">
+<meta property="og:locale:alternate" content="en_GB">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image:alt" content="Gonçalo Carmo a sorrir na meta. Road to Kona.">
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/css/style.css">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
-<script>document.documentElement.classList.replace('no-js', 'js');</script>
+<script>
+  // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
+  // script), fall back to the no-JS page so nothing stays invisible.
+  document.documentElement.classList.replace('no-js', 'js');
+  (function () {
+    var d = document.documentElement, fail = function () { if (!d.classList.contains('ready')) d.classList.replace('js', 'no-js'); };
+    addEventListener('error', function (e) { if (e.target && e.target.tagName === 'SCRIPT' && e.target.type === 'module') fail(); }, true);
+    addEventListener('load', function () { setTimeout(fail, 0); });
+  })();
+</script>
 <script type="importmap">
 { "imports": {
-  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "number-flow": "https://cdn.jsdelivr.net/npm/number-flow@0.5.8/+esm",
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
 <script type="application/ld+json">
 { "@context": "https://schema.org", "@type": "Person", "name": "Gonçalo Carmo", "jobTitle": "Triathlete",
+  "url": "https://rgvduarte.github.io/carmo/", "image": "https://rgvduarte.github.io/carmo/assets/img/og.jpg",
+  "description": "Triatleta português. IRONMAN Portugal-Cascais em 9h35, objetivo Kona 2027.", "knowsAbout": "Triathlon",
   "nationality": "PT", "email": "mailto:gcarmo.media@gmail.com",
-  "sameAs": ["https://www.instagram.com/goncalo.carmo99/", "https://www.tiktok.com/@carmo_111", "https://www.strava.com/athletes/50182673"] }
+  "sameAs": ["https://www.instagram.com/goncalo.carmo99/", "https://www.tiktok.com/@goncalo.carmo99", "https://www.strava.com/athletes/50182673"] }
 </script>
 </head>
 <body>
@@ -44,14 +64,16 @@
   <symbol id="i-tiktok" viewBox="0 0 24 24"><path fill="currentColor" d="M16.6 5.8A4.3 4.3 0 0 1 15.5 3h-3.1v12.4a2.6 2.6 0 1 1-2.6-2.6 2.5 2.5 0 0 1 .8.1V9.7a5.7 5.7 0 1 0 4.9 5.7V9.1a7.3 7.3 0 0 0 4.3 1.4V7.4a4.3 4.3 0 0 1-3.2-1.6z"/></symbol>
   <symbol id="i-strava" viewBox="0 0 24 24"><path fill="currentColor" d="M15.4 17.4 13.3 13.3h-3.1l5.2 10.2 5.2-10.2h-3.1zM10.2 2 3.3 15.5h4.1l2.8-5.4 2.7 5.4h4.1z"/></symbol>
   <symbol id="i-wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.8-1.4a.5.5 0 0 0 0-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 0 0 1.8-1.2 2.2 2.2 0 0 0 .2-1.2c-.1-.1-.3-.2-.5-.3z"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M9 8.5h10.5V20H9zM5 15.5V4h10.5"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 6.9 4c2.2 0 3.6 1.2 5.1 3 1.5-1.8 2.9-3 5.1-3C21 4 23.1 8.2 21.6 11.7 19.5 16.4 12 21 12 21z"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
 </svg>
 
 <header class="nav" id="nav">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="Gonçalo Carmo, início"><svg class="hib"><use href="#i-hibiscus"/></svg>Gonçalo Carmo</a>
-    <ul id="menu">
+    <a class="brand" href="#top" aria-label="Gonçalo Carmo, início" data-i18n-attr="aria-label:a.home"><svg class="hib" aria-hidden="true" focusable="false"><use href="#i-hibiscus"/></svg>Gonçalo Carmo</a>
+    <nav class="site-menu" aria-label="Principal" data-i18n-attr="aria-label:a.mainnav"><ul id="menu">
       <li><a href="#historia" data-i18n="nav.story">História</a></li>
       <li><a href="#resultados" data-i18n="nav.results">Resultados</a></li>
       <li><a href="#dados" data-i18n="nav.data">Dados</a></li>
@@ -59,7 +81,7 @@
       <li><a href="#fato" data-i18n="nav.suit">O fato</a></li>
       <li><a href="#apoiar" data-i18n="nav.support">Apoiar</a></li>
       <li><a href="#contacto" data-i18n="nav.contact">Contacto</a></li>
-    </ul>
+    </ul></nav>
     <div class="actions">
       <div class="lang" role="group" aria-label="Idioma / Language">
         <button type="button" data-lang="pt" aria-pressed="true">PT</button>
@@ -99,17 +121,17 @@
         <span class="rule"></span>
         <p class="big">Road to Kona</p>
       </div>
-      <p class="hero-sub" data-i18n="hero.sub">Competi no motocross durante mais de dez anos. Em 2025 fiz o primeiro triatlo e em 2026 terminei o primeiro IRONMAN em 9h35. Em 2027 quero estar na partida do Campeonato do Mundo, em Kona.</p>
+      <p class="hero-sub" data-i18n="hero.sub">Fiz motocross de competição durante mais de dez anos. Estreei-me no triatlo em 2025 e, no ano seguinte, fiz o IRONMAN Portugal-Cascais em 9h35. Em 2027 quero estar na partida do Campeonato do Mundo, em Kona.</p>
       <div class="hero-cta">
-        <a class="btn gold" href="#fato"><span data-i18n="hero.cta1">Ver os espaços no fato</span><svg><use href="#i-arrow"/></svg></a>
+        <a class="btn gold" href="#fato"><span data-i18n="hero.cta1">Ver os espaços no fato</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
         <a class="btn ghost" href="#apoiar" data-i18n="hero.cta2">Apoiar</a>
       </div>
     </div>
     <dl class="telemetry">
-      <div><dt>IRONMAN</dt><dd>9:35<small>CAS 26</small></dd></div>
-      <div><dt data-i18n="hero.t1">Maratona</dt><dd>2:44<small>SEV 26</small></dd></div>
-      <div><dt data-i18n="hero.t2">Meia distância</dt><dd>4:26<small>SET 26</small></dd></div>
-      <div><dt data-i18n="hero.t3">Escalão</dt><dd>1.º<small>SIN 26</small></dd></div>
+      <div><dt>IRONMAN</dt><dd>9:35<small>CASCAIS 26</small></dd></div>
+      <div><dt data-i18n="hero.t1">Maratona</dt><dd>2:44<small data-i18n="hero.t1v">SEVILHA 26</small></dd></div>
+      <div><dt data-i18n="hero.t2">Meia distância</dt><dd>4:26<small>SETÚBAL 26</small></dd></div>
+      <div><dt data-i18n="hero.t3">Escalão</dt><dd><span data-i18n="hero.t3v">1.º</span><small>SINES 26</small></dd></div>
       <div class="gold"><dt data-i18n="hero.t5">Kona · 9 out. 2027</dt><dd><span id="countdown">352</span><small data-i18n="hero.days">dias</small></dd></div>
     </dl>
   </div>
@@ -122,20 +144,20 @@
     <div class="thesis-head">
       <div>
         <p class="eyebrow" data-i18n="thesis.k">Porquê agora</p>
-        <h2 class="display h2 rv" data-i18n-html="thesis.h">Do primeiro triatlo<br>ao IRONMAN<br>em 17 meses.</h2>
+        <h2 class="display h2 rv" data-i18n-html="thesis.h">Do primeiro triatlo ao IRONMAN em 17 meses.</h2>
       </div>
-      <p class="lead rv" data-i18n="thesis.p">Em maio de 2025 fiz o primeiro triatlo, em Caminha. Em outubro de 2026 terminei o IRONMAN Portugal-Cascais em 9h35. O passo seguinte é a qualificação para Kona. Patrocinar agora é entrar com preços de primeira época num atleta que este ano ficou no top 3% em Setúbal, em Sines e no IRONMAN Cascais.</p>
+      <p class="lead rv" data-i18n="thesis.p">Este ano fiquei no top 3% da geral em Setúbal, em Sines e no IRONMAN Cascais. Falta a qualificação para Kona, e os preços de 2027 ainda são de primeira época.</p>
     </div>
     <div class="years">
       <div class="year rv"><span class="y">2025 · <span data-i18n="thesis.y1k">Ano 1</span></span><h3 data-i18n="thesis.y1h">Primeiro triatlo e primeiro 70.3.</h3><p data-i18n="thesis.y1p">4.º do escalão na estreia, em Caminha. Em outubro, 4:27 no IRONMAN 70.3 Cascais, 31.º entre 2 353 atletas.</p></div>
       <div class="year rv"><span class="y">2026 · <span data-i18n="thesis.y2k">Ano 2</span></span><h3 data-i18n="thesis.y2h">Vitória de escalão e IRONMAN em 9:35.</h3><p data-i18n="thesis.y2p">1.º do escalão em Sines, 2.º em Setúbal, 2:44 na Maratona de Sevilha e 9:35:08 no IRONMAN Portugal-Cascais.</p></div>
-      <div class="year goal rv"><span class="tag" data-i18n="thesis.goal">Objetivo</span><span class="y">2027 · <span data-i18n="thesis.y3k">Ano 3</span></span><h3 data-i18n="thesis.y3h">Qualificação para Kona.</h3><p data-i18n="thesis.y3p">Uma prova full distance para garantir o lugar e a partida do Campeonato do Mundo IRONMAN a 9 de outubro de 2027.</p></div>
+      <div class="year goal rv"><span class="tag" data-i18n="thesis.goal">Objetivo</span><span class="y">2027 · <span data-i18n="thesis.y3k">Ano 3</span></span><h3 data-i18n="thesis.y3h">Qualificação para Kona.</h3><p data-i18n="thesis.y3p">Em 2027, um IRONMAN de qualificação na Península Ibérica, a confirmar quando sair a lista oficial. O Campeonato do Mundo é a 9 de outubro de 2027.</p></div>
     </div>
     <div class="kpis">
-      <div class="kpi rv"><div class="v">9:35</div><div class="l" data-i18n="thesis.k2">no primeiro IRONMAN: 3,8 km a nadar, 180 km de bicicleta e 42,2 km a correr</div></div>
-      <div class="kpi rv"><div class="v"><small style="margin:0 4px 0 0">Top</small>3%</div><div class="l" data-i18n="thesis.k3">da geral em Setúbal, em Sines e no IRONMAN Cascais</div></div>
-      <div class="kpi rv"><div class="v">−6<small>min</small></div><div class="l" data-i18n="thesis.k1">entre a primeira e a terceira meia distância (de 4:32 para 4:26)</div></div>
-      <div class="kpi rv"><div class="v">2</div><div class="l" data-i18n="thesis.k4">inscrições de 2027 já garantidas, em Setúbal e em Sines, pela vitória de escalão no circuito HMS</div></div>
+      <div class="kpi rv"><div class="v">9:35</div><div class="l" data-i18n="thesis.k2">no IRONMAN Portugal-Cascais, 52.º da geral entre 1 981 atletas</div></div>
+      <div class="kpi rv"><div class="v"><small style="margin:0 4px 0 0">Top</small><span data-flow="3" data-suffix="%">3%</span></div><div class="l" data-i18n="thesis.k3">da geral em Setúbal, em Sines e no IRONMAN Cascais</div></div>
+      <div class="kpi rv"><div class="v"><span data-flow="6" data-prefix="−">−6</span><small>min</small></div><div class="l" data-i18n="thesis.k1">na meia distância, de Caminha 2025 (4:32) a Setúbal 2026 (4:26)</div></div>
+      <div class="kpi rv"><div class="v" data-flow="2">2</div><div class="l" data-i18n="thesis.k4">inscrições para 2027 já garantidas, em Setúbal e em Sines, com a vitória de escalão no circuito HMS</div></div>
     </div>
   </div>
 </section>
@@ -146,35 +168,35 @@
     <div class="story-media rv"><picture><source type="image/webp" srcset="assets/img/wetsuit-dock-800.webp 800w, assets/img/wetsuit-dock-1600.webp 1600w" sizes="(max-width: 860px) 100vw, 50vw"><img src="assets/img/wetsuit-dock-800.jpg" alt="Gonçalo de fato de neoprene, sentado num pontão, a sorrir" loading="lazy" width="1600" height="2133" data-parallax data-i18n-attr="alt:story.alt"></picture></div>
     <div>
       <p class="eyebrow" data-i18n="story.k">01 · História</p>
-      <h2 class="display h3 rv" data-i18n-html="story.h">Dos circuitos de motocross<br>às linhas de chegada</h2>
-      <p class="rv" data-i18n-html="story.p1">Comecei a competir no motocross aos <strong>nove anos</strong> e corri mais de uma década nos campeonatos nacionais de <strong>Portugal e Espanha</strong>. Foi aí que aprendi a treinar com método e a perceber que uma corrida se decide nos detalhes.</p>
-      <p class="rv" data-i18n-html="story.p2">Deixei a mota em 2021. Em 2025 experimentei o triatlo e percebi depressa que a bicicleta e a corrida me saíam naturalmente, provavelmente por causa dos anos de motocross.</p>
+      <h2 class="display h3 rv" data-i18n-html="story.h">Cresci<br>no motocross</h2>
+      <p class="rv" data-i18n-html="story.p1">Comecei a competir aos <strong>nove anos</strong> e fiz mais de dez épocas nos campeonatos nacionais de <strong>Portugal e de Espanha</strong>. Foi aí que aprendi a treinar com método.</p>
+      <p class="rv" data-i18n-html="story.p2">Deixei a mota em 2021. Quando experimentei o triatlo, em 2025, a bicicleta e a corrida saíram-me bem desde o início. Devo-o aos anos de motocross.</p>
       <p class="rv" data-i18n-html="story.p3">Hoje treino com a <strong>LB Squad Portugal</strong>, <strong>duas vezes por dia e perto de 21 horas por semana</strong>. No motocross os patrocinadores sempre fizeram parte da equipa, e é assim que quero trabalhar no triatlo.</p>
       <div class="timeline rv">
-        <div><b>9</b><span data-i18n="story.t1">anos na primeira corrida de motocross</span></div>
+        <div><b>9</b><span data-i18n="story.t1">anos de idade na primeira corrida de motocross</span></div>
         <div><b>10+</b><span data-i18n="story.t2">épocas nos campeonatos de Portugal e Espanha</span></div>
         <div><b>2025</b><span data-i18n="story.t3">primeiro triatlo e primeiro IRONMAN 70.3</span></div>
-        <div><b>9:35</b><span data-i18n="story.t5">primeiro IRONMAN, Cascais 2026</span></div>
-        <div class="now"><b>2027</b><span data-i18n="story.t4">Kona, Havai</span></div>
+        <div><b>9:35</b><span data-i18n="story.t5">IRONMAN completo, Cascais 2026</span></div>
+        <div class="now"><b>2027</b><span data-i18n="story.t4">qualificação para Kona</span></div>
       </div>
     </div>
   </div>
 </section>
 
 <!-- RACE FLIGHT (scroll-scrubbed) -->
-<section class="flight" id="prova" aria-label="Uma prova em quatro atos">
+<section class="flight" id="prova" aria-label="A prova de Kona, segmento a segmento" data-i18n-attr="aria-label:a.flight">
   <div class="flight-stage">
     <div class="flight-scene" data-scene="0"><picture><source type="image/webp" srcset="assets/img/swim-800.webp 800w, assets/img/swim-1600.webp 1600w" sizes="100vw"><img src="assets/img/swim-1600.jpg" alt="" loading="lazy" style="object-position: 55% 45%"></picture></div>
-    <div class="flight-scene" data-scene="1"><picture><source type="image/webp" srcset="assets/img/bike-aero-bw-1200.webp 1200w, assets/img/bike-aero-bw-2400.webp 2400w" sizes="100vw"><img src="assets/img/bike-aero-bw-1200.jpg" alt="" loading="lazy" style="object-position: 62% 40%"></picture></div>
+    <div class="flight-scene" data-scene="1"><picture><source type="image/webp" srcset="assets/img/bike-pan-bw-800.webp 800w, assets/img/bike-pan-bw-1600.webp 1600w" sizes="100vw"><img src="assets/img/bike-pan-bw-1600.jpg" alt="" loading="lazy" style="object-position: 58% 50%"></picture></div>
     <div class="flight-scene" data-scene="2"><picture><source type="image/webp" srcset="assets/img/run-stadium-back-800.webp 800w, assets/img/run-stadium-back-1600.webp 1600w" sizes="100vw"><img src="assets/img/run-stadium-back-1600.jpg" alt="" loading="lazy" style="object-position: 50% 62%"></picture></div>
-    <div class="flight-scene" data-scene="3"><picture><source type="image/webp" srcset="assets/img/finish-line-1200.webp 1200w" sizes="100vw"><img src="assets/img/finish-line-1200.jpg" alt="" loading="lazy" style="object-position: 52% 35%"></picture></div>
+    <div class="flight-scene" data-scene="3"><picture><source type="image/webp" srcset="assets/img/finish-cascais-im-800.webp 800w, assets/img/finish-cascais-im-1600.webp 1600w" sizes="100vw"><img src="assets/img/finish-cascais-im-1600.jpg" alt="" loading="lazy" style="object-position: 50% 27%"></picture></div>
     <div class="flight-hud">
       <div class="wrap">
         <div class="flight-cap">
-          <div><p class="discipline" data-i18n="flight.d0">Natação · 3,8 km</p><h3 class="display h3" data-i18n="flight.h0">A baía de Kailua.</h3><p data-i18n="flight.p0">Em Kona nada-se no oceano e sem fato de neoprene. É cerca de uma hora até à primeira transição.</p></div>
-          <div><p class="discipline" data-i18n="flight.d1">Ciclismo · 180 km</p><h3 class="display h3" data-i18n="flight.h1">A Queen Kaʻahumanu Highway.</h3><p data-i18n="flight.p1">Cinco horas entre campos de lava e vento lateral. É o segmento em que o fato passa mais tempo à frente das câmaras. Em Cascais demorei 4h56.</p></div>
-          <div><p class="discipline" data-i18n="flight.d2">Corrida · 42,2 km</p><h3 class="display h3" data-i18n="flight.h2">Aliʻi Drive e Energy Lab.</h3><p data-i18n="flight.p2">Uma maratona ao calor depois de 180 km de bicicleta. Em Cascais corri-a em 3h27.</p></div>
-          <div><p class="discipline" data-i18n="flight.d3">Meta · Aliʻi Drive</p><h3 class="display h3" data-i18n="flight.h3">A fotografia da meta.</h3><p data-i18n="flight.p3">É a imagem que fica de cada prova e a mais partilhada. Os logótipos do fato aparecem nela.</p></div>
+          <div><p class="discipline" data-i18n="flight.d0">Natação · 3,8 km</p><h3 class="display h3" data-i18n="flight.h0">A baía de Kailua.</h3><p data-i18n="flight.p0">Em Kona nada-se no mar e sem neoprene. Em Cascais, com fato, nadei 1:01:42.</p></div>
+          <div><p class="discipline" data-i18n="flight.d1">Ciclismo · 180 km</p><h3 class="display h3" data-i18n="flight.h1">A Queen Kaʻahumanu Highway.</h3><p data-i18n="flight.p1">São cinco horas entre campos de lava, com vento lateral, e é onde o fato fica mais tempo à vista. Em Cascais demorei 4h56.</p></div>
+          <div><p class="discipline" data-i18n="flight.d2">Corrida · 42,2 km</p><h3 class="display h3" data-i18n="flight.h2">Aliʻi Drive e Energy Lab.</h3><p data-i18n="flight.p2">A maratona corre-se ao calor, depois dos 180 km de bicicleta. Fiz 3h27 em Cascais.</p></div>
+          <div><p class="discipline" data-i18n="flight.d3">Meta · Aliʻi Drive</p><h3 class="display h3" data-i18n="flight.h3">A fotografia da meta.</h3><p data-i18n="flight.p3">É a imagem que fica de cada prova e a que mais se partilha, com o fato de frente para a câmara.</p></div>
         </div>
         <div class="flight-km"><div class="v"><span id="flight-km">0.0</span></div><div class="l" data-i18n="flight.of">KM DE 226</div></div>
       </div>
@@ -186,38 +208,48 @@
   </div>
 </section>
 
-<!-- RESULTS -->
-<section class="section" id="resultados">
-  <div class="wrap">
+<!-- MARKS: one result at a time, scrubbed by scroll -->
+<section class="marks" id="resultados">
+  <div class="wrap marks-intro">
+    <p class="eyebrow" data-i18n="res.k">02 · Resultados</p>
     <div class="results-head">
-      <div>
-        <p class="eyebrow" data-i18n="res.k">02 · Resultados</p>
-        <h2 class="display h2 rv" data-i18n="res.h">Palmarés</h2>
-      </div>
-      <p class="lead muted rv" data-i18n="res.p">Resultados oficiais de 2025 e 2026. Cada meia distância foi mais rápida do que a anterior, e o primeiro IRONMAN ficou abaixo das dez horas.</p>
+      <h2 class="display h2 rv" data-i18n-html="res.h">Prova a prova</h2>
+      <p class="lead muted rv" data-i18n="res.p">Resultados oficiais de 2025 e 2026, por ordem. Em cada prova, o tempo final e a parte do pelotão que terminou atrás.</p>
     </div>
-    <div class="sheet" id="sheet"></div>
-    <div class="card rv" style="margin-top:clamp(56px,7vw,96px)">
-      <div class="ratecard-head"><h3 data-i18n="res.c0h">IRONMAN Portugal-Cascais 2026 · 9:35:08</h3><span class="badge gold" data-i18n="res.c0b">Primeiro IRONMAN</span></div>
-      <p class="sub" data-i18n="res.c0s">Tempo por segmento nos 226 km. Mais de metade da prova foi passada na bicicleta.</p>
-      <div class="chart" id="chart-im" role="img" aria-label="Parciais: natação 1:01:41, T1 6:00, ciclismo 4:56:43, T2 3:22, corrida 3:27:22"></div>
+  </div>
+  <div class="marks-track" id="marks-track">
+    <div class="marks-stage">
+      <div class="wrap marks-grid">
+        <div class="mk-main">
+          <p class="mk-meta"><span id="mk-idx">01</span><span class="mk-of"> / <span id="mk-total">07</span></span><span class="mk-date" id="mk-date"></span></p>
+          <div class="mk-time" id="mk-time"></div>
+          <h3 class="mk-race" id="mk-race"></h3>
+          <p class="mk-sub" id="mk-sub"></p>
+          <div class="mk-pack">
+            <p class="mk-ahead"><span class="mk-pct" id="mk-pct"></span><span class="mk-ahead-l" data-i18n="mk.ahead">do pelotão terminou atrás</span></p>
+            <div class="mk-cells" id="mk-cells" aria-hidden="true"></div>
+            <p class="mk-pack-foot"><span id="mk-rank"></span><span data-i18n="mk.cells">1 quadrado = 1% dos atletas</span></p>
+          </div>
+          <p class="mk-note" id="mk-note"></p>
+          <div class="mk-chips" id="mk-chips"></div>
+        </div>
+        <ol class="mk-list" id="mk-list"></ol>
+      </div>
+      <div class="mk-dots" id="mk-dots" aria-hidden="true"></div>
+    </div>
+  </div>
+  <div class="wrap marks-after">
+    <div class="card rv">
+      <div class="ratecard-head"><h3 data-i18n="res.c0h">IRONMAN Portugal-Cascais 2026 · 9:35:08</h3><span class="badge gold" data-i18n="res.c0b">Distância completa</span></div>
+      <p class="sub" data-i18n="res.c0s">Tempo por segmento nos 226 km. Passei mais de metade da prova na bicicleta.</p>
+      <div class="chart" id="chart-im" role="img" aria-label="Parciais: natação 1:01:42, T1 6:00, ciclismo 4:56:43, T2 3:22, corrida 3:27:22" data-i18n-attr="aria-label:a.splits"></div>
       <p class="src" data-i18n="res.c0src">Fonte: cronometragem oficial IRONMAN.</p>
     </div>
-    <div class="charts" style="margin-top:20px">
-      <div class="card rv">
-        <h3 data-i18n="res.c1h">Meia distância: tempo final</h3>
-        <p class="sub" data-i18n="res.c1s">1,9 km a nadar, 90 km de bicicleta e 21,1 km a correr. Quanto mais baixo, melhor.</p>
-        <div class="chart" id="chart-md" role="img" aria-label="Tempo final nas três provas de meia distância: Caminha 2025 4:32:54, Cascais 2025 4:27:16, Setúbal 2026 4:26:49"></div>
-        <details class="table-toggle"><summary data-i18n="res.table">Ver tabela</summary><table id="table-md"></table></details>
-        <p class="src" data-i18n="res.src">Fonte: classificações oficiais. Os percursos são diferentes e não são diretamente comparáveis.</p>
-      </div>
-      <div class="card rv">
-        <h3 data-i18n="res.c2h">Lugar na geral, em percentagem do pelotão</h3>
-        <p class="sub" data-i18n="res.c2s">Quanto mais à esquerda, melhor.</p>
-        <div class="chart" id="chart-top" role="img" aria-label="Lugar na geral: 10 km Santo António top 0,3%, Sines top 0,8%, IRONMAN 70.3 Cascais top 1,3%, Setúbal top 1,4%, IRONMAN Cascais top 2,6%, Maratona de Sevilha top 5,6%"></div>
-        <details class="table-toggle"><summary data-i18n="res.table">Ver tabela</summary><table id="table-top"></table></details>
-      </div>
-    </div>
+    <details class="all-results">
+      <summary data-i18n="res.all">Ver todos os resultados</summary>
+      <div class="sheet" id="sheet"></div>
+      <p class="src" data-i18n="res.src">Fonte: classificações oficiais. Os percursos variam, por isso os tempos não se comparam diretamente.</p>
+    </details>
   </div>
 </section>
 
@@ -229,7 +261,7 @@
         <p class="eyebrow" data-i18n="data.k">03 · Telemetria</p>
         <h2 class="display h2 rv" data-i18n="data.h">Os dados de treino</h2>
       </div>
-      <p class="lead muted rv" data-i18n="data.p">Todos os treinos ficam registados no Strava, com distância, tempo e desnível. Os patrocinadores podem acompanhar o volume de treino semana a semana.</p>
+      <p class="lead muted rv" data-i18n="data.p">Registo todos os treinos no Strava. Quem me patrocina pode acompanhar o volume semana a semana.</p>
     </div>
     <div class="tele-grid">
       <div class="card rv" id="strava-live" hidden>
@@ -241,15 +273,15 @@
       </div>
       <div class="card rv">
         <div class="facts">
-          <div><div class="v">~21<small>h</small></div><div class="l" data-i18n="data.f1">de treino por semana em época</div></div>
-          <div><div class="v">2<small data-i18n="data.f2u">sessões</small></small></div><div class="l" data-i18n="data.f2">por dia, entre natação, bicicleta e corrida</div></div>
-          <div><div class="v">36,4<small>km/h</small></div><div class="l" data-i18n="data.f3">de média nos 180 km de bicicleta do IRONMAN Cascais</div></div>
+          <div><div class="v"><span data-flow="21" data-prefix="~">~21</span><small>h</small></div><div class="l" data-i18n="data.f1">de treino por semana em época</div></div>
+          <div><div class="v"><span data-flow="2">2</span><small data-i18n="data.f2u">sessões</small></div><div class="l" data-i18n="data.f2">por dia, entre natação, bicicleta e corrida</div></div>
+          <div><div class="v"><span data-flow="36.4">36,4</span><small>km/h</small></div><div class="l" data-i18n="data.f3">de média nos 180 km de bicicleta do IRONMAN Cascais</div></div>
         </div>
       </div>
       <div class="card strava-card rv">
-        <div class="logo"><svg style="color:#fff"><use href="#i-strava"/></svg></div>
+        <div class="logo"><svg style="color:#fff" aria-hidden="true" focusable="false"><use href="#i-strava"/></svg></div>
         <div><h3 data-i18n="data.sh">Perfil no Strava</h3><p data-i18n="data.sp">Natação, bicicleta e corrida, com distância, ritmo e desnível de cada sessão.</p></div>
-        <a class="btn ghost sm" href="https://www.strava.com/athletes/50182673" target="_blank" rel="noopener"><span data-i18n="data.sb">Abrir no Strava</span><svg><use href="#i-arrow"/></svg></a>
+        <a class="btn ghost sm" href="https://www.strava.com/athletes/50182673" target="_blank" rel="noopener"><span data-i18n="data.sb">Abrir no Strava</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
       </div>
     </div>
   </div>
@@ -266,24 +298,27 @@
     <div class="season" id="season" style="--n:7"></div>
     <div class="season-foot">
       <div>
-        <p class="lead rv" data-i18n="season.p">Sete provas em três países, com a distância a aumentar ao longo do ano até ao Campeonato do Mundo. As provas IRONMAN têm transmissão em direto e fotógrafos oficiais, e cada uma dá conteúdo para as semanas antes e depois.</p>
+        <p class="lead rv" data-i18n="season.p">Sete provas em três países, de fevereiro até ao Campeonato do Mundo, em outubro. As provas IRONMAN têm fotógrafos oficiais. Antes e depois de cada prova, publico nas redes com os patrocinadores identificados.</p>
         <div class="season-kpis rv">
-          <div><b>7</b><span data-i18n="season.s1">provas</span></div>
-          <div><b>3</b><span data-i18n="season.s2">países</span></div>
-          <div><b>~2 030</b><span data-i18n="season.s3">km em prova</span></div>
-          <div><b>2</b><span data-i18n="season.s4">inscrições garantidas</span></div>
+          <div><b id="sk-races">7</b><span data-i18n="season.s1">provas</span></div>
+          <div><b data-flow="3">3</b><span data-i18n="season.s2">países</span></div>
+          <div><b id="sk-km">~2 030</b><span data-i18n="season.s3">km em prova</span></div>
+          <div><b data-flow="1">1</b><span data-i18n="season.s4">inscrição garantida</span></div>
         </div>
-        <p class="note" data-i18n="season.note">Datas oficiais a 22 de outubro de 2026. A prova full distance de qualificação ainda está por escolher.</p>
+        <p class="kona-tv rv" data-i18n-html="season.tv"><b>Kona em direto.</b> Em 2025, o Campeonato do Mundo passou em direto e de graça no YouTube, na DAZN e no site da IRONMAN, com imagens de helicóptero e drone.</p>
+        <p class="note" data-i18n="season.note">Datas oficiais a 22 de outubro de 2026. O IRONMAN de qualificação ainda está por definir. Transmissão: media kit IRONMAN 2025.</p>
       </div>
       <div class="route rv" aria-hidden="true">
         <svg viewBox="0 0 640 300" id="route-svg">
           <path class="arc" d="M560 210 C 470 40, 170 40, 80 200"/>
           <path class="arc-live" id="route-live" d="M560 210 C 470 40, 170 40, 80 200"/>
           <circle cx="560" cy="210" r="5" fill="#111"/><circle cx="80" cy="200" r="7" fill="#8a6312"/>
-          <text x="560" y="240" text-anchor="middle">LISBOA</text>
+          <text x="560" y="240" text-anchor="middle" data-i18n="season.from">LISBOA</text>
           <text x="80" y="230" text-anchor="middle">KONA</text>
-          <text class="big" x="320" y="160" text-anchor="middle" id="route-km">12 800 km</text>
-          <text x="320" y="186" text-anchor="middle" data-i18n="season.route">ATÉ À LINHA DE PARTIDA</div>
+          <text class="big" x="320" y="160" text-anchor="middle" id="route-km">12 660 km</text>
+          <text x="320" y="186" text-anchor="middle" data-i18n="season.route">ATÉ À LINHA DE PARTIDA</text>
+        </svg>
+      </div>
     </div>
   </div>
 </section>
@@ -294,22 +329,27 @@
     <div class="adspace-head">
       <p class="eyebrow gold" style="justify-content:center" data-i18n="suit.k">05 · Patrocínio</p>
       <h2 class="display h2 rv" data-i18n-html="suit.h">O teu logo<br>no meu fato.</h2>
-      <p class="lead rv" data-i18n="suit.p">O fato que vou usar em todas as provas e treinos de 2027 tem 20 espaços para marcas. Podes rodar o modelo, escolher um espaço, experimentar o teu logótipo e enviar o pedido de reserva.</p>
+      <p class="lead rv" data-i18n="suit.p">Em 2027 vou usar este fato em todos os triatlos e também em treino. Tem 20 espaços para marcas. Escolhe um, experimenta o teu logótipo no modelo e envia o pedido.</p>
       <div class="avail rv"><div class="row"><span><b id="avail-n">20</b> <span data-i18n="suit.of">de</span> <span id="avail-t">20</span> <span data-i18n="suit.left">espaços disponíveis</span></span><span id="avail-pct">100%</span></div><div class="bar"><i id="avail-bar"></i></div></div>
+      <div class="onsuit" id="onsuit" hidden><span class="k" data-i18n="suit.on">Já no fato</span><ul id="onsuit-list"></ul></div>
       <dl class="ad-stats rv">
         <div><dt data-i18n="suit.st1">Espaços</dt><dd id="st-n">20</dd></div>
         <div><dt data-i18n="suit.st2">Desde</dt><dd id="st-from">60 €</dd></div>
-        <div class="gold"><dt data-i18n="suit.st3">Top spot</dt><dd id="st-top">600 €</dd></div>
-        <div><dt data-i18n="suit.st4">Fato completo</dt><dd id="st-title">3000 €</dd></div>
+        <div class="gold"><dt data-i18n="suit.st3">Destaque</dt><dd id="st-top">600 €</dd></div>
+        <div><dt data-i18n="suit.st4">Fato completo</dt><dd id="st-title">3 000 €</dd></div>
       </dl>
     </div>
 
+    <div class="card nojs-offer">
+      <h3>Os 20 espaços do fato</h3>
+      <p>De 60 € a 600 € por espaço, na época 2027. O fato completo, com exclusividade de setor, custa 3 000 €. Para ver a tabela e reservar, escreve para <a href="mailto:gcarmo.media@gmail.com">gcarmo.media@gmail.com</a> ou manda mensagem por <a href="https://wa.me/351916395103">WhatsApp</a>.</p>
+    </div>
     <div class="studio">
       <div class="stage-wrap">
         <div class="stage" id="stage">
           <div class="loading" id="stage-loading" data-i18n="suit.loading">A carregar o fato</div>
           <div class="stage-ui">
-            <div class="seg-tabs" role="group" aria-label="Vista">
+            <div class="seg-tabs" role="group" aria-label="Vista" data-i18n-attr="aria-label:a.view">
               <button type="button" data-view="front" aria-pressed="false" data-i18n="suit.front">Frente</button>
               <button type="button" data-view="left" aria-pressed="false" data-i18n="suit.left2">Esq.</button>
               <button type="button" data-view="back" aria-pressed="false" data-i18n="suit.back">Costas</button>
@@ -323,35 +363,37 @@
           <div class="callout" id="callout" aria-hidden="true"><div class="pill"><small id="co-n">01</small><span id="co-name">Peito</span> · <b id="co-price">600 €</b></div></div>
           <div class="stage-foot">
             <span class="hint" data-i18n="suit.hint">Arrasta para rodar. Toca num espaço.</span>
-            <div class="zoom"><button type="button" id="zoom-out" aria-label="Afastar">−</button><button type="button" id="zoom-in" aria-label="Aproximar">+</button></div>
+            <div class="zoom"><button type="button" id="zoom-out" aria-label="Afastar" data-i18n-attr="aria-label:a.zoomout">−</button><button type="button" id="zoom-in" aria-label="Aproximar" data-i18n-attr="aria-label:a.zoomin">+</button></div>
           </div>
         </div>
         <div class="chapters" id="chapters">
-          <button type="button" class="chapter" data-focus="peito" title="O peito é o primeiro sítio para onde se olha nas fotos de meta e nos vídeos."><span class="k" data-i18n="ch.k1">Frente</span><h3 data-i18n="ch.h1">Peito</h3></button>
-          <button type="button" class="chapter" data-focus="coxa-lateral-e" title="Na bicicleta, coxas e laterais ficam na horizontal e os logótipos leem-se direitos nas fotos de perfil."><span class="k" data-i18n="ch.k2">Perfil</span><h3 data-i18n="ch.h2">Leitura aero</h3></button>
-          <button type="button" class="chapter" data-focus="costas-topo" title="As costas são o que veem as câmaras de mota e os atletas que seguem atrás."><span class="k" data-i18n="ch.k3">Costas</span><h3 data-i18n="ch.h3">Vista de trás</h3></button>
-          <button type="button" class="chapter" id="btn-tour" title="Volta guiada aos espaços disponíveis, do mais caro ao mais acessível."><span class="k" data-i18n="ch.k4">Tour</span><h3 data-i18n="ch.h4">Ver por preço</h3></button>
+          <button type="button" class="chapter" data-focus="peito" title="O peito é o primeiro sítio para onde se olha nas fotos de meta e nos vídeos." data-i18n-attr="title:ch.t1"><span class="k" data-i18n="ch.k1">Frente</span><span class="t" data-i18n="ch.h1">Peito</span></button>
+          <button type="button" class="chapter" data-focus="coxa-lateral-e" title="Em posição aero, coxas e laterais ficam na horizontal e os logótipos aparecem direitos nas fotos de perfil." data-i18n-attr="title:ch.t2"><span class="k" data-i18n="ch.k2">Perfil</span><span class="t" data-i18n="ch.h2">Posição aero</span></button>
+          <button type="button" class="chapter" data-focus="costas-topo" title="As costas são o que vê quem segue atrás." data-i18n-attr="title:ch.t3"><span class="k" data-i18n="ch.k3">Costas</span><span class="t" data-i18n="ch.h3">Vista de trás</span></button>
+          <button type="button" class="chapter" id="btn-tour" title="Visita guiada aos espaços disponíveis, do mais caro ao mais barato." data-i18n-attr="title:ch.t4"><span class="k" data-i18n="ch.k4">Visita</span><span class="t" data-i18n="ch.h4">Ver por preço</span></button>
         </div>
       </div>
 
       <div class="panel">
-        <div class="card spot-card" id="spot-card" aria-live="polite">
+        <p class="sr-only" id="spot-status" aria-live="polite"></p>
+        <div class="card spot-card" id="spot-card">
+          <button type="button" class="sheet-x" id="sheet-x" aria-label="Fechar" data-i18n-attr="aria-label:a.close">×</button>
           <div class="empty-card" id="spot-empty">
             <span class="eyebrow gold" style="margin:0" data-i18n="spot.ek">Escolhe um espaço</span>
             <h3 style="margin:0;font:700 24px/1.2 var(--sans)" data-i18n="spot.eh">Toca num espaço do fato ou numa linha da tabela.</h3>
-            <p data-i18n="spot.ep">Cada espaço mostra o tamanho real, o preço da época e onde fica visível: na bicicleta, na corrida, na meta e nas redes.</p>
+            <p data-i18n="spot.ep">Para cada espaço vês o tamanho real, o preço para 2027 e onde aparece: na bicicleta, na corrida, na meta e nas redes.</p>
           </div>
           <div id="spot-detail" hidden>
             <div class="top">
               <div><span class="id" id="sd-id">01 · FRENTE</span><h3 id="sd-name">Peito</h3></div>
               <div class="price"><span id="sd-price">600 €</span><small id="sd-tier">Principal · época 2027</small></div>
             </div>
-            <div class="meta"><span class="badge" id="sd-size">26 × 8 cm</span><span class="badge" id="sd-status">Disponível</span><span class="badge gold" id="sd-top" hidden>Top spot</span></div>
+            <div class="meta"><span class="badge" id="sd-size">26 × 8 cm</span><span class="badge" id="sd-status">Disponível</span><span class="badge gold" id="sd-top" hidden data-i18n="suit.st3">Destaque</span></div>
             <p class="pitch" id="sd-pitch"></p>
             <div class="vis" id="sd-vis"></div>
             <div class="spot-actions">
               <button type="button" class="btn sm" id="sd-add" data-i18n="spot.add">Adicionar ao pacote</button>
-              <button type="button" class="btn ghost sm" id="sd-try" data-i18n="spot.try">Experimentar o meu logótipo</button>
+              <button type="button" class="btn ghost sm" id="sd-try" data-i18n="spot.try">Experimentar o teu logótipo</button>
               <button type="button" class="btn ghost sm" id="sd-share" data-i18n="spot.share">Partilhar</button>
             </div>
             <div class="tryon" id="tryon">
@@ -370,15 +412,15 @@
         </div>
 
         <div class="card title-partner rv">
-          <div><span class="eyebrow gold" style="margin:0 0 8px" data-i18n="tp.k">Title partner</span><h3 data-i18n="tp.h">O fato completo</h3><p data-i18n="tp.p">Os 20 espaços, o nome da marca associado ao meu em toda a comunicação e exclusividade no teu setor durante a época 2027.</p></div>
-          <div class="price"><span id="tp-price">3000 €</span><small data-i18n="tp.s">por época</small></div>
+          <div><span class="eyebrow gold" style="margin:0 0 8px" data-i18n="tp.k">Title partner</span><h3 data-i18n="tp.h">O fato completo</h3><p data-i18n="tp.p">Os 20 espaços, a tua marca ao lado do meu nome em toda a comunicação e exclusividade no teu setor em 2027.</p></div>
+          <div class="price"><span id="tp-price">3 000 €</span><small data-i18n="tp.s">por época</small></div>
           <button type="button" class="btn gold sm" id="tp-btn" data-i18n="tp.b">Pedir o fato completo</button>
         </div>
 
         <div class="card" id="ratecard">
           <div class="ratecard-head">
             <h3 data-i18n="rc.h">Tabela de preços</h3>
-            <div class="seg-tabs" role="group" aria-label="Ordenar">
+            <div class="seg-tabs" role="group" aria-label="Ordenar" data-i18n-attr="aria-label:a.sort">
               <button type="button" data-sort="area" aria-pressed="true" data-i18n="rc.area">Por zona</button>
               <button type="button" data-sort="price" aria-pressed="false" data-i18n="rc.price">Por preço</button>
             </div>
@@ -391,23 +433,23 @@
     </div>
 
     <div class="offer">
-      <div class="card rv"><span class="k" data-i18n="of.k1">Todos os espaços</span><h3 data-i18n="of.h1">Incluído</h3><ul><li data-i18n="of.a1">Logótipo no fato em todas as provas e treinos de 2027</li><li data-i18n="of.a2">Logótipo e link nesta página</li><li data-i18n="of.a3">Identificação nas publicações de cada prova</li></ul></div>
-      <div class="card rv"><span class="k" data-i18n="of.k2">Oficial · a partir de 150 €</span><h3 data-i18n="of.h2">Presença regular</h3><ul><li data-i18n="of.b1">Publicação de apresentação e story no Instagram</li><li data-i18n="of.b2">Fotografias de treino com o logótipo, para as redes da marca</li><li data-i18n="of.b3">Relatório a meio e no fim da época, com resultados e alcance</li></ul></div>
+      <div class="card rv"><span class="k" data-i18n="of.k1">Todos os espaços</span><h3 data-i18n="of.h1">Incluído</h3><ul><li data-i18n="of.a1">Logótipo no fato em todos os triatlos de 2027 e em treino</li><li data-i18n="of.a2">Logótipo e link nesta página</li><li data-i18n="of.a3">Identificação nas publicações de cada prova</li></ul></div>
+      <div class="card rv"><span class="k" data-i18n="of.k2">Oficial · a partir de 150 €</span><h3 data-i18n="of.h2">Conteúdo e relatórios</h3><ul><li data-i18n="of.b1">Publicação de apresentação e story no Instagram</li><li data-i18n="of.b2">Fotografias de treino com o logótipo, para as redes da marca</li><li data-i18n="of.b3">Relatório a meio e no fim da época, com resultados e alcance</li></ul></div>
       <div class="card rv"><span class="k" data-i18n="of.k3">Principal · a partir de 400 €</span><h3 data-i18n="of.h3">Parceiro principal</h3><ul><li data-i18n="of.c1">Uma publicação ou reel dedicado por trimestre</li><li data-i18n="of.c2">Logótipo no equipamento de treino</li><li data-i18n="of.c3">Preferência na renovação para 2028</li></ul></div>
-      <div class="card rv"><span class="k" data-i18n="of.k4">Title partner</span><h3 data-i18n="of.h4">Nome associado</h3><ul><li data-i18n="of.d1">«Gonçalo Carmo × Marca» na bio, no media kit e na imprensa</li><li data-i18n="of.d2">Exclusividade de setor e conteúdo dedicado todos os meses</li><li data-i18n="of.d3">Uma presença por época num evento da marca</li></ul></div>
+      <div class="card rv"><span class="k" data-i18n="of.k4">Title partner</span><h3 data-i18n="of.h4">Nome associado</h3><ul><li data-i18n="of.d1">«Gonçalo Carmo × Marca» na bio, no media kit e no material de imprensa</li><li data-i18n="of.d2">Exclusividade de setor e conteúdo dedicado todos os meses</li><li data-i18n="of.d3">Uma presença por época num evento da marca</li></ul></div>
     </div>
 
     <div class="steps">
-      <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Seleciona um ou vários espaços. A partir de três, o pacote tem 10% de desconto.</p></div>
-      <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Envia o pedido</h4><p data-i18n="sp.p2">Por WhatsApp, email ou Instagram, com a mensagem já preenchida.</p></div>
-      <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Confirmação</h4><p data-i18n="sp.p3">Respondo em 48 horas com a proposta e a fatura e reservo o espaço.</p></div>
-      <div class="rv"><b>04</b><h4 data-i18n="sp.h4">Em prova</h4><p data-i18n="sp.p4">O logótipo entra no fato antes da primeira prova da época.</p></div>
+      <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Um ou vários espaços. A partir de três, tens 10% de desconto.</p></div>
+      <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Reserva</h4><p data-i18n="sp.p2">Envias o pedido por WhatsApp, email ou Instagram. Confirmo em 24 horas e guardo o espaço durante três dias.</p></div>
+      <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Pagamento</h4><p data-i18n="sp.p3">Transferência para o IBAN do pedido, com a referência dos espaços no descritivo. Recebes a fatura.</p></div>
+      <div class="rv"><b>04</b><h4 data-i18n="sp.h4">É teu</h4><p data-i18n="sp.p4">O espaço fecha e a tua marca aparece neste fato. No fato real, entra antes do primeiro triatlo da época.</p></div>
     </div>
     <div class="rules">
-      <div class="rv"><b data-i18n="ru.h1">Um espaço por marca.</b><span data-i18n="ru.p1">Os espaços vendidos ficam marcados no fato e na tabela.</span></div>
-      <div class="rv"><b data-i18n="ru.h2">Época completa.</b><span data-i18n="ru.p2">De janeiro a dezembro de 2027, em provas e treinos.</span></div>
-      <div class="rv"><b data-i18n="ru.h3">Produção incluída.</b><span data-i18n="ru.p3">Basta enviares o logótipo em vetor. A produção do fato fica a meu cargo.</span></div>
-      <div class="rv"><b data-i18n="ru.h4">Marcas excluídas.</b><span data-i18n="ru.p4">Não aceito marcas de álcool, apostas ou tabaco.</span></div>
+      <div class="rv"><b data-i18n="ru.h1">Uma marca por espaço.</b><span data-i18n="ru.p1">Quando o pagamento entra, o espaço fecha para toda a gente e passa a mostrar a tua marca.</span></div>
+      <div class="rv"><b data-i18n="ru.h2">Época completa.</b><span data-i18n="ru.p2">De janeiro a dezembro de 2027, em todos os triatlos e em treino.</span></div>
+      <div class="rv"><b data-i18n="ru.h3">Produção incluída.</b><span data-i18n="ru.p3">Envias-me o logótipo em vetor e eu trato do fato.</span></div>
+      <div class="rv"><b data-i18n="ru.h4">Setores excluídos.</b><span data-i18n="ru.p4">Não aceito marcas de álcool, apostas ou tabaco.</span></div>
     </div>
   </div>
 </section>
@@ -417,28 +459,29 @@
   <div class="wrap">
     <p class="eyebrow" data-i18n="media.k">06 · Media</p>
     <div class="thesis-head">
-      <h2 class="display h2 rv" data-i18n-html="media.h">Partilhar<br>o percurso</h2>
-      <p class="lead rv" style="color:var(--muted-dark)" data-i18n="media.p">Publico treinos, provas e o dia a dia da preparação, com vídeo quase diário e métricas reais. Uma marca parceira aparece ao longo da época inteira, nos treinos e nas provas.</p>
+      <h2 class="display h2 rv" data-i18n-html="media.h">O que<br>publico</h2>
+      <p class="lead rv" style="color:var(--muted-dark)" data-i18n="media.p">Publico cada prova e partes do treino no Instagram e no TikTok.</p>
     </div>
     <dl class="kpis" style="margin-top:clamp(40px,5vw,64px)">
       <div class="kpi rv"><dt class="l" style="margin:0 0 10px" data-i18n="media.s1">Seguidores no Instagram</dt><dd class="v" style="margin:0" id="ig-followers">1 921</dd></div>
       <div class="kpi rv"><dt class="l" style="margin:0 0 10px" data-i18n="media.s2">Interações por publicação</dt><dd class="v" style="margin:0" id="ig-inter">~370</dd></div>
-      <div class="kpi rv"><dt class="l" style="margin:0 0 10px" data-i18n="media.s3">Taxa de interação</dt><dd class="v" style="margin:0" id="ig-rate">19<small>%</small></dd></div>
-      <div class="kpi rv"><dt class="l" style="margin:0 0 10px" data-i18n="media.s4">Melhor publicação</dt><dd class="v" style="margin:0" id="ig-best">881<small data-i18n="media.likes">gostos</small></dd></div>
+      <div class="kpi rv"><dt class="l" style="margin:0 0 10px" data-i18n="media.s3">Taxa de interação</dt><dd class="v" style="margin:0"><span id="ig-rate">19</span><small>%</small></dd></div>
+      <div class="kpi rv"><dt class="l" style="margin:0 0 10px" data-i18n="media.s4">Melhor publicação</dt><dd class="v" style="margin:0"><span id="ig-best">881</span><small data-i18n="media.likes">gostos</small></dd></div>
     </dl>
-    <p class="note" data-i18n="media.note">Gostos e comentários a dividir pelos seguidores. Média das 12 publicações mais recentes de @goncalo.carmo99, outubro de 2026.</p>
+    <p class="note" data-i18n="media.note">A taxa de interação é a média de gostos e comentários por publicação a dividir pelo número de seguidores. Dados das 12 publicações mais recentes de @goncalo.carmo99, outubro de 2026.</p>
     <div class="media-grid">
-      <figure class="m1 rv"><picture><source type="image/webp" srcset="assets/img/run-stadium-800.webp 800w, assets/img/run-stadium-1600.webp 1600w" sizes="(max-width:860px) 100vw, 42vw"><img src="assets/img/run-stadium-800.jpg" alt="A correr no Estádio Nacional" loading="lazy"></picture></figure>
-      <figure class="m2 rv"><picture><source type="image/webp" srcset="assets/img/bike-belem-800.webp 800w, assets/img/bike-belem-1600.webp 1600w" sizes="(max-width:860px) 50vw, 33vw"><img src="assets/img/bike-belem-800.jpg" alt="Na bicicleta de contrarrelógio junto ao Padrão dos Descobrimentos" loading="lazy"></picture></figure>
-      <figure class="m3 rv"><picture><source type="image/webp" srcset="assets/img/portrait-training-800.webp 800w" sizes="(max-width:860px) 50vw, 25vw"><img src="assets/img/portrait-training-800.jpg" alt="Retrato em treino" loading="lazy" style="object-position:50% 30%"></picture></figure>
-      <figure class="m4 rv"><picture><source type="image/webp" srcset="assets/img/swim-splash-800.webp 800w" sizes="(max-width:860px) 50vw, 25vw"><img src="assets/img/swim-splash-800.jpg" alt="Braçada de crol em águas abertas" loading="lazy"></picture></figure>
-      <figure class="m5 rv"><picture><source type="image/webp" srcset="assets/img/run-palace-800.webp 800w" sizes="(max-width:860px) 50vw, 33vw"><img src="assets/img/run-palace-800.jpg" alt="A correr numa rua de calçada" loading="lazy" style="object-position:50% 70%"></picture></figure>
-      <figure class="m4 rv"><picture><source type="image/webp" srcset="assets/img/bike-bridge-bw-800.webp 800w" sizes="(max-width:860px) 50vw, 25vw"><img src="assets/img/bike-bridge-bw-800.jpg" alt="Na bicicleta com a ponte 25 de Abril ao fundo" loading="lazy"></picture></figure>
-      <figure class="m5 rv"><picture><source type="image/webp" srcset="assets/img/bike-circuit-800.webp 800w" sizes="(max-width:860px) 50vw, 33vw"><img src="assets/img/bike-circuit-800.jpg" alt="Em posição aero no circuito" loading="lazy"></picture></figure>
+      <figure class="m1 rv"><picture><source type="image/webp" srcset="assets/img/face-goggles-800.webp 800w, assets/img/face-goggles-1600.webp 1600w" sizes="(max-width:860px) 100vw, 42vw"><img src="assets/img/face-goggles-800.jpg" alt="Grande plano antes da natação, de touca e óculos na testa" data-i18n-attr="alt:media.alt1" loading="lazy" style="object-position:50% 38%"></picture></figure>
+      <figure class="m2 rv"><picture><source type="image/webp" srcset="assets/img/bike-guia-800.webp 800w, assets/img/bike-guia-1600.webp 1600w" sizes="(max-width:860px) 50vw, 33vw"><img src="assets/img/bike-guia-800.jpg" alt="Em posição aero junto ao farol da Guia, em Cascais" data-i18n-attr="alt:media.alt2" loading="lazy" style="object-position:60% 60%"></picture></figure>
+      <figure class="m3 rv"><picture><source type="image/webp" srcset="assets/img/finish-setubal-800.webp 800w, assets/img/finish-setubal-1600.webp 1600w" sizes="(max-width:860px) 50vw, 25vw"><img src="assets/img/finish-setubal-800.jpg" alt="Na meta do Triatlo de Setúbal" data-i18n-attr="alt:media.alt3" loading="lazy" style="object-position:50% 40%"></picture></figure>
+      <figure class="m4 rv"><picture><source type="image/webp" srcset="assets/img/swim-start-800.webp 800w, assets/img/swim-start-1600.webp 1600w" sizes="(max-width:860px) 50vw, 25vw"><img src="assets/img/swim-start-800.jpg" alt="Na partida da natação, de fato de neoprene" data-i18n-attr="alt:media.alt4" loading="lazy" style="object-position:40% 35%"></picture></figure>
+      <figure class="m5 rv"><picture><source type="image/webp" srcset="assets/img/run-palace-800.webp 800w" sizes="(max-width:860px) 50vw, 33vw"><img src="assets/img/run-palace-800.jpg" alt="A correr numa rua de calçada" data-i18n-attr="alt:media.alt5" loading="lazy" style="object-position:50% 70%"></picture></figure>
+      <figure class="m4 rv"><picture><source type="image/webp" srcset="assets/img/bike-track-pan-800.webp 800w, assets/img/bike-track-pan-1600.webp 1600w" sizes="(max-width:860px) 50vw, 25vw"><img src="assets/img/bike-track-pan-800.jpg" alt="Em velocidade no circuito" data-i18n-attr="alt:media.alt6" loading="lazy" style="object-position:50% 60%"></picture></figure>
+      <figure class="m5 rv"><picture><source type="image/webp" srcset="assets/img/bike-cascais-front-800.webp 800w, assets/img/bike-cascais-front-1600.webp 1600w" sizes="(max-width:860px) 50vw, 33vw"><img src="assets/img/bike-cascais-front-800.jpg" alt="De frente, em posição aero, no IRONMAN Cascais" data-i18n-attr="alt:media.alt7" loading="lazy" style="object-position:55% 55%"></picture></figure>
+      <figure class="m6 rv"><picture><source type="image/webp" srcset="assets/img/run-stadium-800.webp 800w, assets/img/run-stadium-1600.webp 1600w" sizes="(max-width:860px) 100vw, 42vw"><img src="assets/img/run-stadium-800.jpg" alt="A correr no Estádio Nacional" data-i18n-attr="alt:media.alt8" loading="lazy" style="object-position:50% 40%"></picture></figure>
     </div>
     <div class="channels" id="channels">
       <a href="https://www.instagram.com/goncalo.carmo99/" target="_blank" rel="noopener"><b>Instagram</b><span>@goncalo.carmo99</span></a>
-      <a href="https://www.tiktok.com/@carmo_111" target="_blank" rel="noopener"><b>TikTok</b><span>@carmo_111</span></a>
+      <a href="https://www.tiktok.com/@goncalo.carmo99" target="_blank" rel="noopener"><b>TikTok</b><span>@goncalo.carmo99</span></a>
       <a href="https://www.strava.com/athletes/50182673" target="_blank" rel="noopener"><b>Strava</b><span>Gonçalo Carmo</span></a>
       <a href="mailto:gcarmo.media@gmail.com"><b>Media</b><span>gcarmo.media@gmail.com</span></a>
     </div>
@@ -451,10 +494,16 @@
     <div>
       <p class="eyebrow gold" data-i18n="sup.k">07 · Apoiar</p>
       <h2 class="display h2 rv" data-i18n-html="sup.h">Kona<br>Crew</h2>
-      <p class="lead rv" data-i18n="sup.p">Também podes apoiar a título individual. As contribuições ajudam a pagar inscrições, viagens e material até à partida em Kona.</p>
+      <p class="lead rv" data-i18n="sup.p">Não é preciso seres uma marca para ajudar. As contribuições vão para inscrições, viagens e material, até à partida em Kona.</p>
       <div class="cta rv">
-        <a class="btn gold" id="gofundme" href="https://www.gofundme.com/" target="_blank" rel="noopener"><svg><use href="#i-heart"/></svg><span data-i18n="sup.b1">Apoiar no GoFundMe</span></a>
+        <a class="btn gold" id="gofundme" href="https://www.gofundme.com/" target="_blank" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-heart"/></svg><span data-i18n="sup.b1">Apoiar no GoFundMe</span></a>
         <a class="btn ghost" href="#contacto" data-i18n="sup.b2">Apoio em espécie</a>
+      </div>
+      <p class="note" id="gofundme-note" hidden></p>
+      <div class="give rv">
+        <p class="give-k" data-i18n="sup.tk">Por transferência</p>
+        <button type="button" class="give-iban" data-copy-iban data-toast="toast.iban"><span class="mono" data-iban>PT50 0035 0125 0000 5328 9306 8</span><span class="give-cp"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sup.tc">Copiar IBAN</span></span></button>
+        <p class="give-sub"><span data-i18n="pay.payee">Titular</span> <b data-payee>Gonçalo Carmo</b> · <span data-i18n="pay.ref">Descritivo</span> <b>KONA APOIO</b></p>
       </div>
       <div class="inkind rv">
         <div><b data-i18n="sup.i1h">Equipamento</b><span data-i18n="sup.i1p">Bicicleta, rodas, fato de neoprene e sapatilhas.</span></div>
@@ -467,7 +516,7 @@
       <p class="sub" data-i18n="bud.s">Orçamento estimado da época 2027, em euros.</p>
       <div id="budget-rows" style="margin-top:10px"></div>
       <div class="total"><span>Total</span><span id="budget-total"></span></div>
-      <p class="src" data-i18n="bud.src">Estimativa. As inscrições usam os preços oficiais publicados em outubro de 2026. Viagens e material são valores de referência.</p>
+      <p class="src" data-i18n="bud.src">As inscrições seguem os preços oficiais publicados em outubro de 2026. Viagens e material são estimativas.</p>
     </div>
   </div>
 </section>
@@ -477,16 +526,16 @@
   <div class="contact-copy">
     <div>
       <p class="eyebrow" data-i18n="ct.k">08 · Contacto</p>
-      <h2 class="display h2 rv" data-i18n="ct.h">Contactos</h2>
+      <h2 class="display h2 rv" data-i18n="ct.h">Fala comigo.</h2>
       <p class="lead muted rv" style="margin-top:22px" data-i18n="ct.p">Patrocínios, parcerias e imprensa.</p>
     </div>
     <ul class="contact-list rv">
-      <li><span class="ic"><svg><use href="#i-wa"/></svg></span><a href="https://wa.me/351916395103" target="_blank" rel="noopener">+351 916 395 103<small>WhatsApp</small></a></li>
-      <li><span class="ic"><svg><use href="#i-phone"/></svg></span><a href="tel:+351962033941">+351 962 033 941<small data-i18n="ct.phone">Telefone</small></a></li>
-      <li><span class="ic"><svg><use href="#i-mail"/></svg></span><a href="mailto:gcarmo.media@gmail.com">gcarmo.media@gmail.com<small data-i18n="ct.mail">Email para media e patrocínios</small></a></li>
-      <li><span class="ic"><svg><use href="#i-ig"/></svg></span><a href="https://www.instagram.com/goncalo.carmo99/" target="_blank" rel="noopener">@goncalo.carmo99<small>Instagram</small></a></li>
-      <li><span class="ic"><svg><use href="#i-tiktok"/></svg></span><a href="https://www.tiktok.com/@carmo_111" target="_blank" rel="noopener">@carmo_111<small>TikTok</small></a></li>
-      <li><span class="ic"><svg><use href="#i-strava"/></svg></span><a href="https://www.strava.com/athletes/50182673" target="_blank" rel="noopener">Gonçalo Carmo<small>Strava</small></a></li>
+      <li><span class="ic"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg></span><a href="https://wa.me/351916395103" target="_blank" rel="noopener">+351 916 395 103<small>WhatsApp</small></a></li>
+      <li><span class="ic"><svg aria-hidden="true" focusable="false"><use href="#i-phone"/></svg></span><a href="tel:+351962033941">+351 962 033 941<small data-i18n="ct.phone">Telefone</small></a></li>
+      <li><span class="ic"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg></span><a href="mailto:gcarmo.media@gmail.com">gcarmo.media@gmail.com<small data-i18n="ct.mail">Email para media e patrocínios</small></a></li>
+      <li><span class="ic"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg></span><a href="https://www.instagram.com/goncalo.carmo99/" target="_blank" rel="noopener">@goncalo.carmo99<small>Instagram</small></a></li>
+      <li><span class="ic"><svg aria-hidden="true" focusable="false"><use href="#i-tiktok"/></svg></span><a href="https://www.tiktok.com/@goncalo.carmo99" target="_blank" rel="noopener">@goncalo.carmo99<small>TikTok</small></a></li>
+      <li><span class="ic"><svg aria-hidden="true" focusable="false"><use href="#i-strava"/></svg></span><a href="https://www.strava.com/athletes/50182673" target="_blank" rel="noopener">Gonçalo Carmo<small>Strava</small></a></li>
     </ul>
     <div class="cta rv">
       <a class="btn gold" href="mailto:gcarmo.media@gmail.com?subject=Patroc%C3%ADnio%202027" data-i18n="ct.b1">Enviar email</a>
@@ -504,32 +553,47 @@
   </div>
 </footer>
 
-<div class="package" id="package" role="region" aria-label="Pacote">
+<div class="package" id="package" role="region" aria-label="Pacote" data-i18n-attr="aria-label:a.pkg">
   <div class="sum"><b id="pk-total">0 €</b><span id="pk-list"></span></div>
   <button type="button" class="btn ghost sm" id="pk-clear" data-i18n="pk.clear">Limpar</button>
   <button type="button" class="btn sm" id="pk-go" data-i18n="pk.go">Reservar</button>
 </div>
 
-<dialog id="claim">
+<dialog id="claim" data-lenis-prevent aria-labelledby="cl-h">
   <form class="dlg" method="dialog" id="claim-form">
-    <button class="close" value="cancel" aria-label="Fechar">×</button>
-    <h3 data-i18n="cl.h">Pedido de reserva</h3>
+    <button type="button" class="close" aria-label="Fechar" data-i18n-attr="aria-label:a.close">×</button>
+    <h3 id="cl-h" data-i18n="cl.h">Pedido de reserva</h3>
     <div class="sum" id="cl-sum"></div>
+    <p class="step-h"><span class="n">1</span><span data-i18n="cl.s1">Envia o pedido</span></p>
     <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca ou empresa</label><input id="cl-brand" autocomplete="organization"></div>
-    <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome</label><input id="cl-name" autocomplete="name"></div>
+    <div class="field-row">
+      <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome</label><input id="cl-name" autocomplete="name"></div>
+      <div class="field"><label for="cl-nif" data-i18n="cl.nif">NIF para a fatura</label><input id="cl-nif" inputmode="numeric" autocomplete="off" maxlength="20"></div>
+    </div>
     <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem (opcional)</label><textarea id="cl-msg"></textarea></div>
     <div class="acts">
-      <button type="button" class="btn gold sm" id="cl-wa"><svg><use href="#i-wa"/></svg>WhatsApp</button>
-      <button type="button" class="btn sm" id="cl-mail"><svg><use href="#i-mail"/></svg>Email</button>
-      <button type="button" class="btn ghost sm" id="cl-ig"><svg><use href="#i-ig"/></svg><span data-i18n="cl.ig">Instagram (copia a mensagem)</span></button>
+      <button type="button" class="btn gold sm" id="cl-wa"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg>WhatsApp</button>
+      <button type="button" class="btn sm" id="cl-mail"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg>Email</button>
+      <button type="button" class="btn ghost sm" id="cl-ig"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg><span data-i18n="cl.ig">Instagram (copia a mensagem)</span></button>
     </div>
-    <p class="fine" data-i18n="cl.fine">Não há pagamentos nesta página. O pedido chega ao Gonçalo, que confirma a disponibilidade e envia a proposta.</p>
+    <div class="pay">
+      <p class="step-h"><span class="n">2</span><span data-i18n="cl.s2">Paga por transferência</span></p>
+      <dl class="pay-rows">
+        <div><dt>IBAN</dt><dd><span data-iban></span><button type="button" class="cp" data-copy-iban data-toast="toast.iban" aria-label="Copiar IBAN" data-i18n-attr="aria-label:a.cpiban"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+        <div><dt data-i18n="pay.payee">Titular</dt><dd><span data-payee></span></dd></div>
+        <div><dt data-i18n="pay.amt">Montante</dt><dd><span id="pay-amt"></span><button type="button" class="cp" id="pay-amt-cp" data-toast="toast.amt" aria-label="Copiar montante" data-i18n-attr="aria-label:a.cpamt"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+        <div><dt data-i18n="pay.ref">Descritivo</dt><dd><span id="pay-ref"></span><button type="button" class="cp" id="pay-ref-cp" data-toast="toast.ref" aria-label="Copiar descritivo" data-i18n-attr="aria-label:a.cpref"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+        <div id="pay-mbway" hidden><dt>MB WAY</dt><dd><span id="pay-mb"></span><button type="button" class="cp" id="pay-mb-cp" data-toast="toast.mb" aria-label="Copiar número MB WAY" data-i18n-attr="aria-label:a.cpmb"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+      </dl>
+      <p class="fine" data-i18n="cl.pay">Podes pagar já ou depois de eu confirmar. O espaço fecha quando a transferência entra e a tua marca passa a aparecer neste fato. Se alguém o tiver fechado antes, devolvo o valor no próprio dia.</p>
+    </div>
   </form>
 </dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js" defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrambleTextPlugin.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js" defer></script>
 <script type="module" src="assets/js/main.js"></script>
 </body>

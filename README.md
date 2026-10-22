@@ -25,12 +25,50 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
 | Link do GoFundMe | `assets/js/data.js` → `SITE.gofundme` |
+| IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 
-Marcar um espaço como vendido: muda `"status": "available"` para `"sold"` no `data/spots.json`.
-O espaço passa a aparecer riscado no fato e na tabela, e sai do tour e do pacote.
+## Vender um espaço
+
+**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva (e em Apoiar).
+O site mostra o montante já com desconto e um descritivo com os números dos espaços, por exemplo
+`KONA 01` ou `KONA 09 16 20`, para cada pagamento se ligar ao pedido sem dúvidas. O fato completo usa
+`KONA FATO` e os donativos `KONA APOIO`. IBAN, titular e MB WAY (opcional) estão em `assets/js/data.js` → `SITE`.
+
+**O fluxo.**
+1. A marca escolhe e envia o pedido (WhatsApp, email ou Instagram), com marca, NIF e referência.
+2. Confirmas em 24 horas. Se a marca precisar de tempo, marcas o espaço como **Reservado**: fica guardado
+   três dias e depois volta a ficar disponível sozinho, sem teres de fazer nada.
+3. Quando a transferência entra, marcas como **Vendido**. O espaço fecha para toda a gente, sai do pacote
+   e do tour, mostra «Vendido · Marca» na tabela, a marca entra na lista «Já no fato» e, se enviares o
+   logótipo, ele aparece no fato 3D.
+4. Se duas pessoas pagarem o mesmo espaço, fica com ele quem pagou primeiro e devolves o valor ao outro
+   no próprio dia (está escrito no pedido).
+
+**Como fechar um espaço pelo telemóvel (sem mexer em código).**
+No GitHub (app ou browser): Issues → New issue → **Atualizar espaço do fato**. Escolhe o espaço e o estado,
+escreve a marca, cola o link e arrasta o logótipo (PNG com fundo transparente). Ao submeter, a action
+`Atualizar espaço do fato` muda o `data/spots.json`, guarda o logótipo em `assets/img/brands/`,
+responde no próprio pedido e fecha-o. O site atualiza-se em cerca de um minuto.
+Só funciona para quem gere o repositório e precisa que o branch por defeito seja `gh-pages`
+(Settings → General → Default branch). Se mudares espaços ou preços, corre
+`node scripts/spot-update.mjs --template` para atualizar a lista do formulário.
+
+**À mão.** No `data/spots.json`, cada espaço aceita:
+
+| Campo | Exemplo | Para quê |
+|---|---|---|
+| `status` | `"available"`, `"reserved"`, `"sold"` | Estado do espaço |
+| `brand` | `"Padaria Central"` | Nome mostrado no site |
+| `url` | `"https://padaria.pt"` | Link da marca na lista «Já no fato» |
+| `logo` | `"assets/img/brands/peito.png"` | Logótipo impresso no fato 3D |
+| `logoMono` | `"#f6f7f9"` | Força uma cor única no logótipo (por defeito, logótipos escuros ficam brancos sobre o preto) |
+| `until` | `"2026-10-31"` | Último dia da reserva |
+
+O `title` (fato completo) aceita os mesmos campos. Vendido, fecha os 20 espaços com o nome da marca e
+põe o logótipo no peito.
 
 ## Ligar o Strava (uma vez)
 

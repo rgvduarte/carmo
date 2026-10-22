@@ -1,0 +1,65 @@
+name: Atualizar espaço do fato
+description: Marca um espaço como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
+title: "Espaço do fato"
+body:
+  - type: markdown
+    attributes:
+      value: Só funciona para quem gere o repositório. Quando o pedido é aplicado, recebes uma resposta aqui e o pedido fecha.
+  - type: dropdown
+    id: spot
+    attributes:
+      label: Espaço
+      options:
+        - "01 · Peito · 600 € (peito)"
+        - "02 · Clavícula esquerda · 100 € (clavicula-e)"
+        - "03 · Clavícula direita · 100 € (clavicula-d)"
+        - "04 · Abdómen · 150 € (abdomen)"
+        - "05 · Cintura · 100 € (cintura)"
+        - "06 · Lateral esquerda · 200 € (lateral-e)"
+        - "07 · Lateral direita · 200 € (lateral-d)"
+        - "08 · Ombro esquerdo · 150 € (ombro-e)"
+        - "09 · Ombro direito · 150 € (ombro-d)"
+        - "10 · Coxa esquerda, à frente · 150 € (coxa-frente-e)"
+        - "11 · Coxa direita, à frente · 150 € (coxa-frente-d)"
+        - "12 · Coxa esquerda, por fora · 250 € (coxa-lateral-e)"
+        - "13 · Coxa direita, por fora · 250 € (coxa-lateral-d)"
+        - "14 · Coxa esquerda, atrás · 60 € (coxa-tras-e)"
+        - "15 · Coxa direita, atrás · 60 € (coxa-tras-d)"
+        - "16 · Nuca · 60 € (nuca)"
+        - "17 · Topo das costas · 400 € (costas-topo)"
+        - "18 · Meio das costas · 200 € (costas-centro)"
+        - "19 · Lombar · 100 € (lombar)"
+        - "20 · Glúteos · 300 € (gluteos)"
+        - "Fato completo · 3000 € (fato)"
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Estado
+      options:
+        - Vendido
+        - Reservado
+        - Disponível
+    validations:
+      required: true
+  - type: input
+    id: brand
+    attributes:
+      label: Marca
+      description: O nome que aparece no site. Obrigatório para Vendido.
+  - type: input
+    id: url
+    attributes:
+      label: Link da marca
+      description: Site ou Instagram (por exemplo https://marca.pt ou @marca). Opcional.
+  - type: textarea
+    id: logo
+    attributes:
+      label: Logótipo
+      description: Arrasta para aqui um PNG com fundo transparente (ou SVG). Aparece no fato 3D. Opcional.
+  - type: input
+    id: until
+    attributes:
+      label: Reservado até
+      description: Só para Reservado. Data no formato 2026-10-31. Se ficar vazio, são três dias. Depois disso o espaço volta a ficar disponível sozinho.

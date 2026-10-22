@@ -51,11 +51,11 @@
       },
       "pt": {
         "name": "Peito",
-        "pitch": "É o primeiro sítio para onde se olha nas fotos de meta, nas entrevistas e nos vídeos."
+        "pitch": "É o primeiro sítio para onde se olha nas fotos de meta, nos pódios e nos vídeos."
       },
       "en": {
         "name": "Chest",
-        "pitch": "The first place people look in finish photos, interviews and videos."
+        "pitch": "The first place people look in finish photos, podium shots and videos."
       }
     },
     {
@@ -77,11 +77,11 @@
       },
       "pt": {
         "name": "Clavícula esquerda",
-        "pitch": "Pequeno e junto ao rosto. Aparece em todos os grandes planos."
+        "pitch": "Um espaço pequeno, junto ao rosto, que aparece nos grandes planos."
       },
       "en": {
         "name": "Left collarbone",
-        "pitch": "Small and close to the face. It is in every close-up."
+        "pitch": "Small and close to the face, so it shows in close-ups."
       }
     },
     {
@@ -103,11 +103,11 @@
       },
       "pt": {
         "name": "Clavícula direita",
-        "pitch": "O par do lado direito, também junto ao rosto nos grandes planos."
+        "pitch": "O mesmo espaço do lado direito, também junto ao rosto."
       },
       "en": {
         "name": "Right collarbone",
-        "pitch": "Its pair on the right, also close to the face in close-ups."
+        "pitch": "The same spot on the right, also close to the face."
       }
     },
     {
@@ -129,11 +129,11 @@
       },
       "pt": {
         "name": "Abdómen",
-        "pitch": "Muito visível nos retratos antes e depois da prova. Na corrida fica parcialmente tapado pelo dorsal."
+        "pitch": "Muito visível nos retratos antes e depois da prova. Na corrida, o dorsal tapa-o em parte."
       },
       "en": {
         "name": "Abdomen",
-        "pitch": "Very visible in pre- and post-race portraits. On the run the race number partly covers it."
+        "pitch": "Prominent in portraits before and after the race. On the run, the race number partly covers it."
       }
     },
     {
@@ -155,11 +155,11 @@
       },
       "pt": {
         "name": "Cintura",
-        "pitch": "Na linha da cintura, visível nas transições e nas fotos de corpo inteiro."
+        "pitch": "Vê-se nas transições e nas fotos de corpo inteiro."
       },
       "en": {
         "name": "Waistline",
-        "pitch": "On the waistline, visible in transitions and full-body shots."
+        "pitch": "Seen in transitions and in full-length shots."
       }
     },
     {
@@ -183,11 +183,11 @@
       },
       "pt": {
         "name": "Lateral esquerda",
-        "pitch": "Na posição aero o tronco fica na horizontal e o logótipo lê-se direito nas fotos de perfil."
+        "pitch": "Em posição aero o tronco fica na horizontal e o logótipo aparece direito nas fotos de perfil."
       },
       "en": {
         "name": "Left side",
-        "pitch": "In the aero position the torso is horizontal, so the logo reads straight in side-on photos."
+        "pitch": "In the aero position the torso is flat, so the logo sits level in side-on photos."
       }
     },
     {
@@ -211,11 +211,11 @@
       },
       "pt": {
         "name": "Lateral direita",
-        "pitch": "A mesma leitura nas fotos tiradas do lado direito da estrada."
+        "pitch": "O mesmo efeito, nas fotos tiradas do lado direito da estrada."
       },
       "en": {
         "name": "Right side",
-        "pitch": "The same read in photos taken from the right side of the road."
+        "pitch": "The same, in photos taken from the right-hand side of the road."
       }
     },
     {
@@ -237,11 +237,11 @@
       },
       "pt": {
         "name": "Ombro esquerdo",
-        "pitch": "Visível de frente, de lado e de cima, os ângulos das câmaras de mota e dos drones."
+        "pitch": "Visível de frente, de lado e de cima."
       },
       "en": {
         "name": "Left shoulder",
-        "pitch": "Visible from the front, the side and above: the angles of moto cameras and drones."
+        "pitch": "Visible from the front, the side and above."
       }
     },
     {
@@ -263,11 +263,11 @@
       },
       "pt": {
         "name": "Ombro direito",
-        "pitch": "O mesmo ângulo aéreo, no ombro direito."
+        "pitch": "Os mesmos ângulos, no ombro direito."
       },
       "en": {
         "name": "Right shoulder",
-        "pitch": "The same aerial angle, on the right shoulder."
+        "pitch": "The same angles, on the right shoulder."
       }
     },
     {
@@ -288,7 +288,7 @@
         "social": 1
       },
       "pt": {
-        "name": "Coxa frente esquerda",
+        "name": "Coxa esquerda, à frente",
         "pitch": "Fica virada para a câmara a cada pedalada."
       },
       "en": {
@@ -314,7 +314,7 @@
         "social": 1
       },
       "pt": {
-        "name": "Coxa frente direita",
+        "name": "Coxa direita, à frente",
         "pitch": "O mesmo plano, na perna direita."
       },
       "en": {
@@ -342,12 +342,12 @@
         "social": 2
       },
       "pt": {
-        "name": "Coxa lateral esquerda",
-        "pitch": "Na bicicleta a coxa fica na horizontal e o logótipo lê-se direito em todas as fotos de perfil."
+        "name": "Coxa esquerda, por fora",
+        "pitch": "Na bicicleta a coxa fica na horizontal, por isso o logótipo sai direito nas fotos de perfil."
       },
       "en": {
         "name": "Left outer thigh",
-        "pitch": "On the bike the thigh is horizontal, so the logo reads straight in every side-on photo."
+        "pitch": "The thigh sits level on the bike, so the logo reads cleanly in side-on photos."
       }
     },
     {
@@ -370,12 +370,12 @@
         "social": 2
       },
       "pt": {
-        "name": "Coxa lateral direita",
-        "pitch": "A mesma leitura, do lado direito da estrada."
+        "name": "Coxa direita, por fora",
+        "pitch": "O mesmo efeito, do lado direito da estrada."
       },
       "en": {
         "name": "Right outer thigh",
-        "pitch": "The same read, from the right side of the road."
+        "pitch": "The same, from the right-hand side of the road."
       }
     },
     {
@@ -396,7 +396,7 @@
         "social": 1
       },
       "pt": {
-        "name": "Coxa trás esquerda",
+        "name": "Coxa esquerda, atrás",
         "pitch": "Visível na corrida para quem segue atrás."
       },
       "en": {
@@ -422,12 +422,12 @@
         "social": 1
       },
       "pt": {
-        "name": "Coxa trás direita",
-        "pitch": "O par na perna direita, também visível na corrida."
+        "name": "Coxa direita, atrás",
+        "pitch": "O mesmo espaço, na perna direita."
       },
       "en": {
         "name": "Right rear thigh",
-        "pitch": "Its pair on the right leg, also visible on the run."
+        "pitch": "The same spot, on the right leg."
       }
     },
     {
@@ -449,11 +449,11 @@
       },
       "pt": {
         "name": "Nuca",
-        "pitch": "Uma assinatura discreta nos planos de trás."
+        "pitch": "Um espaço discreto, que aparece nos planos de trás."
       },
       "en": {
         "name": "Nape",
-        "pitch": "A discreet signature in shots from behind."
+        "pitch": "A discreet spot, seen in shots from behind."
       }
     },
     {
@@ -475,11 +475,11 @@
       },
       "pt": {
         "name": "Topo das costas",
-        "pitch": "É o que veem os atletas e as câmaras de mota que seguem atrás, durante toda a prova."
+        "pitch": "É o que vê quem segue atrás, durante toda a prova."
       },
       "en": {
         "name": "Upper back",
-        "pitch": "What the athletes and moto cameras behind see for the whole race."
+        "pitch": "What everyone behind me sees, for the whole race."
       }
     },
     {
@@ -539,9 +539,9 @@
       "n": 20,
       "part": "torso",
       "phi": 180,
-      "t": 0.085,
+      "t": 0.115,
       "w": 22,
-      "h": 7,
+      "h": 6,
       "area": "back",
       "price": 300,
       "status": "available",
