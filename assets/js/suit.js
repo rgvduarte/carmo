@@ -857,7 +857,7 @@ export class Suit extends Kit {
       this.stitch(R.x, top - 6, R.x + R.w, 'rgba(255,255,255,0.16)');
       this.stitch(R.x, top + 5, R.x + R.w, 'rgba(255,255,255,0.10)', 6);
       ctx.fillStyle = 'rgba(246,247,249,0.62)'; ctx.font = '600 12px "JetBrains Mono", ui-monospace, monospace';
-      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.03) * R.w, R.y + R.h * (1 - hemV * 0.5));
+      ctx.fillText('GONÇALO CARMO · GOCARMO.COM', R.x + part.uAt(0, 0.03) * R.w, R.y + R.h * (1 - hemV * 0.5));
     }
     // sleeves: a cuff band that hugs the arm, with a coverstitch
     for (const k of ['sleeveL', 'sleeveR']) {
