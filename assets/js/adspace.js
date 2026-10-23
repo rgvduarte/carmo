@@ -13,6 +13,10 @@ const ITEMS = ['suit', 'helmet'];
 const STORE = 'gc.package.2027';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = () => matchMedia('(max-width: 760px)').matches;
+// a short window wide enough for two columns (a phone held sideways): the stage beside the panel, as on a computer
+const sideBySide = () => matchMedia('(max-height: 500px) and (min-width: 600px)').matches;
+// an upright phone: each part's stage sits over its rate card
+const stacked = () => mobile() && !sideBySide();
 // a phone or tablet: links to WhatsApp stay in the tab (the app takes over), and mailto: always finds a mail app
 const touch = () => matchMedia('(pointer: coarse)').matches;
 
@@ -21,7 +25,7 @@ let DATA = null, SPOTS = [], suit = null, helmet = null, kit = null, SuitClass =
 // onScreen: the part crossing the middle of the screen. landing: the part a deep link or a pick is scrolling to.
 let item = 'suit', want = 'suit', onScreen = null, landing = null, hashLand = null, nearHelmet = false, booted = false, scrollToEl = null, nudgeBy = null;
 let selected = null, basket = new Set(), sortMode = 'area', onlyAvail = false, wantTitle = false;
-let tourCtl = null, logoFile = null, interacted = false;
+let tourCtl = null, tourIt = null, logoFile = null, interacted = false;
 
 const byId = (id) => SPOTS.find((s) => s.id === id);
 const itemOf = (s) => s.item || 'suit';   // a spot without "item" is on the suit
@@ -34,6 +38,9 @@ const act = (it, a) => $(`[data-act="${a}"]`, stageOf(it));
 const pressed = (b) => !!b && b.getAttribute('aria-pressed') === 'true';
 // the part crossing the middle of the viewport right now
 const midPart = () => ITEMS.find((it) => { const r = partOf(it)?.getBoundingClientRect(); return r && r.top <= innerHeight / 2 && r.bottom >= innerHeight / 2; }) || null;
+const navH = () => $('#nav')?.offsetHeight || 64;
+// how many pixels of an element are on screen, under the nav (0 when it is wholly off screen)
+const shownPx = (el) => { if (!el) return 0; const r = el.getBoundingClientRect(); return Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, navH())); };
 const tierOf = (s) => DATA.tiers.find((x) => s.price >= x.min) || DATA.tiers[DATA.tiers.length - 1];
 const available = () => SPOTS.filter((s) => s.status === 'available');
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -94,9 +101,18 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     if (suit) ensureHelmet();
   }, { rootMargin: '400px 0px' });
   near.observe(stageOf('helmet'));
-  // the part on screen is the one crossing the middle of the viewport; the stage follows it. Read from the layout on every
-  // scroll (an IntersectionObserver reports a frame late and can skip a state when the page jumps twice in one frame)
-  const check = () => { const it = midPart(); if (it) partShown(it); };
+  // The part on screen is the one crossing the middle of the viewport; the stage follows it. Read from the layout on every
+  // scroll (an IntersectionObserver reports a frame late and can skip a state when the page jumps twice in one frame).
+  // A tour belongs to its part: it stops as soon as that part is no longer the one in the middle of the screen.
+  // A model brought up by a control of the other part (whose stage was on screen then) keeps the stage until its own
+  // stage has left the screen, then the stage goes back to the part being read.
+  const check = () => {
+    const it = midPart();
+    if (tourCtl && it !== tourIt) stopTour();
+    if (!it) return;
+    if (it !== onScreen) { onScreen = it; partShown(it); }
+    else if (!landing && it !== want && !shownPx(stageOf(want))) follow(it);
+  };
   addEventListener('scroll', check, { passive: true });
   addEventListener('resize', check);
   check();
@@ -154,6 +170,8 @@ function liveIn(it) {
   }
 }
 function freeze(m) {
+  // a lost context has nothing to copy: the stage it leaves keeps the picture of its model instead of a blank frame
+  if (glBack) return;
   const st = m && m.canvas.parentElement;
   if (!st || !st.classList.contains('stage') || !m._drawn) return;
   let fz = $(':scope > .stage-freeze', st);
@@ -268,6 +286,8 @@ async function showItem(it) {
   kit.setAuto(pressed(act(it, 'rotate')));
   kit.setActive(true);
   liveIn(it);
+  // a lost context's label goes with the canvas (the stage that holds it shows its model's picture under the label)
+  const gl = $('#gl-lost'); if (gl) stageOf(it).appendChild(gl);
   if (!kit._revealed) { kit._revealed = true; kit.reveal(); }
   const s = selected && byId(selected);
   if (s && itemOf(s) === item) {
@@ -280,10 +300,11 @@ async function showItem(it) {
 // The part crossing the middle of the screen changed: its model takes the stage. While a deep link or a pick in the
 // other part scrolls there, the parts it passes on the way are not shown.
 function partShown(it) {
-  if (it === onScreen) return;
-  onScreen = it;
   if (landing) return;
-  // a phone's spot sheet belongs to the part it was opened in
+  follow(it);
+}
+// the stage goes to part `it` (a phone's spot sheet belongs to the part it was opened in, so a sheet of the other part closes)
+function follow(it) {
   const s = selected && byId(selected);
   if (s && itemOf(s) !== it && $('#spot-card').classList.contains('open')) closeSheet();
   showItem(it);
@@ -296,12 +317,22 @@ function land(it, { immediate = false } = {}) {
   const done = () => {
     if (landing !== it) return;
     landing = null;
+    // the part the page came to rest on takes the stage, whatever was asked for on the way
     const now = midPart();
     if (now) onScreen = now;
-    if (now && now !== want && !(selected && itemOf(byId(selected)) === want)) showItem(now);
+    if (now && now !== want) follow(now);
   };
   Promise.resolve(scrollToEl(el, { immediate })).then(done, done);
   setTimeout(done, 2500);   // never stay locked if the scroller does not report back
+}
+// scroll just enough to bring a part's stage back: from above the screen, down to its place under the nav (a sticky
+// stage pushed up at the end of its part comes back with it); a stage still below the screen lands on its part
+function bringStage(it) {
+  const st = stageOf(it);
+  if (!st || !scrollToEl) return;
+  const r = st.getBoundingClientRect();
+  if (r.top >= innerHeight) { land(it); return; }
+  scrollToEl(Math.max(0, scrollY + r.top - navH() - 12));
 }
 // a change in the suit's part while the helmet's part is being read would push the page: keep the helmet part in place
 // (not while the page is about to land somewhere else anyway)
@@ -473,8 +504,9 @@ function row(s) {
   const dot = document.createElement('i'); dot.className = `row-dot t-${tierOf(s).key}`;
   const n = document.createElement('span'); n.className = 'n'; n.textContent = String(s.n).padStart(2, '0');
   const nm = document.createElement('button'); nm.type = 'button'; nm.className = 'nm';
-  // inside its own part a helmet row drops the «Capacete, …» its full name carries (spots.json → pt/en.short)
-  nm.textContent = pick(s).short || pick(s).name;
+  // inside its own part a helmet row drops the «Capacete, …» its full name carries (spots.json → pt/en.short);
+  // «à frente» and «por fora» stay together, so a name that wraps never leaves one short word on a line of its own
+  nm.textContent = (pick(s).short || pick(s).name).replace(/ (à|por) (\S+)$/, ' $1\u00a0$2');
   const small = document.createElement('small'); small.textContent = sizeOf(s);
   nm.appendChild(small);
   nm.setAttribute('aria-label', `${pick(s).name}, ${money(s.price)}, ${statusText(s)}`);
@@ -497,18 +529,22 @@ function row(s) {
 }
 
 // ---------- selection + card ----------
-// A spot on the other model switches the stage first (showItem selects it once that model is up), and when its part is
-// not the one on screen (a deep link, a hash change) the page scrolls there.
-function select(id, { from3d = false, focus = true } = {}) {
+// A spot on the other model switches the stage first (showItem selects it once that model is up).
+// Where the page goes: a pick made in its own part (a row, a chapter, the model) never moves the page while some of
+// that part's stage is on screen; with the stage wholly off screen the page moves just enough to bring it back. A spot
+// whose whole part is off screen (a control of the other part reached with the keyboard) lands on its part. A tour
+// step and a hash change never scroll from here (a hash change lands on its own).
+function select(id, { from3d = false, focus = true, scroll = true } = {}) {
   selected = id && byId(id) ? id : null;
   const it = selected ? itemOf(byId(selected)) : want, switching = it !== item;
   // the model on stage lets go of its spot at once: the card already shows the new one, and if the other model
   // cannot be built (helmet.js failed to load) the stage stays neutral instead of highlighting the old spot
   if (switching) { if (kit) kit.select(null); showItem(it); }
   else { want = it; if (kit && !from3d) kit.select(selected, { focus }); }
-  const away = !!selected && booted && it !== midPart();
-  renderCard({ steadyView: !away });
-  if (away) land(it);
+  const move = !selected || !booted || !scroll ? null : !shownPx(partOf(it)) ? 'land' : !shownPx(stageOf(it)) ? 'stage' : null;
+  renderCard({ steadyView: !move });
+  if (move === 'land') land(it);
+  else if (move === 'stage') bringStage(it);
   $$('.rc-row').forEach((r) => r.classList.toggle('sel', r.dataset.id === selected));
   $$('.chapter[data-focus]').forEach((c) => c.classList.toggle('on', c.dataset.focus === selected));
   const sp = act(it, 'spots');
@@ -844,16 +880,17 @@ async function copy(text) {
 // ---------- tour ----------
 // each part has its own tour: it visits that part's free spots only, so the camera never leaves its model
 const tourBtn = (it) => $(`.chapters[data-item="${it}"] [data-tour]`);
+// (a step never scrolls the page: the scroll check stops the tour once the visitor leaves its part)
 function startTour(it) {
   withModel(it, (k) => {
     stopTour();
-    const ctl = tourCtl = new AbortController();
+    const ctl = tourCtl = new AbortController(); tourIt = it;
     const ids = available().filter((s) => itemOf(s) === it).sort((a, b) => b.price - a.price || a.n - b.n).map((s) => s.id);
     const b = tourBtn(it); b?.classList.add('on');
-    k.tour(ids, (id) => select(id, { from3d: true }), ctl.signal).finally(() => b?.classList.remove('on'));
+    k.tour(ids, (id) => select(id, { from3d: true, scroll: false }), ctl.signal).finally(() => b?.classList.remove('on'));
   });
 }
-function stopTour() { if (tourCtl) { tourCtl.abort(); tourCtl = null; $$('[data-tour]').forEach((b) => b.classList.remove('on')); } }
+function stopTour() { if (tourCtl) { tourCtl.abort(); tourCtl = null; tourIt = null; $$('[data-tour]').forEach((b) => b.classList.remove('on')); } }
 // run fn on the model of part `it`, bringing it on stage first if needed (a tap in a part whose model is not up yet)
 function withModel(it, fn) {
   if (kit && item === it) { fn(kit); return; }
@@ -920,17 +957,23 @@ function readHash() {
 // ---------- wiring ----------
 function bindSheet() {
   const sheet = $('#spot-card');
-  $('#sheet-x').addEventListener('click', () => { select(null); if (kit) kit.home(); });
+  $('#sheet-x').addEventListener('click', () => { stopTour(); select(null); if (kit) kit.home(); });
   let y0 = null, dy = 0;
   sheet.addEventListener('pointerdown', (e) => { if (!mobile() || sheet.scrollTop > 0 || e.target.closest('button, input, label, a')) return; y0 = e.clientY; dy = 0; sheet.classList.add('dragging'); });
   sheet.addEventListener('pointermove', (e) => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sheet.style.setProperty('--drag', `${dy}px`); });
-  const end = () => { if (y0 === null) return; sheet.classList.remove('dragging'); y0 = null; if (dy > 90) { select(null); if (kit) kit.home(); } else sheet.style.removeProperty('--drag'); };
+  const end = () => { if (y0 === null) return; sheet.classList.remove('dragging'); y0 = null; if (dy > 90) { stopTour(); select(null); if (kit) kit.home(); } else sheet.style.removeProperty('--drag'); };
   sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);
-  // on phones the suit's stage shrinks while its long rate card is being read (the helmet's four rows need no room:
-  // shrinking its stage would only move its short card in and out of the band, over and over)
-  const studio = $('.studio[data-item="suit"]');
-  new IntersectionObserver((en) => { studio.classList.toggle('compact', mobile() && en[0].isIntersecting && !studio.classList.contains('no3d')); }, { rootMargin: '-55% 0px -10% 0px' }).observe($('.ratecard[data-item="suit"]'));
-  addEventListener('resize', () => { if (!mobile()) { closeSheet(); $$('.studio').forEach((x) => x.classList.remove('compact')); } });
+  // On an upright phone a part's stage shrinks while its rate card is being read. The shrink never moves the page: the
+  // stage's sticky box keeps its height in the layout and only the stage drawn inside it gets shorter (style.css), so
+  // the rate card does not slide in and out of the band, and a glide to a part lands where it aimed.
+  for (const it of ITEMS) {
+    const studio = $(`.studio[data-item="${it}"]`);
+    let inBand = false;
+    const apply = () => studio.classList.toggle('compact', inBand && stacked() && !studio.classList.contains('no3d'));
+    new IntersectionObserver((en) => { inBand = en[0].isIntersecting; apply(); }, { rootMargin: '-55% 0px -10% 0px' }).observe($(`.ratecard[data-item="${it}"]`));
+    addEventListener('resize', apply);
+  }
+  addEventListener('resize', () => { if (!mobile()) closeSheet(); });
 }
 function closeSheet() { $('#spot-card').classList.remove('open'); document.body.classList.remove('sheet-open'); }
 
@@ -1082,7 +1125,7 @@ function bindUI() {
     const was = selected;
     readHash(); renderPackage();
     for (const m of models()) m.setBasket([...basket]);
-    if (selected || selected !== was || want !== item) select(selected);
+    if (selected || selected !== was || want !== item) select(selected, { scroll: false });
     if (hashLand && hashLand !== midPart()) land(hashLand);
   });
 }

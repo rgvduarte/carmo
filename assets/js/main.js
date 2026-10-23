@@ -257,6 +257,11 @@ function scrollPose(s, e) {
   const H = s.constructor.HOME;
   return { rot: lerp(Math.PI * 1.15, H.rot, e), dist: lerp(3.2, H.dist, e), ty: H.ty, y: lerp(0.5, H.y, e) };
 }
+// Where a link to an element lands, and how far under the nav. A link to chapter 05 («Ver o fato e o capacete», the nav,
+// #fato) lands on its subtitle, «24 espaços: 20 no fato e 4 no capacete», with the two entry cards in view below it
+// (on phones and phones held sideways the cards follow the subtitle directly).
+const aimAt = (el) => (el && el.id === 'fato' ? [$('#ad-sub') || el, 8] : [el, 0]);
+
 function initMotion(getSuit) {
   const G = window.gsap, ST = window.ScrollTrigger;
   const onScroll = () => {
@@ -289,9 +294,13 @@ function initMotion(getSuit) {
     const navH = nav.offsetHeight;
     // keyboard focus follows the link, so the next Tab starts inside the section
     const el = target === 0 ? $('#top') : target;
+    const [aim, gap] = target === 0 ? [0, 0] : aimAt(target);
     const land = () => { if (!el.matches('a, button, input, select, textarea, [tabindex]')) el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); };
-    if (lenis) lenis.scrollTo(target, { offset: target === 0 ? 0 : -navH, duration: 1.4, onComplete: land });
-    else { if (target === 0) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); else target.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); land(); }
+    // the glide aims at where the target is when the link is tapped; once it is over the target is measured again, and
+    // anything that moved the layout on the way (a picture, a font) is made up for in one last step
+    const reaim = () => { if (aim === 0) return; const off = aim.getBoundingClientRect().top - navH - gap; if (Math.abs(off) > 2) lenis.scrollTo(scrollY + off, { immediate: true, force: true }); };
+    if (lenis) lenis.scrollTo(aim, { offset: aim === 0 ? 0 : -(navH + gap), duration: 1.4, onComplete: () => { reaim(); land(); } });
+    else { if (target === 0) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); else aim.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); land(); }
     history.replaceState(null, '', id === '#top' ? location.pathname : id);
   }));
 
@@ -371,18 +380,23 @@ let suitRef = null;
 const startMotion = () => {
   let lenis = null;
   try { ({ lenis } = initMotion(() => suitRef)); } catch (e) { console.error(e); }
-  // scroll to an element just under the nav; resolves once there (adspace waits for it before showing the part's model)
-  // (an absolute target: Lenis measures an element against its own scroll value, which can lag a scroll it did not make)
-  const scrollToEl = (el, { immediate = false } = {}) => new Promise((done) => {
-    const top = el.getBoundingClientRect().top + scrollY - nav.offsetHeight;
-    if (lenis) { lenis.scrollTo(top, { immediate, duration: 1.2, onComplete: done }); if (immediate) done(); return; }
+  // scroll to an element just under the nav (gap: how far under it), or to a scroll position; resolves once there
+  // (adspace waits for it before showing the part's model). An absolute target: Lenis measures an element against its
+  // own scroll value, which can lag a scroll it did not make. Once there, an element is measured again and the page
+  // makes up at once for anything that moved the layout on the way.
+  const jump = (y) => { if (lenis) lenis.scrollTo(y, { immediate: true, force: true }); else scrollTo({ top: y, behavior: 'auto' }); };
+  const scrollToEl = (el, { immediate = false, gap = 0 } = {}) => new Promise((done) => {
+    const num = typeof el === 'number';
+    const top = num ? el : el.getBoundingClientRect().top + scrollY - nav.offsetHeight - gap;
+    const end = () => { if (!num) { const off = el.getBoundingClientRect().top - nav.offsetHeight - gap; if (Math.abs(off) > 2) jump(scrollY + off); } done(); };
+    if (lenis) { if (immediate) { jump(top); end(); } else lenis.scrollTo(top, { duration: 1.2, onComplete: end }); return; }
     scrollTo({ top, behavior: immediate || reduce ? 'auto' : 'smooth' });
-    setTimeout(done, immediate || reduce ? 0 : 900);
+    setTimeout(end, immediate || reduce ? 0 : 900);
   });
-  // a deep link lands in its part (#fato/peito, #capacete/…, #fato/title), or on the chapter for #fato and a mixed package;
-  // not if the visitor has scrolled in the meantime
+  // a deep link lands in its part (#fato/peito, #capacete/…, #fato/title), or on the chapter's subtitle and cards for #fato
+  // and a mixed package; not if the visitor has scrolled in the meantime
   const y0 = scrollY;
-  const toStudio = () => { const el = landTarget(); if (el && Math.abs(scrollY - y0) < 2) scrollToEl(el, { immediate: true }); };
+  const toStudio = () => { const t = landTarget(); if (!t || Math.abs(scrollY - y0) >= 2) return; const [el, gap] = aimAt(t); scrollToEl(el, { immediate: true, gap }); };
   initAdspace({
     scrollTo: scrollToEl,
     // move the page by dy at once, keeping Lenis in step (a change above the part being read must not push it)
