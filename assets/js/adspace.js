@@ -372,7 +372,9 @@ function row(s) {
 function select(id, { from3d = false, focus = true } = {}) {
   selected = id && byId(id) ? id : null;
   const it = selected ? itemOf(byId(selected)) : want, switching = it !== item;
-  if (switching) showItem(it);
+  // the model on stage lets go of its spot at once: the card already shows the new one, and if the other model
+  // cannot be built (helmet.js failed to load) the stage stays neutral instead of highlighting the old spot
+  if (switching) { if (kit) kit.select(null); showItem(it); }
   else { if (want !== it) { want = it; syncItemTabs(); } if (kit && !from3d) kit.select(selected, { focus }); }
   renderCard();
   $$('.rc-row').forEach((r) => r.classList.toggle('sel', r.dataset.id === selected));
@@ -579,8 +581,9 @@ async function downloadMockup() {
 }
 
 // ---------- deep links ----------
-// #fato/<id> and #capacete/<id> select any spot (select() brings up its model); #capacete opens the helmet.
-// Only a bare #capacete writes `want`: the model on stage is always switched by showItem().
+// #fato/<id> and #capacete/<id> select any spot (select() brings up its model); #capacete opens the helmet, and so
+// does a #capacete/ link whose id is empty or unknown (a typo, or a spot renamed since the link was shared).
+// Only those helmet links write `want`: the model on stage is always switched by showItem().
 function readHash() {
   const h = decodeURIComponent(location.hash.slice(1));
   if (h.startsWith('pacote=')) {
@@ -589,9 +592,10 @@ function readHash() {
     history.replaceState(null, '', `${location.pathname}${location.search}#fato`);
   } else if (h === 'fato/title') {
     wantTitle = DATA.title.status === 'available' && titleOpen();
-  } else if (h === 'capacete') {
-    selected = null; want = 'helmet';
-  } else if (/^(fato|capacete)\/./.test(h)) {
+  } else if (/^capacete(\/|$)/.test(h)) {
+    const id = h.slice(9);
+    if (byId(id)) selected = id; else { selected = null; want = 'helmet'; }
+  } else if (/^fato\/./.test(h)) {
     const id = h.slice(h.indexOf('/') + 1);
     if (byId(id)) selected = id;
   }
