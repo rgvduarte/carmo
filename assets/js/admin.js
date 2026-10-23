@@ -4,6 +4,7 @@
 // writes, and when it is allowed) live in admin-core.js, which is tested against the issue-form bot.
 import * as C from './admin-core.js';
 import { SITE } from './data.js';
+import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
 const API = `https://api.github.com/repos/${C.REPO}`;
 const KEY = 'gc.admin.token', FILTER_KEY = 'gc.admin.filter';

@@ -523,6 +523,8 @@ function select(id, { from3d = false, focus = true } = {}) {
   sheet.style.removeProperty('--drag');
   document.body.classList.toggle('sheet-open', open);
   if (open) { sheet.scrollTop = 0; if (from3d && navigator.vibrate) navigator.vibrate(8); }
+  // for analytics.js (select_content): which spot is on the card now, and whether the tour put it there
+  document.dispatchEvent(new CustomEvent('gc:spot', { detail: { id: selected, item: selected ? itemOf(byId(selected)) : null, tour: !!tourCtl } }));
 }
 
 // One spot card, in the panel of its spot's part; each part shows its own prompt while none of its spots is picked.
@@ -589,6 +591,8 @@ function toggleBasket(id) {
   wantTitle = false;
   if (basket.has(id)) basket.delete(id); else basket.add(id);
   saveBasket();
+  // for analytics.js (add_to_cart / remove_from_cart)
+  document.dispatchEvent(new CustomEvent('gc:basket', { detail: { id, added: basket.has(id) } }));
 }
 function saveBasket() {
   try { localStorage.setItem(STORE, JSON.stringify([...basket])); } catch (_) {}
@@ -1109,8 +1113,9 @@ function bindUI() {
     const s = byId(selected); if (!s) return;
     const onHelmet = itemOf(s) === 'helmet';
     const url = `${location.origin}${location.pathname}#${onHelmet ? 'capacete' : 'fato'}/${s.id}`;
-    if (navigator.share) { try { await navigator.share({ title: t(onHelmet ? 'share.titleH' : 'share.title'), text: `${pick(s).name} · ${money(s.price)}`, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
-    if (await copy(url)) toast(t('toast.link'));
+    // gc:share tells analytics.js the share happened (a dismissed share sheet or a failed copy is not a share)
+    if (navigator.share) { try { await navigator.share({ title: t(onHelmet ? 'share.titleH' : 'share.title'), text: `${pick(s).name} · ${money(s.price)}`, url }); document.dispatchEvent(new CustomEvent('gc:share', { detail: { method: 'web_share' } })); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    if (await copy(url)) { toast(t('toast.link')); document.dispatchEvent(new CustomEvent('gc:share', { detail: { method: 'copy_link' } })); }
   });
   $('#logo-file').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];

@@ -21,6 +21,9 @@ export const SITE = {
   // action, e.g. 'https://gocarmo-pedidos.<conta>.workers.dev'. Empty: the admin page shows no «Pedidos» list.
   // After changing it, run node scripts/stamp.mjs (it also lets the admin page reach this address).
   requestsApi: 'https://gocarmo-pedidos.rgvduarte.workers.dev',
+  // Google Analytics 4 Measurement ID, e.g. G-XXXXXXXXXX. Empty = no analytics, no banner.
+  // (Set up in the README, "Google Analytics". The tag loads only after the visitor accepts: analytics.js.)
+  ga: '',
   updated: '2026-10-22',
 };
 

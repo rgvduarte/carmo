@@ -248,6 +248,8 @@ const EN = {
   "ct.alt": "Portrait of Gonçalo Carmo wearing mirrored sunglasses",
   "ft.data": "Data updated on",
   "ft.top": "Back to top",
+  "ft.privacy": "Privacy",
+  "ft.cookies": "Cookie settings",
   "pk.clear": "Clear",
   "pk.go": "Book",
   "cl.brand": "Brand",
@@ -297,6 +299,11 @@ const EN = {
 
 // strings only used from JS
 const PT_JS = {
+  // cookie banner (analytics.js)
+  'cs.h': 'Cookies', 'cs.p': 'Posso usar cookies do Google Analytics para contar as visitas e ver o que interessa mais no site? Só com a tua autorização e nunca para publicidade. Duram até seis meses e podes mudar de ideias em «Definições de cookies», no fim da página.',
+  'cs.more': 'Privacidade', 'cs.no': 'Recusar', 'cs.yes': 'Aceitar',
+  'cs.signal': 'O teu browser pede aos sites que não sigam as tuas visitas, por isso as estatísticas estão desligadas. Só ligam se carregares em Aceitar.',
+  'cs.owner': 'Este browser já abriu a página de admin, por isso aqui as estatísticas estão sempre desligadas e as tuas visitas não contam.',
   'z.front': 'Frente', 'z.back': 'Costas', 'z.sides': 'Laterais', 'z.legs': 'Pernas', 'z.shoulders': 'Ombros', 'z.helmet': 'Capacete', 'z.suit': 'Fato',
   'st.available': 'Disponível', 'st.reserved': 'Reservado', 'st.sold': 'Vendido',
   'lbl.sold': 'VENDIDO', 'lbl.reserved': 'RESERVADO', 'lbl.top': 'DESTAQUE',
@@ -340,6 +347,10 @@ const PT_JS = {
   'gfm.vt': (r, g, p) => `${r} de ${g} (${p})`, 'gfm.stext': 'Apoia a época 2027 do Gonçalo Carmo no GoFundMe.',
 };
 const EN_JS = {
+  'cs.h': 'Cookies', 'cs.p': 'May I use Google Analytics cookies to count visits and see what interests people most on the site? Only with your permission, and never for advertising. They last up to six months and you can change your mind in “Cookie settings” at the bottom of the page.',
+  'cs.more': 'Privacy', 'cs.no': 'Decline', 'cs.yes': 'Accept',
+  'cs.signal': 'Your browser asks sites not to track your visits, so statistics are off. They only turn on if you choose Accept.',
+  'cs.owner': 'This browser has opened the admin page, so statistics are always off here and your own visits are not counted.',
   'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders', 'z.helmet': 'Helmet', 'z.suit': 'Suit',
   'st.available': 'Available', 'st.reserved': 'Reserved', 'st.sold': 'Sold',
   'lbl.sold': 'SOLD', 'lbl.reserved': 'ON HOLD', 'lbl.top': 'TOP SPOT',

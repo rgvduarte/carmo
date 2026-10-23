@@ -98,7 +98,7 @@ if (api.trim()) {
 const connectWorker = (s) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${[...CONNECT, worker].filter(Boolean).join(' ')}`);
 
 const stale = [];
-for (const [page, base, withRaces, withWorker] of [['index.html', './', true, false], ['admin/index.html', '../', false, true], ['admin/strava/index.html', '../../', false, false]]) {
+for (const [page, base, withRaces, withWorker] of [['index.html', './', true, false], ['admin/index.html', '../', false, true], ['admin/strava/index.html', '../../', false, false], ['privacidade/index.html', '../', false, false]]) {
   const was = readFileSync(page, 'utf8');
   let now = stamp(withRaces ? bake(was) : was, base);
   if (withWorker) now = connectWorker(now);

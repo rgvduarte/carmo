@@ -1353,3 +1353,53 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .give-iban { font-size: 12.5px; padding: 10px 10px 10px 12px; gap: 8px; }
 }
 @keyframes menuIn { to { opacity: 1; transform: none; } }
+
+/* ---------- cookie banner (analytics.js) ---------- */
+/* Only while SITE.ga is set. It floats over the page and never pushes it: a compact bar on a computer, a bottom sheet
+   on a phone. «Recusar» and «Aceitar» are the same button. The booking dialog sits in the top layer, above it. */
+.consent { position: fixed; z-index: 55; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); width: min(900px, calc(100% - 32px)); transform: translate(-50%, calc(100% + 40px)); visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
+.consent.on { transform: translate(-50%, 0); visibility: visible; transition: transform .5s var(--ease); }
+.consent-in { display: flex; align-items: center; gap: 16px 28px; padding: 16px 16px 16px 22px; border: 1px solid var(--line-2); border-radius: 18px; background: var(--bg-2); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+.consent-txt { flex: 1 1 auto; min-width: 0; }
+.consent-h { margin: 0 0 6px; font: 500 11px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.consent-p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.consent-p a { color: var(--ink); white-space: nowrap; display: inline-block; padding: 14px 0; margin: -14px 0; }
+.consent-note { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.consent-acts { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.consent-acts .btn { min-width: 128px; }
+/* reopened from the footer: the choice that is on carries a tick */
+.consent-acts .btn[aria-pressed="true"]::before { content: "✓"; content: "✓" / ""; }
+:root.consent-on footer { padding-bottom: calc(max(var(--consent-h, 120px) + 32px, 136px) + env(safe-area-inset-bottom)); }
+body.menu-open .consent { visibility: hidden; }
+/* with the package bar on, the banner sits above it (bar 65 px + 16 px off the bottom, then a 12 px gap), so «Reservar»
+   and «Limpar» stay in reach; the footer leaves room for both */
+body.pk-on .consent { bottom: calc(93px + env(safe-area-inset-bottom)); }
+:root.consent-on body.pk-on footer { padding-bottom: calc(var(--consent-h, 120px) + 132px + env(safe-area-inset-bottom)); }
+footer .ft-link { display: inline-block; padding: 12px 0; margin: -12px 0; border: 0; background: none; color: var(--muted); font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+footer .ft-link:hover { color: var(--ink); }
+footer a[href="privacidade/"] { display: inline-block; padding: 14px 0; margin: -14px 0; }
+@media (max-width: 760px) {
+  .consent { left: 0; right: 0; bottom: 0; width: auto; transform: translateY(calc(100% + 8px)); }
+  .consent.on { transform: none; }
+  .consent-in { flex-direction: column; align-items: stretch; gap: 14px; padding: 18px var(--gutter) calc(16px + env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 20px 20px 0 0; box-shadow: 0 -10px 60px rgba(0,0,0,.6); }
+  .consent-acts .btn { min-width: 0; min-height: 50px; }
+  /* a spot's bottom sheet goes over it, like over the package bar; above the package bar it is a card, not a sheet */
+  body.sheet-open .consent { visibility: hidden; }
+  body.pk-on .consent { left: 12px; right: 12px; }
+  body.pk-on .consent-in { border-width: 1px; border-radius: 18px; padding-bottom: 16px; }
+}
+/* the phone bar is taller (100 px with its offset) */
+@media (max-width: 560px) { body.pk-on .consent { bottom: calc(112px + env(safe-area-inset-bottom)); } }
+/* a phone held sideways: text and buttons on one row, the label run into the text, so the banner takes under a third
+   of the screen */
+@media (max-width: 760px) and (max-height: 480px) {
+  .consent-in { flex-direction: row; align-items: center; gap: 16px; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .consent-h, .consent-p { display: inline; }
+  .consent-h { margin: 0 8px 0 0; }
+  /* inline text takes its line height from the block around it */
+  .consent-txt { font-size: 13px; line-height: 1.45; }
+  .consent-p { font-size: inherit; line-height: inherit; }
+  .consent-acts .btn { min-width: 104px; min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .consent, .consent.on { transition: none; } }
+@media print { .consent { display: none !important; } }
