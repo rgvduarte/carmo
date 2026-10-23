@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-dOQZsju1waUYmYzJ2R9tpNse7cO6y2L9bMKOJXEdLHc='; connect-src 'self' https://api.github.com https://gocarmo.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0b0b0c">
+<title>GOCARMO · Admin</title>
+<link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/admin.css">
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<script type="module" src="../assets/js/admin.js"></script>
+</head>
+<body>
+<div class="banner" id="offline" role="status" hidden>Sem ligação. Nada se guarda até voltar a rede.</div>
+
+<!-- 1. Entrar -->
+<main class="screen wrap" id="login" hidden>
+  <header class="mast">
+    <span class="mark"><img src="../assets/img/favicon.svg" alt="" width="24" height="24">GOCARMO</span><span class="tag">ADMIN</span>
+  </header>
+  <h1 class="display">Espaços do fato e do capacete</h1>
+  <p class="lead">Reserva, vende e liberta espaços com o site no ar. Cada ação fica guardada no GitHub e o site atualiza-se sozinho em 1 a 2 minutos.</p>
+
+  <section class="card steps" aria-labelledby="steps-h">
+    <h2 id="steps-h">Criar a chave de acesso (uma vez)</h2>
+    <ol>
+      <li>Abre <b>github.com/settings/personal-access-tokens/new</b> (botão abaixo) com a conta dona do repositório.</li>
+      <li>Em «Repository access» escolhe «Only select repositories» e depois <b>rgvduarte/carmo</b>. Validade: 90 dias.</li>
+      <li>Em «Permissions» junta <b>Contents</b> e escolhe <b>Read and write</b>. O Metadata fica em Read sozinho.</li>
+      <li>Carrega em «Generate token», copia o código (começa por <code>github_pat_</code>) e cola-o aqui em baixo.</li>
+    </ol>
+    <a class="btn ghost" id="new-token" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Criar token no GitHub ↗</a>
+  </section>
+
+  <form class="card" id="login-form" novalidate>
+    <div class="field">
+      <label for="tok">Token</label>
+      <input id="tok" name="tok" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_…" enterkeyhint="go">
+    </div>
+    <label class="check"><input type="checkbox" id="remember"><span>Lembrar neste telemóvel</span></label>
+    <p class="hint">Sem isto, sais quando fechares o separador.</p>
+    <button class="btn gold wide" type="submit" id="login-go">Entrar</button>
+    <p class="err" id="login-err" role="alert" aria-live="assertive"></p>
+  </form>
+
+  <p class="fine">Se o GitHub não te deixar escolher rgvduarte/carmo (és colaborador e não dono), <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=gocarmo%20admin" target="_blank" rel="noopener">cria um token clássico</a> com public_repo e 30 dias de validade.</p>
+  <p class="fine">Sem token à mão? <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">Usa o formulário do GitHub</a>.</p>
+</main>
+
+<!-- 2. Lista -->
+<div class="screen" id="app" hidden>
+  <header class="top">
+    <div class="top-in wrap">
+      <span class="mark"><img src="../assets/img/favicon.svg" alt="" width="22" height="22">GOCARMO<span class="tag">ADMIN</span></span>
+      <span class="who mono" id="who"></span>
+      <button class="icon" type="button" id="reload" aria-label="Atualizar a lista" title="Atualizar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <button class="btn sm ghost" type="button" id="logout">Sair</button>
+    </div>
+  </header>
+
+  <main class="wrap list-main">
+    <p class="meta mono" id="meta" aria-live="polite">A ler do GitHub…</p>
+    <p class="summary" id="summary"></p>
+
+    <section class="card ref">
+      <label for="ref">Colar referência</label>
+      <input id="ref" type="text" placeholder="KONA 01 21 22" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
+      <p class="ref-out" id="ref-out" aria-live="polite">É o descritivo da transferência ou do MB WAY. Seleciona esses espaços.</p>
+    </section>
+
+    <fieldset class="filters">
+      <legend class="sr-only">Mostrar</legend>
+      <label class="chip"><input type="radio" name="filter" value="all" checked>Todos <span class="c" data-count="all"></span></label>
+      <label class="chip"><input type="radio" name="filter" value="available">Livres <span class="c" data-count="available"></span></label>
+      <label class="chip"><input type="radio" name="filter" value="reserved">Reservados <span class="c" data-count="reserved"></span></label>
+      <label class="chip"><input type="radio" name="filter" value="sold">Vendidos <span class="c" data-count="sold"></span></label>
+    </fieldset>
+
+    <div id="groups"></div>
+    <p class="empty" id="empty" hidden>Nenhum espaço neste filtro.</p>
+
+    <p class="fine foot">Se esta página falhar, o <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">formulário do GitHub</a> faz o mesmo, um espaço de cada vez.</p>
+  </main>
+
+  <div class="bar" id="bar" hidden>
+    <div class="bar-in wrap">
+      <p class="bar-sum"><b id="bar-n"></b><span id="bar-total"></span><button type="button" class="link" id="bar-clear">Limpar</button></p>
+      <div class="acts">
+        <button type="button" class="btn" data-act="reserved">Reservar</button>
+        <button type="button" class="btn gold" data-act="sold">Vendido</button>
+        <button type="button" class="btn ghost" data-act="available">Libertar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3-4, 6. Reservar / Vendido / progresso -->
+<dialog class="sheet" id="sheet" aria-labelledby="sh-title">
+  <div class="sh-head">
+    <h2 id="sh-title"></h2>
+    <button type="button" class="x" id="sh-x" aria-label="Fechar">×</button>
+  </div>
+  <form id="sh-form" novalidate>
+    <p class="sh-sum" id="sh-sum"></p>
+    <div class="field">
+      <label for="f-brand">Marca</label>
+      <input id="f-brand" type="text" maxlength="60" list="brands" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
+      <datalist id="brands"></datalist>
+    </div>
+    <div class="field">
+      <label for="f-url">Link <span class="opt">(opcional)</span></label>
+      <input id="f-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://marca.pt ou @marca" enterkeyhint="next">
+    </div>
+    <div class="field" data-only="reserved">
+      <label for="f-until">Reservado até</label>
+      <input id="f-until" type="date">
+      <p class="hint">Depois deste dia o espaço volta a ficar livre sozinho.</p>
+    </div>
+    <div class="field" data-only="sold">
+      <span class="lbl" id="logo-lbl">Logótipo <span class="opt">(opcional)</span></span>
+      <label class="btn ghost file"><input id="f-logo" type="file" class="sr-only" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-labelledby="logo-lbl">Escolher logótipo</label>
+      <p class="file-info mono" id="logo-info" hidden></p>
+      <div class="tiles" id="tiles" hidden>
+        <figure class="tile on-white"><img id="tile-w" alt="O logótipo sobre branco"><figcaption>Sobre branco</figcaption></figure>
+        <figure class="tile on-black"><img id="tile-b" alt="O logótipo sobre preto"><figcaption>Sobre preto</figcaption></figure>
+      </div>
+      <button type="button" class="btn sm ghost" id="see3d" hidden>Ver no 3D</button>
+      <div class="current" id="cur-logo" hidden><img id="cur-img" alt="O logótipo atual"><span>Fica o logótipo atual (escolhe outro para trocar).</span></div>
+      <p class="hint" id="logo-note"></p>
+    </div>
+    <ul class="notes" id="sh-warn" aria-live="polite"></ul>
+    <p class="err" id="sh-err" role="alert"></p>
+    <div class="sh-foot">
+      <button type="button" class="btn ghost" id="sh-cancel">Cancelar</button>
+      <button type="submit" class="btn gold" id="sh-go">Guardar</button>
+    </div>
+  </form>
+  <div class="progress" id="sh-progress" hidden>
+    <ol class="ticks">
+      <li id="pr-save"><i aria-hidden="true"></i><span>A guardar no GitHub…</span></li>
+      <li id="pr-pub"><i aria-hidden="true"></i><span>A publicar…</span></li>
+      <li id="pr-live"><i aria-hidden="true"></i><span>No ar</span></li>
+    </ol>
+    <p class="msg" id="pr-msg" role="status" aria-live="polite"></p>
+    <ul class="links" id="pr-links"></ul>
+    <div class="sh-foot">
+      <button type="button" class="btn ghost" id="pr-retry" hidden>Tentar outra vez</button>
+      <button type="button" class="btn ghost" id="pr-check" hidden>Verificar outra vez</button>
+      <button type="button" class="btn gold" id="pr-close">Fechar</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- 5. Confirmação -->
+<dialog class="sheet small" id="confirm" aria-labelledby="cf-title">
+  <div class="sh-head"><h2 id="cf-title"></h2></div>
+  <ul class="cf-list" id="cf-list"></ul>
+  <p class="cf-text" id="cf-text"></p>
+  <div class="sh-foot">
+    <button type="button" class="btn ghost" id="cf-no">Cancelar</button>
+    <button type="button" class="btn gold" id="cf-yes">Confirmar</button>
+  </div>
+</dialog>
+
+<!-- 7. 3D -->
+<dialog class="sheet tall" id="v3d" aria-labelledby="v3d-title">
+  <div class="sh-head">
+    <h2 id="v3d-title">Assim fica no site</h2>
+    <button type="button" class="x" id="v3d-x" aria-label="Fechar">×</button>
+  </div>
+  <div class="v3d-tabs" id="v3d-tabs" hidden>
+    <button type="button" class="chip" data-item="suit" aria-pressed="true">Fato</button>
+    <button type="button" class="chip" data-item="helmet" aria-pressed="false">Capacete</button>
+  </div>
+  <div class="stage" id="v3d-stage"><p class="loading" id="v3d-loading">A abrir o modelo 3D…</p></div>
+  <p class="hint" id="v3d-msg">Arrasta para rodar. É o mesmo desenho que o site faz.</p>
+  <div class="sh-foot"><button type="button" class="btn" id="v3d-close">Fechar</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
