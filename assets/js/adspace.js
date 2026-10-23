@@ -112,8 +112,13 @@ async function mountSuit() {
     if (!mod.webglAvailable()) throw new Error('webgl');
     SuitClass = mod.Suit;
     // the helmet part is the one on screen (or a helmet deep link): the suit is built idle, so it never flashes up first
-    const first = want === 'helmet';
-    suit = kit = new mod.Suit(stageOf('suit'), { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !first });
+    const idle = want === 'helmet';
+    const s = new mod.Suit(stageOf('suit'), { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !idle });
+    // the body is meshed in a worker: the stage keeps its loading label until the suit is ready
+    await s.ready;
+    const first = want === 'helmet';   // read again: the visitor may have scrolled to the other part meanwhile
+    if (idle && !first) s.setActive(true);
+    suit = kit = s;
     item = 'suit';
     suit.setBasket([...basket]);
     // the booking dialog can be up before the stage is (a reload that brings the payment back): hold still behind it

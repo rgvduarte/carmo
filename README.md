@@ -94,7 +94,9 @@ põe o logótipo no peito. O capacete fica de fora: os 4 espaços dele vendem-se
 conta os espaços do fato e do capacete juntos.
 
 A posição de cada espaço também está no `data/spots.json`. No fato: `part` (`torso`, `legL`, …), `phi` (graus à
-volta do corpo, 0 = frente), `t` (altura em metros), `w` × `h` (cm) e `rot`. No capacete: `part: "shell"`, `phi` é o
+volta do corpo, 0 = frente), `t` (no tronco, a altura em metros a contar do entrepernas; nas pernas e nas mangas, os
+metros a contar da bainha), `w` × `h` (cm) e `rot`. O desenho de cada espaço segue o corpo sem deformar: um logótipo
+quadrado fica quadrado, em qualquer altura. No capacete: `part: "shell"`, `phi` é o
 ângulo no arco (0 = linha do topo, +90 = lado esquerdo), `t` são metros ao longo do topo a contar da viseira, e `rot`
 pode ser 0, ±90 ou 180.
 
@@ -194,7 +196,7 @@ python3 -m http.server 8000
 
 ## Créditos técnicos
 
-- Fato e capacete 3D procedimentais, feitos de raiz em [three.js](https://threejs.org) (MIT). Geometria, textura e espaços são gerados em código. O capacete é o EKOI Pure Aero do Gonçalo, medido nas fotografias do produto.
+- Fato e capacete 3D procedimentais, feitos de raiz em [three.js](https://threejs.org) (MIT). Geometria, textura e espaços são gerados em código. O fato é um só corpo anatómico, contínuo nos ombros, nas axilas e nas ancas (`assets/js/suit-body.js`), malhado num worker (`suit-mesh.js`). O capacete é o EKOI Pure Aero do Gonçalo, medido nas fotografias do produto.
 - Scroll suave com [Lenis](https://github.com/darkroomengineering/lenis) (MIT) e cenas de scroll com [GSAP ScrollTrigger](https://gsap.com).
 - Tipografia: Anton, Inter e JetBrains Mono (Google Fonts, OFL).
 - Fotografias: portefólio do atleta.
