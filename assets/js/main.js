@@ -261,6 +261,9 @@ function scrollPose(s, e) {
 // #fato) lands on its subtitle, «24 espaços: 20 no fato e 4 no capacete», with the two entry cards in view below it
 // (on phones and phones held sideways the cards follow the subtitle directly).
 const aimAt = (el) => (el && el.id === 'fato' ? [$('#ad-sub') || el, 8] : [el, 0]);
+// an element's place in the page as laid out, leaving out transforms: a block still sliding in (.rv reveals, like the
+// subtitle) is aimed at where it comes to rest, not where it is drawn for a moment
+const docTop = (el) => { let y = 0; for (let e = el; e; e = e.offsetParent) y += e.offsetTop; return y; };
 
 function initMotion(getSuit) {
   const G = window.gsap, ST = window.ScrollTrigger;
@@ -298,8 +301,8 @@ function initMotion(getSuit) {
     const land = () => { if (!el.matches('a, button, input, select, textarea, [tabindex]')) el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); };
     // the glide aims at where the target is when the link is tapped; once it is over the target is measured again, and
     // anything that moved the layout on the way (a picture, a font) is made up for in one last step
-    const reaim = () => { if (aim === 0) return; const off = aim.getBoundingClientRect().top - navH - gap; if (Math.abs(off) > 2) lenis.scrollTo(scrollY + off, { immediate: true, force: true }); };
-    if (lenis) lenis.scrollTo(aim, { offset: aim === 0 ? 0 : -(navH + gap), duration: 1.4, onComplete: () => { reaim(); land(); } });
+    const reaim = () => { if (aim === 0) return; const off = docTop(aim) - scrollY - navH - gap; if (Math.abs(off) > 2) lenis.scrollTo(scrollY + off, { immediate: true, force: true }); };
+    if (lenis) lenis.scrollTo(aim === 0 ? 0 : docTop(aim) - navH - gap, { duration: 1.4, onComplete: () => { reaim(); land(); } });
     else { if (target === 0) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); else aim.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); land(); }
     history.replaceState(null, '', id === '#top' ? location.pathname : id);
   }));
@@ -387,16 +390,36 @@ const startMotion = () => {
   const jump = (y) => { if (lenis) lenis.scrollTo(y, { immediate: true, force: true }); else scrollTo({ top: y, behavior: 'auto' }); };
   const scrollToEl = (el, { immediate = false, gap = 0 } = {}) => new Promise((done) => {
     const num = typeof el === 'number';
-    const top = num ? el : el.getBoundingClientRect().top + scrollY - nav.offsetHeight - gap;
-    const end = () => { if (!num) { const off = el.getBoundingClientRect().top - nav.offsetHeight - gap; if (Math.abs(off) > 2) jump(scrollY + off); } done(); };
+    const top = num ? el : docTop(el) - nav.offsetHeight - gap;
+    const end = () => { if (!num) { const off = docTop(el) - scrollY - nav.offsetHeight - gap; if (Math.abs(off) > 2) jump(scrollY + off); } done(); };
     if (lenis) { if (immediate) { jump(top); end(); } else lenis.scrollTo(top, { duration: 1.2, onComplete: end }); return; }
     scrollTo({ top, behavior: immediate || reduce ? 'auto' : 'smooth' });
     setTimeout(end, immediate || reduce ? 0 : 900);
   });
   // a deep link lands in its part (#fato/peito, #capacete/…, #fato/title), or on the chapter's subtitle and cards for #fato
   // and a mixed package; not if the visitor has scrolled in the meantime
-  const y0 = scrollY;
-  const toStudio = () => { const t = landTarget(); if (!t || Math.abs(scrollY - y0) >= 2) return; const [el, gap] = aimAt(t); scrollToEl(el, { immediate: true, gap }); };
+  // (the visitor's own input counts, not the browser's jump to an element named in the address, as for #fato)
+  let moved = false;
+  for (const ev of ['wheel', 'touchstart', 'keydown', 'pointerdown']) addEventListener(ev, () => { moved = true; }, { once: true, passive: true, capture: true });
+  // The page above can still change height for a moment after the jump (charts, fonts, the scroll scenes taking their
+  // room), and a browser does not always hold the place on its own: the link's target is held under the nav until the
+  // visitor moves, or the page has kept its height for 1.5 s (10 s at most).
+  const toStudio = () => {
+    const t = landTarget(); if (!t || moved) return;
+    const [el, gap] = aimAt(t);
+    scrollToEl(el, { immediate: true, gap });
+    if (!('ResizeObserver' in window)) return;
+    let idle = 0;
+    const stop = () => { clearTimeout(idle); hold.disconnect(); };
+    const hold = new ResizeObserver(() => {
+      if (moved) { stop(); return; }
+      const off = docTop(el) - scrollY - nav.offsetHeight - gap;
+      if (Math.abs(off) > 2) jump(scrollY + off);
+      clearTimeout(idle); idle = setTimeout(stop, 1500);
+    });
+    hold.observe(document.body);
+    setTimeout(stop, 10000);
+  };
   initAdspace({
     scrollTo: scrollToEl,
     // move the page by dy at once, keeping Lenis in step (a change above the part being read must not push it)

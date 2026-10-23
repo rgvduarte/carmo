@@ -101,7 +101,7 @@ const EN = {
   "season.route": "TO THE START LINE",
   "season.from": "LISBON",
   "suit.k": "05 · Sponsorship",
-  "suit.h": "Your brand<br class=\"br-m\"> with me at<br class=\"br-m\"> each triathlon.",
+  "suit.h": "Your brand<br class=\"br-m\"> on\u00a0the\u00a0road<br class=\"br-m\"> to\u00a0Kona.",
   "suit.p": "Making a living from triathlon depends on sponsors, and the suit and helmet are where they show. In 2027 I'll wear both at every triathlon, and the suit in training too. Pick a spot, try your logo on the model and send the\u00a0request.",
   "en.h1": "The suit",
   "en.h2": "The helmet",

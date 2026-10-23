@@ -13,13 +13,14 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
 - **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
 - **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir à introdução há dois cartões
-  grandes, «O fato» e «O capacete», cada um com a fotografia do modelo, o número de espaços, o preço mais baixo e um botão
-  que leva à sua parte. Cada parte tem o seu modelo 3D, as vistas, a visita guiada e a tabela de preços (a do fato também
+  grandes, «O fato» e «O capacete», cada um com a imagem do modelo, o número de espaços, o preço mais baixo e um botão
+  que leva à sua parte. Cada parte tem o seu modelo 3D, as vistas, a visita guiada e a tabela de preços (a do fato tem também
   o fato completo). Há um só modelo 3D ativo de cada vez: o da parte que está no ecrã. O capacete só é preparado quando a
-  parte dele se aproxima e, enquanto isso, mostra a fotografia e «A carregar o capacete». Dá para rodar, escolher,
+  parte dele se aproxima e, enquanto isso, mostra a imagem do capacete e «A carregar o capacete». Dá para rodar, escolher,
   experimentar o logótipo, descarregar o mockup, juntar espaços dos dois num pacote, reservar por WhatsApp, email ou
   Instagram e pagar por transferência ou MB WAY.
-- **Apoiar**: GoFundMe, transferência ou MB WAY, apoio em espécie e orçamento estimado da época.
+- **Apoiar**: GoFundMe, transferência ou MB WAY (o mesmo IBAN e o mesmo número dos pedidos, com o código
+  `KONA APOIO`), apoio em espécie e orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
 
 PT e EN (botão no topo; a língua também segue o browser).
@@ -35,13 +36,12 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
-| Fotografias do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
+| Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
 ## Vender um espaço
 
-**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva (e em Apoiar, para donativos, com o
-MB WAY ao lado), ou MB WAY
-para o número do Gonçalo (916 395 103) até 2 000 € por envio, o máximo que o MB WAY deixa mandar de uma vez.
+**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva, ou MB WAY para o número do
+Gonçalo (916 395 103) até 2 000 € por envio, o máximo que o MB WAY deixa mandar de uma vez.
 Acima disso, como o fato completo (3 000 €), o pedido só mostra a transferência. O site mostra o montante já com
 desconto e um descritivo com os números dos espaços, por exemplo `KONA 01` ou `KONA 09 16 20`, para cada pagamento se
 ligar ao pedido sem dúvidas. Os espaços do capacete são

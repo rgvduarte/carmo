@@ -196,17 +196,23 @@ function watchContext(canvas) {
     glBack = new Promise((res) => { done = res; }); glBack.done = () => { clearTimeout(timer); glBack = null; done(); };
     const lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = 'gl-lost';
     const sp = document.createElement('span'); sp.textContent = t('stage.lost'); lbl.appendChild(sp);
-    (canvas.parentElement || stageOf('suit')).appendChild(lbl);
+    const host = canvas.parentElement || stageOf('suit');
+    host.appendChild(lbl); markLost(host, true);
     arm();
   });
   document.addEventListener('visibilitychange', arm);
   canvas.addEventListener('webglcontextrestored', () => {
     if (!glBack || !suit) return;
     $('#gl-lost')?.remove();
+    $$('.stage.gl-lost').forEach((st) => markLost(st, false));
     glBack.done();
     for (const m of models()) m.restoreGL();
   });
 }
+
+// While the context is lost, the stage that holds the canvas shows its model's picture under the label (style.css,
+// .stage.gl-lost), and the mark moves with the canvas and the label.
+const markLost = (st, on) => st.classList.toggle('gl-lost', on);
 
 // no WebGL (or the context did not come back): the rate card carries the sale on its own
 function no3d() {
@@ -222,7 +228,7 @@ function no3d() {
 function stageStill(it, key) {
   const stage = stageOf(it);
   $$(':scope > canvas, .loading', stage).forEach((n) => n.remove());
-  stage.classList.remove('live', 'frozen');
+  stage.classList.remove('live', 'frozen', 'gl-lost');
   if (!$('.stage-fallback', stage)) {
     const fb = document.createElement('div');
     fb.className = 'stage-fallback';
@@ -287,7 +293,8 @@ async function showItem(it) {
   kit.setActive(true);
   liveIn(it);
   // a lost context's label goes with the canvas (the stage that holds it shows its model's picture under the label)
-  const gl = $('#gl-lost'); if (gl) stageOf(it).appendChild(gl);
+  const gl = $('#gl-lost');
+  if (gl) { $$('.stage.gl-lost').forEach((st) => markLost(st, false)); stageOf(it).appendChild(gl); markLost(stageOf(it), true); }
   if (!kit._revealed) { kit._revealed = true; kit.reveal(); }
   const s = selected && byId(selected);
   if (s && itemOf(s) === item) {
@@ -334,15 +341,31 @@ function bringStage(it) {
   if (r.top >= innerHeight) { land(it); return; }
   scrollToEl(Math.max(0, scrollY + r.top - navH() - 12));
 }
-// a change in the suit's part while the helmet's part is being read would push the page: keep the helmet part in place
-// (not while the page is about to land somewhere else anyway)
-function steady(fn, on = true) {
-  const a = on && !landing && !mobile() && midPart() === 'helmet' ? partOf('helmet') : null;
-  const y0 = a ? a.getBoundingClientRect().top : 0;
+// The spot card changing in a slot above the screen (the visitor is further down, reading a rate card) must not move what
+// is on screen. Browsers differ: Chromium holds the content on screen in place by itself (scroll anchoring), Safari does
+// not, and the picked row would slide down by the card's height. So the page does it, the same in every browser: while
+// the card changes the browser's own anchoring is off, and the page then moves by what the anchor moved. (Not while the
+// page is about to land somewhere else anyway, and not on an upright phone, where the card is a sheet over the page.)
+function steady(fn, on = true, slots = []) {
+  const a = on && !landing && !mobile() ? anchorBelow(slots) : null;
+  if (!a) { fn(); return; }
+  const root = document.documentElement, was = root.style.overflowAnchor;
+  root.style.overflowAnchor = 'none';
+  const y0 = a.getBoundingClientRect().top;
   fn();
-  if (!a) return;
   const dy = a.getBoundingClientRect().top - y0;
   if (Math.abs(dy) > 0.5) nudgeBy(dy);
+  requestAnimationFrame(() => requestAnimationFrame(() => { root.style.overflowAnchor = was; }));
+}
+// The anchor: what comes after the lowest changing slot that is above the screen, and still reaches the screen: under the
+// suit's slot its rate card, or the helmet's part once that rate card has gone by too; under the helmet's slot its rate
+// card. A slot that changes on screen needs none: the card grows where the visitor is looking.
+function anchorBelow(slots) {
+  const top = navH();
+  const above = slots.filter((sl) => sl && sl.getBoundingClientRect().bottom <= top);
+  if (!above.length) return null;
+  const after = above.some((sl) => sl.dataset.item === 'helmet') ? [$('.ratecard[data-item="helmet"]')] : [$('.ratecard[data-item="suit"]'), partOf('helmet')];
+  return after.find((el) => el && el.getBoundingClientRect().bottom > top) || null;
 }
 
 // Sold spots wear the sponsor's real logo on the 3D model (spots.json → "logo").
@@ -570,8 +593,10 @@ function renderCard({ steadyView = true } = {}) {
     if (host && card.parentElement !== host) host.appendChild(card);
     $$('.spot-slot').forEach((sl) => sl.classList.toggle('held', sl === host));
     card.classList.toggle('has', !!s);
-  }, steadyView);
-  if (!s) return;
+    if (s) fillCard(s);
+  }, steadyView, [card.closest('.spot-slot'), host]);
+}
+function fillCard(s) {
   const tr = tierOf(s);
   const topId = SPOTS.find((x) => x.top)?.id;
   $('#sd-id').textContent = `${String(s.n).padStart(2, '0')} · ${t(`z.${s.area}`).toUpperCase()}`;
@@ -965,13 +990,16 @@ function bindSheet() {
   sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);
   // On an upright phone a part's stage shrinks while its rate card is being read. The shrink never moves the page: the
   // stage's sticky box keeps its height in the layout and only the stage drawn inside it gets shorter (style.css), so
-  // the rate card does not slide in and out of the band, and a glide to a part lands where it aimed.
+  // the rate card does not slide in and out of the band, and a glide to a part lands where it aimed. And only once the
+  // stage is held under the nav: a link that lands on a part (the helmet's short card already reaches the band there)
+  // shows the whole stage and its shortcut buttons.
   for (const it of ITEMS) {
     const studio = $(`.studio[data-item="${it}"]`);
     let inBand = false;
-    const apply = () => studio.classList.toggle('compact', inBand && stacked() && !studio.classList.contains('no3d'));
+    const apply = () => studio.classList.toggle('compact', inBand && stacked() && !studio.classList.contains('no3d') && studio.getBoundingClientRect().top < navH() - 8);
     new IntersectionObserver((en) => { inBand = en[0].isIntersecting; apply(); }, { rootMargin: '-55% 0px -10% 0px' }).observe($(`.ratecard[data-item="${it}"]`));
     addEventListener('resize', apply);
+    addEventListener('scroll', () => { if (inBand) apply(); }, { passive: true });
   }
   addEventListener('resize', () => { if (!mobile()) closeSheet(); });
 }
