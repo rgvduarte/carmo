@@ -59,6 +59,7 @@ export async function initAdspace({ onSuitReady } = {}) {
     renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
     for (const m of models()) { m.labels = kitLabels(); m.money = money; m.drawOverlay(); m.kick(); }
     const ld = $('#item-loading span'); if (ld) ld.textContent = t('helmet.loading');
+    const gl = $('#gl-lost span'); if (gl) gl.textContent = t('stage.lost');
   });
   // the 3D stage loads when the section approaches the viewport
   const stage = $('#stage');
@@ -88,8 +89,7 @@ async function mountSuit() {
     printSponsors(suit);
     stage.addEventListener('suit:interact', () => { interacted = true; stopTour(); $('#btn-rotate').setAttribute('aria-pressed', 'false'); });
     stage.addEventListener('suit:frame', placeCallout);
-    // two models hold a lot of texture memory; if the phone drops the GL context, fall back to the rate card
-    suit.canvas.addEventListener('webglcontextlost', () => no3d(), { once: true });
+    watchContext(suit.canvas);
     if (first) {
       const ld = $('#stage-loading'); delete ld.dataset.i18n; ld.textContent = t('helmet.loading');
       await showItem('helmet');
@@ -103,11 +103,37 @@ async function mountSuit() {
   }
 }
 
-// no WebGL (or the context was lost): the rate card carries the sale on its own
+// Phones drop the GL context of a tab under memory pressure, often while it sits in the background (the booking
+// flow itself sends people out to WhatsApp or Mail). three.js keeps the scenes and rebuilds its GL state when the
+// context comes back, so the stage only waits under a label. If the context is still gone a few seconds after the
+// page is back in view, the rate card carries the sale on its own.
+let glBack = null;   // pending while the context is lost: resolves on restore or on the fallback
+function watchContext(canvas) {
+  let timer = 0, done = null;
+  const arm = () => { clearTimeout(timer); if (glBack && !document.hidden) timer = setTimeout(no3d, 6000); };
+  canvas.addEventListener('webglcontextlost', () => {
+    if (glBack) return;
+    glBack = new Promise((res) => { done = res; }); glBack.done = () => { clearTimeout(timer); glBack = null; done(); };
+    const lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = 'gl-lost';
+    const sp = document.createElement('span'); sp.textContent = t('stage.lost'); lbl.appendChild(sp);
+    $('#stage').appendChild(lbl);
+    arm();
+  });
+  document.addEventListener('visibilitychange', arm);
+  canvas.addEventListener('webglcontextrestored', () => {
+    if (!glBack || !suit) return;
+    $('#gl-lost')?.remove();
+    glBack.done();
+    for (const m of models()) m.restoreGL();
+  });
+}
+
+// no WebGL (or the context did not come back): the rate card carries the sale on its own
 function no3d() {
   const stage = $('#stage');
   for (const m of models()) m.setActive(false);
   suit = helmet = kit = null;
+  if (glBack) glBack.done();
   stopTour();
   $('#callout').classList.remove('on');
   $$('canvas, .loading', stage).forEach((n) => n.remove());
@@ -134,6 +160,7 @@ function ensureHelmet() {
       const { Helmet } = await import('./helmet.js');
       // the build is synchronous: let the label paint first
       await new Promise((res) => requestAnimationFrame(() => setTimeout(res, 0)));
+      if (glBack) await glBack;   // a lost context cannot compile or upload: wait for it to come back
       if (!suit) return false;
       helmet = new Helmet(stage, { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: suit.renderer, active: false });
       helmet.setBasket([...basket]);

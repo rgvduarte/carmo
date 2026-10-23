@@ -260,7 +260,11 @@ const FRAG_EMIT = `#include <emissivemap_fragment>
 const ENVS = new WeakMap();
 export function envFor(r) {
   let e = ENVS.get(r);
-  if (!e) { e = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; ENVS.set(r, e); }
+  if (!e) {
+    e = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; ENVS.set(r, e);
+    // the room is rendered on the GPU, so a lost context takes it along: after a restore the next call renders it again
+    r.domElement.addEventListener('webglcontextrestored', () => ENVS.delete(r), { once: true });
+  }
   return e;
 }
 const DEV = typeof location !== 'undefined' && /[?&]dev\b/.test(location.search);
@@ -752,6 +756,15 @@ export class Kit {
   }
 
   kick() { if (this.active && !this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
+
+  // The GL context came back after a loss. three.js has rebuilt its GL state and uploads the canvas atlases again on
+  // the next frame; only the room reflection has to be rendered anew, and every material that holds it swapped over.
+  restoreGL() {
+    const old = this.scene.environment, env = envFor(this.renderer);
+    this.scene.environment = env;
+    this.scene.traverse((o) => { const m = o.material; if (m && m.envMap && m.envMap === old) { m.envMap = env; m.needsUpdate = true; } });
+    this.kick();
+  }
 
   loop(t) {
     if (!this.active || !this.visible || document.hidden) { this.running = false; return; }

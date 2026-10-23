@@ -545,8 +545,9 @@ export class Helmet extends Kit {
   }
 
   // compile the physical shader and upload the atlases now, not on the first helmet frame
+  // (a context lost mid-build never reports the programs ready, so the wait is capped)
   async ready() {
-    try { await this.renderer.compileAsync(this.scene, this.camera); } catch (_) {}
+    try { await Promise.race([this.renderer.compileAsync(this.scene, this.camera), new Promise((res) => setTimeout(res, 5000))]); } catch (_) {}
     for (const t of [this.baseTex, this.overTex, this.pbrTex, this.flakeTex]) this.renderer.initTexture(t);
   }
 }

@@ -562,7 +562,7 @@ section { position: relative; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
 /* the helmet loads over the idle suit: its label sits on a pill */
 .loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); color: var(--ink); }
-#item-loading { z-index: 3; pointer-events: none; }
+#item-loading, #gl-lost { z-index: 3; pointer-events: none; }
 
 .chapters { margin: 10px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .chapter { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; background: var(--bg-2); transition: border-color .3s, background .3s; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline; min-height: 40px; }
