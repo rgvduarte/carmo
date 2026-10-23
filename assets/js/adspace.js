@@ -344,7 +344,7 @@ function renderRateCard() {
 
 function row(s) {
   const li = document.createElement('li');
-  li.className = `rc-row${s.id === selected ? ' sel' : ''}${s.status === 'sold' ? ' sold' : ''}`;
+  li.className = `rc-row${s.id === selected ? ' sel' : ''}${s.status === 'sold' ? ' sold' : ''}${s.status !== 'available' ? ' has-st' : ''}`;
   li.dataset.id = s.id;
   const dot = document.createElement('i'); dot.className = `row-dot t-${tierOf(s).key}`;
   const n = document.createElement('span'); n.className = 'n'; n.textContent = String(s.n).padStart(2, '0');
@@ -355,7 +355,10 @@ function row(s) {
   nm.setAttribute('aria-label', `${pick(s).name}, ${money(s.price)}, ${statusText(s)}`);
   nm.addEventListener('click', () => { stopTour(); select(s.id); });
   const pr = document.createElement('span'); pr.className = 'pr'; pr.textContent = money(s.price);
-  if (s.status !== 'available') { const st = document.createElement('small'); st.textContent = statusText(s); pr.appendChild(st); }
+  // the status is its own grid item, a second line under the name and the price, so a long brand never squeezes the
+  // name column
+  const st = s.status !== 'available' ? document.createElement('small') : null;
+  if (st) { st.className = 'st'; st.textContent = statusText(s); }
   const add = document.createElement('button'); add.type = 'button'; add.className = 'add';
   add.textContent = basket.has(s.id) ? '✓' : '+';
   add.setAttribute('aria-pressed', String(basket.has(s.id)));
@@ -364,6 +367,7 @@ function row(s) {
   add.addEventListener('click', () => toggleBasket(s.id));
   li.append(dot, n, nm, pr, add);
   li.addEventListener('click', (e) => { if (e.target.closest('.add, .nm')) return; stopTour(); select(s.id); });
+  if (st) li.appendChild(st);
   return li;
 }
 
