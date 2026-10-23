@@ -18,6 +18,10 @@ export const SITE = {
   // offers the bank transfer only.
   mbway: '916395103',
   mbwayMax: 2000,
+  // The booking-request Worker (worker/README.md): its workers.dev address, from the summary of the «Deploy pedidos»
+  // action, e.g. 'https://gocarmo-pedidos.<conta>.workers.dev'. Empty: the admin page shows no «Pedidos» list.
+  // After changing it, run node scripts/stamp.mjs (it also lets the admin page reach this address).
+  requestsApi: '',
   updated: '2026-10-22',
 };
 

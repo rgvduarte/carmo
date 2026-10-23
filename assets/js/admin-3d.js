@@ -69,6 +69,8 @@ export async function preview(el, { spots, cands, blob, root }) {
   const items = new Set(cands.map((id) => itemOf(spots.find((s) => s.id === id) || {})));
   const first = items.has('suit') || !items.size ? 'suit' : 'helmet';
   if (!suit) suit = new Suit(stage, { spots: ctx.suit, money, labels: LABELS, onSelect() {}, onHover() {}, active: false });
+  // the body is meshed in a worker (as on the site, adspace.js): the label stays up until the suit is there
+  await suit.ready;
   await dress(suit, ctx.suit);
   await show(first);
   return { items, first, show, close, helmetReady: () => !!helmet && helmet._ctx === ctx };
