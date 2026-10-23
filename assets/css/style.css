@@ -321,30 +321,14 @@ section { position: relative; }
 
 /* ---------- results ---------- */
 .results-head, .tele-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: clamp(24px, 5vw, 80px); }
-.sheet { margin-top: 56px; border-top: 1px solid var(--line-2); }
-.sheet-row { display: grid; grid-template-columns: 70px minmax(0, 2.2fr) minmax(0, 1.4fr) 110px minmax(0, 1.5fr); gap: 20px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--line); position: relative; }
-.sheet-row:hover { background: linear-gradient(90deg, rgba(255,255,255,0.025), transparent); }
-.sheet-row .yr { font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: .12em; }
-.sheet-row h3 { margin: 0; font: 650 clamp(18px, 1.6vw, 22px)/1.25 var(--sans); letter-spacing: -0.01em; }
-.sheet-row h3 small { display: block; margin-top: 4px; font: 400 14px/1.3 var(--sans); color: var(--muted); letter-spacing: 0; }
-.sheet-row .dist { font-size: 14px; color: var(--muted); }
-.sheet-row .time { font: 600 22px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.sheet-row .pos { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); font: 500 12px/1.2 var(--sans); color: var(--ink); white-space: nowrap; }
 .badge.gold { border-color: rgba(230,180,80,0.5); color: var(--gold); }
 .badge.dim { color: var(--muted); border-color: var(--line); }
 .light .badge { border-color: var(--line-dark); color: var(--ink-dark); }
 .light .badge.gold { color: var(--gold-ink); border-color: rgba(138,99,18,0.4); }
 .light .badge.dim { color: var(--muted-dark); }
-.sheet-row .splits { grid-column: 2 / -1; display: flex; gap: 18px; flex-wrap: wrap; font: 500 12px/1 var(--mono); color: var(--muted); margin-top: -6px; }
-.sheet-row .splits b { color: var(--ink); font-weight: 600; margin-left: 4px; }
 @media (max-width: 860px) {
   .results-head, .tele-head { grid-template-columns: 1fr; }
-  .sheet-row { grid-template-columns: 56px 1fr auto; gap: 6px 14px; }
-  .sheet-row .dist { grid-column: 2; grid-row: 2; }
-  .sheet-row .time { grid-column: 3; grid-row: 1; }
-  .sheet-row .pos { grid-column: 2 / -1; grid-row: 3; margin-top: 6px; }
-  .sheet-row .splits { grid-column: 2 / -1; grid-row: 4; margin-top: 6px; }
 }
 .charts { margin-top: clamp(56px, 7vw, 96px); display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; }
 .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r); padding: clamp(20px, 2.4vw, 30px); position: relative; }
@@ -420,12 +404,116 @@ section { position: relative; }
 .mk-list .t { font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .mk-dots { display: none; }
 .marks-after { margin-top: clamp(48px, 6vw, 88px); display: grid; gap: 20px; }
-.all-results { border-top: 1px solid var(--line-2); padding-top: 18px; }
-.all-results summary { cursor: pointer; width: max-content; font: 600 15px/1 var(--sans); color: var(--ink); padding: 8px 0; list-style: none; display: flex; align-items: center; gap: 10px; }
-.all-results summary::-webkit-details-marker { display: none; }
-.all-results summary::before { content: "+"; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-2); display: grid; place-items: center; font: 400 16px/1 var(--sans); }
-.all-results[open] summary::before { content: "−"; }
-.all-results .sheet { margin-top: 18px; }
+/* ---------- every race: one poster per race in a row that swipes (phones) or pages with the arrows ---------- */
+/* min-width: a grid item; without it the row of cards would widen the whole column (and the page on phones) */
+.pv { min-width: 0; }
+.pv-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 40px; }
+.pv-kick { margin: 0 0 14px; font: 500 12px/1.2 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.pv-head .h3 { font-size: clamp(38px, 5vw, 64px); }
+.pv-sub { margin: 12px 0 0; color: var(--muted); font-size: 15px; max-width: 48ch; }
+.pv-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.pv-filter button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--muted); font: 500 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; transition: background-color .25s, color .25s, border-color .25s; }
+.pv-filter button:hover { color: var(--ink); border-color: var(--muted); }
+.pv-filter button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #111; }
+.pv-filter .n { opacity: .6; }
+/* the mark of each sport, as on the ticks: filled for a triathlon, a ring for a run */
+.pv-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pv-dot.run { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+/* The row runs edge to edge (into the gutters) and fades out over them: the next race peeks in, never cut by a hard
+   edge. Snapping is for fingers only: with a mouse or trackpad it would pull short nudges back (the arrows,
+   ticks and keys still land on a card). */
+.pv-scroller { container-type: inline-size; margin: 26px calc(var(--gutter) * -1) 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-padding-inline: var(--gutter); scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent); }
+.pv-scroller::-webkit-scrollbar { display: none; }
+@media (pointer: coarse) { .pv-scroller { scroll-snap-type: x mandatory; } }
+.pv-scroller.gliding { scroll-snap-type: none; }
+/* the fade would eat a ring around the row: the cards themselves light up instead */
+.pv-scroller:focus-visible { outline: none; }
+.pv-scroller:focus-visible .pv-card { border-color: var(--gold); }
+/* One column per card (width from the scroller: 100cqi), six shared rows: every card is a subgrid, so the times,
+   age-group lines, splits and the overall bar sit at the same height on every card, also while swiping. The track is
+   as wide as its cards, so its own padding gives the space after the last one. Type scales with the column (--cw): a
+   card cannot be a size container, containment would stop it being a subgrid. */
+.pv-track { --gap: 12px; --pad: 22px; --cw: min(380px, calc(100cqi - 2 * var(--gutter) - 44px)); list-style: none; margin: 0; padding: 0 var(--gutter); width: max-content; position: relative;
+  display: grid; grid-auto-flow: column; grid-auto-columns: var(--cw); grid-template-rows: repeat(6, auto); column-gap: var(--gap); }
+/* row-gap 0: a subgrid would otherwise take the gap of a track laid out in rows (no JS, print) between its own rows */
+.pv-card { grid-row: span 6; display: grid; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); row-gap: 0; align-content: start; min-width: 0; scroll-snap-align: start; padding: var(--pad) var(--pad) calc(var(--pad) + 2px); background: var(--bg-2); border: 1px solid var(--line); border-radius: 22px; transition: border-color .3s; }
+@supports not (grid-template-rows: subgrid) { .pv-card { grid-template-rows: repeat(5, auto) 1fr; } }
+@media (hover: hover) { .pv-card:hover { border-color: var(--line-2); } }
+/* a filter hides the other kind but keeps every row's height: those cards stay in the grid, invisible, stacked under the
+   first card shown, so a tap moves nothing below */
+.pv-card.is-out, .pv-card.is-lead { grid-area: 1 / 1 / span 6 / span 1; }
+.pv-card.is-out { visibility: hidden; scroll-snap-align: none; }
+.pv-meta { grid-row: 1; margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-height: 24px; font: 500 11px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.pv-kind { color: var(--dim); }
+.pv-tag { padding: 4px 9px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 10px; letter-spacing: .1em; color: var(--ink); }
+/* the name and the place stay together; a one-line name leaves its air above the time, not between the two */
+.pv-hd { grid-row: 2; align-self: start; margin-top: 16px; }
+.pv-name { margin: 0; font: 400 26px/1.02 var(--display); font-size: clamp(22px, calc(var(--cw) * .075), 30px); font-style: italic; font-synthesis: style; text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.pv-where { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 14px; line-height: 1.35; color: var(--muted); }
+.pv-dist { font: 500 12px/1.3 var(--mono); letter-spacing: .02em; color: var(--dim); }
+/* a poster's time, a size below the stage's one big time above */
+.pv-time { grid-row: 3; align-self: end; margin: 20px 0 0; font: 400 72px/0.92 var(--display); font-size: clamp(44px, calc((var(--cw) - 2 * var(--pad)) / 3.8), 104px); font-style: italic; font-synthesis: style; letter-spacing: .01em; padding-right: .08em; white-space: nowrap; }
+.pv-card .k { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.pv-key { grid-row: 4; margin: 16px 0 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; }
+.pv-key b { font: 650 17px/1.2 var(--sans); letter-spacing: -0.01em; }
+.pv-key.ag b { color: var(--gold); }
+/* row 5: the legs of a triathlon (bike in gold, where most of the race goes), the line from the notes for a run */
+.pv-legs, .pv-note { grid-row: 5; margin-top: 22px; }
+.pv-strip { display: flex; gap: 2px; height: 6px; }
+.pv-strip i { flex: 1 1 0; min-width: 2px; background: var(--ink); opacity: .78; border-radius: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pv-strip i:first-child { border-radius: 3px 1px 1px 3px; }
+.pv-strip i:last-child { border-radius: 1px 3px 3px 1px; }
+.pv-strip .bike { background: var(--gold); opacity: 1; }
+.pv-strip .t1, .pv-strip .t2 { opacity: .24; }
+.pv-dl { margin: 12px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pv-dl dt { font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.pv-dl dd { margin: 7px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font: 600 14px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.pv-dl small { font: 500 10.5px/1 var(--mono); letter-spacing: .04em; color: var(--dim); }
+.pv-tr { margin: 10px 0 0; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; color: var(--dim); }
+.pv-note { margin-bottom: 0; padding-top: 14px; border-top: 1px solid var(--line); font: 500 16px/1.42 var(--sans); color: var(--ink); text-wrap: pretty; }
+.pv-field { grid-row: 6; align-self: end; padding-top: 24px; }
+.pv-overall { margin: 0; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.pv-overall b { font: 600 15px/1.2 var(--sans); }
+.pv-pct { margin-left: auto; font: 500 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+/* the field, winner on the left: dim = ahead of him, gold = him, bright = finished behind */
+.pv-bar { display: flex; align-items: center; height: 14px; margin-top: 8px; }
+.pv-bar i { display: block; height: 4px; background: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pv-bar .a { flex: 0 0 var(--at, 0%); opacity: .18; border-radius: 2px 0 0 2px; }
+.pv-bar .m { flex: 0 0 3px; height: 14px; margin: 0 2px; border-radius: 2px; background: var(--gold); }
+.pv-bar .b { flex: 1 1 auto; opacity: .7; border-radius: 0 2px 2px 0; }
+/* under the row: a tick per race (newest first, the ones in view in gold), the count and the arrows */
+.pv-nav { margin-top: 18px; display: flex; align-items: center; gap: 10px; }
+.pv-ticks { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; margin-right: 6px; background: linear-gradient(var(--line), var(--line)) 12px 50% / calc(100% - 24px) 1px no-repeat; }
+.pv-tick { flex: 0 1 24px; min-width: 0; height: 36px; padding: 0; border: 0; background: transparent; color: var(--ink); display: grid; place-items: center; opacity: .5; transition: opacity .25s, color .25s; }
+.pv-tick i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px var(--bg); }
+.pv-tick.run i { background: var(--bg); box-shadow: inset 0 0 0 1.5px currentColor, 0 0 0 3px var(--bg); }
+.pv-tick.on { opacity: 1; color: var(--gold); }
+@media (hover: hover) { .pv-tick:hover { opacity: 1; } }
+.pv-count { margin: 0 4px 0 0; font: 500 12px/1 var(--mono); letter-spacing: .12em; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pv-count b, .pv-count #pv-to { color: var(--gold); font-weight: 500; }
+.pv-btn { flex: 0 0 auto; width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; color: var(--ink); display: grid; place-items: center; transition: background-color .25s, color .25s, border-color .25s, opacity .25s; }
+.pv-btn svg { width: 18px; height: 18px; }
+.pv-btn.prev svg { transform: scaleX(-1); }
+.pv-btn:hover:not([aria-disabled="true"]) { background: var(--ink); border-color: var(--ink); color: #111; }
+.pv-btn[aria-disabled="true"] { opacity: .3; cursor: default; }
+.pv > .src { margin: 16px 0 0; font: 400 12px/1.4 var(--sans); color: var(--dim); }
+/* phones: the ticks already say where you are, so the count gives them its room */
+@media (max-width: 559px) {
+  .pv-count { display: none; }
+  .pv-btn { width: 44px; height: 44px; }
+}
+@media (max-width: 380px) {
+  .pv-filter button { padding: 0 9px; gap: 5px; font-size: 11px; letter-spacing: .06em; }
+  .pv-nav { gap: 8px; }
+}
+@media (min-width: 700px) {
+  .pv-track { --cw: calc((100cqi - 2 * var(--gutter) - var(--gap)) / 2 - 32px); }
+}
+@media (min-width: 1024px) {
+  .pv-track { --gap: 20px; --pad: 26px; --cw: calc((100cqi - 2 * var(--gutter) - 2 * var(--gap)) / 3); }
+}
 .marks.static .marks-track { height: auto; }
 .marks.static .marks-stage { position: relative; height: auto; padding: 40px 0; }
 @media (max-width: 960px) {
@@ -1026,6 +1114,11 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .no-js .nojs-offer { display: block; max-width: 720px; margin: 40px auto 0; }
 .nojs-offer p { margin: 10px 0 0; color: var(--muted); }
 .no-js .marks-track, .no-js .part, .no-js .entry-cta, .no-js .package { display: none; }
+/* without JS, or if the race cards failed to render (.flat), every race card shows at once, in a grid */
+.no-js .pv-nav, .no-js .pv-filter, .pv.flat .pv-nav, .pv.flat .pv-filter { display: none; }
+.no-js .pv-scroller, .pv.flat .pv-scroller { overflow: visible; margin-inline: 0; -webkit-mask-image: none; mask-image: none; }
+.no-js .pv-track, .pv.flat .pv-track { width: auto; padding: 0; grid-auto-flow: row; grid-template-rows: none; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); row-gap: var(--gap); }
+.pv.flat .pv-card { grid-area: auto / auto / span 6 / auto; visibility: visible; }
 /* stacked, static race scenes when GSAP did not load or JS is off (same as reduced motion) */
 .static-flight .flight, .no-js .flight { height: auto; }
 .static-flight .flight-stage, .no-js .flight-stage { position: relative; height: auto; }
@@ -1051,6 +1144,14 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 @media (forced-colors: active) {
   .pay-seg [aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .pay-seg [role="tab"]:disabled { color: GrayText; }
+  .pv-filter [aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .pv-bar i, .pv-strip i { forced-color-adjust: none; background: CanvasText; }
+  .pv-bar .m, .pv-strip .bike { background: Highlight; }
+  .pv-tick i { forced-color-adjust: none; background: CanvasText; box-shadow: none; }
+  .pv-tick.run i { background: Canvas; box-shadow: inset 0 0 0 1.5px CanvasText; }
+  .pv-tick.on i { background: Highlight; }
+  .pv-tick.run.on i { background: Canvas; box-shadow: inset 0 0 0 2px Highlight; }
+  .pv-scroller:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 
 /* ---------- print: compact media kit ---------- */
@@ -1058,15 +1159,14 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   @page { size: A4; margin: 12mm; }
   :root { color-scheme: light; --ink: #111; --muted: #555; --dim: #666; --line: rgba(0,0,0,.14); --line-2: rgba(0,0,0,.25); --bg: #fff; --bg-2: #fff; --bg-3: #f4f4f4; --gold: var(--gold-ink); }
   body { background: #fff; color: #111; font-size: 10.5pt; }
-  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .all-results summary, .strava-card, .season-title .hib { display: none !important; }
+  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .pv-nav, .pv-filter, .strava-card, .season-title .hib { display: none !important; }
   .section, .marks { padding: 14pt 0; }
-  .card, .race, .sheet-row, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
+  .card, .race, .pv-card, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
   .entry-card { border-color: rgba(0,0,0,.2); background: #fff; }
   .entry-img { background: #ecebe6 !important; }
   h2, h3 { break-after: avoid; }
   /* GSAP leaves scrubbed inline styles on the hero */
   .hero-copy, .hero .split-line > span, .hero-tag, .hero-sub, .telemetry { opacity: 1 !important; transform: none !important; }
-  details.all-results::details-content { content-visibility: visible; display: contents; }
   .hero { min-height: 0; color: #111; }
   .hero-media { display: none; }
   .hero-inner { padding: 0; grid-template-columns: 1fr; }
@@ -1077,9 +1177,27 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .hero-sub { text-align: left; margin-left: 0; color: #444; max-width: none; }
   .light, .card { background: #fff !important; color: #111 !important; }
   .h2 { font-size: 30pt; }
-  .all-results { border: 0; padding: 0; }
-  .all-results:not([open]) > *:not(summary) { display: block !important; }
-  .all-results .sheet { margin-top: 0; }
+  /* every race card, whatever the filter on screen, three to a row and tight */
+  .marks-after { margin-top: 10pt; }
+  .pv-head .h3 { font-size: 22pt; }
+  .pv-sub { margin-top: 4pt; font-size: 9.5pt; }
+  .pv-kick { margin-bottom: 6pt; }
+  .pv-scroller { overflow: visible !important; margin: 10pt 0 0 !important; -webkit-mask-image: none !important; mask-image: none !important; }
+  .pv-track { width: auto !important; padding: 0 !important; grid-auto-flow: row; grid-template-rows: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8pt; }
+  .pv-card { grid-area: auto / auto / span 6 / auto !important; visibility: visible !important; padding: 9pt 10pt; border-radius: 10pt; background: #fff !important; border-color: rgba(0,0,0,.2) !important; }
+  .pv-hd { margin-top: 6pt; }
+  .pv-name { font-size: 12.5pt; }
+  .pv-where { margin-top: 3pt; font-size: 8.5pt; }
+  .pv-time { margin-top: 8pt; font-size: 26pt; }
+  .pv-key { margin-top: 6pt; }
+  .pv-key b { font-size: 10.5pt; }
+  .pv-legs, .pv-note { margin-top: 8pt; }
+  .pv-note { padding-top: 6pt; font-size: 9.5pt; }
+  .pv-dl { margin-top: 6pt; }
+  .pv-dl dd { font-size: 9.5pt; }
+  .pv-field { padding-top: 8pt; }
+  .pv-overall { padding-top: 6pt; }
+  .pv-overall b { font-size: 10pt; }
   .rv { opacity: 1 !important; transform: none !important; }
   .contact { min-height: 0; grid-template-columns: 1fr; }
   .contact-copy { padding: 0; }

@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=afb2d5b7">
+<link rel="stylesheet" href="assets/css/style.css?v=1ca85a55">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -59,14 +59,15 @@
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=7dee7a86",
   "./assets/js/admin.js": "./assets/js/admin.js?v=a16130c0",
   "./assets/js/adspace.js": "./assets/js/adspace.js?v=f166799d",
-  "./assets/js/charts.js": "./assets/js/charts.js?v=c988425d",
-  "./assets/js/data.js": "./assets/js/data.js?v=68154456",
+  "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
+  "./assets/js/data.js": "./assets/js/data.js?v=32fc95bf",
   "./assets/js/flow.js": "./assets/js/flow.js?v=c994a0dc",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=3b5a3538",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=55483b20",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=aec1269e",
-  "./assets/js/main.js": "./assets/js/main.js?v=899a7e8e",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=710a8e53",
+  "./assets/js/main.js": "./assets/js/main.js?v=3b0d1ec8",
   "./assets/js/marks.js": "./assets/js/marks.js?v=42ebc301",
+  "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
   "./assets/js/suit-body.js": "./assets/js/suit-body.js?v=e86b9edf",
   "./assets/js/suit-mesh.js": "./assets/js/suit-mesh.js?v=56436646",
   "./assets/js/suit-worker.js": "./assets/js/suit-worker.js?v=d04ffa75",
@@ -266,18 +267,60 @@
       <div class="mk-dots" id="mk-dots" aria-hidden="true"></div>
     </div>
   </div>
+  <!-- every race as a poster, newest first. The «bake» blocks are written from RESULTS (data.js) by
+       scripts/stamp.mjs, for the page without JS, print and the first paint; main.js renders the same markup. -->
   <div class="wrap marks-after">
-    <div class="card rv">
-      <div class="ratecard-head"><h3 data-i18n="res.c0h">IRONMAN Portugal-Cascais 2026 · 9:35:08</h3><span class="badge gold" data-i18n="res.c0b">Distância completa</span></div>
-      <p class="sub" data-i18n="res.c0s">Tempo por segmento nos 226 km. Passei mais de metade da prova na bicicleta.</p>
-      <div class="chart" id="chart-im" role="img" aria-label="Parciais: natação 1:01:42, T1 6:00, ciclismo 4:56:43, T2 3:22, corrida 3:27:22" data-i18n-attr="aria-label:a.splits"></div>
-      <p class="src" data-i18n="res.c0src">Fonte: cronometragem oficial IRONMAN.</p>
-    </div>
-    <details class="all-results">
-      <summary data-i18n="res.all">Ver todos os resultados</summary>
-      <div class="sheet" id="sheet"></div>
+    <div class="pv" id="provas">
+      <div class="pv-head">
+        <div>
+          <p class="pv-kick" id="pv-kick"><!-- bake:kick -->9 provas · 2025⁠-⁠2026<!-- /bake:kick --></p>
+          <h3 class="display h3" id="pv-h" data-i18n="pv.h">Todas as provas</h3>
+          <p class="pv-sub" data-i18n="pv.p">Da mais recente à mais antiga, com o lugar no escalão e na geral e os parciais dos triatlos.</p>
+        </div>
+        <div class="pv-filter" id="pv-filter" role="group" aria-label="Filtrar por modalidade" data-i18n-attr="aria-label:a.pvfilter">
+          <!-- bake:filter -->
+          <button type="button" data-kind="all" aria-pressed="true"><span>Todas</span><span class="n">9</span></button>
+          <button type="button" data-kind="tri" aria-pressed="false"><i class="pv-dot tri" aria-hidden="true"></i><span>Triatlo</span><span class="n">5</span></button>
+          <button type="button" data-kind="run" aria-pressed="false"><i class="pv-dot run" aria-hidden="true"></i><span>Corrida</span><span class="n">4</span></button>
+          <!-- /bake:filter -->
+        </div>
+      </div>
+      <div class="pv-scroller" id="pv-scroller" role="region" aria-labelledby="pv-h">
+        <ol class="pv-track" id="pv-track">
+          <!-- bake:cards -->
+          <li class="pv-card" data-kind="tri"><div class="pv-hd"><h4 class="pv-name">IRONMAN Portugal⁠-⁠Cascais</h4><p class="pv-where"><span>Cascais, Portugal</span><span class="pv-dist">3,8 · 180 · 42,2 km</span></p></div><p class="pv-meta"><time datetime="2026-10-17">17 out. 2026</time><span class="pv-tag">Distância completa</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>9:35:08</p><p class="pv-key ag"><span class="k">Escalão</span><b>12.º de 321 · M25⁠-⁠29</b></p><div class="pv-legs"><span class="pv-strip" aria-hidden="true"><i class="swim" style="flex-grow: 3702"></i><i class="t1" style="flex-grow: 360"></i><i class="bike" style="flex-grow: 17803"></i><i class="t2" style="flex-grow: 202"></i><i class="run" style="flex-grow: 12442"></i></span><dl class="pv-dl"><div><dt>Natação</dt><dd>1:01:42<small>11%</small></dd></div><div><dt>Ciclismo</dt><dd>4:56:43<small>52%</small></dd></div><div><dt>Corrida</dt><dd>3:27:22<small>36%</small></dd></div></dl><p class="pv-tr">T1 6:00 · T2 3:22</p></div><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>52.º de 1 981</b><span class="pv-pct">97,3% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 2.62%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="tri"><div class="pv-hd"><h4 class="pv-name">Triatlo de Sines</h4><p class="pv-where"><span>Sines, Portugal</span><span class="pv-dist">2 · 80 · 18 km</span></p></div><p class="pv-meta"><time datetime="2026-09-27">27 set. 2026</time><span class="pv-kind">Triatlo</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>3:42:32</p><p class="pv-key ag"><span class="k">Escalão</span><b>1.º de 83 · M25⁠-⁠29</b></p><div class="pv-legs"><span class="pv-strip" aria-hidden="true"><i class="swim" style="flex-grow: 1812"></i><i class="t1" style="flex-grow: 147"></i><i class="bike" style="flex-grow: 7185"></i><i class="t2" style="flex-grow: 112"></i><i class="run" style="flex-grow: 4096"></i></span><dl class="pv-dl"><div><dt>Natação</dt><dd>30:12<small>14%</small></dd></div><div><dt>Ciclismo</dt><dd>1:59:45<small>54%</small></dd></div><div><dt>Corrida</dt><dd>1:08:16<small>31%</small></dd></div></dl><p class="pv-tr">T1 2:27 · T2 1:52</p></div><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>6.º de 743</b><span class="pv-pct">99,1% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 0.81%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="run"><div class="pv-hd"><h4 class="pv-name">Corrida de Santo António</h4><p class="pv-where"><span>Lisboa, Portugal</span><span class="pv-dist">10 km</span></p></div><p class="pv-meta"><time datetime="2026-06-07">7 jun. 2026</time><span class="pv-kind">Corrida</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>33:48</p><p class="pv-key"><span class="k">Ritmo</span><b>3:23 /km</b></p><p class="pv-note">10 km a 3:23 por quilómetro.</p><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>15.º de 4 694</b><span class="pv-pct">99,6% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 0.32%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="tri"><div class="pv-hd"><h4 class="pv-name">Lidl Setúbal Triathlon</h4><p class="pv-where"><span>Setúbal, Portugal</span><span class="pv-dist">1,9 · 90 · 21,1 km</span></p></div><p class="pv-meta"><time datetime="2026-04-12">12 abr. 2026</time><span class="pv-kind">Triatlo</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>4:26:49</p><p class="pv-key ag"><span class="k">Escalão</span><b>2.º de 84 · M25⁠-⁠29</b></p><div class="pv-legs"><span class="pv-strip" aria-hidden="true"><i class="swim" style="flex-grow: 2028"></i><i class="t1" style="flex-grow: 185"></i><i class="bike" style="flex-grow: 8977"></i><i class="t2" style="flex-grow: 55"></i><i class="run" style="flex-grow: 4753"></i></span><dl class="pv-dl"><div><dt>Natação</dt><dd>33:48<small>13%</small></dd></div><div><dt>Ciclismo</dt><dd>2:29:37<small>56%</small></dd></div><div><dt>Corrida</dt><dd>1:19:13<small>30%</small></dd></div></dl><p class="pv-tr">T1 3:05 · T2 0:55</p></div><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>11.º de 802</b><span class="pv-pct">98,6% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 1.37%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="run"><div class="pv-hd"><h4 class="pv-name">Zurich Maratón de Sevilla</h4><p class="pv-where"><span>Sevilha, Espanha</span><span class="pv-dist">42,2 km</span></p></div><p class="pv-meta"><time datetime="2026-02-15">15 fev. 2026</time><span class="pv-kind">Corrida</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>2:44:13</p><p class="pv-key"><span class="k">Ritmo</span><b>3:54 /km</b></p><p class="pv-note">Primeira maratona abaixo das 2h45.</p><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>698.º de 12 449</b><span class="pv-pct">94,3% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 5.61%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="run"><div class="pv-hd"><h4 class="pv-name">Meia Maratona de Cascais</h4><p class="pv-where"><span>Cascais, Portugal</span><span class="pv-dist">21,1 km</span></p></div><p class="pv-meta"><time datetime="2026-02-01">1 fev. 2026</time><span class="pv-kind">Corrida</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>1:19:48</p><p class="pv-key"><span class="k">Ritmo</span><b>3:47 /km</b></p><p class="pv-note">Meia maratona a 3:47 por quilómetro.</p><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>41.º de 4 179</b><span class="pv-pct">99,0% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 0.98%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="run"><div class="pv-hd"><h4 class="pv-name">Meia Maratona dos Descobrimentos</h4><p class="pv-where"><span>Lisboa, Portugal</span><span class="pv-dist">21,1 km</span></p></div><p class="pv-meta"><time datetime="2025-11-30">30 nov. 2025</time><span class="pv-kind">Corrida</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>1:16:56</p><p class="pv-key"><span class="k">Ritmo</span><b>3:39 /km</b></p><p class="pv-note">A minha melhor meia maratona, a 3:39 por quilómetro.</p><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>28.º de 5 305</b><span class="pv-pct">99,4% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 0.53%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="tri"><div class="pv-hd"><h4 class="pv-name">IRONMAN 70.3 Cascais</h4><p class="pv-where"><span>Cascais, Portugal</span><span class="pv-dist">1,9 · 90 · 21,1 km</span></p></div><p class="pv-meta"><time datetime="2025-10-18">18 out. 2025</time><span class="pv-tag">Estreia IRONMAN 70.3</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>4:27:16</p><p class="pv-key ag"><span class="k">Escalão</span><b>7.º de 151 · M18⁠-⁠24</b></p><div class="pv-legs"><span class="pv-strip" aria-hidden="true"><i class="swim" style="flex-grow: 1882"></i><i class="t1" style="flex-grow: 263"></i><i class="bike" style="flex-grow: 8550"></i><i class="t2" style="flex-grow: 155"></i><i class="run" style="flex-grow: 5185"></i></span><dl class="pv-dl"><div><dt>Natação</dt><dd>31:22<small>12%</small></dd></div><div><dt>Ciclismo</dt><dd>2:22:30<small>53%</small></dd></div><div><dt>Corrida</dt><dd>1:26:25<small>32%</small></dd></div></dl><p class="pv-tr">T1 4:23 · T2 2:35</p></div><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>31.º de 2 353</b><span class="pv-pct">98,6% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 1.32%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <li class="pv-card" data-kind="tri"><div class="pv-hd"><h4 class="pv-name">Triatlo Longo de Caminha</h4><p class="pv-where"><span>Caminha, Portugal</span><span class="pv-dist">1,9 · 90 · 20,7 km</span></p></div><p class="pv-meta"><time datetime="2025-05-24">24 mai. 2025</time><span class="pv-tag">Primeiro triatlo</span></p><p class="pv-time"><span class="sr-only">Tempo final: </span>4:32:54</p><p class="pv-key ag"><span class="k">Escalão</span><b>4.º · 20⁠-⁠24</b></p><div class="pv-legs"><span class="pv-strip" aria-hidden="true"><i class="swim" style="flex-grow: 1581"></i><i class="t1" style="flex-grow: 144"></i><i class="bike" style="flex-grow: 9113"></i><i class="t2" style="flex-grow: 78"></i><i class="run" style="flex-grow: 5457"></i></span><dl class="pv-dl"><div><dt>Natação</dt><dd>26:21<small>10%</small></dd></div><div><dt>Ciclismo</dt><dd>2:31:53<small>56%</small></dd></div><div><dt>Corrida</dt><dd>1:30:57<small>33%</small></dd></div></dl><p class="pv-tr">T1 2:24 · T2 1:18</p></div><div class="pv-field"><p class="pv-overall"><span class="k">Geral</span><b>61.º de 360</b><span class="pv-pct">83,0% atrás</span></p><span class="pv-bar" aria-hidden="true" style="--at: 16.94%"><i class="a"></i><i class="m"></i><i class="b"></i></span></div></li>
+          <!-- /bake:cards -->
+        </ol>
+      </div>
+      <div class="pv-nav">
+        <div class="pv-ticks" id="pv-ticks" role="toolbar" aria-label="Ir para uma prova" data-i18n-attr="aria-label:a.pvticks">
+          <!-- bake:ticks -->
+          <button type="button" class="pv-tick tri" tabindex="0" aria-label="IRONMAN Portugal-Cascais"><i></i></button>
+          <button type="button" class="pv-tick tri" tabindex="-1" aria-label="Triatlo de Sines"><i></i></button>
+          <button type="button" class="pv-tick run" tabindex="-1" aria-label="Corrida de Santo António"><i></i></button>
+          <button type="button" class="pv-tick tri" tabindex="-1" aria-label="Lidl Setúbal Triathlon"><i></i></button>
+          <button type="button" class="pv-tick run" tabindex="-1" aria-label="Zurich Maratón de Sevilla"><i></i></button>
+          <button type="button" class="pv-tick run" tabindex="-1" aria-label="Meia Maratona de Cascais"><i></i></button>
+          <button type="button" class="pv-tick run" tabindex="-1" aria-label="Meia Maratona dos Descobrimentos"><i></i></button>
+          <button type="button" class="pv-tick tri" tabindex="-1" aria-label="IRONMAN 70.3 Cascais"><i></i></button>
+          <button type="button" class="pv-tick tri" tabindex="-1" aria-label="Triatlo Longo de Caminha"><i></i></button>
+          <!-- /bake:ticks -->
+        </div>
+        <p class="pv-count" aria-hidden="true"><b id="pv-from">01</b><span id="pv-to"></span> / <span id="pv-total"><!-- bake:total -->09<!-- /bake:total --></span></p>
+        <button type="button" class="pv-btn prev" id="pv-prev" aria-controls="pv-scroller" aria-disabled="true" aria-label="Provas anteriores" data-i18n-attr="aria-label:a.pvprev"><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></button>
+        <button type="button" class="pv-btn" id="pv-next" aria-controls="pv-scroller" aria-disabled="false" aria-label="Provas seguintes" data-i18n-attr="aria-label:a.pvnext"><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></button>
+      </div>
+      <p class="sr-only" id="pv-status" aria-live="polite"></p>
       <p class="src" data-i18n="res.src">Fonte: classificações oficiais. Os percursos variam, por isso os tempos não se comparam diretamente.</p>
-    </details>
+    </div>
   </div>
 </section>
 
@@ -754,6 +797,6 @@
 <script src="assets/vendor/gsap@3.13.0/ScrollTrigger.min.js" defer></script>
 <script src="assets/vendor/gsap@3.13.0/ScrambleTextPlugin.min.js" defer></script>
 <script src="assets/vendor/lenis@1.3.4/dist/lenis.min.js" defer></script>
-<script type="module" src="assets/js/main.js?v=899a7e8e"></script>
+<script type="module" src="assets/js/main.js?v=3b0d1ec8"></script>
 </body>
 </html>

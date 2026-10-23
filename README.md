@@ -9,7 +9,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 
 - **Hero e tese**: quem é, porquê patrocinar agora e os números-chave.
 - **A prova**: cena controlada pelo scroll (natação, bicicleta, corrida e meta) com o contador dos 226 km.
-- **Resultados**: resultados oficiais e gráficos (meias distâncias, parciais do IRONMAN, lugar na geral).
+- **Resultados**: as provas uma a uma, conduzidas pelo scroll, e depois «Todas as provas»: um cartão por prova, da mais
+  recente à mais antiga, com o tempo, o lugar no escalão e na geral e os parciais dos triatlos. No telemóvel desliza-se
+  de cartão em cartão; no computador avança-se com as setas. Sem JavaScript e no media kit impresso aparecem todos.
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
 - **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
 - **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir à introdução há dois cartões
@@ -33,7 +35,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
 | Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
-| Resultados, calendário 2027, orçamento | `assets/js/data.js` |
+| Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 | Fotografias do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
@@ -321,6 +323,10 @@ node scripts/stamp.mjs
 O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html` e de `admin/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
 Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo.
+
+O mesmo script escreve em `index.html` os cartões de «Todas as provas» a partir de `RESULTS` (`assets/js/data.js`), com o mesmo código que os desenha na página (`assets/js/races.js`): são eles que aparecem sem JavaScript e no media kit impresso. Pára com uma lista do que falta se uma prova não tiver o que os cartões precisam (um triatlo sem `splits` ou `ag`, uma corrida sem `pace`). `node scripts/stamp.mjs --check` não muda nada e falha se alguma página estiver desatualizada.
+
+Depois, com o servidor local ligado, `node scripts/results-check.mjs` (precisa do Playwright) confirma num browser a 1440, 390 e 320 px que os cartões escritos em `index.html` e os desenhados pelo JavaScript têm a mesma altura, que os filtros não mexem na página e que sem JavaScript aparecem todas as provas.
 
 ## Créditos técnicos
 
