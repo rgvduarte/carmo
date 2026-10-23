@@ -136,17 +136,28 @@ espaços, a marca, o nome, o NIF (e se o último algarismo confere), a forma de 
 um aviso quando o total ou um preço já não batem com os de agora, ou quando um espaço já está reservado ou vendido.
 Dois botões: **Reservar 48 h** (abre a reserva com a marca e a data de daqui a 48 horas) e **Marcar como vendido**
 (abre a venda com a marca). Os espaços saem do link do pedido; se não houver link, das linhas `• 21 Topo do capacete`.
+No telemóvel, depois de colar, o teclado fecha e o resumo sobe com os dois botões; enquanto o resumo estiver aberto
+nos espaços do pedido, a barra de baixo esconde-se (os botões do resumo já fazem o mesmo, com a marca do pedido).
+Se os espaços já estiverem reservados por um pedido do site, o resumo diz qual, o primeiro botão passa a
+**Prolongar 48 h** (do próprio pedido) e **Marcar como vendido** é o **Confirmar compra** desse pedido, com o
+logótipo. O mesmo com a referência (`KONA 21`) e com **Vendido** na barra: um espaço de um pedido do site vende-se
+sempre pelo pedido, para o logótipo ir para o site. Se a chave dos pedidos ainda não estiver neste separador, a
+página pede-a primeiro e depois continua.
 
 **Pedidos.** Aparece quando o site recebe as compras sozinho (ver **Compras automáticas**). Na primeira vez pede a
-chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. Cada
+chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. O
+GitHub não mostra a `ADMIN_KEY` outra vez: guarda-a nas Palavras-passe do telemóvel, que a preenchem sozinhas. Cada
 pedido mostra o logótipo, a marca, os espaços, o total, a data, o canal, a forma de pagamento, o nome e o NIF, a
 mensagem e quanto tempo falta para a reserva acabar.
 - **Confirmar compra**: abre a venda com a marca e o logótipo do pedido. Ao guardar, é uma venda como as outras (um
   commit com o teu token, o logótipo vai para o site) e o pedido fica confirmado. Se os espaços já estiverem
-  vendidos a essa marca, o botão é **Marcar como confirmado**.
+  vendidos a essa marca, o botão é **Marcar como confirmado**; se foram vendidos sem logótipo, aparece antes
+  **Pôr o logótipo do pedido**.
 - **Prolongar 48 h**: mais dois dias de reserva, no site também.
 - **Cancelar**: depois de confirmares, os espaços que ainda estão reservados por esse pedido voltam a ficar livres.
-  O pedido fica em «Fechados».
+  O pedido fica em «Fechados». Num pedido falso, marca «bloquear quem o fez durante 30 dias».
+Reservar ou vender um espaço de um pedido do site pela lista, sem ser pelo pedido, pergunta antes: o pedido deixa de
+controlar a reserva, e uma venda assim fica sem o logótipo do pedido.
 
 **O que cada botão faz.** Escolhes um ou mais espaços na lista (ou colas a referência ou o pedido, em cima).
 - **Reservar**: precisa da marca. Por defeito fica reservado três dias (podes mudar a data). Depois desse dia o
@@ -199,6 +210,12 @@ instruções em `worker/README.md`).
    guarda. O espaço fica vendido no site com o logótipo da marca. O pagamento recebe um recibo de donativo.
 4. Se o pagamento não chegar, a reserva acaba sozinha ao fim das 48 horas (no fim desse dia). **Cancelar** liberta
    antes; **Prolongar 48 h** dá mais dois dias.
+
+**Contra abusos.** Até 6 espaços por pedido (mais, só o fato completo). No máximo 8 espaços presos ao mesmo tempo por
+pedidos do site por pagar, venha de onde vier (o fato completo conta como os 8). Por endereço de internet: 1 pedido
+aberto e 3 por dia, e 7 dias de pausa depois de um pedido cancelado ou que acabou sem pagamento. Um pedido falso
+cancela-se com «bloquear» (30 dias). Antes de ligar o site ao Worker, liga também o Turnstile do Cloudflare
+(`TURNSTILE_SECRET`). Os detalhes estão em `worker/README.md`.
 
 **Ligar (uma vez).** Os quatro secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SPOTS_GITHUB_TOKEN`,
 `ADMIN_KEY`) estão em Settings → Secrets and variables → Actions. A action **Deploy pedidos** publica o Worker a

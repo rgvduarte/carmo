@@ -19,5 +19,17 @@ id = "KV_NAMESPACE_ID"
 SITE_ORIGIN = "https://gocarmo.com"
 REPO = "rgvduarte/carmo"
 BRANCH = "gh-pages"
-# holds per day for the whole site, whoever asks (a brake on a flood from many addresses)
-MAX_HOLDS_DAY = "12"
+# spots held at once by the site's unpaid requests, whoever asks (the whole suit fills it alone)
+MAX_HELD = "8"
+
+# bursts per address (an IPv6 /64), counted by Cloudflare in each location: no KV writes. POST /pedido, and every
+# admin call (checked before the key is compared). namespace_id: any number, unique in the account.
+[[ratelimits]]
+name = "RL_PEDIDO"
+namespace_id = "4101"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "RL_ADMIN"
+namespace_id = "4102"
+simple = { limit = 60, period = 60 }

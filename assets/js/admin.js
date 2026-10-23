@@ -254,9 +254,12 @@ function syncRows() {
 
 function updateBar() {
   const bar = $('#bar'), ids = base ? C.sortTargets(base.data, [...sel]) : [];
-  bar.hidden = !ids.length;
-  document.documentElement.style.setProperty('--bar-h', ids.length ? `${bar.offsetHeight}px` : '0px');
-  if (!ids.length) return;
+  // a pasted request on its own spots: its summary has the two actions (with its brand, its 48 h, its request); the bar
+  // would only cover them. Another selection brings the bar back.
+  const viaPaste = ids.length > 0 && !!pasted && !$('#paste').hidden && sameIds(ids, pasted.ids);
+  bar.hidden = !ids.length || viaPaste;
+  document.documentElement.style.setProperty('--bar-h', bar.hidden ? '0px' : `${bar.offsetHeight}px`);
+  if (bar.hidden) return;
   $('#bar-n').textContent = ids[0] === C.TITLE ? 'Fato completo' : plural(ids.length, 'selecionado', 'selecionados');
   const t = C.totals(base.data, ids);
   $('#bar-total').textContent = t.disc ? `${C.money(t.net)} (${C.money(t.gross)} −${Math.round(t.disc * 100)}%)` : C.money(t.net);
@@ -270,18 +273,29 @@ function updateBar() {
 // «Reservar 48 h» and «Marcar como vendido». Every piece of the text is shown with textContent only.
 const REF_HINT = 'É o descritivo da transferência ou do MB WAY, ou a mensagem do pedido (WhatsApp, email ou o link). Seleciona esses espaços.';
 let pasted = null;   // the last parsePaste() result of a request, for its two buttons
+let refLen = 0;      // the field's length before this input: a jump is a paste
 
 function onRef() {
-  const out = $('#ref-out'), box = $('#paste'), txt = $('#ref').value;
+  const out = $('#ref-out'), box = $('#paste'), ta = $('#ref'), txt = ta.value;
+  const jump = txt.length - refLen > 30;
+  refLen = txt.length;
   out.classList.remove('ok'); out.textContent = '';
   box.hidden = true; box.textContent = ''; pasted = null;
-  fitRef();
-  if (!base) return;
-  if (!txt.trim()) { out.textContent = REF_HINT; return; }
+  ta.classList.remove('msg');
+  if (!base || !txt.trim()) { fitRef(); if (base) { out.textContent = REF_HINT; updateBar(); } return; }
   const r = C.parsePaste(txt, base.data);
   sel = new Set(r.ids);
   if (r.ids.length && filter !== 'all') { filter = 'all'; saveFilter(); render(); } else syncRows();
-  if (r.kind !== 'ref') { showPaste(r); return; }
+  if (r.kind !== 'ref') {
+    ta.classList.add('msg');   // about four lines: the summary stays in view
+    fitRef();
+    showPaste(r);
+    updateBar();
+    // a pasted message on a phone: the keyboard goes, and the summary with its buttons comes up above the bar
+    if (jump) { ta.blur(); requestAnimationFrame(revealPaste); setTimeout(revealPaste, 350); }
+    return;
+  }
+  fitRef();
   if (r.ids.length) {
     out.classList.add('ok');
     const t = C.totals(base.data, r.ids);
@@ -293,18 +307,53 @@ function onRef() {
   if (r.note) extra.push(r.note);
   if (!r.ids.length && !extra.length) extra.push('Não encontrei números de espaços. Ex.: KONA 01 21 22.');
   if (extra.length) { const b = el('span', r.unknown.length || !r.ids.length ? 'bad' : null, `${r.ids.length ? ' ' : ''}${extra.join(' ')}`); out.appendChild(b); }
+  refBox(r);
 }
 
-// the field grows with a pasted message (up to a point) and shrinks back
+// the field grows with a pasted message (up to a point, see .msg) and shrinks back
 function fitRef() {
   const ta = $('#ref');
   ta.style.height = 'auto';
   if (ta.value.includes('\n') || ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${Math.min(ta.scrollHeight + 2, Math.round(innerHeight * 0.4))}px`;
   else ta.style.height = '';
 }
+// the summary and its buttons above the sticky bar, without pushing the summary's first line off the top
+function revealPaste() {
+  const box = $('#paste'), out = $('#ref-out');
+  if (box.hidden) return;
+  const bar = $('#bar'), room = innerHeight - (bar.hidden ? 0 : bar.offsetHeight) - 12;
+  const bottom = box.getBoundingClientRect().bottom, top = out.getBoundingClientRect().top;
+  if (bottom > room) scrollBy({ top: Math.max(0, Math.min(bottom - room, top - 12)), left: 0, behavior: 'instant' });
+}
 // a typed reference is one line: Enter closes the keyboard, as before; a pasted message keeps its lines
 function onRefKey(e) {
   if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !$('#ref').value.includes('\n')) { e.preventDefault(); $('#ref').blur(); }
+}
+// the summary again (the Pedidos list just opened, say), the selection left as it is
+function redrawRef() {
+  const txt = $('#ref').value;
+  if (!base || !txt.trim()) return;
+  const r = C.parsePaste(txt, base.data);
+  $('#paste').textContent = ''; $('#paste').hidden = true;
+  if (r.kind !== 'ref') showPaste(r); else refBox(r);
+  updateBar();
+}
+
+// a bare reference whose spots a request of the site holds: say so, and sell them through that request
+function refBox(r) {
+  const box = $('#paste'), raw = base.data, owner = r.ids.length ? heldBy(raw, r.ids) : '';
+  if (!owner) return;
+  const notes = el('ul', 'notes');
+  notes.appendChild(el('li', null, holdText(raw, r.ids, owner)));
+  if (inboxOn() && !inbox.list) notes.appendChild(el('li', null, KEY_FOR_LOGO));
+  box.appendChild(notes);
+  if (inboxOn()) {
+    const acts = el('div', 'paste-acts'), b = el('button', 'btn gold', 'Confirmar compra');
+    b.type = 'button';
+    b.addEventListener('click', () => act('sold'));
+    acts.appendChild(b); box.appendChild(acts);
+  }
+  box.hidden = false;
 }
 
 function showPaste(p) {
@@ -329,48 +378,75 @@ function showPaste(p) {
   if (p.lang === 'en') row('Língua', 'Inglês');
   if (dl.children.length) box.appendChild(dl);
 
+  // the request of the site behind these spots (they carry its id), or the one the message names
+  const owner = ids.length ? heldBy(raw, ids) : '', reqId = owner || p.request;
+  const req = inboxFind(reqId), keyMissing = !!reqId && inboxOn() && !inbox.list;
+
   // what stands in the way now, and what the text itself says against itself
   const notes = el('ul', 'notes');
-  const hold = siteHold(raw, ids, now);
-  if (hold) notes.appendChild(el('li', null, hold.text));
+  if (owner) notes.appendChild(el('li', null, holdText(raw, ids, owner)));
+  if (keyMissing) notes.appendChild(el('li', null, KEY_FOR_LOGO));
   if (p.unknown.length) notes.appendChild(el('li', 'block', `Não conheço ${p.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(p.unknown)}.`));
   for (const n of p.notes) notes.appendChild(el('li', null, n));
-  if (ids.length) {
+  if (ids.length && !owner) {
     const g = C.guard(raw, now, ids, 'reserved', p.brand || undefined, C.holdUntil(now));
     for (const m of g.blocked) notes.appendChild(el('li', 'block', m));
     for (const m of g.confirms) notes.appendChild(el('li', null, m));
   }
-  if (!p.brand && ids.length) notes.appendChild(el('li', null, 'O pedido não diz a marca: escreve-a ao reservar ou vender.'));
+  if (!p.brand && ids.length && !req) notes.appendChild(el('li', null, 'O pedido não diz a marca: escreve-a ao reservar ou vender.'));
   if (notes.children.length) box.appendChild(notes);
 
+  // held by its request: the first button gives it two more days (a new reservation would cut it loose)
+  const extend = !!owner && (req ? req.status === 'novo' : keyMissing);
   const acts = el('div', 'paste-acts');
-  const b1 = el('button', 'btn', 'Reservar 48 h'), b2 = el('button', 'btn gold', 'Marcar como vendido');
+  const b1 = el('button', 'btn', extend ? 'Prolongar 48 h' : 'Reservar 48 h'), b2 = el('button', 'btn gold', 'Marcar como vendido');
   b1.type = b2.type = 'button';
   b1.addEventListener('click', () => pasteAct('reserved'));
   b2.addEventListener('click', () => pasteAct('sold'));
-  for (const b of [b1, b2]) { b.disabled = !ids.length; acts.appendChild(b); }
+  b1.disabled = !ids.length || (extend && keyMissing);
+  b2.disabled = !ids.length;
+  acts.append(b1, b2);
   box.appendChild(acts);
   box.hidden = false;
 }
 
-// the spots are already held by a request placed on the site: which one, and until when
-function siteHold(raw, ids, now) {
-  const reqs = new Set(ids.map((id) => { const x = C.targetOf(raw, id); return x && x.status === 'reserved' && !C.lapsed(x, now) ? x.request : null; }));
-  if (reqs.size !== 1 || reqs.has(null) || reqs.has(undefined)) return null;
-  const id = [...reqs][0], x = C.targetOf(raw, ids[0]);
-  return { id, text: `Já reservado pelo site até ${C.fmtDay(x.until)} (pedido ${id}).` };
+const KEY_FOR_LOGO = 'Este pedido é do site: escreve a chave dos pedidos (em Pedidos) para vender com o logótipo.';
+// the request of the site whose hold every one of these spots carries (lapsed or not), or ''
+function heldBy(raw, ids) {
+  const reqs = new Set(ids.map((id) => { const x = C.targetOf(raw, id); return x && x.status === 'reserved' && x.request ? x.request : ''; }));
+  return reqs.size === 1 && !reqs.has('') ? [...reqs][0] : '';
+}
+function holdText(raw, ids, id) {
+  const x = C.targetOf(raw, ids[0]);
+  return C.lapsed(x, Date.now()) ? `A reserva do pedido ${id} do site acabou a ${C.fmtDay(x.until)}: o espaço já está livre no site.` : `Já reservado pelo site até ${C.fmtDay(x.until)} (pedido ${id}).`;
+}
+const sameIds = (a, b) => { const x = C.sortTargets(base.data, a), y = C.sortTargets(base.data, b); return x.length === y.length && x.every((v, i) => v === y[i]); };
+
+// A sale of spots that a request of the site holds goes through that request: its logo goes to the site with the
+// sale, and the request closes. True when it took over (that request's sheet, or the ask for the key first).
+function saleOfRequest(ids, again, id = '') {
+  const rid = id || heldBy(base.data, ids);
+  if (!rid || !inboxOn()) return false;
+  if (!inbox.list) { needKey(rid, again); return true; }
+  const r = inboxFind(rid);
+  if (!r || r.status === 'cancelado') return false;
+  confirmPurchase(r);
+  return true;
 }
 
-// «Reservar 48 h»: the reserve sheet with the brand and the date of now + 48 h. «Marcar como vendido»: the sell sheet
-// with the brand; when the spots came from a request in the Pedidos list, that request's logo too.
+// «Reservar 48 h»: the reserve sheet with the brand and the date of now + 48 h; on spots the site holds for the
+// request, «Prolongar 48 h» of that request. «Marcar como vendido»: the sell sheet with the brand; for a request of the
+// site, that request's sale with its logo (after the key, if it is not in yet).
 function pasteAct(action) {
   const p = pasted;
   if (!p || !base || !p.ids.length) return;
   if (busy) { toast('Espera: ainda estou a guardar.'); return; }
   const ids = C.sortTargets(base.data, p.ids.filter((id) => C.targetOf(base.data, id)));
-  const hold = siteHold(base.data, ids, Date.now());
-  const req = inboxFind(p.request) || (hold && inboxFind(hold.id));
-  if (action === 'sold' && req && req.status === 'novo') { confirmPurchase(req); return; }
+  const owner = heldBy(base.data, ids), reqId = owner || p.request;
+  if (reqId && inboxOn() && !inbox.list && (action === 'sold' || owner)) { needKey(reqId, () => pasteAct(action)); return; }
+  const req = inboxFind(reqId);
+  if (action === 'sold' && req && req.status !== 'cancelado') { confirmPurchase(req); return; }
+  if (action === 'reserved' && owner && req && req.status === 'novo') { extendReq(req); return; }
   const g = C.guard(base.data, Date.now(), ids, action);
   if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
   sel = new Set(ids); syncRows();
@@ -386,10 +462,11 @@ function pasteAct(action) {
 // request on the Worker; «Cancelar» and «Prolongar 48 h» are the Worker's own (it frees or extends the hold).
 const REQ_KEY = 'gc.admin.pedidos';
 const CHANNEL = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', site: 'Site' };
-const inbox = { key: '', list: null, logos: new Map(), busy: new Set(), at: null };
+const inbox = { key: '', list: null, logos: new Map(), busy: new Set(), at: null, after: null };
 const reqApi = () => String(SITE.requestsApi || '').trim().replace(/\/+$/, '');
 const reqIds = (r) => (r.title ? [C.TITLE] : Array.isArray(r.items) ? r.items : []);
 const inboxFind = (id) => (id && inbox.list ? inbox.list.find((r) => r.id === id) || null : null);
+const inboxOn = () => !$('#inbox').hidden && $('#inbox-off').hidden;   // the Pedidos list works on this page
 class ReqError extends Error { constructor(status, code) { super(code || `pedidos ${status}`); this.status = status; this.code = code || ''; } }
 
 function readReqKey() { try { return sessionStorage.getItem(REQ_KEY) || ''; } catch (_) { return ''; } }
@@ -397,7 +474,25 @@ function keepReqKey(k) { try { sessionStorage.setItem(REQ_KEY, k); } catch (_) {
 function dropLogos() { for (const x of inbox.logos.values()) if (x.url) URL.revokeObjectURL(x.url); inbox.logos.clear(); }
 function forgetReqKey() {
   try { sessionStorage.removeItem(REQ_KEY); } catch (_) {}
-  inbox.key = ''; inbox.list = null; inbox.at = null; dropLogos();
+  inbox.key = ''; inbox.list = null; inbox.at = null; inbox.after = null; dropLogos();
+  $('#inbox-why').hidden = true;
+}
+
+// a sale of a request of the site needs its logo, and only the Pedidos list has it: ask for the key (or wait for the
+// list), then carry on with what was asked (`again`)
+function needKey(id, again) {
+  inbox.after = again ? { fn: again, at: Date.now() } : null;
+  const why = $('#inbox-why');
+  why.textContent = `Estes espaços são do pedido ${id} do site: escreve a chave dos pedidos para vender com o logótipo.`;
+  why.hidden = false;
+  if (inbox.key) { toast('A abrir os pedidos…'); loadInbox(); return; }
+  $('#inbox').scrollIntoView({ block: 'start', behavior: 'instant' });
+  $('#inbox-key').focus({ preventScroll: true });
+}
+function runAfter() {
+  const a = inbox.after;
+  inbox.after = null; $('#inbox-why').hidden = true;
+  if (a && base && !busy && Date.now() - a.at < 600000) a.fn();
 }
 
 // the page's CSP lets it reach the Worker only at the address stamp.mjs wrote into connect-src
@@ -484,7 +579,8 @@ function setInbox(j) {
   inbox.at = new Date();
   renderInbox();
   // a pasted request may now match one of these: its summary again, the selection left as it is
-  if (pasted && base) { $('#paste').textContent = ''; showPaste(C.parsePaste($('#ref').value, base.data)); }
+  redrawRef();
+  runAfter();
 }
 
 function renderInbox() {
@@ -515,16 +611,17 @@ function atText(iso) {
 }
 // the request's spots as the list has them now: sold to its brand already (a manual sale), or no longer its own
 function reqStanding(r) {
-  if (!base) return { soldToBrand: false, lines: [] };
+  if (!base) return { soldToBrand: false, noLogo: false, lines: [] };
   const raw = base.data, v = C.effective(raw, Date.now()), today = C.todayUTC(), ids = reqIds(r), lines = [];
-  let sold = ids.length > 0;
+  let sold = ids.length > 0, noLogo = false;
   for (const id of ids) {
     const x = C.targetOf(raw, id), w = C.targetOf(v, id);
     if (!x) { lines.push(`O espaço ${id} já não existe.`); sold = false; continue; }
     if (!(x.status === 'sold' && x.brand === r.brand)) sold = false;
+    if (!x.logo) noLogo = true;
     if (r.status === 'novo' && !(x.status === 'reserved' && x.request === r.id) && !(x.status === 'sold' && x.brand === r.brand)) lines.push(`${C.labelOf(raw, id)}: ${C.statusOf(v, w, today).chip}`);
   }
-  return { soldToBrand: sold, lines };
+  return { soldToBrand: sold, noLogo: sold && noLogo, lines };
 }
 
 function reqCard(r) {
@@ -552,9 +649,10 @@ function reqCard(r) {
   if (open) {
     const acts = el('div', 'req-acts'), busyNow = inbox.busy.has(r.id);
     const add = (cls, label, fn) => { const b = el('button', cls, label); b.type = 'button'; b.disabled = busyNow; b.addEventListener('click', fn); acts.appendChild(b); };
-    if (stand.soldToBrand) add('btn gold', 'Marcar como confirmado', () => closeReq(r));
-    else add('btn gold', 'Confirmar compra', () => confirmPurchase(r));
-    add('btn', 'Prolongar 48 h', () => extendReq(r));
+    // sold by hand already: put the request's logo on it (a sale again, to the same brand), or only close the request
+    if (stand.noLogo) { add('btn gold', 'Pôr o logótipo do pedido', () => confirmPurchase(r)); add('btn', 'Marcar como confirmado', () => closeReq(r)); }
+    else if (stand.soldToBrand) add('btn gold', 'Marcar como confirmado', () => closeReq(r));
+    else { add('btn gold', 'Confirmar compra', () => confirmPurchase(r)); add('btn', 'Prolongar 48 h', () => extendReq(r)); }
     add('btn ghost', 'Cancelar', () => cancelReq(r));
     li.appendChild(acts);
   }
@@ -637,12 +735,13 @@ async function extendReq(r) {
 async function cancelReq(r) {
   const raw = base ? base.data : null, ids = reqIds(r);
   const lines = ids.map((id) => (raw && C.targetOf(raw, id) ? C.labelOf(raw, id) : id));
-  if (!(await ask(`Cancelar o pedido de ${r.brand || 'sem marca'}?`, lines, 'Os espaços que ainda estão reservados por este pedido voltam a ficar livres no site. O pedido fica na lista como cancelado.', 'Cancelar pedido', 'Voltar'))) return;
+  if (!(await ask(`Cancelar o pedido de ${r.brand || 'sem marca'}?`, lines, 'Os espaços que ainda estão reservados por este pedido voltam a ficar livres no site. O pedido fica na lista como cancelado.', 'Cancelar pedido', 'Voltar', 'É um pedido falso: bloquear quem o fez durante 30 dias'))) return;
+  const bloquear = $('#cf-opt-in').checked;
   reqBusy(r.id, true);
   try {
-    const j = await reqCall('POST', `/pedidos/${r.id}`, { action: 'cancelar' });
+    const j = await reqCall('POST', `/pedidos/${r.id}`, bloquear ? { action: 'cancelar', bloquear: true } : { action: 'cancelar' });
     replaceReq(j.pedido);
-    toast(j.freed && j.freed.length ? `Pedido cancelado. ${j.freed.length === 1 ? 'O espaço está' : 'Os espaços estão'} outra vez livre${j.freed.length === 1 ? '' : 's'}.` : 'Pedido cancelado.');
+    toast(`${j.freed && j.freed.length ? `Pedido cancelado. ${j.freed.length === 1 ? 'O espaço está' : 'Os espaços estão'} outra vez livre${j.freed.length === 1 ? '' : 's'}.` : 'Pedido cancelado.'}${j.blocked ? ' Bloqueado durante 30 dias.' : ''}`);
     if (!busy) load({ quiet: true });
   } catch (e) { toast(reqErrText(e)); }
   reqBusy(r.id, false);
@@ -673,6 +772,8 @@ async function act(action) {
   if (!ids.length) return;
   const now = Date.now(), g = C.guard(base.data, now, ids, action);
   if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
+  // «Vendido» on spots a request of the site holds: that request's sale, with its logo
+  if (action === 'sold' && saleOfRequest(ids, () => act('sold'))) return;
   if (action !== 'available') { openSheet(action, ids); return; }
   const raw = base.data, v = C.effective(raw, now), today = C.todayUTC(now);
   const lines = ids.map((id) => `${C.labelOf(raw, id)} · ${C.statusOf(v, C.targetOf(v, id), today).chip}`);
@@ -681,6 +782,15 @@ async function act(action) {
     : `${ids.length > 1 ? 'Voltam a ficar livres' : 'Volta a ficar livre'} no site.${logos ? ' O logótipo sai.' : ''}`;
   if (!(await ask(`${headFor('available', raw, ids)}?`, lines, text, 'Libertar'))) return;
   run({ action, ids, f: { brand: '', url: '', until: '' }, logo: null, snap: C.snapshot(raw, ids) });
+}
+
+// spots held by a request of the site, in a sheet that is not that request's sale: what saving does to the request
+function reqNotes(raw, ids, action) {
+  if (!sheet || sheet.request || action === 'available') return [];
+  return ids.map((id) => [id, C.targetOf(raw, id)]).filter(([, x]) => x && x.status === 'reserved' && x.request)
+    .map(([id, x]) => (action === 'sold'
+      ? `${C.labelOf(raw, id)}: é do pedido ${x.request} do site. Vendido assim, fica sem o logótipo do pedido${inboxOn() ? ' (em Pedidos, «Confirmar compra» leva-o)' : ''}.`
+      : `${C.labelOf(raw, id)}: é do pedido ${x.request} do site; ao guardar, o pedido deixa de controlar esta reserva.`));
 }
 
 function openSheet(action, ids) {
@@ -728,6 +838,7 @@ function refreshSheet() {
     for (const m of g.blocked) warn.appendChild(el('li', 'block', m));
     for (const m of g.confirms) warn.appendChild(el('li', null, m));
   }
+  for (const m of reqNotes(raw, ids, action)) warn.appendChild(el('li', null, m));
   if (action !== 'sold') return;
   const keeps = sheet.logo ? [] : ids.map((id) => C.targetOf(raw, id)).filter((x) => x.logo && x.brand === brand);
   const cur = $('#cur-logo');
@@ -837,7 +948,8 @@ async function submitSheet(e) {
   }
   const g = C.guard(base.data, Date.now(), ids, action, f.brand, f.until || undefined);
   if (g.blocked.length) { err.textContent = g.blocked.join(' '); return; }
-  if (g.confirms.length && !(await ask('Confirmas?', g.confirms, 'Fica como escreveste. Podes mudar outra vez depois.', 'Sim, guardar'))) return;
+  const confirms = [...g.confirms, ...reqNotes(base.data, ids, action)];
+  if (confirms.length && !(await ask('Confirmas?', confirms, 'Fica como escreveste. Podes mudar outra vez depois.', 'Sim, guardar'))) return;
   let logo = null;
   if (action === 'sold' && sheet && sheet.logo) {
     const L = sheet.logo;
@@ -1152,9 +1264,11 @@ function renderPub() {
 }
 
 // ---------- dialogs ----------
-function ask(title, items, text, yes = 'Confirmar', no = 'Cancelar') {
+// opt: the label of a checkbox under the text (its state stays in #cf-opt-in for the caller)
+function ask(title, items, text, yes = 'Confirmar', no = 'Cancelar', opt = '') {
   return new Promise((resolve) => {
     const d = $('#confirm');
+    $('#cf-opt').hidden = !opt; $('#cf-opt-in').checked = false; $('#cf-opt-t').textContent = opt;
     $('#cf-title').textContent = title;
     const ul = $('#cf-list'); ul.textContent = '';
     for (const it of items) ul.appendChild(el('li', null, it));

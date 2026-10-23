@@ -146,6 +146,8 @@ input::placeholder { color: var(--dim); }
 
 .ref { padding: 14px 16px; }
 .ref textarea { font-family: var(--mono); letter-spacing: .04em; line-height: 1.45; resize: none; overflow: auto; max-height: 40svh; }
+/* a pasted message: about four lines, scrollable, so the summary under it stays in view */
+.ref textarea.msg { max-height: calc(4 * 1.45em + 26px); }
 .ref-out { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
 .ref-out.ok { color: var(--ink); }
 .ref-out .bad { color: var(--bad); }
@@ -194,6 +196,8 @@ input::placeholder { color: var(--dim); }
 .inbox-foot { margin: 6px 0 0; }
 .inbox-foot .link { padding: 0 2px; }
 #inbox-login .hint { margin-bottom: 0; }
+#inbox-login .why { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 14px; background: rgba(230,180,80,.08); border: 1px solid rgba(230,180,80,.32); color: #f3e3c0; }
+.cf-opt { margin: 4px 0 8px; font-size: 15px; }
 .sh-req { margin: -6px 0 16px; padding: 10px 12px; border-radius: 12px; background: rgba(230,180,80,.08); border: 1px solid rgba(230,180,80,.32); color: #f3e3c0; font-size: 14px; overflow-wrap: anywhere; }
 
 .filters { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 4px 0 18px; min-width: 0; }
