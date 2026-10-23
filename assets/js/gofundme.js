@@ -46,6 +46,10 @@ export function renderGofundme() {
   if (GFM === undefined) return;   // still reading the file: the page keeps its HTML button
   const a = $('#gofundme'), label = a.querySelector('span'), icon = a.querySelector('use');
   const note = $('#gofundme-note'), card = $('#gfm');
+  // donations go through one place: while a campaign is open, the transfer / MB WAY box for gifts goes (GoFundMe's
+  // terms forbid sending its donors to pay elsewhere); transfers stay for buying suit and helmet spots
+  const give = $('#apoiar .give');
+  if (give) give.hidden = !!GFM;
   if (!GFM) {
     // no campaign yet: a quiet WhatsApp button instead of a "coming soon" in gold
     a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your road to Kona.' : 'Olá Gonçalo, quero apoiar a tua preparação para Kona.')}`;
