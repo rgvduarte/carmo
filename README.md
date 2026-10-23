@@ -172,15 +172,17 @@ alternativa, mas só depois de o branch por defeito ser `gh-pages`.
 
 Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo.
 
-**Pelo telemóvel (o caminho normal):** abre **https://gocarmo.com/admin/strava/** e segue os cinco passos. A página cria a ligação no próprio browser e mostra os três valores para copiar para o GitHub:
+**Pelo telemóvel (o caminho normal):** abre **https://gocarmo.com/admin/strava/** e segue os cinco passos. Precisas de duas contas no mesmo telemóvel: o Strava do Gonçalo e o GitHub `rgvduarte` (num repositório pessoal, só o dono pode criar secrets). A página cria a ligação no próprio browser e mostra os três valores para copiar para o GitHub:
 
 1. Cria a aplicação no Strava (os valores a escrever estão na página, cada um com botão de copiar) e cola o Client ID.
 2. Autoriza com a conta do Gonçalo. O Strava volta sozinho à página.
 3. Cola o Client Secret. A página troca o código pelo refresh token e mostra «Ligado como …».
-4. Cria os três secrets no GitHub, um por linha: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` e `STRAVA_REFRESH_TOKEN`. Só a conta dona do repositório pode criar secrets.
-5. Actions → **Strava sync** → Run workflow. A partir daí corre todas as manhãs.
+4. Cria os três secrets no GitHub, um por linha: `STRAVA_REFRESH_TOKEN` primeiro (é o único que não volta a aparecer no Strava), depois `STRAVA_CLIENT_ID` e `STRAVA_CLIENT_SECRET`. Só a conta dona do repositório pode criar secrets.
+5. Actions → **Strava sync** → Run workflow, e espera que a corrida fique verde. Se o passo «Build data/strava.json» disser «skipping», falta o `STRAVA_REFRESH_TOKEN` ou o nome está mal escrito. A partir daí corre todas as manhãs.
 
-A página só fala com `www.strava.com` (a CSP não deixa outra ligação) e não guarda nada: o Client ID fica no separador (sessionStorage) só durante a ida e volta ao Strava, o Client Secret e os tokens ficam em memória. «Limpar» apaga tudo.
+Se o botão do Strava abrir a app do Strava em vez da página (o iPhone faz isso com `/settings/…`), copia o endereço que a página mostra e cola-o na barra do browser.
+
+A página só fala com `www.strava.com` (a CSP não deixa outra ligação). Só guarda o Client ID, no separador (sessionStorage), até «Limpar» ou «Acabei»; se a página recarregar, recomeça no passo 2. O Client Secret e os tokens ficam só em memória. «Limpar» apaga tudo.
 
 **À mão, com terminal (alternativa):**
 

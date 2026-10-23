@@ -332,6 +332,13 @@ dialog .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .sv-vals .v { grid-column: 1; font: 500 15px/1.35 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
 .sv-vals .c { grid-column: 2; grid-row: 1 / span 2; }
 .sv-vals .btn { min-width: 92px; }
+/* the Strava address, for when the button opens the Strava app instead of the page */
+.sv-vals.sv-addr { margin-top: 8px; }
+.sv-body p.sv-then { margin: 20px 0 0; }
+.sv-then + .sv-vals { margin-top: 8px; }
+.sv-need { margin: -8px 0 22px; max-width: 34em; }
+/* the Client Secret is a text field (never a password field a password manager saves or fills), masked once it holds a value */
+.sv-mask:not(:placeholder-shown) { -webkit-text-security: disc; }
 
 .sv-secs { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
 .sv-sec { padding: 12px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-3); }
