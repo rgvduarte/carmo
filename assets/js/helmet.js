@@ -188,6 +188,8 @@ export class Helmet extends Kit {
   static ZOOM = [0.45, 1.6];
   static Y_RANGE = [-0.12, 0.14];
   static ENV = 0.9;
+  static TILE = 2;         // about 48 texels per cm against the suit's 21: frames drawn twice as thick
+  static DIM_LIT = 0.32;   // the selection dim scales the lit colour: the gloss and the visor's mirror dim too
   static Shell = Shell;   // for the shape tests
 
   constructor(container, opts) { super(container, { active: false, ...opts }); }
@@ -220,7 +222,7 @@ export class Helmet extends Kit {
         .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat *= 1.0 - tileA;');
     };
     const m = new THREE.Mesh(g, mat); m.userData.part = 'shell';
-    const inner = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.55, side: THREE.BackSide }));
+    const inner = new THREE.Mesh(g, this.patchDim(new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.55, side: THREE.BackSide })));
     this.model.add(m, inner); this.meshes.push(m);
     this.shellMesh = m;
     this.model.add(this.rimLip(g), this.liner(g));
@@ -265,7 +267,7 @@ export class Helmet extends Kit {
     lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     lg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     lg.setIndex(idx); lg.computeVertexNormals();
-    return new THREE.Mesh(lg, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, side: THREE.DoubleSide }));
+    return new THREE.Mesh(lg, this.patchDim(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, side: THREE.DoubleSide })));
   }
 
   // Black liner floor: each arch's two rim points joined 3 mm above the rim. In the side view it sits on the rim line,
@@ -281,7 +283,7 @@ export class Helmet extends Kit {
     }
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); lg.setIndex(idx); lg.computeVertexNormals();
-    return new THREE.Mesh(lg, new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.3, side: THREE.DoubleSide }));
+    return new THREE.Mesh(lg, this.patchDim(new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.3, side: THREE.DoubleSide })));
   }
 
   // Mirror visor (Cat 2): hangs under the shell's lower edge from ear corner to ear corner. Its bottom is cut by one
@@ -324,16 +326,16 @@ export class Helmet extends Kit {
     vg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); vg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     vg.setIndex(idx); vg.computeVertexNormals();
     const env = envFor(this.renderer);
-    const visor = new THREE.Mesh(vg, new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 0.05, envMap: env, envMapIntensity: 1.35 }));
+    const visor = new THREE.Mesh(vg, this.patchDim(new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 1, roughness: 0.05, envMap: env, envMapIntensity: 1.35 })));
     visor.userData.part = 'visor';   // picked (no uv), so a tap on the visor never reaches a spot behind it
-    const smoke = new THREE.Mesh(vg, new THREE.MeshStandardMaterial({ color: 0x15171a, metalness: 0.2, roughness: 0.12, side: THREE.BackSide }));
+    const smoke = new THREE.Mesh(vg, this.patchDim(new THREE.MeshStandardMaterial({ color: 0x15171a, metalness: 0.2, roughness: 0.12, side: THREE.BackSide })));
     const bg = new THREE.BufferGeometry();
     bg.setAttribute('position', new THREE.Float32BufferAttribute(bpos, 3)); bg.setIndex(bidx); bg.computeVertexNormals();
-    const band = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({ color: 0xa8acb2, metalness: 0.9, roughness: 0.35, envMap: env }));
+    const band = new THREE.Mesh(bg, this.patchDim(new THREE.MeshStandardMaterial({ color: 0xa8acb2, metalness: 0.9, roughness: 0.35, envMap: env })));
     this.visor = new THREE.Group();
     this.visor.add(visor, smoke, band);
     // magnetic tabs: front centre, both front corners, both sides
-    const tabMat = new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.3 });
+    const tabMat = this.patchDim(new THREE.MeshStandardMaterial({ color: 0x222428, roughness: 0.4, metalness: 0.3 }));
     const tabGeo = new THREE.BoxGeometry(0.011, 0.0018, 0.001);
     const sAt = (pred) => { let best = 0, bd = Infinity; cols.forEach((c, j) => { const d = pred(c); if (d < bd) { bd = d; best = j; } }); return best; };
     const tabs = [M / 2, sAt((c) => Math.abs(c.t.z + AXIS_Z + 0.046) + (c.t.x < 0 ? 1 : 0)), sAt((c) => Math.abs(c.t.z + AXIS_Z + 0.046) + (c.t.x > 0 ? 1 : 0)),

@@ -236,15 +236,27 @@ float sdRect(vec2 p, vec4 r) {
   vec2 d = abs(p - c) - h;
   return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - 0.0025;
 }`;
+// Outside the selected spot the model dims: the matte suit on its diffuse colour. A glossy model takes most of its
+// light from the clearcoat and the room reflection, which a diffuse multiply never touches, so it sets DIM_LIT and the
+// lit colour is scaled instead (FRAG_OUT), stopping at the outer edge of the gold ring so the ring keeps its glow.
 const FRAG_MAP = `#include <map_fragment>
+float selDim = 1.0;
 {
   float sweep = 1.0 - (vWy - uYMin) / (uYMax - uYMin);
   float hide = smoothstep(uReveal - 0.12, uReveal, sweep);
   vec4 ov = texture2D(uOverlay, vMapUv);
   diffuseColor.rgb = mix(diffuseColor.rgb, ov.rgb, ov.a * uSpots * (1.0 - hide));
+#ifdef DIM_LIT
+  selDim = mix(1.0, DIM_LIT, uDim * uSelOn * step(0.0026, sdRect(vMapUv, uSel)));
+#else
   float inSel = 1.0 - step(0.0, sdRect(vMapUv, uSel));
   diffuseColor.rgb *= mix(1.0, 0.42, uDim * uSelOn * (1.0 - inSel));
+#endif
 }`;
+const FRAG_OUT = `#ifdef DIM_LIT
+outgoingLight *= selDim;
+#endif
+#include <opaque_fragment>`;
 const FRAG_EMIT = `#include <emissivemap_fragment>
 {
   float pulse = 0.5 + 0.5 * sin(uTime * 4.2);
@@ -281,6 +293,8 @@ export class Kit {
   static ZOOM = [1.1, 3.2];
   static Y_RANGE = [-0.3, 0.66];   // world y span of the reveal sweep
   static ENV = 0.75;               // room reflection strength
+  static DIM_LIT = 0;              // > 0: the selection dim scales the lit colour to this (glossy models)
+  static TILE = 1;                 // tile frame scale: lines, dashes and corners for a denser atlas
 
   static makeRenderer() {
     const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -360,10 +374,22 @@ export class Kit {
 
   // the spot shader: tiles from the overlay atlas, dimming outside the selection, gold ring
   patch(mat) {
+    const lit = this.constructor.DIM_LIT;
+    if (lit) mat.defines = { ...mat.defines, DIM_LIT: lit.toFixed(3) };
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, this.uni);
       sh.vertexShader = sh.vertexShader.replace('#include <common>', VERT_HEAD).replace('#include <begin_vertex>', VERT_BODY);
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', FRAG_HEAD).replace('#include <map_fragment>', FRAG_MAP).replace('#include <emissivemap_fragment>', FRAG_EMIT);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', FRAG_HEAD).replace('#include <map_fragment>', FRAG_MAP).replace('#include <emissivemap_fragment>', FRAG_EMIT).replace('#include <opaque_fragment>', FRAG_OUT);
+    };
+    return mat;
+  }
+
+  // a part without spots (a visor, a lip) dims with the model when a spot is selected (glossy models, DIM_LIT)
+  patchDim(mat) {
+    mat.onBeforeCompile = (sh) => {
+      sh.uniforms.uDim = this.uni.uDim; sh.uniforms.uSelOn = this.uni.uSelOn;
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform float uDim, uSelOn;')
+        .replace('#include <opaque_fragment>', `outgoingLight *= mix(1.0, ${this.constructor.DIM_LIT.toFixed(3)}, uDim * uSelOn);\n#include <opaque_fragment>`);
     };
     return mat;
   }
@@ -446,7 +472,7 @@ export class Kit {
 
   // the tile printed on each spot: dashed frame, number and price (or its status)
   drawOverlay() {
-    const ctx = this.octx;
+    const ctx = this.octx, T = this.constructor.TILE;   // frame lines, dashes and corners scale with the atlas density
     ctx.clearRect(0, 0, this.size, this.size);
     const topId = this.topId();
     for (const s of this.spots) {
@@ -454,25 +480,25 @@ export class Kit {
       if (!r) continue;
       const hasLogo = this.logos.has(s.id) || (s.status === 'sold' && !!s._logo);
       const isTop = s.id === topId, sold = s.status === 'sold', reserved = s.status === 'reserved', inBasket = this.basket.has(s.id);
-      const x = r.x + 3, y = r.y + 3, w = r.w - 6, h = r.h - 6;
+      const x = r.x + 3 * T, y = r.y + 3 * T, w = r.w - 6 * T, h = r.h - 6 * T, rad = 10 * T;
       ctx.save();
       // on the black shorts each free spot is a white patch, so every price reads at a glance
       const patch = !r.light && !hasLogo;
-      if (patch) { roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(246,247,249,0.94)'; ctx.fill(); }
+      if (patch) { roundRect(ctx, x, y, w, h, rad); ctx.fillStyle = 'rgba(246,247,249,0.94)'; ctx.fill(); }
       const dark = r.light || patch;
       const ink = dark ? COLORS.inkDark : COLORS.inkLight;
-      if (isTop && !hasLogo) { roundRect(ctx, x, y, w, h, 10); ctx.fillStyle = 'rgba(230,180,80,0.22)'; ctx.fill(); }
+      if (isTop && !hasLogo) { roundRect(ctx, x, y, w, h, rad); ctx.fillStyle = 'rgba(230,180,80,0.22)'; ctx.fill(); }
       if (sold && !hasLogo) {
-        roundRect(ctx, x, y, w, h, 10); ctx.save(); ctx.clip();
-        ctx.strokeStyle = dark ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 3;
-        for (let k = x - h; k < x + w; k += 15) { ctx.beginPath(); ctx.moveTo(k, y + h); ctx.lineTo(k + h, y); ctx.stroke(); }
+        roundRect(ctx, x, y, w, h, rad); ctx.save(); ctx.clip();
+        ctx.strokeStyle = dark ? 'rgba(0,0,0,0.18)' : 'rgba(255,255,255,0.16)'; ctx.lineWidth = 3 * T;
+        for (let k = x - h; k < x + w; k += 15 * T) { ctx.beginPath(); ctx.moveTo(k, y + h); ctx.lineTo(k + h, y); ctx.stroke(); }
         ctx.restore();
       }
       if (!hasLogo || inBasket) {
-        ctx.lineWidth = inBasket ? 5 : 3;
+        ctx.lineWidth = (inBasket ? 5 : 3) * T;
         ctx.strokeStyle = isTop ? COLORS.gold : inBasket ? ink : dark ? 'rgba(20,20,20,0.75)' : 'rgba(246,247,249,0.7)';
-        ctx.setLineDash(sold || inBasket ? [] : reserved ? [3, 8] : [13, 9]);
-        roundRect(ctx, x, y, w, h, 10); ctx.stroke();
+        ctx.setLineDash(sold || inBasket ? [] : (reserved ? [3, 8] : [13, 9]).map((d) => d * T));
+        roundRect(ctx, x, y, w, h, rad); ctx.stroke();
         ctx.setLineDash([]);
       }
       if (!hasLogo) {
