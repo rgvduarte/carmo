@@ -52,7 +52,7 @@ export function renderGofundme() {
   if (give) give.hidden = !!GFM;
   if (!GFM) {
     // no campaign yet: a quiet WhatsApp button instead of a "coming soon" in gold
-    a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your road to Kona.' : 'Olá Gonçalo, quero apoiar a tua preparação para Kona.')}`;
+    a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your 2027 season.' : 'Olá Gonçalo, quero apoiar a tua época 2027.')}`;
     a.className = 'btn';
     icon.setAttribute('href', '#i-wa');
     label.textContent = t('gfm.help');
@@ -99,7 +99,7 @@ export function renderGofundme() {
 // «Partilhar»: the phone's share sheet, or the link copied where there is none
 $('#gfm-share')?.addEventListener('click', async () => {
   if (!GFM) return;
-  const data = { title: pick(GFM.title) || 'Gonçalo Carmo · Road to Kona', text: t('gfm.stext'), url: GFM.url };
+  const data = { title: pick(GFM.title) || 'Gonçalo Carmo · Cada prova, cada treino', text: t('gfm.stext'), url: GFM.url };
   if (navigator.share) { try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
   toast((await copy(GFM.url)) ? t('toast.link') : GFM.url);
 });
