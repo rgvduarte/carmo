@@ -92,7 +92,7 @@ const EN = {
   "pl.k": "Soundtrack",
   "pl.h": "Hear what I hear.",
   "pl.p": "It's what I listen to when I train: mostly Portuguese rap, with Drake, Justin Bieber, J. Cole and Tems in between. It runs like a session, with a warm-up, a build, a peak and a cool-down.",
-  "pl.alt": "Cover of the Go Hard and Go Carmo playlist: Gonçalo on the bike, in the aero position",
+  "pl.alt": "Cover of the Go Hard & Go Carmo playlist: Gonçalo on the bike, in the aero position",
   "pl.kind": "Spotify playlist",
   "pl.play": "Listen here",
   "pl.dock": "Listen while you browse",

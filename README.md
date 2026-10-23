@@ -74,7 +74,7 @@ põe o logótipo no peito.
 
 ## Ligar a playlist (uma vez)
 
-1. No Spotify, com a playlist **Go Hard and Go Carmo** pública: Partilhar → Copiar link da playlist.
+1. No Spotify, com a playlist **Go Hard & Go Carmo** pública: Partilhar → Copiar link da playlist.
 2. Cola o link em `assets/js/data.js` → `SITE.playlist` (por exemplo `'https://open.spotify.com/playlist/…'`) e faz push.
    O `?si=…` do fim pode ficar, o site ignora-o.
 3. Se a playlist mudar de tamanho ou de ordem, atualiza `PLAYLIST.phases` (músicas por fase) no mesmo ficheiro.

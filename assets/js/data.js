@@ -15,7 +15,7 @@ export const SITE = {
   payee: 'Gonçalo Carmo',
   // Optional: the phone number linked to MB WAY (e.g. '916395103'). Leave empty to hide it.
   mbway: '',
-  // The public Spotify link of "Go Hard and Go Carmo" (Share > Copy link to playlist). While it is empty the
+  // The public Spotify link of "Go Hard & Go Carmo" (Share > Copy link to playlist). While it is empty the
   // "Ouve o que eu ouço" block does not show. On a local server (localhost or the home network), ?playlist=<link>
   // previews any public playlist or track; public hosts ignore it.
   playlist: '',
@@ -25,7 +25,7 @@ export const SITE = {
 // The playlist as it is on Spotify: shown on the cover card before anything loads from Spotify.
 // `phases` is the running order, in tracks; keep it in step with the playlist if it changes.
 export const PLAYLIST = {
-  name: 'Go Hard and Go Carmo',
+  name: 'Go Hard & Go Carmo',
   artists: ['Plutónio', 'Dillaz', 'X-Tense', 'GROGNation', 'Regula', 'Papillon', 'Drake', 'Justin Bieber', 'J. Cole', 'Tems'],
   phases: [
     { k: 'warm', pt: 'Aquecimento', en: 'Warm-up', n: 6 },
