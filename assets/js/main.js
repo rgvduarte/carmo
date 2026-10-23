@@ -136,7 +136,7 @@ function renderGofundme() {
   const note = $('#gofundme-note');
   if (SITE.gofundme) { a.href = SITE.gofundme; a.className = 'btn gold'; icon.setAttribute('href', '#i-heart'); if (note) note.hidden = true; return; }
   // no campaign yet: a quiet WhatsApp button instead of a "coming soon" in gold
-  a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your road to Kona.' : 'Olá Gonçalo, quero apoiar a tua preparação para Kona.')}`;
+  a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your 2027 season.' : 'Olá Gonçalo, quero apoiar a tua época 2027.')}`;
   a.className = 'btn';
   icon.setAttribute('href', '#i-wa');
   label.textContent = t('gfm.help');
