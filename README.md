@@ -93,6 +93,69 @@ pode ser 0, ±90 ou 180.
 capacete e `gocarmo.com/#capacete` abre o estúdio no capacete. `#fato/title` pede o fato completo e
 `#pacote=peito,capacete-topo` abre um pacote.
 
+## Página de admin
+
+**Onde.** `gocarmo.com/admin/`. Não tem link no site e os motores de busca não a mostram (`noindex` e
+`robots.txt`). Funciona no telemóvel. Serve para reservar, vender e libertar espaços do fato e do capacete
+com o site no ar, sem mexer em código.
+
+**A chave (uma vez, com a conta dona do repositório).**
+1. Abre https://github.com/settings/personal-access-tokens/new.
+2. Em «Repository access» escolhe «Only select repositories» e depois `rgvduarte/carmo`. Validade: 90 dias.
+3. Em «Permissions» junta **Contents** e escolhe **Read and write**. O Metadata fica em Read sozinho.
+4. Carrega em «Generate token», copia o código (começa por `github_pat_`) e cola-o na página. O GitHub só o
+   mostra uma vez: guarda-o nas Palavras-passe ou nas Notas do telemóvel.
+
+Se a pessoa for colaboradora e não dona do repositório, o GitHub não a deixa escolher `rgvduarte/carmo` neste
+tipo de token. A saída melhor é passar o repositório para uma organização gratuita do GitHub em que os dois
+admins sejam membros (o site e o domínio continuam a funcionar): aí cada um cria o seu token só para este
+repositório, com Contents. Enquanto isso não acontecer, há o token clássico em
+https://github.com/settings/tokens/new, **só** com `public_repo` e 7 dias de validade. Atenção: um token clássico
+pode escrever em **todos** os repositórios públicos a que essa conta tem acesso, não só neste. A página recusa um
+token clássico com mais permissões do que `public_repo`. Outra hipótese é uma conta do GitHub só para isto,
+colaboradora apenas deste repositório.
+«Lembrar neste telemóvel» guarda o token nesse telemóvel, para todo o site gocarmo.com (fica desligado de
+origem). Sem isso, ao fechar o separador tens de colar o token outra vez. «Sair» pergunta antes de apagar.
+
+**O que cada botão faz.** Escolhes um ou mais espaços na lista. Também podes colar a referência do pagamento,
+por exemplo `KONA 01 21 22` ou `KONA FATO`, e a página seleciona esses espaços e mostra o total esperado.
+- **Reservar**: precisa da marca. Por defeito fica reservado três dias (podes mudar a data). Depois desse dia o
+  espaço volta a ficar livre sozinho. Se a mesma marca já tiver um espaço reservado por mais tempo, a data
+  proposta é essa, e a página pergunta antes de encurtar uma reserva.
+- **Vendido**: precisa da marca. O link é opcional (`https://marca.pt` ou `@marca`) e o logótipo também (PNG,
+  JPG ou WebP, até 3 MB). Antes de guardar, o logótipo aparece sobre branco e sobre preto, e em «Ver no 3D» vês
+  como fica no fato ou no capacete. O ficheiro fica em `assets/img/brands/<espaço>.<ext>`. Se venderes outra vez
+  à mesma marca sem escolher ficheiro, o logótipo atual fica.
+  Um SVG também serve, mas a página desenha-o e guarda-o como PNG (1200 px): o ficheiro SVG da marca nunca vai
+  para o site, porque um SVG aberto sozinho em gocarmo.com podia correr código ao lado do token. Um SVG com
+  código ou ligações para fora é recusado logo. O formulário do GitHub só aceita PNG, JPG ou WebP.
+- **Libertar**: depois de confirmares, o espaço volta a ficar livre. A marca, o link, a data e o logótipo saem.
+- **Fato completo**: vai sempre sozinho. Só se reserva ou vende com os 20 espaços do fato livres (ou da mesma
+  marca). Enquanto estiver reservado ou vendido, os espaços do fato ficam fechados. Os do capacete não.
+
+**O que acontece quando guardas.** Só o botão Guardar guarda (a tecla «seguinte» do teclado passa ao campo
+seguinte). Cada ação é **um commit no `gh-pages`**, com uma mensagem como
+`Espaços 01 e 21 vendidos a Marca X (admin)`. O `data/spots.json` fica exatamente como o formulário do GitHub o
+deixaria. Se alguém tiver guardado ao mesmo tempo, a página volta a ler e tenta outra vez. Se esse alguém tiver
+mexido nos mesmos espaços, a página não guarda e explica o que mudou. Se a rede falhar no último passo, a
+página diz que não sabe se ficou guardado, e «Tentar outra vez» vê primeiro no GitHub (nunca guarda duas vezes).
+Depois espera até o site mostrar a mudança, logótipo incluído (normalmente 1 a 2 minutos), e dá os links para o
+espaço no site e para a alteração no GitHub. Podes fechar e fazer outra ação entretanto: a linha por baixo de
+«Atualizado às» diz o que ainda está a publicar e o que já está no ar. Se o token deixar de funcionar a meio,
+entras outra vez e o que escreveste continua lá.
+
+**Revogar o token.** Em https://github.com/settings/personal-access-tokens abre o token e carrega em «Delete»
+(token clássico: https://github.com/settings/tokens). Num telemóvel perdido, revogar basta. No teu telemóvel,
+«Sair» apaga o token desse browser.
+
+**Código de terceiros.** O site e a página de admin não carregam scripts de outros servidores: GSAP, Lenis,
+three.js e number-flow estão em `assets/vendor/`, cópias exatas das versões publicadas (as origens e os hashes
+estão em `assets/vendor/SOURCES.txt`). Assim, nenhum servidor de fora consegue correr código em gocarmo.com, onde
+o token pode estar guardado.
+
+O formulário do GitHub (Issues → **Atualizar espaço do fato ou do capacete**) continua a funcionar como
+alternativa, mas só depois de o branch por defeito ser `gh-pages`.
+
 ## Ligar o Strava (uma vez)
 
 Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo:

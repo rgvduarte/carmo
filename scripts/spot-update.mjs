@@ -6,7 +6,15 @@ import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
 const SPOTS = 'data/spots.json';
 const BRANDS = 'assets/img/brands';
 const FORM = '.github/ISSUE_TEMPLATE/espaco.yml';
-const TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp', 'image/svg+xml': 'svg' };
+// No SVG: a logo is served from gocarmo.com, and an SVG opened on its own is a page there that can run script (the
+// admin page keeps its token on that origin). The admin page converts an SVG to PNG; here, ask for a PNG.
+const TYPES = { 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' };
+// the bytes must be what the type says (the extension decides how gocarmo.com serves the file)
+const MAGIC = {
+  png: (b) => b.length >= 8 && b.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+  jpg: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+  webp: (b) => b.length >= 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP',
+};
 const MAX_LOGO = 3 * 1024 * 1024;
 
 const data = JSON.parse(await readFile(SPOTS, 'utf8'));
@@ -57,7 +65,7 @@ ${opts}
     id: logo
     attributes:
       label: Logótipo
-      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no modelo 3D. Opcional.
+      description: Anexa aqui um PNG com fundo transparente (ou um JPG ou WebP). Um SVG não serve; exporta-o em PNG primeiro. No telemóvel, toca no ícone de anexar. Aparece no modelo 3D. Opcional.
   - type: input
     id: until
     attributes:
@@ -117,9 +125,10 @@ async function saveLogo() {
   if (!res.ok) fail(`não consegui descarregar o logótipo (${res.status}).`);
   const type = (res.headers.get('content-type') || '').split(';')[0].trim();
   const ext = TYPES[type];
-  if (!ext) fail(`o logótipo tem de ser PNG, JPG, WebP ou SVG (recebi ${type || 'um formato desconhecido'}).`);
+  if (!ext) fail(`o logótipo tem de ser PNG, JPG ou WebP (recebi ${type || 'um formato desconhecido'}). Um SVG exporta-se em PNG.`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (buf.length > MAX_LOGO) fail('o logótipo tem mais de 3 MB.');
+  if (!MAGIC[ext](buf)) fail(`o ficheiro do logótipo não é um ${ext.toUpperCase()} verdadeiro.`);
   await mkdir(BRANDS, { recursive: true });
   await clearLogos();
   const path = `${BRANDS}/${id}.${ext}`;

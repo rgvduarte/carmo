@@ -61,7 +61,7 @@ body:
     id: logo
     attributes:
       label: Logótipo
-      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no modelo 3D. Opcional.
+      description: Anexa aqui um PNG com fundo transparente (ou um JPG ou WebP). Um SVG não serve; exporta-o em PNG primeiro. No telemóvel, toca no ícone de anexar. Aparece no modelo 3D. Opcional.
   - type: input
     id: until
     attributes:

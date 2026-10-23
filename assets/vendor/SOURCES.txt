@@ -1,0 +1,27 @@
+Third-party code served from gocarmo.com itself, so no other host can change what runs on the site or on /admin/.
+Each file is byte for byte the published one. Checked on 2026-10-23 against the hashes jsDelivr
+(data.jsdelivr.com) and cdnjs (api.cdnjs.com) publish. To update: download the new version from the same
+URLs, check its hash the same way, and change the paths in index.html and admin/index.html.
+
+sha256 (base64)                               file  <-  source
+bfUnbudTH8xURvGQgsEud7tsXwgf0rbWz4gYCl7jas0=  esm-env@1.2.2/LICENSE  <-  https://cdn.jsdelivr.net/npm/esm-env@1.2.2/LICENSE
+GHrqXb8Zi/IRzJ0JmqUA+RGe7zPq5jA+X75D+QHA5eE=  esm-env@1.2.2/false.js  <-  https://cdn.jsdelivr.net/npm/esm-env@1.2.2/false.js
+OghhHs3fmpUb9ts4hCj4lKUKh6JD+IEbQ6kuMyzZ1aE=  esm-env@1.2.2/index.js  <-  https://cdn.jsdelivr.net/npm/esm-env@1.2.2/index.js
+Hwng+c3yISeUAes/34PmtBHEaYGyfrskUUYACdfx5Ck=  esm-env@1.2.2/true.js  <-  https://cdn.jsdelivr.net/npm/esm-env@1.2.2/true.js
+6c4EoH2TLYUG8hoNsOOUzlJvabnxqTxwtk3juCPapFI=  gsap@3.13.0/ScrambleTextPlugin.min.js  <-  https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrambleTextPlugin.min.js
+MIIZOQ5eO4TNoMSB5wyqmCCIOuEL2kTm6aFJqBqsSz8=  gsap@3.13.0/ScrollTrigger.min.js  <-  https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/ScrollTrigger.min.js
+lsAbgfRKMpDitFMvVeLJU0sq3EMnOhnzdWsstB8P0LY=  gsap@3.13.0/gsap.min.js  <-  https://cdnjs.cloudflare.com/ajax/libs/gsap/3.13.0/gsap.min.js
+fRiWsx8u7Z8oawX6ygZ8TjWy8QmufE7VEFIg4tKCAig=  lenis@1.3.4/LICENSE  <-  https://cdn.jsdelivr.net/npm/lenis@1.3.4/LICENSE
+Z/D+DPxnImnO1r8M9EkTyj16YCNaifmpPGb1dnrepyk=  lenis@1.3.4/dist/lenis.min.js  <-  https://cdn.jsdelivr.net/npm/lenis@1.3.4/dist/lenis.min.js
++KPqyf0q6U8Yor8EWeV9kNpTnwFafsStYYalyjOmqpo=  number-flow@0.5.8/LICENSE.md  <-  https://cdn.jsdelivr.net/npm/number-flow@0.5.8/LICENSE.md
+lHzfj2f8cd9/scNgDD5Tce66oVLi3hg+CwGpA0AVSBg=  number-flow@0.5.8/dist/index.mjs  <-  https://cdn.jsdelivr.net/npm/number-flow@0.5.8/dist/index.mjs
+5c3qCV2GJuDthoHDyen3TV5rtSK7RLxWeNK7HcbeR1o=  number-flow@0.5.8/dist/lite-BTIaQdTe.mjs  <-  https://cdn.jsdelivr.net/npm/number-flow@0.5.8/dist/lite-BTIaQdTe.mjs
+UYnrsjS70c/NSm8fAtqKjfs2FjeE+75Sp0QzFYcSfqw=  number-flow@0.5.8/dist/plugins.mjs  <-  https://cdn.jsdelivr.net/npm/number-flow@0.5.8/dist/plugins.mjs
+TECh72JFC4V8OyqvKUk2MEzVUtll+82dMtTFvPS6RFQ=  three@0.170.0/LICENSE  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/LICENSE
+CP11RdE9LH+2WraRUwqALa/v1jhZZQGFTyZ9D7E8Oec=  three@0.170.0/build/three.module.min.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js
+hYab3SL3zwsi5o3O/my3EEgK8PXJAadvendk/Qf8gBQ=  three@0.170.0/examples/jsm/environments/RoomEnvironment.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js
+
+esm-env is mapped in index.html the way a bundler resolves it for browsers in production:
+esm-env/browser -> true.js, esm-env/development -> false.js, esm-env/node -> false.js.
+Licences: three.js, Lenis, number-flow and esm-env are MIT (LICENSE files here); GSAP 3.13 is under the
+GSAP standard licence (https://gsap.com/standard-license), named in each file's header.
