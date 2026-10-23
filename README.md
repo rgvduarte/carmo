@@ -21,6 +21,8 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   Instagram e pagar por transferência ou MB WAY.
 - **Apoiar**: GoFundMe, transferência ou MB WAY, apoio em espécie e orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
+- **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com o Google Analytics ligado,
+  aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 
 PT e EN (botão no topo; a língua também segue o browser).
 
@@ -31,6 +33,8 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
 | Link do GoFundMe | `assets/js/data.js` → `SITE.gofundme` |
+| Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem estatísticas e sem aviso de cookies; ver «Google Analytics») |
+| Página de privacidade (PT e EN) | `privacidade/index.html` |
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
@@ -163,7 +167,8 @@ entras outra vez e o que escreveste continua lá.
 **Código de terceiros.** O site e a página de admin não carregam scripts de outros servidores: GSAP, Lenis,
 three.js e number-flow estão em `assets/vendor/`, cópias exatas das versões publicadas (as origens e os hashes
 estão em `assets/vendor/SOURCES.txt`). Assim, nenhum servidor de fora consegue correr código em gocarmo.com, onde
-o token pode estar guardado.
+o token pode estar guardado. A única exceção é o Google Analytics, quando está ligado (`SITE.ga`): só nas páginas
+públicas, só depois de o visitante aceitar, e nunca num browser que já abriu o admin (ver «Google Analytics»).
 
 O formulário do GitHub (Issues → **Atualizar espaço do fato ou do capacete**) continua a funcionar como
 alternativa, mas só depois de o branch por defeito ser `gh-pages`.
@@ -201,6 +206,93 @@ Só são publicados agregados (horas por semana e por dia, totais de 12 meses). 
 Alternativa sem API: em Strava → Settings → My Account → *Download your data*, extrai `activities.csv` e corre
 `node scripts/strava-sync.mjs --csv caminho/para/activities.csv`, depois faz commit de `data/strava.json`.
 
+## Google Analytics
+
+Com `SITE.ga` vazio (`assets/js/data.js`) o site não mede nada: não há aviso de cookies, nenhum cookie e nenhum
+pedido à Google. Para ligar, cola ali o ID de medição (`G-…`), corre `node scripts/stamp.mjs` e publica. Mais nada.
+
+**Criar a propriedade (uma vez, uns 10 minutos).**
+1. Em https://analytics.google.com, com a conta Google do Gonçalo, carrega em «Start measuring» (se já houver
+   outra conta: Admin → Create → Account).
+2. Conta: `Gonçalo Carmo`. As opções de partilha de dados com a Google ficam todas desligadas.
+3. Propriedade: `gocarmo.com`, fuso horário Portugal, moeda Euro (€). Nos objetivos escolhe «Generate leads» e
+   «Understand web and/or app traffic».
+4. Aceita os termos (país: Portugal) e marca também os **Data Processing Terms** (os termos do RGPD). Se passar,
+   estão em Admin → Account settings → Data processing terms.
+5. Plataforma **Web**: Website URL `https://gocarmo.com`, Stream name `gocarmo.com`, Create stream.
+6. As instruções de instalação que aparecem a seguir não são precisas: o código já está no site. Copia o
+   **Measurement ID** (`G-XXXXXXXXXX`), no topo de «Web stream details».
+7. Cola-o em `assets/js/data.js` → `ga: 'G-XXXXXXXXXX'`, corre `node scripts/stamp.mjs`, faz commit e push.
+
+**No ecrã do fluxo (Admin → Data streams → gocarmo.com), antes de partilhares links:**
+- **Enhanced measurement** fica ligado, mas na roda dentada desliga **Outbound clicks** e **Form interactions**,
+  e em Page views → Show advanced settings desliga **Page changes based on browser history events**. Porquê: o
+  site já manda os seus cliques para fora (`click`, sem o endereço do link) e o link do WhatsApp do pedido leva na
+  mensagem a marca, o nome e o NIF; com «Outbound clicks» ligado, a Google podia receber esse endereço inteiro.
+  E o menu e os espaços mudam o endereço da página (`#fato`, `#fato/peito`): o histórico contava cada mudança como
+  uma visita. Scrolls (a página lida até 90%) e File downloads podem ficar ligados.
+- **Redact data**: liga a redação de emails e, em «Query parameters», escreve `text, body, subject`. É uma segunda
+  rede: se algum link com a mensagem do pedido chegasse ao Analytics, essas partes eram apagadas antes de sair do
+  browser.
+
+**Definições recomendadas (Admin).**
+- Data collection and modification → **Data retention** → Event data retention: **14 months** → Save (por defeito
+  são 2 meses). É o prazo que a página de privacidade indica.
+- Data collection and modification → **Data collection** → **Google signals**: desligado (é o valor por defeito; o
+  site também o desliga no código).
+- Data display → **Key events** → New key event → `generate_lead`. É o número que interessa: pedidos de patrocínio
+  enviados.
+- Data display → **Custom definitions** → Create custom dimension (scope Event), uma por parâmetro: `section_id`,
+  `link_type`, `link_location`, `payment_type`, `method`, `content_type`, `new_language`. Sem isto os parâmetros
+  chegam, mas não aparecem nos relatórios. Se o GA disser que uma já existe, salta-a.
+- **Tráfego interno (opcional).** O teu browser já não conta: abrir `/admin/` ou `/admin/strava/` deixa nesse
+  browser uma marca (`gc.internal`) e, a partir daí, as páginas públicas nunca carregam o Google Analytics nele.
+  Também protege o token: o script da Google nunca corre onde o token do GitHub pode estar guardado. Para excluir
+  também outros aparelhos lá de casa, define o IP em Data streams → gocarmo.com → Configure tag settings → Define
+  internal traffic (`traffic_type` = `internal`) e ativa o filtro em Admin → Data filters → Internal traffic →
+  Active. No telemóvel o IP muda, por isso a marca no browser é o que conta. Limpar os dados do site no browser
+  apaga a marca (volta a abrir o admin).
+
+**Ver os dados a chegar.**
+- Abre o site numa **janela privada** (no teu browser normal o site não mede, por causa da marca do admin), aceita
+  o aviso e, no Analytics, vai a Reports → **Realtime**: a visita aparece em menos de um minuto.
+- Evento a evento: abre `https://gocarmo.com/?ga_debug=1` numa janela privada, aceita, e vai a Admin → Data display
+  → **DebugView**.
+- Os relatórios normais demoram 24 a 48 horas a encher.
+- Links para partilhar com origem: junta `utm_source`, `utm_medium` e `utm_campaign`, por exemplo
+  `https://gocarmo.com/?utm_source=instagram&utm_medium=social&utm_campaign=lancamento-2026`. Aparecem em Reports
+  → Acquisition → Traffic acquisition.
+
+**O que o site mede** (tudo em `assets/js/analytics.js`; noutro ficheiro só há uma linha em `adspace.js`, que avisa
+que espaço está aberto):
+
+| Evento | Quando | Parâmetros |
+|---|---|---|
+| `page_view` | o Analytics carrega, depois de «Aceitar» | os do Google Analytics |
+| `scroll` | a página lida até 90% (Enhanced measurement) | |
+| `section_view` | uma secção passa pelo meio do ecrã pela primeira vez: `historia`, `resultados`, `dados`, `epoca`, `o-fato`, `o-capacete`, `media`, `apoiar`, `contacto` | `section_id` |
+| `select_content` | abres um espaço: no 3D, na tabela, nos capítulos ou por link direto (a visita guiada não conta) | `content_type` (`suit_spot` ou `helmet_spot`), `content_id` e `item_id` (o id do espaço, ex. `peito`) |
+| `share` | «Partilhar» num espaço | `method` (`web_share` ou `copy_link`), `content_type`, `item_id` |
+| `begin_checkout` | o pedido abre no passo 1 | `currency` (EUR), `value` (o total, já com desconto), `items` (os espaços) |
+| `add_payment_info` | escolhes Transferência ou MB WAY, ou copias uma linha do pagamento (uma vez por forma, em cada pedido) | os de cima e `payment_type` (`transfer` ou `mbway`) |
+| `generate_lead` | o pedido sai por WhatsApp, email ou Instagram (um envio recusado por faltar a marca não conta) | `currency`, `value`, `method` (`whatsapp`, `email` ou `instagram`) |
+| `click` | um link para fora, exceto os do pedido | `link_type` (`whatsapp`, `email`, `instagram`, `strava`, `gofundme`, `spotify`, `tiktok` ou `other`), `link_domain`, `link_location` (a secção, `nav` ou `footer`) |
+| `donation_intent` | em Apoiar: copias o IBAN ou o número MB WAY, ou carregas no botão do GoFundMe | `method` (`transfer`, `mbway`, `gofundme`, ou `whatsapp` enquanto não houver campanha) |
+| `language_change` | PT / EN | `new_language` |
+
+Nunca vão para a Google o que a marca escreve no pedido, emails, números de telefone, NIF, nomes de marcas nem o
+endereço dos links.
+
+**O aviso e a lei (RGPD, Lei 41/2004, orientações da CNPD).** O script da Google só carrega depois de «Aceitar»
+(Consent Mode v2, modo básico, com anúncios e personalização sempre recusados) e só então há cookies. «Recusar» e
+«Aceitar» são iguais. Esc, ou ignorar o aviso, não é aceitar. A escolha fica seis meses no browser (`gc.consent`)
+e os cookies `_ga` duram o mesmo; se o browser não deixar guardar, o aviso volta na visita seguinte. Um browser com
+Global Privacy Control ou Do Not Track conta como «Recusar» e não vê o aviso (pode aceitar em «Definições de
+cookies»). «Definições de cookies», no rodapé, volta a abrir o aviso; recusar aí apaga os cookies `_ga` e para o
+envio na hora. Esvaziar `SITE.ga` desliga tudo e apaga os cookies `_ga` que tenham ficado.
+A página `/privacidade/` (PT e EN) explica isto ao visitante: se mudares o que o site mede, atualiza-a. O que ainda
+falta confirmar está num comentário `[CONFIRMAR]` no início do ficheiro, que não aparece na página.
+
 ## Correr localmente
 
 ```bash
@@ -216,7 +308,7 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html` e de `admin/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html` e de `privacidade/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
 Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo.
 

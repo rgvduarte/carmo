@@ -18,6 +18,9 @@ export const SITE = {
   // offers the bank transfer only.
   mbway: '916395103',
   mbwayMax: 2000,
+  // Google Analytics 4 Measurement ID, e.g. G-XXXXXXXXXX. Empty = no analytics, no banner.
+  // (Set up in the README, "Google Analytics". The tag loads only after the visitor accepts: analytics.js.)
+  ga: '',
   updated: '2026-10-22',
 };
 

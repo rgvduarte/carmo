@@ -523,6 +523,8 @@ function select(id, { from3d = false, focus = true } = {}) {
   sheet.style.removeProperty('--drag');
   document.body.classList.toggle('sheet-open', open);
   if (open) { sheet.scrollTop = 0; if (from3d && navigator.vibrate) navigator.vibrate(8); }
+  // for analytics.js (select_content): which spot is on the card now, and whether the tour put it there
+  document.dispatchEvent(new CustomEvent('gc:spot', { detail: { id: selected, item: selected ? itemOf(byId(selected)) : null, tour: !!tourCtl } }));
 }
 
 // One spot card, in the panel of its spot's part; each part shows its own prompt while none of its spots is picked.

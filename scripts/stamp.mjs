@@ -56,4 +56,5 @@ function stamp(page, base) {
 stamp('index.html', './');
 stamp('admin/index.html', '../');
 stamp('admin/strava/index.html', '../../');
+stamp('privacidade/index.html', '../');
 console.log(`stamped ${modules.length} modules`);
