@@ -30,13 +30,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A value pasted into GitHub with a line break or a space is refused by wrangler ("Invalid account ID"):
+      # every later step uses these trimmed copies, masked in the logs like the secrets themselves.
+      - name: Trim the Cloudflare values
+        env:
+          RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RAW_SPOTS: ${{ secrets.SPOTS_GITHUB_TOKEN }}
+          RAW_ADMIN: ${{ secrets.ADMIN_KEY }}
+        run: |
+          token="$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')"
+          account="$(printf '%s' "$RAW_ACCOUNT" | tr -d '[:space:]')"
+          [ -n "$token" ] && echo "::add-mask::$token"
+          [ -n "$account" ] && echo "::add-mask::$account"
+          { echo "CF_API_TOKEN=$token"; echo "CF_ACCOUNT_ID=$account"; } >> "$GITHUB_ENV"
+          # the Worker's own secrets: only line breaks and spaces at the ends go (a key may hold inner spaces)
+          spots="$(printf '%s' "$RAW_SPOTS" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr -d '\r\n')"
+          admin="$(printf '%s' "$RAW_ADMIN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr -d '\r\n')"
+          [ -n "$spots" ] && echo "::add-mask::$spots"
+          [ -n "$admin" ] && echo "::add-mask::$admin"
+          { echo "W_SPOTS_GITHUB_TOKEN=$spots"; echo "W_ADMIN_KEY=$admin"; } >> "$GITHUB_ENV"
+
       - name: Check the secrets
         id: prep
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          SPOTS_GITHUB_TOKEN: ${{ secrets.SPOTS_GITHUB_TOKEN }}
-          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+          SPOTS_GITHUB_TOKEN: ${{ env.W_SPOTS_GITHUB_TOKEN }}
+          ADMIN_KEY: ${{ env.W_ADMIN_KEY }}
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
         run: |
           missing=""
@@ -65,8 +86,8 @@ jobs:
       - name: Find the workers.dev subdomain
         id: sub
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
         run: |
           body="$(curl -sS --max-time 20 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)"
@@ -93,8 +114,8 @@ jobs:
       - name: Install wrangler and find the KV namespace
         working-directory: worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: 'false'
         run: |
           npm install --no-save --no-audit --no-fund --loglevel=error "wrangler@$WRANGLER_VERSION"
@@ -104,13 +125,13 @@ jobs:
         id: deploy
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
         env:
-          SPOTS_GITHUB_TOKEN: ${{ secrets.SPOTS_GITHUB_TOKEN }}
-          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          SPOTS_GITHUB_TOKEN: ${{ env.W_SPOTS_GITHUB_TOKEN }}
+          ADMIN_KEY: ${{ env.W_ADMIN_KEY }}
           TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
           WRANGLER_SEND_METRICS: 'false'
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
           wranglerVersion: ${{ env.WRANGLER_VERSION }}
           workingDirectory: worker
           secrets: ${{ steps.prep.outputs.secrets }}
@@ -121,8 +142,8 @@ jobs:
         if: steps.prep.outputs.turnstile == 'off'
         working-directory: worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: 'false'
         run: |
           if npx --no-install wrangler secret list 2>/dev/null | grep -q '"TURNSTILE_SECRET"'; then
