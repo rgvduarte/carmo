@@ -52,10 +52,20 @@ Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. 
 
 **O fluxo.**
 1. A marca escolhe os espaços e carrega em **Reservar**. O pedido tem dois passos, um ecrã cada:
-   **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem) e **Pagar**
-   (Transferência ou MB WAY, cada um com três linhas para copiar: IBAN ou número, montante e código `KONA`).
-   Ao enviar o pedido por WhatsApp, email ou Instagram, a app abre com a mensagem pronta e o pedido passa
-   sozinho ao passo Pagar, à espera quando a marca voltar ao site (mesmo que o telemóvel tenha recarregado a página).
+   **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem, e **Pagar por** MB WAY ou
+   Transferência) e **Pagar** (MB WAY ou Transferência, cada um com três linhas para copiar: número ou IBAN, montante e
+   código `KONA`). A forma escolhida vai escrita na mensagem que recebes («Pagamento: MB WAY» ou «Pagamento:
+   transferência bancária») e o passo Pagar abre nela. Acima de 2 000 € o MB WAY fica desligado, com a razão por baixo.
+   Se a marca mudar de forma no passo Pagar depois de enviar, aparece «Mudaste a forma de pagamento? Diz-me na conversa.»
+   Ao enviar o pedido por WhatsApp (o botão dourado), email ou Instagram (dois botões lado a lado), a app abre com a
+   mensagem pronta e o pedido passa sozinho ao passo Pagar, à espera quando a marca voltar ao site (mesmo que o
+   telemóvel tenha recarregado a página, e na forma de pagar que escolheu ou para a qual mudou). Se o WhatsApp não abrir
+   (a página continua no ecrã 2,5 s depois do toque, o telemóvel volta da página wa.me sem a app, ou num computador ao
+   voltar ao separador), o passo Pagar mostra no topo «O WhatsApp não abriu? Envia por email ou Instagram» com os mesmos
+   dois botões; se a app só abrir depois, a linha desaparece quando a marca volta. O site nunca diz que a mensagem foi
+   enviada. O Instagram copia a mensagem («Mensagem copiada. Cola-a na conversa do Instagram.») e abre a conversa com
+   @goncalo.carmo99; se o browser não deixar copiar, a mensagem aparece selecionada numa caixa para copiar à mão, e se
+   bloquear o novo separador, aparece o botão «Abrir o Instagram».
    **Feito** fecha o pedido e esvazia o pacote. O email abre a app de email do aparelho com a mesma mensagem; se a
    marca escrever uma mensagem muito longa, o email leva só o início (há apps que não abrem links de email enormes)
    e o pedido avisa-a de que pelo WhatsApp vai inteira.

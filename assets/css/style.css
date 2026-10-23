@@ -911,14 +911,37 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .field input[aria-invalid="true"]:focus-visible { outline-color: #f08a7e; }
 .field .err { margin: 0; font-size: 13px; color: #f08a7e; }
 .field .cl-hint { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+/* «Pagar por» MB WAY | Transferência, right under the amount it depends on: real radios (a radio group for a screen
+   reader, arrows move the pick) inside two pills that look like the step 2 tabs. The MB WAY artwork stays in step 2: at
+   pill size it would sit far under the SIBS 20 mm minimum */
+.cl-pay { display: grid; gap: 6px; }
+.cl-pay-l { margin: 0; font-size: 13px; color: var(--muted); }
+.cl-pay-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); }
+.cl-pay-seg label { position: relative; display: grid; place-items: center; min-height: 44px; padding: 0 10px; border-radius: 999px; color: var(--muted); font: 600 15px/1.1 var(--sans); text-align: center; cursor: pointer; transition: background .25s, color .25s; }
+.cl-pay-seg input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
+.cl-pay-seg label:has(:checked) { background: var(--ink); color: var(--bg); }
+.cl-pay-seg label:has(:disabled) { opacity: .4; cursor: not-allowed; }
+.cl-pay-seg label:has(:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cl-pay .cl-hint { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-acts { display: grid; gap: 10px; }
 .cl-acts .btn { width: 100%; min-height: 52px; padding: 0 16px; font-size: 16px; }
 .cl-acts .link { justify-self: center; }
+/* email and Instagram: two equal second choices under the gold WhatsApp button (and in the step 2 «não abriu?» box) */
+.cl-alt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cl-acts .cl-alt .btn, .cl-fb .btn { width: 100%; min-height: 48px; padding: 0 12px; gap: 8px; font-size: 15px; }
 .cl-foot { margin: -6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: center; }
 /* step 2 */
 /* after the email action only: the address to copy, for a computer with no mail app */
 .cl-mailfb { margin: -6px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 2px 14px; border-radius: 12px; background: var(--bg-3); font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-mailfb b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+/* WhatsApp did not open, or the clipboard was refused: one short line and the way out, first thing in step 2 */
+.cl-fb { margin: -6px 0 0; display: grid; gap: 12px; padding: 14px; border-radius: 14px; background: var(--bg-3); border: 1px solid var(--line-2); }
+.cl-fb-t { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.cl-fb-t b { color: var(--ink); font-weight: 600; }
+/* 16 px, or iOS zooms the page when the field takes focus */
+.cl-fb textarea { width: 100%; min-height: 104px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink); font: 16px/1.4 var(--sans); resize: vertical; }
+/* after a switch of tab once the request went out: the one line that asks for something, in the accent colour */
+.pay-cap.pay-chg { color: var(--gold); }
 .pay-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); }
 .pay-seg [role="tab"] { min-height: 44px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 15px/1 var(--sans); cursor: pointer; transition: background .25s, color .25s; }
 .pay-seg [aria-selected="true"] { background: var(--ink); color: var(--bg); }
@@ -1016,8 +1039,8 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 
 /* Windows high contrast: system colours replace ours, so the picked payment tab keeps a highlight of its own */
 @media (forced-colors: active) {
-  .pay-seg [aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  .pay-seg [role="tab"]:disabled { color: GrayText; }
+  .pay-seg [aria-selected="true"], .cl-pay-seg label:has(:checked) { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .pay-seg [role="tab"]:disabled, .cl-pay-seg label:has(:disabled) { color: GrayText; }
 }
 
 /* ---------- print: compact media kit ---------- */
@@ -1074,10 +1097,20 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .dlg-body { padding-top: 16px; }
   .cl-pane { gap: 18px; }
 }
-/* wide enough for two fields side by side: «Marca» and «O teu nome» share a row, so «Enviar pedido» shows without a scroll */
+/* wide enough for two things side by side: the summary and «Pagar por» share the first row, «Marca» and «O teu nome» the
+   next, so «Enviar pedido» shows without a scroll */
 @media (max-height: 500px) and (min-width: 600px) {
+  #cl-s1 { grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  #cl-s1 > * { grid-column: 1 / -1; }
+  #cl-s1 > .cl-sum { grid-column: 1; align-self: end; }
+  #cl-s1 > .cl-pay { grid-column: 2; align-self: start; gap: 4px; }
   .cl-fields { grid-template-columns: 1fr 1fr; column-gap: 12px; align-items: start; }
   .cl-add, .cl-extra { grid-column: 1 / -1; }
+}
+/* a full-width sheet (600-760 px): «Pagar por» fits on the line of its pills, level with the summary */
+@media (max-height: 500px) and (min-width: 600px) and (max-width: 760px) {
+  #cl-s1 > .cl-pay { grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; }
+  .cl-pay .cl-hint { grid-column: 1 / -1; }
 }
 /* ... and on a wide one, one readable column down the middle, the full height of the screen (the notch stays outside it) */
 @media (max-height: 500px) and (min-width: 761px) {
