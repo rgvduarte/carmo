@@ -95,32 +95,3 @@ export function heatmap(host, days, { title = '', fmtDay = (d) => d } = {}) {
     r.addEventListener('pointerleave', tip.hide);
   });
 }
-
-// A race as one proportional bar: segments by time, 2px gaps, direct labels where they fit.
-export function splitBar(host, segs) {
-  host.querySelectorAll('svg').forEach((s) => s.remove());
-  const W = widthOf(host), H = 92, y = 30, h = 14, gap = 2;
-  const total = segs.reduce((a, s) => a + s.s, 0);
-  const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, role: 'presentation' }, host);
-  const tip = tooltip(host);
-  const usable = W - gap * (segs.length - 1);
-  const fmt = (sec) => { const hh = Math.floor(sec / 3600), mm = Math.floor((sec % 3600) / 60), ss = sec % 60; return hh ? `${hh}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}` : `${mm}:${String(ss).padStart(2, '0')}`; };
-  let x = 0;
-  segs.forEach((s, i) => {
-    const w = Math.max(2, (s.s / total) * usable);
-    const transition = s.key.startsWith('t');
-    const g = el('g', { tabindex: 0, role: 'img', 'aria-label': `${s.label}: ${fmt(s.s)}` }, svg);
-    el('rect', { x, y: y - 10, width: Math.max(w, 12), height: h + 20, fill: 'transparent' }, g);
-    el('rect', { x, y, width: w, height: h, rx: i === 0 || i === segs.length - 1 ? 4 : 1, fill: s.key === 'bike' ? 'var(--gold)' : 'currentColor', opacity: transition ? 0.35 : s.key === 'bike' ? 1 : 0.85 }, g);
-    if (!transition && w > 70) {
-      txt(svg, x, y - 10, s.label, 'lbl-muted');
-      txt(svg, x, y + h + 24, fmt(s.s), 'lbl');
-      txt(svg, x + w, y + h + 24, `${Math.round((s.s / total) * 100)}%`, 'lbl-muted', 'end');
-    }
-    const cx = x + w / 2;
-    const show = () => { const [hx, hy] = toHost(svg, cx, y); tip.show(hx, hy, fmt(s.s), `${s.label} · ${Math.round((s.s / total) * 1000) / 10}%`); };
-    g.addEventListener('pointerenter', show); g.addEventListener('focus', show);
-    g.addEventListener('pointerleave', tip.hide); g.addEventListener('blur', tip.hide);
-    x += w + gap;
-  });
-}

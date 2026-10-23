@@ -21,51 +21,47 @@ export const SITE = {
   updated: '2026-10-22',
 };
 
-// Official results (timing companies / IRONMAN), checked 22 Oct 2026.
-// `md` marks middle-distance triathlons used in the progression chart; `rank`/`field` feed the "top %" chart.
+// Official results (timing companies / IRONMAN), checked 22 Oct 2026. They feed the marks stage and the
+// «Todas as provas» cards; after an edit here run `node scripts/stamp.mjs`, which also writes the cards into index.html.
+// `rank`/`field`: overall place. `note`: one line in my words (shown on the stage, and on the running cards).
+// Triathlons: `splits` (swim, t1, bike, t2, run) and `ag`, the age-group place (`field` left out when unknown).
+// Running races: `pace` per km. `tag` (optional): a label on the card, e.g. «Primeiro triatlo».
+// `md` marks middle-distance triathlons used in the progression chart.
 export const RESULTS = [
   { year: 2026, pt: 'IRONMAN Portugal-Cascais', en: 'IRONMAN Portugal-Cascais', place: 'Cascais, Portugal', dist: '3,8 · 180 · 42,2 km', time: '9:35:08', rank: 52, field: 1981, date: '2026-10-17',
     note: { pt: '12.º de 321 no escalão M25-29, com a maratona em 3:27.', en: '12th of 321 in M25-29, with a 3:27 marathon.' },
     splits: { swim: '1:01:42', t1: '6:00', bike: '4:56:43', t2: '3:22', run: '3:27:22' },
-    badges: [{ pt: 'Distância completa', en: 'Full distance', gold: true }, { pt: '52.º de 1 981', en: '52nd of 1,981' }, { pt: '12.º de 321 · M25-29', en: '12th of 321 · M25-29' }] },
+    ag: { rank: 12, field: 321, cat: 'M25-29' }, tag: { pt: 'Distância completa', en: 'Full distance' } },
   { year: 2026, pt: 'Triatlo de Sines', en: 'Sines Triathlon', place: 'Sines, Portugal', dist: '2 · 80 · 18 km', time: '3:42:32', rank: 6, field: 743, date: '2026-09-27',
     note: { pt: 'Vitória no escalão M25-29, entre 83 atletas.', en: 'Age-group win in M25-29, out of 83.' },
     splits: { swim: '30:12', t1: '2:27', bike: '1:59:45', t2: '1:52', run: '1:08:16' },
-    badges: [{ pt: '1.º de 83 · M25-29', en: '1st of 83 · M25-29', gold: true }, { pt: '6.º de 743', en: '6th of 743' }] },
+    ag: { rank: 1, field: 83, cat: 'M25-29' } },
   { year: 2026, pt: 'Corrida de Santo António', en: 'Santo António 10K', place: { pt: 'Lisboa, Portugal', en: 'Lisbon, Portugal' }, dist: '10 km', time: '33:48', rank: 15, field: 4694, date: '2026-06-07',
     note: { pt: '10 km a 3:23 por quilómetro.', en: '10 km at 3:23 per kilometre.' },
-    badges: [{ pt: '15.º de 4 694', en: '15th of 4,694', gold: true }, { pt: '3:23 /km', en: '3:23 /km', dim: true }] },
+    pace: '3:23' },
   { year: 2026, pt: 'Lidl Setúbal Triathlon', en: 'Lidl Setúbal Triathlon', place: 'Setúbal, Portugal', dist: '1,9 · 90 · 21,1 km', time: '4:26:49', min: 266.82, md: true, rank: 11, field: 802, date: '2026-04-12',
     note: { pt: '2.º de 84 no escalão M25-29.', en: '2nd of 84 in M25-29.' },
     splits: { swim: '33:48', t1: '3:05', bike: '2:29:37', t2: '0:55', run: '1:19:13' },
-    badges: [{ pt: '2.º de 84 · M25-29', en: '2nd of 84 · M25-29', gold: true }, { pt: '11.º de 802', en: '11th of 802' }] },
+    ag: { rank: 2, field: 84, cat: 'M25-29' } },
   { year: 2026, pt: 'Meia Maratona de Cascais', en: 'Cascais Half Marathon', place: 'Cascais, Portugal', dist: '21,1 km', time: '1:19:48', rank: 41, field: 4179, date: '2026-02-01',
     note: { pt: 'Meia maratona a 3:47 por quilómetro.', en: 'Half marathon at 3:47 per kilometre.' },
-    badges: [{ pt: '41.º de 4 179', en: '41st of 4,179', gold: true }, { pt: '3:47 /km', en: '3:47 /km', dim: true }] },
+    pace: '3:47' },
   { year: 2026, pt: 'Zurich Maratón de Sevilla', en: 'Zurich Seville Marathon', place: { pt: 'Sevilha, Espanha', en: 'Seville, Spain' }, dist: '42,2 km', time: '2:44:13', rank: 698, field: 12449, date: '2026-02-15',
     note: { pt: 'Primeira maratona abaixo das 2h45.', en: 'First marathon under 2:45.' },
-    badges: [{ pt: '698.º de 12 449', en: '698th of 12,449' }, { pt: '3:54 /km', en: '3:54 /km', dim: true }] },
+    pace: '3:54' },
   { year: 2025, pt: 'Meia Maratona dos Descobrimentos', en: 'Descobrimentos Half Marathon', place: { pt: 'Lisboa, Portugal', en: 'Lisbon, Portugal' }, dist: '21,1 km', time: '1:16:56', rank: 28, field: 5305, date: '2025-11-30',
     note: { pt: 'A minha melhor meia maratona, a 3:39 por quilómetro.', en: 'My best half marathon, at 3:39 per kilometre.' },
-    badges: [{ pt: '28.º de 5 305', en: '28th of 5,305', gold: true }, { pt: '3:39 /km', en: '3:39 /km', dim: true }] },
+    pace: '3:39' },
   { year: 2025, pt: 'IRONMAN 70.3 Cascais', en: 'IRONMAN 70.3 Cascais', place: 'Cascais, Portugal', dist: '1,9 · 90 · 21,1 km', time: '4:27:16', min: 267.27, md: true, rank: 31, field: 2353, date: '2025-10-18',
     note: { pt: 'Estreia no IRONMAN 70.3. 7.º de 151 no escalão M18-24.', en: 'IRONMAN 70.3 debut. 7th of 151 in M18-24.' },
     splits: { swim: '31:22', t1: '4:23', bike: '2:22:30', t2: '2:35', run: '1:26:25' },
-    badges: [{ pt: '31.º de 2 353', en: '31st of 2,353', gold: true }, { pt: '7.º de 151 · M18-24', en: '7th of 151 · M18-24' }, { pt: 'Estreia IRONMAN 70.3', en: 'IRONMAN 70.3 debut', dim: true }] },
+    ag: { rank: 7, field: 151, cat: 'M18-24' }, tag: { pt: 'Estreia IRONMAN 70.3', en: 'IRONMAN 70.3 debut' } },
   { year: 2025, pt: 'Triatlo Longo de Caminha', en: 'Caminha Long Triathlon', place: 'Caminha, Portugal', dist: '1,9 · 90 · 20,7 km', time: '4:32:54', min: 272.9, md: true, rank: 61, field: 360, date: '2025-05-24',
     note: { pt: 'O primeiro triatlo. 4.º no escalão 20-24.', en: 'My first triathlon. 4th in the 20-24 age group.' },
     splits: { swim: '26:21', t1: '2:24', bike: '2:31:53', t2: '1:18', run: '1:30:57' },
-    badges: [{ pt: '4.º · escalão 20-24', en: '4th · AG 20-24' }, { pt: 'Primeiro triatlo', en: 'First triathlon', dim: true }] },
+    ag: { rank: 4, cat: '20-24' }, tag: { pt: 'Primeiro triatlo', en: 'First triathlon' } },
 ];
 
-// IRONMAN Portugal-Cascais 2026, used for the "where the time went" bar.
-export const IRONMAN_SPLITS = [
-  { k: 'swim', pt: 'Natação', en: 'Swim', s: 3702 },
-  { k: 't1', pt: 'T1', en: 'T1', s: 360 },
-  { k: 'bike', pt: 'Ciclismo', en: 'Bike', s: 17803 },
-  { k: 't2', pt: 'T2', en: 'T2', s: 202 },
-  { k: 'run', pt: 'Corrida', en: 'Run', s: 12442 },
-];
 
 // Instagram @goncalo.carmo99, read from the platform on 2026-10-22 (12 most recent posts).
 export const SOCIAL = { followers: 1921, likesPerPost: 329, commentsPerPost: 43, bestPost: 881, asOf: '2026-10-22' };
