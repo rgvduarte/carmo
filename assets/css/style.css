@@ -482,18 +482,22 @@ section { position: relative; }
 .pl-k { margin: 0; font: 500 11px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .pl-name { margin: 10px 0 0; font: 700 clamp(20px, 2vw, 26px)/1.12 var(--sans); letter-spacing: -0.02em; }
 .pl-sub { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+.pl-sub span { white-space: nowrap; }
 .pl-artists { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
-.pl-bars { display: grid; grid-template-columns: repeat(var(--n, 31), minmax(0, 1fr)); align-items: end; gap: 2px; height: 44px; }
-.pl-bars i { display: block; border-radius: 1px; background: rgba(242,241,236,0.5); }
-.pl-bars i.peak, .pl-phases li.peak::before { background: var(--gold); }
-.pl-phases { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font: 500 11px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.pl-phases li { display: inline-flex; align-items: center; gap: 6px; }
-.pl-phases li::before { content: ""; width: 8px; height: 8px; border-radius: 1px; background: rgba(242,241,236,0.5); }
-.pl-phases b { color: var(--ink); font-weight: 600; }
+/* one bar per track; the gap where each phase starts makes four blocks that read in the order of the labels below */
+.pl-bars { display: flex; align-items: flex-end; gap: 2px; height: 44px; }
+.pl-bars i { flex: 1 1 0; min-width: 0; border-radius: 1px; background: rgba(242,241,236,0.5); }
+.pl-bars i.cut { margin-left: 6px; }
+.pl-bars i.peak { background: var(--gold); }
+.pl-phases { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; font: 500 11px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pl-phases li { white-space: nowrap; }
+.pl-phases b { margin-left: 6px; color: var(--ink); font-weight: 600; }
+.pl-phases li.peak, .pl-phases li.peak b { color: var(--gold); }
+.pl-phases li.key { margin-left: auto; color: var(--dim); }
 .pl-frame { display: none; }
 .pl-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--bg-2); }
 .pl-frame iframe:focus-visible { outline-offset: -3px; border-radius: 12px; }   /* the stage clips anything outside */
-.pl.inline .pl-face { display: none; }
+.pl.inline .pl-face { visibility: hidden; }   /* kept in the flow: where the card runs taller than 352 px (narrow phones), the player takes its height */
 .pl.inline .pl-frame { display: block; position: absolute; inset: 0; }
 /* docked: the same iframe, fixed to the bottom; it climbs over the studio's package bar and steps aside for the spot sheet */
 .pl.docked .pl-frame {
@@ -506,6 +510,13 @@ section { position: relative; }
 .pl-tag { display: none; }
 body.pk-on .pl.docked .pl-frame { transform: translateY(calc(-1 * (var(--pk-h, 64px) + 10px))); }
 body.sheet-open .pl.docked .pl-frame { transform: translateY(calc(100% + 40px)); visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
+/* small screens, package open, studio in view: the dock slides away (the music plays on) and the ♪ on the package bar brings it back */
+.package .btn.ghost.pk-pl { display: none; width: 40px; padding: 0; flex: none; place-items: center; }
+.package .btn.ghost.pk-pl[aria-pressed="true"] { background: #111; color: #f2f1ec; border-color: #111; }
+@media (max-width: 760px), (max-height: 480px) {
+  body.pk-on.pl-studio:not(.pl-keep) .pl.docked .pl-frame { transform: translateY(calc(100% + 40px)); visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
+  .dock-on body.pl-studio .package .btn.ghost.pk-pl { display: grid; }
+}
 @keyframes dockIn { from { opacity: 0; translate: 0 24px; } }
 .pl-x { border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink); font-size: 22px; line-height: 1; display: grid; place-items: center; transition: background .2s, border-color .2s; }
 .pl-x:hover { background: var(--bg-3); border-color: var(--line-2); }
@@ -513,8 +524,12 @@ body.sheet-open .pl.docked .pl-frame { transform: translateY(calc(100% + 40px));
 .pl-note .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
 .pl-acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
 .pl-fine { margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: var(--dim); }
-body.dock-on footer { padding-bottom: calc(126px + env(safe-area-inset-bottom)); }
-body.dock-on.pk-on footer { padding-bottom: calc(126px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
+@media (hover: none) { .pl-esc { display: none; } }
+/* while docked, the page keeps room for the dock: under it for the footer, and for focus (Tab scrolls controls clear of it) */
+.dock-on footer { padding-bottom: calc(126px + env(safe-area-inset-bottom)); }
+.dock-on body.pk-on footer { padding-bottom: calc(126px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
+html.dock-on { scroll-padding-bottom: calc(126px + env(safe-area-inset-bottom)); }
+html.dock-on:has(body.pk-on) { scroll-padding-bottom: calc(126px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
 @media (max-width: 960px) {
   .listen { grid-template-columns: 1fr; }
 }
@@ -522,17 +537,24 @@ body.dock-on.pk-on footer { padding-bottom: calc(126px + var(--pk-h, 64px) + 10p
   .pl.docked .pl-frame { left: calc(12px + env(safe-area-inset-left)); right: calc(12px + env(safe-area-inset-right)); width: auto; }
   .pl-acts .btn { flex: 1 1 auto; }
 }
-/* Spotify's 80 px player needs about 300 px or its play button falls off: under 390 px the close button moves to a top row */
+@media (max-width: 760px), (max-height: 480px) {
+  html.dock-on:has(body.pk-on.pl-studio:not(.pl-keep)) { scroll-padding-bottom: calc(var(--pk-h, 64px) + 26px + env(safe-area-inset-bottom)); }
+}
+/* Spotify's 80 px player needs about 300 px or its play button falls off: from 360 to 389 px the frame tightens
+   round it (6 px gutters, 4 px padding, a 32 px close button), and under 360 px the close button moves to a top row */
 @media (max-width: 389px) {
+  .pl.docked .pl-frame { left: calc(6px + env(safe-area-inset-left)); right: calc(6px + env(safe-area-inset-right)); grid-template-columns: minmax(0, 1fr) 32px; gap: 4px; padding: 4px; border-radius: 16px; }
+  .pl.docked .pl-x { border-radius: 10px; font-size: 20px; }
+}
+@media (max-width: 359px) {
   .pl.docked .pl-frame { grid-template-columns: minmax(0, 1fr) 40px; grid-template-areas: "tag x" "player player"; row-gap: 4px; }
   .pl.docked .pl-frame iframe { grid-area: player; }
   .pl.docked .pl-x { grid-area: x; height: 30px; font-size: 18px; }
   .pl.docked .pl-tag { grid-area: tag; display: block; align-self: center; padding-left: 6px; font: 500 11px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  body.dock-on footer { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
-  body.dock-on.pk-on footer { padding-bottom: calc(160px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
-}
-@media (max-width: 339px) {
-  .pl.docked .pl-frame { left: calc(6px + env(safe-area-inset-left)); right: calc(6px + env(safe-area-inset-right)); padding: 4px; border-radius: 16px; }
+  .dock-on footer { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+  .dock-on body.pk-on footer { padding-bottom: calc(160px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
+  html.dock-on { scroll-padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+  html.dock-on:has(body.pk-on) { scroll-padding-bottom: calc(160px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
 }
 
 /* ---------- season 2027 ---------- */

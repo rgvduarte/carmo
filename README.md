@@ -11,7 +11,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **A prova**: cena controlada pelo scroll (natação, bicicleta, corrida e meta) com o contador dos 226 km.
 - **Resultados**: resultados oficiais e gráficos (meias distâncias, parciais do IRONMAN, lugar na geral).
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
-- **Ouve o que eu ouço**: a playlist do Gonçalo no Spotify, no fim de Telemetria. Só aparece quando houver link em `SITE.playlist`. Nada carrega do Spotify até o visitante escolher «Ouvir aqui»; depois, o leitor pode ficar fixo no fundo do ecrã enquanto se navega.
+- **Ouve o que eu ouço**: a playlist do Gonçalo no Spotify, no fim de Telemetria. Só aparece quando houver link em `SITE.playlist`. Nada carrega do Spotify até o visitante escolher «Ouvir aqui»; depois, o leitor pode ficar fixo no fundo do ecrã enquanto se navega (fecha no × ou com Esc). No telemóvel, com um pacote aberto no estúdio, o leitor sai da frente da tabela de preços sem parar a música, e o botão ♪ da barra do pacote trá-lo de volta.
 - **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
 - **O fato**: modelo 3D com 20 espaços à venda. Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar num pacote e reservar por WhatsApp, email ou Instagram.
 - **Apoiar**: GoFundMe, apoio em espécie e orçamento estimado da época.
@@ -79,9 +79,10 @@ põe o logótipo no peito.
    O `?si=…` do fim pode ficar, o site ignora-o.
 3. Se a playlist mudar de tamanho ou de ordem, atualiza `PLAYLIST.phases` (músicas por fase) no mesmo ficheiro.
 
-Para ver a secção antes de haver link, abre o site local com `?playlist=` e qualquer playlist pública, por exemplo
-`http://localhost:8000/?playlist=https://open.spotify.com/playlist/37i9dQZF1DX76Wlfdnj7AP`.
-Em gocarmo.com isto não funciona de propósito, para ninguém mostrar outra playlist como se fosse a do Gonçalo.
+Para ver a secção antes de haver link, abre o site local com `?playlist=` e qualquer playlist (ou música) pública,
+por exemplo `http://localhost:8000/?playlist=https://open.spotify.com/playlist/37i9dQZF1DX76Wlfdnj7AP`.
+Só funciona em `localhost`, `127.0.0.1` ou num endereço da rede de casa (para testar no telemóvel). Em gocarmo.com,
+e em qualquer outro endereço público, é ignorado de propósito, para ninguém mostrar outra playlist como se fosse a do Gonçalo.
 
 ## Ligar o Strava (uma vez)
 

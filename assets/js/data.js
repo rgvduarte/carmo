@@ -16,7 +16,8 @@ export const SITE = {
   // Optional: the phone number linked to MB WAY (e.g. '916395103'). Leave empty to hide it.
   mbway: '',
   // The public Spotify link of "Go Hard and Go Carmo" (Share > Copy link to playlist). While it is empty the
-  // "Ouve o que eu ouço" block does not show. Off the live domain, ?playlist=<link> previews any public playlist.
+  // "Ouve o que eu ouço" block does not show. On a local server (localhost or the home network), ?playlist=<link>
+  // previews any public playlist or track; public hosts ignore it.
   playlist: '',
   updated: '2026-10-22',
 };
