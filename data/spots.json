@@ -1,7 +1,7 @@
 {
   "season": "2027",
   "currency": "EUR",
-  "updated": "2026-10-22",
+  "updated": "2026-10-23",
   "bundle": {
     "min": 3,
     "discount": 0.1
@@ -558,6 +558,118 @@
       "en": {
         "name": "Seat",
         "pitch": "On the bike it is the most visible spot to anyone behind, for hours in every race."
+      }
+    },
+    {
+      "id": "capacete-topo",
+      "n": 21,
+      "item": "helmet",
+      "part": "shell",
+      "phi": 0,
+      "t": 0.285,
+      "w": 6,
+      "h": 13,
+      "rot": -90,
+      "area": "helmet",
+      "price": 400,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 0,
+        "finish": 0,
+        "social": 2
+      },
+      "pt": {
+        "name": "Topo do capacete",
+        "pitch": "Fica no topo, entre as riscas vermelhas. Na bicicleta lê-se nas fotos tiradas de lado e de cima."
+      },
+      "en": {
+        "name": "Helmet top",
+        "pitch": "On top, between the red stripes. On the bike it reads in photos taken from the side and from above."
+      }
+    },
+    {
+      "id": "capacete-lateral-e",
+      "n": 22,
+      "item": "helmet",
+      "part": "shell",
+      "phi": 58,
+      "t": 0.3,
+      "w": 4,
+      "h": 9,
+      "rot": -90,
+      "area": "helmet",
+      "price": 200,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 0,
+        "finish": 0,
+        "social": 2
+      },
+      "pt": {
+        "name": "Capacete, lado esquerdo",
+        "pitch": "Na bicicleta a cabeça fica parada, por isso o logótipo sai direito nas fotos de perfil."
+      },
+      "en": {
+        "name": "Helmet, left side",
+        "pitch": "On the bike my head stays still, so the logo reads level in side-on photos."
+      }
+    },
+    {
+      "id": "capacete-lateral-d",
+      "n": 23,
+      "item": "helmet",
+      "part": "shell",
+      "phi": -58,
+      "t": 0.3,
+      "w": 4,
+      "h": 9,
+      "rot": 90,
+      "area": "helmet",
+      "price": 200,
+      "status": "available",
+      "vis": {
+        "bike": 3,
+        "run": 0,
+        "finish": 0,
+        "social": 2
+      },
+      "pt": {
+        "name": "Capacete, lado direito",
+        "pitch": "O mesmo espaço, nas fotos tiradas do lado direito da estrada."
+      },
+      "en": {
+        "name": "Helmet, right side",
+        "pitch": "The same spot, in photos taken from the right-hand side of the road."
+      }
+    },
+    {
+      "id": "capacete-traseira",
+      "n": 24,
+      "item": "helmet",
+      "part": "shell",
+      "phi": 0,
+      "t": 0.395,
+      "w": 5.5,
+      "h": 3.5,
+      "rot": 180,
+      "area": "helmet",
+      "price": 100,
+      "status": "available",
+      "vis": {
+        "bike": 2,
+        "run": 0,
+        "finish": 0,
+        "social": 1
+      },
+      "pt": {
+        "name": "Traseira do capacete",
+        "pitch": "É o que vê quem segue atrás de mim na bicicleta."
+      },
+      "en": {
+        "name": "Helmet rear",
+        "pitch": "What the riders behind me see on the bike."
       }
     }
   ]

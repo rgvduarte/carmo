@@ -363,7 +363,7 @@ let suitRef = null;
 const startMotion = () => {
   let lenis = null;
   try { ({ lenis } = initMotion(() => suitRef)); } catch (e) { console.error(e); }
-  const toStudio = () => { const el = $(/^#fato\/./.test(location.hash) ? '.studio' : '#fato'); if (!el) return; if (lenis) lenis.scrollTo(el, { offset: -nav.offsetHeight, immediate: true }); else el.scrollIntoView(); };
+  const toStudio = () => { const el = $(/^#(fato\/.|capacete)/.test(location.hash) ? '.studio' : '#fato'); if (!el) return; if (lenis) lenis.scrollTo(el, { offset: -nav.offsetHeight, immediate: true }); else el.scrollIntoView(); };
   initAdspace({
     onSuitReady: (s) => {
       suitRef = s;

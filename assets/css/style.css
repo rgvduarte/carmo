@@ -545,17 +545,24 @@ section { position: relative; }
 .stage-foot { position: absolute; inset: auto 14px 14px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; pointer-events: none; }
 .stage-foot > * { pointer-events: auto; }
 .hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(8px); }
+/* the Fato | Capacete toggle sits bottom left (also on phones, where the view tabs are hidden), the hint beside it */
+.stage-foot .hint { margin-right: auto; }
+.item-tabs button:disabled { opacity: .4; }
 .zoom { display: flex; gap: 6px; }
 .zoom button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: rgba(11,11,12,0.5); color: var(--ink); font-size: 18px; line-height: 1; }
-.callout { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; transform: translate(-50%, calc(-100% - 18px)); opacity: 0; transition: opacity .2s; }
+.callout { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; transform: translate(-50%, calc(-100% - 18px)); opacity: 0; transition: opacity .2s; width: max-content; }
 .callout.on { opacity: 1; }
-.callout .pill { background: var(--ink); color: #111; border-radius: 12px; padding: 8px 12px; font: 600 13px/1.2 var(--sans); white-space: nowrap; box-shadow: 0 12px 30px rgba(0,0,0,0.45); }
+/* a long name with its status ("Capacete, lado esquerdo · Vendido · Marca") wraps instead of running off a phone stage */
+.callout .pill { background: var(--ink); color: #111; border-radius: 12px; padding: 8px 12px; font: 600 13px/1.2 var(--sans); width: max-content; max-width: min(320px, calc(100vw - 56px)); text-wrap: balance; box-shadow: 0 12px 30px rgba(0,0,0,0.45); }
 .callout .pill small { display: block; font: 500 11px/1.2 var(--mono); color: #555; letter-spacing: .06em; }
 .callout .pill b { font-size: 16px; }
 .callout::after { content: ""; position: absolute; left: 50%; bottom: -14px; width: 1px; height: 14px; background: var(--ink); }
 .callout.top .pill { background: var(--gold); }
 .stage-fallback { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 30px; color: var(--muted); }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
+/* the helmet loads over the idle suit: its label sits on a pill */
+.loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); color: var(--ink); }
+#item-loading { z-index: 3; pointer-events: none; }
 
 .chapters { margin: 10px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .chapter { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; background: var(--bg-2); transition: border-color .3s, background .3s; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline; min-height: 40px; }
@@ -673,6 +680,7 @@ section { position: relative; }
   .stage-ui { inset: 10px 10px auto 10px; }
   .stage-ui .seg-tabs button { padding: 7px 8px; font-size: 12px; min-height: 30px; }
   .stage-ui .chip { min-height: 30px; padding: 0 10px; font-size: 12px; }
+  .item-tabs button { padding: 8px 12px; font-size: 12px; min-height: 32px; }
   .hint { display: none; }
   .rc-row { grid-template-columns: 10px 26px minmax(0, 1fr) auto 36px; gap: 8px; }
   .spot-card h3 { font-size: 22px; }

@@ -117,6 +117,8 @@ const EN = {
   "suit.rotate": "Rotate",
   "suit.spots": "Spots",
   "suit.hint": "Drag to rotate. Tap a spot.",
+  "item.suit": "Suit",
+  "item.helmet": "Helmet",
   "ch.k1": "Front",
   "ch.h1": "Chest",
   "ch.k2": "Side",
@@ -248,15 +250,14 @@ const EN = {
   "a.cpmb": "Copy MB WAY number",
   "sup.tk": "By bank transfer",
   "sup.tc": "Copy IBAN",
-  "suit.on": "Already on the suit",
-  "a.view": "View", "a.zoomout": "Zoom out", "a.zoomin": "Zoom in", "a.sort": "Sort", "a.pkg": "Package", "a.close": "Close",
+  "a.view": "View", "a.item": "Model", "a.zoomout": "Zoom out", "a.zoomin": "Zoom in", "a.sort": "Sort", "a.pkg": "Package", "a.close": "Close",
   "a.mainnav": "Main", "a.home": "Gonçalo Carmo, home", "a.flight": "The Kona race, leg by leg",
   "a.splits": "Splits: swim 1:01:42, T1 6:00, bike 4:56:43, T2 3:22, run 3:27:22",
 };
 
 // strings only used from JS
 const PT_JS = {
-  'z.front': 'Frente', 'z.back': 'Costas', 'z.sides': 'Laterais', 'z.legs': 'Pernas', 'z.shoulders': 'Ombros',
+  'z.front': 'Frente', 'z.back': 'Costas', 'z.sides': 'Laterais', 'z.legs': 'Pernas', 'z.shoulders': 'Ombros', 'z.helmet': 'Capacete', 'z.suit': 'Fato',
   'st.available': 'Disponível', 'st.reserved': 'Reservado', 'st.sold': 'Vendido',
   'lbl.sold': 'VENDIDO', 'lbl.reserved': 'RESERVADO', 'lbl.top': 'DESTAQUE',
   'vis.bike': 'Bicicleta', 'vis.run': 'Corrida', 'vis.finish': 'Meta', 'vis.social': 'Redes',
@@ -267,6 +268,10 @@ const PT_JS = {
   'msg.hi': 'Olá Gonçalo, gostava de patrocinar o teu fato na época 2027.',
   'msg.spots': 'Espaços', 'msg.total': 'Total', 'msg.ref': 'Referência', 'msg.nif': 'NIF', 'msg.brand': 'Marca', 'msg.name': 'Nome', 'msg.title': 'Fato completo (Title partner)',
   'msg.subject': 'Patrocínio do fato · época 2027',
+  'msg.hiH': 'Olá Gonçalo, gostava de patrocinar o teu capacete na época 2027.', 'msg.subjectH': 'Patrocínio do capacete · época 2027',
+  'msg.hiB': 'Olá Gonçalo, gostava de patrocinar o teu fato e o teu capacete na época 2027.', 'msg.subjectB': 'Patrocínio do fato e do capacete · época 2027',
+  'on.k': 'Já no fato', 'on.kH': 'Já no capacete', 'on.kB': 'Já no fato e no capacete', 'on.helmet': 'Capacete', 'on.both': 'Fato e capacete',
+  'helmet.loading': 'A carregar o capacete', 'toast.helmet': 'Não consegui abrir o capacete 3D. A tabela tem todos os espaços.',
   'cl.sum': (n, tot) => `<b>${n}</b> · total <b>${tot}</b>`,
   'st.until': (d) => `Reservado até ${d}`,
   'toast.copy': 'Copiado.', 'toast.iban': 'IBAN copiado.', 'toast.amt': 'Montante copiado.', 'toast.ref': 'Descritivo copiado.', 'toast.mb': 'Número copiado.',
@@ -276,11 +281,11 @@ const PT_JS = {
   'strava.kpi.hours': 'horas de treino', 'strava.kpi.swim': 'km a nadar', 'strava.kpi.bike': 'km de bicicleta', 'strava.kpi.run': 'km a correr', 'strava.kpi.n': 'sessões',
   'strava.upd': (d) => `Atualizado ${d}`, 'strava.swim': 'Natação', 'strava.bike': 'Ciclismo', 'strava.run': 'Corrida',
   'strava.heat': 'Horas por dia, últimas 52 semanas',
-  'share.title': 'Espaço no fato do Gonçalo Carmo', 'mock.sub': (n, p) => `Espaço ${n} · ${p} · época 2027 · Gonçalo Carmo`,
+  'share.title': 'Espaço no fato do Gonçalo Carmo', 'share.titleH': 'Espaço no capacete do Gonçalo Carmo', 'mock.sub': (n, p) => `Espaço ${n} · ${p} · época 2027 · Gonçalo Carmo`,
   'gfm.soon': 'A campanha no GoFundMe abre em breve.', 'suit.no3d': 'A vista 3D não está disponível neste dispositivo. A tabela tem todos os espaços.', 'gfm.help': 'Quero apoiar',
 };
 const EN_JS = {
-  'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders',
+  'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders', 'z.helmet': 'Helmet', 'z.suit': 'Suit',
   'st.available': 'Available', 'st.reserved': 'Reserved', 'st.sold': 'Sold',
   'lbl.sold': 'SOLD', 'lbl.reserved': 'ON HOLD', 'lbl.top': 'TOP SPOT',
   'vis.bike': 'Bike', 'vis.run': 'Run', 'vis.finish': 'Finish', 'vis.social': 'Social',
@@ -291,6 +296,10 @@ const EN_JS = {
   'msg.hi': 'Hi Gonçalo, I would like to sponsor your suit for the 2027 season.',
   'msg.spots': 'Spots', 'msg.total': 'Total', 'msg.ref': 'Reference', 'msg.nif': 'VAT no.', 'msg.brand': 'Brand', 'msg.name': 'Name', 'msg.title': 'Whole suit (Title partner)',
   'msg.subject': 'Suit sponsorship · 2027 season',
+  'msg.hiH': 'Hi Gonçalo, I would like to sponsor your helmet for the 2027 season.', 'msg.subjectH': 'Helmet sponsorship · 2027 season',
+  'msg.hiB': 'Hi Gonçalo, I would like to sponsor your suit and helmet for the 2027 season.', 'msg.subjectB': 'Suit and helmet sponsorship · 2027 season',
+  'on.k': 'Already on the suit', 'on.kH': 'Already on the helmet', 'on.kB': 'Already on the suit and helmet', 'on.helmet': 'Helmet', 'on.both': 'Suit and helmet',
+  'helmet.loading': 'Loading the helmet', 'toast.helmet': 'Could not open the 3D helmet. The rate card has every spot.',
   'cl.sum': (n, tot) => `<b>${n}</b> · total <b>${tot}</b>`,
   'st.until': (d) => `Reserved until ${d}`,
   'toast.copy': 'Copied.', 'toast.iban': 'IBAN copied.', 'toast.amt': 'Amount copied.', 'toast.ref': 'Reference copied.', 'toast.mb': 'Number copied.',
@@ -300,7 +309,7 @@ const EN_JS = {
   'strava.kpi.hours': 'training hours', 'strava.kpi.swim': 'km swum', 'strava.kpi.bike': 'km ridden', 'strava.kpi.run': 'km run', 'strava.kpi.n': 'sessions',
   'strava.upd': (d) => `Updated ${d}`, 'strava.swim': 'Swim', 'strava.bike': 'Bike', 'strava.run': 'Run',
   'strava.heat': 'Hours per day, last 52 weeks',
-  'share.title': 'A spot on Gonçalo Carmo\'s suit', 'mock.sub': (n, p) => `Spot ${n} · ${p} · 2027 season · Gonçalo Carmo`,
+  'share.title': 'A spot on Gonçalo Carmo\'s suit', 'share.titleH': 'A spot on Gonçalo Carmo\'s helmet', 'mock.sub': (n, p) => `Spot ${n} · ${p} · 2027 season · Gonçalo Carmo`,
   'gfm.soon': 'The GoFundMe page opens soon.', 'suit.no3d': 'The 3D view is not available on this device. The rate card has every spot.', 'gfm.help': 'I want to help',
 };
 
