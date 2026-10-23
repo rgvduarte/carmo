@@ -55,18 +55,13 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     $('#rc-body').textContent = 'Não consegui carregar a tabela. Escreve-me para allez@gocarmo.com.';
     return;
   }
-  for (const x of [...DATA.spots, DATA.title]) if (lapsed(x)) x.status = 'available';
-  // the title package is the whole suit: a title partner on hold holds every free suit spot until the same day
-  if (DATA.title.status === 'reserved') for (const s of DATA.spots) if (itemOf(s) === 'suit' && s.status === 'available') Object.assign(s, { status: 'reserved', until: DATA.title.until });
-  // a title partner takes the whole suit: every suit spot closes under its name, its logo goes on the chest
-  if (DATA.title.status === 'sold') {
-    for (const s of DATA.spots) if (itemOf(s) === 'suit' && s.status !== 'sold') Object.assign(s, { status: 'sold', brand: DATA.title.brand, url: DATA.title.url });
-    const top = DATA.spots.find((s) => s.top);
-    if (top && DATA.title.logo && !top.logo) Object.assign(top, { logo: DATA.title.logo, logoMono: DATA.title.logoMono });
-  }
+  overlayOwn(DATA);
+  normalize(DATA);
   SPOTS = DATA.spots.filter((s) => ['available', 'reserved', 'sold'].includes(s.status));
-  try { basket = new Set(JSON.parse(localStorage.getItem(STORE) || '[]').filter((id) => byId(id)?.status === 'available')); } catch (_) {}
+  // a spot this tab's own request holds stays in the package (its payment is still to come)
+  try { basket = new Set(JSON.parse(localStorage.getItem(STORE) || '[]').filter((id) => { const s = byId(id); return !!s && (s.status === 'available' || ownHold(s)); })); } catch (_) {}
   readHash();
+  restoreDraft();
   renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
   bindUI();
   if (selected) select(selected);
@@ -103,6 +98,62 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
   booted = true;
 }
 
+// data/spots.json as the page shows it: a lapsed hold is free again, and the whole suit, held or sold, closes every
+// suit spot (held: until the same day; sold: under the title partner's name, with its logo on the chest)
+function normalize(D) {
+  for (const x of [...D.spots, D.title]) if (lapsed(x)) x.status = 'available';
+  if (D.title.status === 'reserved') for (const s of D.spots) if (itemOf(s) === 'suit' && s.status === 'available') Object.assign(s, { status: 'reserved', until: D.title.until });
+  if (D.title.status === 'sold') {
+    for (const s of D.spots) if (itemOf(s) === 'suit' && s.status !== 'sold') Object.assign(s, { status: 'sold', brand: D.title.brand, url: D.title.url });
+    const top = D.spots.find((s) => s.top);
+    if (top && D.title.logo && !top.logo) Object.assign(top, { logo: D.title.logo, logoMono: D.title.logoMono });
+  }
+}
+
+// The file again, past every cache (a query GitHub Pages' CDN has never seen, and no-store for the browser): the
+// booking dialog reads it each time it opens and after a «taken» answer, so a spot another brand has just held never
+// shows free for long. Only who holds what comes in (status, brand, dates, logos), never prices or places.
+const LIVE_KEYS = ['status', 'until', 'brand', 'url', 'logo', 'logoMono', 'request'];
+let readAt = Date.now();
+async function refreshSpots() {
+  let fresh;
+  readAt = Date.now();
+  try {
+    const res = await fetch(`data/spots.json?t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return;
+    fresh = await res.json();
+  } catch (_) { return; }
+  if (!DATA || !fresh || !Array.isArray(fresh.spots) || !fresh.title || typeof fresh.title !== 'object') return;
+  const soldBefore = new Set(SPOTS.filter((s) => s.status === 'sold' && s.logo).map((s) => `${s.id} ${s.logo}`));
+  const take = (to, from) => { for (const k of LIVE_KEYS) { if (from[k] === undefined) delete to[k]; else to[k] = from[k]; } };
+  take(DATA.title, fresh.title);
+  for (const s of DATA.spots) { const f = fresh.spots.find((x) => x && x.id === s.id); if (f) take(s, f); }
+  overlayOwn(DATA);
+  normalize(DATA);
+  const lost = pruneBasket();
+  refreshViews();
+  if (SuitClass && SPOTS.some((s) => s.status === 'sold' && s.logo && !soldBefore.has(`${s.id} ${s.logo}`))) for (const m of models()) printSponsors(m);
+  if ($('#claim').open) { goneNote(lost); renderClaim(); }
+  else if (lost.gone.length) toast(t('rq.ocupado', joinList(lost.gone.map((s) => `${pad2(s.n)} ${pick(s).name}`)), lost.gone.length));
+}
+// everything on the page that shows who holds what
+function refreshViews() {
+  renderStats(); renderRateCard(); renderCard(); renderOnSuit(); renderPackage();
+  for (const m of models()) { m.drawOverlay(); m.kick(); }
+  placeCallout();
+}
+// spots of the package taken since it was put together (not by this tab's own request) leave it, and so does the whole
+// suit once it is no longer free
+function pruneBasket() {
+  const gone = [...basket].map(byId).filter((s) => s && s.status !== 'available' && !ownHold(s));
+  for (const s of gone) basket.delete(s.id);
+  let title = false;
+  if (wantTitle && !heldReq('title') && !(DATA.title.status === 'available' && titleOpen())) { wantTitle = false; title = true; }
+  if (gone.length) saveBasket();
+  else if (title) renderPackage();
+  return { gone, title };
+}
+
 function kitLabels() { return { sold: t('lbl.sold'), reserved: t('lbl.reserved'), top: t('lbl.top') }; }
 const onModelSelect = (id) => { stopTour(); select(id, { from3d: true }); };
 
@@ -124,6 +175,7 @@ async function mountSuit() {
     // the booking dialog can be up before the stage is (a reload that brings the payment back): hold still behind it
     if ($('#claim').open) suit.hold(true);
     printSponsors(suit);
+    if (buyerLogo) previewOnModels();
     for (const st of $$('.stage')) {
       st.addEventListener('suit:interact', () => { interacted = true; stopTour(); act(st.dataset.item, 'rotate')?.setAttribute('aria-pressed', 'false'); });
       st.addEventListener('suit:frame', () => { if (kit) kit._drawn = true; placeCallout(); });
@@ -233,6 +285,7 @@ function ensureHelmet() {
       if ($('#claim').open) helmet.hold(true);
       await helmet.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
       await printSponsors(helmet);
+      if (buyerLogo) previewOnModels();
       await helmet.ready();
       return true;
     } catch (e) {
@@ -594,6 +647,7 @@ function saveBasket() {
   try { localStorage.setItem(STORE, JSON.stringify([...basket])); } catch (_) {}
   renderPackage(); renderRateCard(); renderCard();
   for (const m of models()) m.setBasket([...basket]);
+  if (buyerLogo || previewed.size) previewOnModels();
 }
 // the bundle discount counts suit and helmet spots together
 function totals() {
@@ -653,6 +707,11 @@ function message({ sizes = true, extra = null } = {}) {
   lines.push(`${t('msg.ref')}: ${payRef()}`);
   // the way the buyer picked in step 1, so Gonçalo knows where to look for the money
   lines.push(t(payNow() === 'mb' ? 'msg.payMb' : 'msg.payTr'));
+  // held by the Worker: its number (the admin page finds the request by the «Pedido:» line) and the 48 hours; not held
+  // (the Worker failed), a line that says so
+  const r = heldReq();
+  if (r) lines.push(`${t('msg.req')}: ${r.id}`, t('msg.hold', longDay(r.until)));
+  else if (API && rqMode === 'msg') lines.push(t('msg.nohold'));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -706,7 +765,7 @@ function resumeClaim() {
   if (!sent) return;
   // the whole suit has no basket to come back from, so the note brings the title request back while it is still open
   const was = wantTitle;
-  if (sent === 'title' && DATA.title.status === 'available' && titleOpen()) wantTitle = true;
+  if (sent === 'title' && ((DATA.title.status === 'available' && titleOpen()) || heldReq('title'))) wantTitle = true;
   // a spot sold or dropped since then changes the key, and the old payment details would be wrong: nothing opens
   if (sent !== pkKey() || !(wantTitle || basket.size)) { wantTitle = was; return; }
   renderPackage();
@@ -738,6 +797,12 @@ function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
   sentPay = isPay(pay) ? pay : '';
   sentBy = waNav ? 'wa' : ''; waFail = waNav ? 'no' : ''; igBox = ''; igText = '';
   stopWa();
+  // each opening tries the Worker again; a held package says whether its message went out
+  const held = heldReq();
+  if (!rqBusy) { rqMode = API ? 'api' : 'msg'; setNote(null); }
+  msgOut = held ? !!held.out : true;
+  $('#cl-logo-f').hidden = !API;
+  logoErr('');
   $('#cl-items').hidden = true;
   if (!$('#cl-nif').value.trim() && !$('#cl-msg').value.trim()) {
     const add = $('#cl-add');
@@ -748,6 +813,8 @@ function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
   for (const m of models()) m.hold(true);
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
   $('#claim .close').focus({ preventScroll: true });
+  // what other brands have held since the page loaded
+  if (API && !held) refreshSpots();
 }
 
 function goStep(n, { focus = true } = {}) {
@@ -777,7 +844,14 @@ function renderClaim() {
   const li = (k, v, cls = '') => { const el = document.createElement('li'); if (cls) el.className = cls; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = k; b.textContent = v; el.append(a, b); items.appendChild(el); };
   if (!wantTitle) for (const s of list) li(`${pad2(s.n)} ${pick(s).name}`, money(s.price));
   if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`, 'save');
-  if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t('cl.err');
+  if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t(brandErrKey);
+  // the request: a package already held from this tab says so; the logo field, its error, what is missing, the note
+  const r = heldReq(), k = kOf();
+  const h1 = $('#cl-held1');
+  h1.hidden = !r;
+  if (r) h1.textContent = t('cl.held1', longDay(r.until), r.id);
+  if (logoErrKey) $('#cl-logo-err').textContent = t(logoErrKey);
+  renderLogo(); renderNeed(); renderNote();
   // «Pagar por» MB WAY | Transferência: MB WAY off above its limit, with the reason on one line under it (and no choice
   // at all when there is no MB WAY number)
   const ok = mbwayOk(net), pay = payNow(), max = t('cl.mbmax', money(SITE.mbwayMax || 0)), grp = $('#cl-pay'), why = $('#cl-pay-cap');
@@ -788,9 +862,25 @@ function renderClaim() {
   why.hidden = ok; why.textContent = max;
   if (ok) grp.removeAttribute('aria-describedby'); else grp.setAttribute('aria-describedby', 'cl-pay-cap');
   mailCutHint();
-  // step 2: the same amount and KONA code under either tab
-  $('#pay-amt').textContent = money(net);
-  $('#pay-amt-cp').dataset.copy = String(net);
+  // step 2: held, until when, the request's number and the 48 hours; then, if the app did not open by itself, one tap
+  // to send its message
+  $('#cl-held').hidden = !r;
+  if (r) { $('#cl-held-h').textContent = t('cl.heldH', longDay(r.until, true)); $('#cl-held-id').textContent = r.id; $('#cl-held-p').textContent = t('cl.heldP'); }
+  const go = $('#cl-go'), goBy = r && r.channel === 'email' ? 'mail' : 'wa';
+  $('#cl-gobox').hidden = !r || msgOut || r.channel === 'instagram';
+  if (go.dataset.by !== goBy) { go.dataset.by = goBy; go.href = goBy === 'mail' ? `mailto:${SITE.email}` : `https://wa.me/${SITE.whatsapp}`; }
+  $('#cl-go-ic').setAttribute('href', goBy === 'mail' ? '#i-mail' : '#i-wa');
+  $('#cl-go-t').textContent = t(goBy === 'mail' ? 'cl.goMail' : 'cl.goWa');
+  // the note under the payment: held (the purchase is confirmed once the money lands, a donation receipt), not held
+  // because the Worker failed, or, without the Worker, as before
+  const down = !r && !!API && rqMode === 'msg';
+  $('#pay-note').hidden = !!r || down;
+  $('#pay-note2').hidden = !r && !down;
+  $('#pay-note2').textContent = r ? t('cl.payHeld', k) : down ? t('cl.payDown', k) : '';
+  // the same amount (the one the Worker held it for) and KONA code under either tab
+  const amt = r && r.total > 0 ? r.total : net;
+  $('#pay-amt').textContent = money(amt);
+  $('#pay-amt-cp').dataset.copy = String(amt);
   $('#pay-ref').textContent = payRef();
   $('#pay-ref-cp').dataset.copy = payRef();
   // a computer with no mail app does nothing on a mailto: link, so there step 2 offers the address to copy after the
@@ -848,6 +938,7 @@ function setTab(tab, { focus = false, user = false } = {}) {
 // its message named. «Já enviei» sends nothing: after a request that went out here, the way stays the one it named
 function sent(by) {
   sentBy = by; if (by || !sentPay) sentPay = payNow(); waFail = ''; igBox = '';
+  if (by) { msgOut = true; markOut(); }
   if (by !== 'wa') { stopWa(); waTap = null; }
   noteSent();
 }
@@ -911,18 +1002,22 @@ const shownText = (el) => [...el.childNodes].filter((n) => !n.hidden).map((n) =>
 function say(text) { const el = $('#cl-live'); el.textContent = ''; setTimeout(() => { el.textContent = text; }, 60); }
 
 // the brand is the one thing a request cannot go without
-function brandErr(on) {
+let brandErrKey = 'cl.err';
+function brandErr(on, key = 'cl.err') {
   const er = $('#cl-brand-err');
-  er.hidden = !on; er.textContent = on ? t('cl.err') : '';
+  brandErrKey = key;
+  er.hidden = !on; er.textContent = on ? t(key) : '';
   $('#cl-brand').setAttribute('aria-invalid', String(on));
 }
+// the brand, and with the Worker the logo (not for a package already held: its logo went with the request)
 function brandOk() {
-  const el = $('#cl-brand'), ok = !!el.value.trim();
-  // the email and Instagram actions also sit in step 2 (when WhatsApp did not open): the brand field is back in step 1
-  if (!ok && clStep !== 1) goStep(1, { focus: false });
+  const el = $('#cl-brand'), ok = !!el.value.trim(), noLogo = !!API && !buyerLogo && !heldReq();
+  // the email and Instagram actions also sit in step 2 (when WhatsApp did not open): the fields are back in step 1
+  if ((!ok || noLogo) && clStep !== 1) goStep(1, { focus: false });
   brandErr(!ok);
-  if (!ok) el.focus();
-  return ok;
+  logoErr(noLogo ? 'cl.logoErr' : '');
+  if (!ok) el.focus(); else if (noLogo) $('#cl-logo').focus();
+  return ok && !noLogo;
 }
 
 // The transfer description: the spot numbers, so a payment can be matched to its spots at a glance.
@@ -973,6 +1068,356 @@ async function copy(text) {
 }
 // the GoFundMe «Partilhar» copies its link and confirms with the same toast
 export { toast, copy };
+
+// ---------- the request to the booking Worker (SITE.requestsApi, worker/requests.js) ----------
+// With the Worker set, a send action first sends the request (the spots, the brand, the logo as a PNG): the Worker holds
+// the spots for 48 hours in data/spots.json and answers with the request's number and last day. The page shows them
+// held at once, step 2 says until when and that the proof of payment closes it, and the app picked opens with a
+// message that carries «Pedido: <id>». A Worker that cannot be reached (or a 5xx) leaves the dialog as it was before
+// the Worker: the same buttons send the message only, and the dialog says the spot is not held yet. Nothing the buyer
+// wrote or picked is lost on the way (the draft is kept for this tab, logo included).
+// One request per package: its number and last day are kept for this tab (sessionStorage, by package), so a reload,
+// a second tap or «Voltar» never sends it again.
+const API = String(SITE.requestsApi || '').trim().replace(/\/+$/, '');
+const REQS = 'gc.claim.req', PENDING = 'gc.claim.pending', DRAFT = 'gc.claim.draft';
+const REQ_TIMEOUT = 12000, MAX_ITEMS = 6, OWN_FRESH = 15 * 60e3;
+const ID_RE = /^[0-9A-Z]{10}$/, DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const CHANNEL = { wa: 'whatsapp', mail: 'email', ig: 'instagram' };
+// rqMode: 'api' sends the request first; 'msg' sends the message only (no Worker, or the Worker failed). rqBusy: a
+// request on its way. msgOut: the held request's message has gone out (else step 2 offers to send it).
+let rqMode = API ? 'api' : 'msg', rqBusy = false, msgOut = true, clNote = null, logoErrKey = '';
+
+function reqs() { try { const v = JSON.parse(sessionStorage.getItem(REQS) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; } }
+const reqLive = (r) => !!r && ID_RE.test(r.id) && DAY_RE.test(r.until) && Date.parse(`${r.until}T23:59:59Z`) >= Date.now();
+const ownIds = () => new Set(Object.values(reqs()).filter(reqLive).map((r) => r.id));
+// a spot held by a request of this tab (the Worker writes its number on the spot)
+const ownHold = (x) => !!x && x.status === 'reserved' && !!x.request && ownIds().has(x.request);
+// the request this package went out as, while its hold stands
+function heldReq(key = pkKey()) {
+  const r = key ? reqs()[key] : null;
+  if (!reqLive(r) || !DATA) return null;
+  const xs = r.title ? [DATA.title] : (r.ids || []).map(byId);
+  return xs.length && xs.every((x) => x && x.status === 'reserved' && x.request === r.id) ? r : null;
+}
+function keepReq(key, r) {
+  try {
+    const all = reqs();
+    for (const k of Object.keys(all)) if (!reqLive(all[k])) delete all[k];
+    all[key] = r;
+    sessionStorage.setItem(REQS, JSON.stringify(all));
+  } catch (_) {}
+}
+// the held request's message went out (a reload then does not offer to send it again)
+function markOut() { try { const all = reqs(), r = all[pkKey()]; if (r && !r.out) { r.out = true; sessionStorage.setItem(REQS, JSON.stringify(all)); } } catch (_) {} }
+function pendingFor(key) { try { const p = JSON.parse(sessionStorage.getItem(PENDING) || 'null'); return !!p && p.key === key && Date.now() - p.at < 10 * 60e3; } catch (_) { return false; } }
+
+// This tab's own holds over the file: GitHub Pages shows a new hold a minute or two after the Worker's commit, and a
+// reload in between would show those spots free (and take them out of the package). After 15 minutes the file wins.
+function overlayOwn(D) {
+  const now = Date.now();
+  for (const r of Object.values(reqs())) {
+    if (!reqLive(r) || !(now - Date.parse(r.at) < OWN_FRESH)) continue;
+    const xs = r.title ? [D.title] : (r.ids || []).map((id) => D.spots.find((s) => s.id === id)).filter(Boolean);
+    for (const x of xs) if ((x.status || 'available') === 'available' || lapsed(x)) Object.assign(x, { status: 'reserved', until: r.until, brand: r.brand, request: r.id });
+  }
+}
+// the Worker held them: the page shows them so at once, as everyone will see them once GitHub Pages has the commit
+function markHeld(r) {
+  const at = { status: 'reserved', until: r.until, brand: r.brand, request: r.id };
+  if (r.title) Object.assign(DATA.title, at);
+  else for (const id of r.ids) { const s = DATA.spots.find((x) => x.id === id); if (s) Object.assign(s, at); }
+  normalize(DATA);
+  refreshViews();
+}
+
+// '25 de outubro' / '25 October' (with the weekday: 'sábado, 25 de outubro'): the hold lasts to the end of that day
+function longDay(iso, weekday = false) {
+  try { return new Intl.DateTimeFormat(getLang() === 'en' ? 'en-GB' : 'pt-PT', { day: 'numeric', month: 'long', ...(weekday ? { weekday: 'long' } : {}), timeZone: 'UTC' }).format(new Date(`${iso}T12:00:00Z`)); } catch (_) { return fmtDay(iso); }
+}
+const joinList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ${getLang() === 'en' ? 'and' : 'e'} ${xs[xs.length - 1]}`);
+// what the package is, for the plurals: 'title', or the number of spots
+const kOf = () => (wantTitle ? 'title' : totals().list.length);
+
+// ---------- the logo ----------
+// PNG, JPG, WebP or SVG (the kind is read from the bytes, as the admin page does: admin-core.js), drawn onto a
+// transparent canvas and sent as one PNG: an SVG at 1200 px on its long side, a bigger picture brought down to 1200 px
+// (a small one stays as it is), nothing flattened. Over 400 KB, the Worker's limit, it is drawn smaller until it fits.
+const LOGO_IN = 20 * 1024 * 1024, LOGO_MAX = 400 * 1024, LOGO_SIDE = 1200;
+let buyerLogo = null, logoSeq = 0;   // { blob, url, dataUrl, w, h, name, size }
+const blobUrl = (blob) => new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(String(r.result)); r.onerror = () => no(r.error); r.readAsDataURL(blob); });
+async function makeLogo(file) {
+  if (file.size > LOGO_IN) throw new Error('big');
+  const C = await import('./admin-core.js');
+  const bytes = new Uint8Array(await file.arrayBuffer()), kind = C.sniffLogo(bytes);
+  if (!kind) throw new Error('type');
+  let size = null;
+  if (kind === 'svg') try { size = C.svgSize(new DOMParser().parseFromString(new TextDecoder('utf-8').decode(bytes), 'image/svg+xml')); } catch (_) {}
+  const src = URL.createObjectURL(new Blob([bytes], { type: C.MIME[kind] }));
+  try {
+    const img = new Image();
+    img.src = src;
+    try { await img.decode(); } catch (_) { throw new Error('bad'); }
+    const w0 = size ? size.w : img.naturalWidth, h0 = size ? size.h : img.naturalHeight;
+    if (!(w0 > 0 && h0 > 0)) throw new Error('bad');
+    let side = kind === 'svg' ? LOGO_SIDE : Math.min(LOGO_SIDE, Math.max(w0, h0));
+    for (let i = 0; i < 8 && side >= 64; i++) {
+      const { w, h } = C.rasterSize({ w: w0, h: h0 }, side);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      const blob = await new Promise((ok, no) => { try { c.toBlob((b) => (b ? ok(b) : no(new Error('bad'))), 'image/png'); } catch (e) { no(e); } });
+      if (blob.size <= LOGO_MAX) return { blob, w, h, size: blob.size, name: String(file.name || 'logo').slice(0, 80), dataUrl: await blobUrl(blob) };
+      // a PNG's size goes with its area: one step straight to about the right side, a little under
+      side = Math.floor(side * Math.max(0.25, Math.min(0.9, Math.sqrt(LOGO_MAX / blob.size) * 0.92)));
+    }
+    throw new Error('bad');
+  } catch (e) { throw new Error(['big', 'type'].includes(e.message) ? e.message : 'bad'); }
+  finally { URL.revokeObjectURL(src); }
+}
+async function takeLogo(file) {
+  if (!file) return;
+  const seq = ++logoSeq, drop = $('#cl-drop');
+  logoErr(''); drop.classList.add('busy'); say(t('cl.logoBusy'));
+  try {
+    const L = await makeLogo(file);
+    if (seq !== logoSeq) return;
+    setLogo(L);
+    say(t('cl.logoOk', L.name));
+  } catch (e) {
+    if (seq !== logoSeq) return;
+    const key = e.message === 'type' ? 'cl.logoType' : e.message === 'big' ? 'cl.logoBig' : 'cl.logoBad';
+    logoErr(key);
+    say(t(key));
+  } finally {
+    if (seq === logoSeq) drop.classList.remove('busy');
+    $('#cl-logo').value = '';
+  }
+}
+function setLogo(L, { save = true } = {}) {
+  if (buyerLogo && buyerLogo.url) URL.revokeObjectURL(buyerLogo.url);
+  buyerLogo = L ? { ...L, url: URL.createObjectURL(L.blob), canvas: null } : null;
+  if (save) saveDraft();
+  renderLogo(); renderNeed();
+  previewOnModels();
+}
+function renderLogo() {
+  const L = buyerLogo, drop = $('#cl-drop'), img = $('#cl-logo-img');
+  drop.classList.toggle('has', !!L);
+  img.hidden = !L;
+  if (L) { if (img.getAttribute('src') !== L.url) img.src = L.url; } else img.removeAttribute('src');
+  $$('.cl-drop-e', drop).forEach((n) => { n.hidden = !!L; });
+  for (const q of ['#cl-logo-name', '#cl-logo-meta', '#cl-logo-ch']) $(q).hidden = !L;
+  // '1200 × 467' and '42 KB' never break inside (no-break spaces): a narrow line wraps at the «·»
+  if (L) { $('#cl-logo-name').textContent = L.name; $('#cl-logo-meta').textContent = `PNG ${L.w}\u00a0×\u00a0${L.h} · ${Math.max(1, Math.round(L.size / 1024))}\u00a0KB`; }
+}
+// key: an i18n key (kept, so a change of language says it again in the other), or '' to clear
+function logoErr(key, { focus = false } = {}) {
+  logoErrKey = key;
+  const er = $('#cl-logo-err'), input = $('#cl-logo');
+  er.hidden = !key; er.textContent = key ? t(key) : '';
+  input.setAttribute('aria-invalid', String(!!key));
+  if (key && focus) input.focus();
+}
+// The logo on the package's spots in the 3D view, with the try-on's own helpers (prepareLogo, the models' logos):
+// it shows there once the dialog closes (the stage holds still behind it). The whole suit's goes on the chest.
+const previewed = new Map();   // model -> the spot ids it shows the buyer's logo on
+async function previewOnModels() {
+  if (!SuitClass) return;
+  const L = buyerLogo, ids = wantTitle ? [SPOTS.find((s) => s.top)?.id].filter(Boolean) : [...basket];
+  let canvas = null;
+  if (L && ids.length) try { canvas = L.canvas ||= await SuitClass.prepareLogo(L.blob, { removeWhite: true }); } catch (_) {}
+  if (L !== buyerLogo) return;
+  for (const m of models()) {
+    const had = previewed.get(m) || new Set(), now = new Set();
+    for (const id of had) m.logos.delete(id);
+    if (canvas) for (const id of ids) if (m.rects.has(id)) { m.logos.set(id, canvas); now.add(id); }
+    previewed.set(m, now);
+    if (had.size || now.size) { m.drawBase(); m.drawOverlay(); m.kick(); }
+  }
+}
+
+// ---------- the draft: what the buyer wrote and the logo, for this tab ----------
+let draftT = 0;
+function saveDraft() {
+  clearTimeout(draftT);
+  draftT = setTimeout(() => {
+    const d = { brand: $('#cl-brand').value, name: $('#cl-name').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
+    const L = buyerLogo;
+    try { sessionStorage.setItem(DRAFT, JSON.stringify(L ? { ...d, logo: { dataUrl: L.dataUrl, w: L.w, h: L.h, name: L.name, size: L.size } } : d)); } catch (_) {
+      try { sessionStorage.setItem(DRAFT, JSON.stringify(d)); } catch (__) {}   // full: the words at least
+    }
+  }, 250);
+}
+async function restoreDraft() {
+  let d = null;
+  try { d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); } catch (_) {}
+  if (!d || typeof d !== 'object') return;
+  for (const [k, q] of [['brand', '#cl-brand'], ['name', '#cl-name'], ['nif', '#cl-nif'], ['msg', '#cl-msg']]) if (typeof d[k] === 'string' && d[k] && !$(q).value) $(q).value = d[k];
+  if ($('#cl-nif').value.trim() || $('#cl-msg').value.trim()) { $('#cl-extra').hidden = false; $('#cl-add').hidden = true; $('#cl-add').setAttribute('aria-expanded', 'true'); }
+  const L = d.logo;
+  if (L && typeof L.dataUrl === 'string' && L.dataUrl.startsWith('data:image/png;base64,') && !buyerLogo) {
+    try { const blob = await (await fetch(L.dataUrl)).blob(); if (!buyerLogo) setLogo({ blob, dataUrl: L.dataUrl, w: Number(L.w) || 0, h: Number(L.h) || 0, size: blob.size, name: String(L.name || 'logo') }, { save: false }); } catch (_) {}
+  }
+  if ($('#claim').open) renderClaim();
+}
+
+// ---------- notes: what went wrong and what to do ----------
+// main / sub: functions, so a change of language says them again in the other
+function setNote(main = null, sub = null) {
+  clNote = main ? { main, sub } : null;
+  renderNote();
+  // on a phone the note sits above the buttons the buyer just tapped: bring all of it on screen
+  if (clNote && $('#claim').open) requestAnimationFrame(() => $('#cl-note').scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }));
+}
+function renderNote() {
+  const el = $('#cl-note'), txt = clNote ? [clNote.main(), clNote.sub ? clNote.sub() : ''] : null;
+  const key = txt ? txt.join('\n') : '';
+  el.hidden = !txt;
+  if (el.dataset.txt === key) return;   // the same words again: not announced twice
+  el.dataset.txt = key; el.textContent = '';
+  if (!txt) return;
+  txt.filter(Boolean).forEach((s, i) => { const p = document.createElement('p'); if (i) p.className = 'sub'; p.textContent = s; el.appendChild(p); });
+}
+// the reason «Enviar» waits, under the buttons (and the buttons say so to a screen reader)
+function renderNeed() {
+  const need = $('#cl-need'), acts = [$('#cl-wa'), $('#cl-mail'), $('#cl-ig')];
+  let text = '';
+  if (rqBusy) text = t('cl.busy');
+  else if (API) {
+    const b = !$('#cl-brand').value.trim(), l = !buyerLogo && !heldReq();
+    text = b && l ? t('cl.needBL') : b ? t('cl.needB') : l ? t('cl.needL') : '';
+  }
+  need.hidden = !text; need.textContent = text;
+  // they look on hold but still answer a tap, with the field to fill and why (a disabled button would say nothing)
+  for (const a of acts) {
+    a.classList.toggle('wait', !!text);
+    if (text) a.setAttribute('aria-describedby', 'cl-need'); else a.removeAttribute('aria-describedby');
+  }
+}
+// the spots that left the package since it was put together, said in the dialog
+function goneNote({ gone, title }) {
+  if (title) { setNote(() => t('rq.ocupadoT')); return; }
+  if (!gone.length) return;
+  setNote(() => t('rq.ocupado', joinList(gone.map((s) => `${pad2(s.n)} ${pick(s).name}`)), gone.length), () => t(basket.size ? 'rq.again' : 'rq.pick'));
+}
+// the Worker cannot hold it now: the buttons send the message only, and the note says the spot is not held yet
+function toMsg(main) {
+  rqMode = 'msg';
+  setNote(main, () => t('cl.payDown', kOf()));
+  renderClaim();
+}
+function fieldErr(q, key) {
+  const el = $(q);
+  el.setAttribute('aria-invalid', 'true');
+  setNote(() => t(key));
+  el.focus();
+}
+function openExtra() { const add = $('#cl-add'); $('#cl-extra').hidden = false; add.hidden = true; add.setAttribute('aria-expanded', 'true'); }
+
+// ---------- sending the request ----------
+// the tap still counts: a browser lets a page open an app or a tab only right after one (about 5 s in Chrome, less
+// in Safari). Without it the app is opened by the buyer's own tap on step 2's button.
+const tapLive = () => { try { return !!(navigator.userActivation && navigator.userActivation.isActive); } catch (_) { return false; } };
+const needsPost = () => !!API && rqMode === 'api' && !heldReq();
+function busy(by, on) {
+  rqBusy = on;
+  const btn = { wa: '#cl-wa', mail: '#cl-mail', ig: '#cl-ig' }[by];
+  if (on) $(btn).setAttribute('aria-busy', 'true'); else $$('#cl-s1 [aria-busy]').forEach((n) => n.removeAttribute('aria-busy'));
+  renderNeed();
+  if (on) say(t('cl.busy'));
+}
+// one POST, at most REQ_TIMEOUT: { status, json }, or { status: 0, net | timeout }
+async function postReq(body) {
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), REQ_TIMEOUT);
+  try {
+    const res = await fetch(`${API}/pedido`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal: ctl.signal });
+    let json = null;
+    try { json = await res.json(); } catch (_) {}
+    return { status: res.status, json };
+  } catch (_) {
+    return ctl.signal.aborted ? { status: 0, timeout: true } : { status: 0, net: true };
+  } finally { clearTimeout(timer); }
+}
+async function book(by) {
+  const key = pkKey(), { list, net } = totals();
+  if (!key) { setNote(() => t('rq.pick')); return; }
+  if (!wantTitle && list.length > MAX_ITEMS) { toMsg(() => t('rq.muitos', MAX_ITEMS)); return; }
+  setNote(null);
+  const body = {
+    ...(wantTitle ? { title: true } : { items: list.map((s) => s.id) }),
+    brand: $('#cl-brand').value.trim(), name: $('#cl-name').value.trim(), nif: $('#cl-nif').value.trim(), message: $('#cl-msg').value.trim(),
+    pay: payNow(), lang: getLang(), channel: CHANNEL[by], logo: buyerLogo.dataUrl, website: '',
+  };
+  // a request of this package that left before a reload, its answer never read
+  const before = pendingFor(key);
+  try { sessionStorage.setItem(PENDING, JSON.stringify({ key, at: Date.now() })); } catch (_) {}
+  busy(by, true);
+  let res = await postReq(body), again = false;
+  // a network error: once more, a moment later (the Worker never holds twice for one address: see «aberto» below)
+  if (res.net) { await new Promise((ok) => setTimeout(ok, 800)); res = await postReq(body); again = true; }
+  busy(by, false);
+  try { sessionStorage.removeItem(PENDING); } catch (_) {}
+  const j = res.json && typeof res.json === 'object' ? res.json : {};
+  const r = { ids: body.items || [], title: !!body.title, brand: body.brand, pay: body.pay, channel: body.channel, at: new Date().toISOString(), out: false };
+  if (res.status === 201 && ID_RE.test(j.id) && DAY_RE.test(j.until)) return held(by, key, { ...r, id: j.id, until: j.until, total: typeof j.total === 'number' && j.total > 0 ? j.total : net });
+  // «aberto» with this brand's open request, right after a lost answer or a reload while it was on its way: it is this one
+  if (res.status === 429 && j.error === 'aberto' && ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') && (again || before)) return held(by, key, { ...r, id: j.id, until: j.until, total: net });
+  failed(res, j);
+}
+function held(by, key, r) {
+  keepReq(key, r);
+  markHeld(r);
+  setNote(null);
+  sentPay = r.pay; sentBy = ''; waFail = ''; igBox = ''; msgOut = false;
+  noteSent();
+  // closed meanwhile (× while it was on its way): the page shows the hold, and the bar's «Reservar» says it is held
+  if (!$('#claim').open || key !== pkKey()) { toast(t('cl.heldH', longDay(r.until))); return; }
+  goStep(2);
+  say(`${t('cl.heldH', longDay(r.until, true))}. ${t('cl.heldP')}`);
+  if (by === 'ig') { igSend(message()); return; }
+  if (tapLive()) { const a = $('#cl-go'); a.dataset.by = by; a.click(); }
+}
+// what each answer of the Worker means for the buyer (worker/README.md lists them)
+function failed(res, j) {
+  const code = typeof j.error === 'string' ? j.error : '';
+  if (!res.status || res.status >= 500 || !code) { toMsg(() => t('rq.net')); return; }
+  switch (code) {
+    case 'ocupado': taken(Array.isArray(j.ids) ? j.ids : []); return;
+    case 'espacos': setNote(() => t('rq.espacos')); refreshSpots(); return;
+    case 'aberto': toMsg(ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') ? () => t('rq.aberto', j.id, longDay(j.until)) : () => t('rq.abertoX')); return;
+    case 'limite': toMsg(() => t('rq.limite')); return;
+    case 'limite-site': toMsg(() => t('rq.limiteSite')); return;
+    case 'muitos': toMsg(() => t('rq.muitos', Number(j.max) || MAX_ITEMS)); return;
+    case 'marca': brandErr(true, 'rq.marca'); $('#cl-brand').focus(); return;
+    case 'nome': fieldErr('#cl-name', 'rq.nome'); return;
+    case 'nif': openExtra(); fieldErr('#cl-nif', 'rq.nif'); return;
+    case 'mensagem': openExtra(); fieldErr('#cl-msg', 'rq.mensagem'); return;
+    case 'pagamento': setNote(() => t('rq.pagamento')); $('#cl-pay input:not(:disabled)')?.focus(); return;
+    case 'logo': logoErr('rq.logo', { focus: true }); return;
+    case 'logo-grande': case 'tamanho': logoErr('rq.logoGrande', { focus: true }); return;
+    case 'turnstile': setNote(() => t('rq.turnstile')); return;
+    // origem, json, lingua, canal, recusado: nothing the buyer can change here
+    default: toMsg(() => t('rq.geral'));
+  }
+}
+// «ocupado»: the Worker knows before GitHub Pages does. Those spots are taken whatever the page still shows; they leave
+// the package and the file is read again
+function taken(ids) {
+  if (ids.includes('fato') || wantTitle) { wantTitle = false; renderPackage(); setNote(() => t('rq.ocupadoT')); renderClaim(); refreshSpots(); return; }
+  for (const id of ids) { const s = byId(id); if (s && s.status === 'available') { s.status = 'reserved'; delete s.until; } }
+  const lost = pruneBasket();
+  refreshViews();
+  goneNote(lost);
+  renderClaim();
+  refreshSpots();
+}
+// Instagram after the hold: the message to the clipboard if the browser still lets the page write it, else selected
+// in the box to copy by hand; «Abrir o Instagram» under it either way
+async function igSend(text) {
+  sent('ig');
+  if (await copy(text)) { igBox = 'open'; renderClaim(); say(shownText($('#cl-igfb-open'))); return; }
+  igBox = 'copy'; igText = text; renderClaim();
+  const ta = $('#cl-igfb-txt'); ta.focus({ preventScroll: true }); ta.select();
+}
 
 // ---------- tour ----------
 // each part has its own tour: it visits that part's free spots only, so the camera never leaves its model
@@ -1132,8 +1577,11 @@ function bindUI() {
   // each send action opens the app as before and moves the dialog on to the payment.
   // WhatsApp is a real link, filled in at the tap (same tab on a phone, a new tab on a computer: see appTarget). If the app
   // does not take over, step 2 offers email and Instagram at the top (see watchWa).
+  // With the Worker, the first tap sends the request (book): the app opens once the spots are held. A request on its way
+  // takes no second tap.
   $('#cl-wa').addEventListener('click', (e) => {
-    if (!brandOk()) { e.preventDefault(); return; }
+    if (rqBusy || !brandOk()) { e.preventDefault(); return; }
+    if (needsPost()) { e.preventDefault(); book('wa'); return; }
     const a = e.currentTarget;
     a.href = waUrl();
     appTarget(a);
@@ -1145,12 +1593,14 @@ function bindUI() {
   // Instagram: the message goes to the clipboard, and step 2 says so and how to use it before the buyer leaves. Both live
   // in step 1 and, after a WhatsApp link that did not open, at the top of step 2.
   $$('#claim [data-send="mail"]').forEach((a) => a.addEventListener('click', (e) => {
-    if (!brandOk()) { e.preventDefault(); return; }
+    if (rqBusy || !brandOk()) { e.preventDefault(); return; }
+    if (needsPost()) { e.preventDefault(); book('mail'); return; }
     e.currentTarget.href = mailUrl();
     sent('mail'); setTimeout(() => goStep(2), 0);
   }));
   $$('#claim [data-send="ig"]').forEach((b) => b.addEventListener('click', async () => {
-    if (!brandOk()) return;
+    if (rqBusy || !brandOk()) return;
+    if (needsPost()) { book('ig'); return; }
     const text = message();
     sent('ig');
     // the clipboard call starts inside the tap (Safari asks for that). Copied: step 2 starts with «Mensagem copiada. Cola-a
@@ -1170,12 +1620,42 @@ function bindUI() {
     ta.focus({ preventScroll: true }); ta.select();
   }));
   $$('#cl-pay input').forEach((r) => r.addEventListener('change', () => { if (r.checked) { payPick = r.value; renderClaim(); } }));
+  // step 2, after a hold whose app did not open by itself: the request's message, by the way it was asked for
+  $('#cl-go').addEventListener('click', (e) => {
+    const a = e.currentTarget;
+    if (a.dataset.by === 'mail') { a.href = mailUrl(); a.removeAttribute('target'); sent('mail'); }
+    else { a.href = waUrl(); appTarget(a); sent('wa'); watchWa(); }
+    // a step later, so the link is still on screen when the browser follows it
+    setTimeout(renderClaim, 0);
+  });
+  // the logo: picked (a tap on the box), or dropped anywhere on the dialog
+  $('#cl-logo').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) takeLogo(f); });
+  const drop = $('#cl-drop'), files = (e) => !!e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  for (const ev of ['dragenter', 'dragover']) $('#claim').addEventListener(ev, (e) => {
+    if (!files(e) || $('#cl-logo-f').hidden || clStep !== 1) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; drop.classList.add('drag');
+  });
+  $('#claim').addEventListener('dragleave', (e) => { if (!e.relatedTarget || !$('#claim').contains(e.relatedTarget)) drop.classList.remove('drag'); });
+  $('#claim').addEventListener('drop', (e) => {
+    drop.classList.remove('drag');
+    if (!files(e)) return;
+    // never the browser's own drop (it would open the picture in place of the page)
+    e.preventDefault();
+    if (!$('#cl-logo-f').hidden && clStep === 1) takeLogo(e.dataTransfer.files[0]);
+  });
+  // the draft follows what is typed; a field a request refused clears its mark as it changes
+  for (const q of ['#cl-brand', '#cl-name', '#cl-nif', '#cl-msg']) $(q).addEventListener('input', (e) => {
+    saveDraft();
+    if (q !== '#cl-brand' && e.target.getAttribute('aria-invalid') === 'true') { e.target.removeAttribute('aria-invalid'); setNote(null); }
+  });
   document.addEventListener('visibilitychange', () => waSeen(document.visibilityState === 'visible'));
+  // back on the page after a while (another tab, the phone asleep): what other brands held meanwhile
+  document.addEventListener('visibilitychange', () => { if (API && document.visibilityState === 'visible' && Date.now() - readAt > 120000 && !$('#claim').open) refreshSpots(); });
   addEventListener('blur', () => waSeen(false));
   addEventListener('focus', () => waSeen(document.visibilityState === 'visible'));
   addEventListener('pagehide', waGone);
   addEventListener('pageshow', waBack);
-  $('#cl-brand').addEventListener('input', (e) => { if (e.target.value.trim()) brandErr(false); });
+  $('#cl-brand').addEventListener('input', (e) => { if (e.target.value.trim()) brandErr(false); renderNeed(); });
   $('#cl-msg').addEventListener('input', mailCutHint);
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
@@ -1184,11 +1664,12 @@ function bindUI() {
   // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it).
   // The bar's «Reservar» goes with it, so focus moves on to the rate card heading.
   $('#cl-done').addEventListener('click', () => {
+    const r = heldReq();
     forgetSent();
     wantTitle = false; basket.clear(); saveBasket();
     $('#claim').close();
     if (document.activeElement?.closest('#package')) { const h = $(`.ratecard[data-item="${midPart() || 'suit'}"] h4`); h.tabIndex = -1; h.focus({ preventScroll: true }); }
-    toast(t('toast.thanks'));
+    toast(r ? t('toast.held', longDay(r.until)) : t('toast.thanks'));
   });
   $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab, { user: true })));
   // arrow keys move along the tabs (the MB WAY tab is skipped while it is off)
@@ -1207,16 +1688,17 @@ function bindUI() {
     toast(t(b.dataset.toast || 'toast.copy'));
     b.classList.add('ok'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('ok'), 1600);
   });
-  $('#claim').addEventListener('close', () => { stopWa(); waTap = null; wantTitle = false; renderPackage(); for (const m of models()) m.hold(false); });
+  $('#claim').addEventListener('close', () => { stopWa(); waTap = null; wantTitle = false; renderPackage(); if (previewed.size) previewOnModels(); for (const m of models()) m.hold(false); });
   $('#claim .close').addEventListener('click', () => $('#claim').close());
   $('#claim-form').addEventListener('submit', (e) => e.preventDefault());
   // Enter (the keyboard's «next» / «done») moves on to the next field, and leaves the last one (the «Pagar por» radios
   // are not fields to type in: Enter there does nothing)
   $('#claim-form').addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    // (Enter on the logo box opens the picker, as it should)
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT' || e.target.type === 'file') return;
     e.preventDefault();
     if (e.target.type === 'radio') return;
-    const fields = $$('#cl-s1 input:not([type="radio"]), #cl-s1 textarea').filter((x) => x.offsetParent), next = fields[fields.indexOf(e.target) + 1];
+    const fields = $$('#cl-s1 input:not([type="radio"]):not([type="file"]), #cl-s1 textarea').filter((x) => x.offsetParent), next = fields[fields.indexOf(e.target) + 1];
     if (next) next.focus(); else e.target.blur();
   });
   // keyboard: arrows step through the spots of the part on screen in price order, Esc clears

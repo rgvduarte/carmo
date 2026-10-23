@@ -85,12 +85,14 @@ async function route(request, env) {
 }
 
 // ---------- responses ----------
-// https://gocarmo.com, and http://localhost / 127.0.0.1 on any port for local tests
+// https://gocarmo.com only. DEV_ORIGIN (one origin, or several split by commas) adds a local copy of the site for
+// tests: it is set in worker/.dev.vars, which only `wrangler dev` reads, never in wrangler.toml, so the deployed
+// Worker answers gocarmo.com and nothing else.
 function originOf(request, env) {
   const o = request.headers.get('Origin');
   if (!o) return '';
   if (o === cfg(env).site) return o;
-  return /^http:\/\/(?:localhost|127\.0\.0\.1)(?::\d{1,5})?$/.test(o) ? o : '';
+  return String(env.DEV_ORIGIN || '').split(',').map((x) => x.trim()).filter(Boolean).includes(o) ? o : '';
 }
 function cors(request, env) {
   const o = originOf(request, env);

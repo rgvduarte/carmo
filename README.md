@@ -53,7 +53,9 @@ os números 21 a 24, por isso um pacote com fato e capacete fica, por exemplo, `
 `assets/js/data.js` → `SITE` (`mbway: ''` esconde o MB WAY).
 Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. Num mês com vendas grandes, pede transferência.
 
-**O fluxo.**
+**O fluxo.** Com o Worker ligado (o normal), o pedido também reserva os espaços por 48 horas e leva o logótipo, e a
+compra confirma-se em **Pedidos**: ver **Compras automáticas**. Aqui fica o pedido em si e o caminho à mão, que é o
+de uma mensagem que chega sem `Pedido:`:
 1. A marca escolhe os espaços e carrega em **Reservar**. O pedido tem dois passos, um ecrã cada:
    **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem, e **Pagar por** MB WAY ou
    Transferência) e **Pagar** (MB WAY ou Transferência, cada um com três linhas para copiar: número ou IBAN, montante e
@@ -214,37 +216,93 @@ alternativa, mas só depois de o branch por defeito ser `gh-pages`.
 
 ## Compras automáticas
 
-O site pode receber as compras sozinho, através de um pequeno serviço no Cloudflare (o Worker em `worker/`, com
-instruções em `worker/README.md`).
+Está ligado: o pedido de reserva do site fala com um pequeno serviço no Cloudflare (o Worker em `worker/`, com
+instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `assets/js/data.js`
+(`https://gocarmo-pedidos.rgvduarte.workers.dev`). Com `requestsApi: ''` o pedido volta a ser só mensagem, como antes.
 
-1. A marca escolhe os espaços, escreve a marca e envia o logótipo (obrigatório). O site manda o pedido ao Worker e
-   diz à marca que tem 48 horas para enviar o comprovativo, para o patrocínio ficar fechado.
-2. O Worker reserva os espaços por 48 horas no `data/spots.json` (um commit no `gh-pages`) e guarda o pedido e o
-   logótipo. O Gonçalo recebe a mensagem do pedido como hoje (WhatsApp ou email).
-3. Quando o pagamento entra, o Gonçalo abre a página de admin, em **Pedidos** carrega em **Confirmar compra** e
-   guarda. O espaço fica vendido no site com o logótipo da marca. O pagamento recebe um recibo de donativo.
-4. Se o pagamento não chegar, a reserva acaba sozinha ao fim das 48 horas (no fim desse dia). **Cancelar** liberta
-   antes; **Prolongar 48 h** dá mais dois dias.
+**O que a marca vê.**
+1. Escolhe os espaços (ou o fato completo) e carrega em **Reservar**. No passo 1 escreve a marca e junta o
+   **logótipo**, que é obrigatório: no telemóvel a caixa abre as fotografias, no computador também se pode arrastar o
+   ficheiro para lá. Serve PNG, JPG, WebP ou SVG (até 20 MB). O site desenha-o num PNG com o fundo transparente que
+   tiver, até 1200 px de lado e no máximo 400 KB (uma imagem pesada fica mais pequena até caber), e mostra-o na caixa
+   com o nome e o tamanho. Ao fechar o pedido vê-o no espaço do fato ou do capacete 3D. Enquanto faltar a marca ou o
+   logótipo, os botões ficam esbatidos e a linha por baixo diz o que falta; um toque mostra o erro no campo.
+2. Carrega em WhatsApp, Email ou Instagram. O site manda o pedido ao Worker («A reservar…») com os espaços, a marca,
+   o nome, o NIF, a mensagem, a forma de pagar e o logótipo. O Worker reserva os espaços por 48 horas (um commit no
+   `data/spots.json`) e responde com o número do pedido. O passo 2 diz **Reservado até domingo, 25 de outubro**, o
+   número do pedido e «Tens 48 horas: paga e envia-me o comprovativo por WhatsApp ou email para o patrocínio ficar
+   fechado», e por baixo os dados de MB WAY ou da transferência (o que escolheu), o montante e o descritivo `KONA`.
+   A app escolhida abre sozinha com a mensagem, que agora leva `Pedido: <número>` e «Reservado durante 48 horas, até
+   25 de outubro. Envio o comprovativo do pagamento até lá.» Se o browser não a deixar abrir sozinha (a resposta
+   chegou tarde), aparece «Falta um passo.» com um botão que a abre. No Instagram, a mensagem fica copiada para colar.
+3. Na página, os espaços passam logo a «Reservado até 25 out.»; para toda a gente, assim que o GitHub Pages publica o
+   commit (1 a 2 minutos). Cada vez que o pedido abre, o site lê outra vez o `data/spots.json` sem cache: um espaço
+   que outra marca reservou entretanto sai do pacote e o pedido diz qual foi.
+4. Se recarregar a página (ou voltar do WhatsApp com a página recarregada), o pedido volta ao passo 2, reservado. O
+   número do pedido fica guardado nesse separador: o mesmo pacote nunca é enviado duas vezes, nem com dois toques
+   seguidos, nem com «Voltar» (os botões só enviam outra vez a mensagem). O que escreveu e o logótipo também ficam
+   guardados no separador até o fechar.
+5. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: o espaço acabou de ser
+   reservado por outra marca (sai do pacote, escolhe outro), já tem um pedido aberto (o número e até quando),
+   mais de 6 espaços (escolhe o fato completo ou fala comigo), um campo a corrigir, um logótipo que não serve.
+6. Se o Worker não responder em 12 segundos (tenta uma segunda vez se a rede falhar), ou responder com erro do
+   servidor, nada se perde: os mesmos botões enviam só a mensagem, como antes, com a linha «Sem reserva no site:
+   confirmas se está livre? Envio o logótipo nesta conversa.», e o pedido diz «O espaço ainda não ficou reservado:
+   confirmo por mensagem.»
+
+**O que tu fazes.**
+1. A mensagem chega com `Pedido: <número>`. O pedido também aparece na página de admin, em **Pedidos**, com o
+   logótipo e o tempo que falta.
+2. Quando o pagamento entra (e o comprovativo chega), em **Pedidos** carregas em **Confirmar compra** e em
+   **Guardar**: o espaço fica vendido no site com o logótipo da marca e o pedido fica confirmado. Passa o recibo de
+   donativo (nunca uma fatura), com o NIF se o pedido o tiver.
+3. Sem pagamento, a reserva acaba sozinha no fim do último dia. **Prolongar 48 h** dá mais dois dias; **Cancelar**
+   liberta já (num pedido falso, com «bloquear»).
+4. Uma mensagem sem `Pedido:` (o Worker estava em baixo) não reservou nada: vê se o espaço está livre, cola a
+   mensagem em **Colar pedido ou referência** e reserva ou vende como antes. O logótipo vem na conversa.
 
 **Contra abusos.** Até 6 espaços por pedido (mais, só o fato completo). No máximo 8 espaços presos ao mesmo tempo por
 pedidos do site por pagar, venha de onde vier (o fato completo conta como os 8). Por endereço de internet: 1 pedido
 aberto e 3 por dia, e 7 dias de pausa depois de um pedido cancelado ou que acabou sem pagamento. Um pedido falso
-cancela-se com «bloquear» (30 dias). Antes de ligar o site ao Worker, liga também o Turnstile do Cloudflare
-(`TURNSTILE_SECRET`). Os detalhes estão em `worker/README.md`.
+cancela-se com «bloquear» (30 dias). Os detalhes estão em `worker/README.md`.
 
-**Ligar (uma vez).** Os quatro secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SPOTS_GITHUB_TOKEN`,
-`ADMIN_KEY`) estão em Settings → Secrets and variables → Actions. A action **Deploy pedidos** publica o Worker a
-cada push que mude `worker/` (ou à mão, em Actions → Deploy pedidos → Run workflow, com o branch por defeito em
-`gh-pages`) e escreve no resumo o endereço, por exemplo `https://gocarmo-pedidos.<conta>.workers.dev`. Esse endereço
-vai para `assets/js/data.js` → `SITE.requestsApi`; depois `node scripts/stamp.mjs` e publica. Com `requestsApi: ''`
-nada muda no site nem na página de admin.
+**Testar de ponta a ponta sem mexer no site real.** Nunca faças um pedido de teste em gocarmo.com: cada pedido
+reserva espaços a sério, à vista de todos. Testa com o Worker no teu computador, contra um repositório de teste:
+1. Faz um fork do repositório (com o branch `gh-pages`) e um token fine-grained só para esse fork, com Contents: Read
+   and write.
+2. Em `worker/`, cria o ficheiro `.dev.vars` (o git ignora-o; só o `wrangler dev` o lê, nunca vai para o Cloudflare):
+   ```
+   ADMIN_KEY=uma-chave-de-teste-com-mais-de-16
+   SPOTS_GITHUB_TOKEN=<o token do fork>
+   REPO=<conta>/<fork>
+   DEV_ORIGIN=http://127.0.0.1:8000
+   ```
+   e corre `npx wrangler dev --local` (fica em `http://127.0.0.1:8787`, com uma cópia local do KV).
+3. Noutro terminal, `python3 -m http.server 8000 --bind 127.0.0.1` na raiz e, só nessa cópia, muda `requestsApi` em
+   `assets/js/data.js` para `'http://127.0.0.1:8787'` (não faças commit disto: o `stamp.mjs` recusa um endereço
+   que não seja https). Abre `http://127.0.0.1:8000`, faz um pedido com um logótipo e vê o commit no fork.
+4. Os pedidos guardados: `curl -H "Authorization: Bearer <ADMIN_KEY>" http://127.0.0.1:8787/pedidos`; o logótipo:
+   `…/pedidos/<número>/logo`; fechar um: `curl -X POST -H "Authorization: Bearer <ADMIN_KEY>" -H "Content-Type:
+   application/json" -d '{"action":"cancelar"}' http://127.0.0.1:8787/pedidos/<número>`. A página de admin só
+   fala com um endereço https: os Pedidos dela testam-se com o Worker publicado.
+
+**Ligar o Turnstile (mais tarde).** O Turnstile do Cloudflare trava pedidos feitos por robôs a partir de muitos
+endereços. Hoje está desligado, e assim tem de ficar até o site saber pedi-lo: **pôr só o secret faz o Worker
+recusar todos os pedidos** (o site diria «A verificação contra spam falhou»). Para o ligar:
+1. No painel do Cloudflare, **Turnstile → Add widget**, modo «Managed», com o domínio do Worker
+   (`gocarmo-pedidos.rgvduarte.workers.dev`). Ficas com uma site key e uma secret key.
+2. Uma mudança de código, por fazer: o Worker passa a servir uma página mínima com o widget (por exemplo
+   `GET /verificar`, com a site key) e o pedido de reserva mostra-a num iframe e manda o token que ela devolver no
+   campo `turnstile` do `POST /pedido`. Assim o script do Cloudflare corre no endereço do Worker e nunca em
+   gocarmo.com, onde está o token da página de admin (o site não carrega scripts de outros servidores).
+3. Depois de publicada essa mudança, põe a secret key no secret `TURNSTILE_SECRET` do GitHub (Settings → Secrets
+   and variables → Actions) e corre **Actions → Deploy pedidos → Run workflow**. O Worker passa a exigir o token e
+   deixa 2 pedidos abertos por endereço em vez de 1. Para desligar, apaga o secret e corre a action outra vez.
 
 **Privacidade.** O nome e o NIF servem só para o recibo. Cada pedido fica guardado 180 dias no Cloudflare e depois
 apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. No `data/spots.json`, público, só ficam a marca, o
-último dia da reserva e o número do pedido.
-
-Enquanto o pedido de reserva do site não envia para o Worker (vem na próxima versão), os pedidos chegam só por
-WhatsApp, email ou Instagram: cola a mensagem em **Colar pedido ou referência**.
+último dia da reserva e o número do pedido. O que a marca escreve no pedido de reserva (e o logótipo) fica no browser
+dela só enquanto o separador estiver aberto.
 
 ## GoFundMe
 

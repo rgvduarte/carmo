@@ -1051,7 +1051,55 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .cl-alt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cl-acts .cl-alt .btn, .cl-fb .btn { width: 100%; min-height: 48px; padding: 0 12px; gap: 8px; font-size: 15px; }
 .cl-foot { margin: -6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: center; }
+/* the logo (with SITE.requestsApi): the whole box is the file input, so a tap opens the photos on a phone and a file
+   dropped on it on a computer is taken; once picked, the box shows it on a checkerboard (a transparent background
+   reads as one) with its name and size */
+.cl-drop { position: relative; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 9px 14px 9px 10px; border-radius: 12px; border: 1px dashed var(--line-2); background: var(--bg); color: var(--muted); transition: border-color .2s, background .2s; }
+.cl-drop input { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.cl-drop:hover, .cl-drop.drag { border-color: var(--ink); }
+.cl-drop.drag { background: var(--bg-3); }
+.cl-drop:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
+.cl-drop:has(input[aria-invalid="true"]) { border: 1px solid #f08a7e; }
+.cl-drop.has { border-style: solid; }
+.cl-drop-ic { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 10px; background: var(--bg-3); color: var(--ink); overflow: hidden; }
+.cl-drop-ic svg { width: 20px; height: 20px; }
+.cl-drop-ic img { width: 100%; height: 100%; padding: 4px; object-fit: contain; }
+.cl-drop.has .cl-drop-ic { width: 72px; background: #fff conic-gradient(#e4e4e4 25%, #fff 0 50%, #e4e4e4 0 75%, #fff 0) 0 0 / 12px 12px; }
+.cl-drop.has .cl-drop-ic svg { display: none; }
+.cl-drop.busy .cl-drop-ic svg { animation: clPulse 1s ease-in-out infinite alternate; }
+.cl-drop-t { min-width: 0; flex: 1 1 auto; display: grid; gap: 2px; font-size: 14px; line-height: 1.3; }
+.cl-drop-t b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.cl-drop-t small { font-size: 12px; color: var(--muted); }
+.cl-drop-d { display: none; }
+.cl-drop-ch { flex: none; font-size: 14px; color: var(--muted); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
+/* a computer: a taller box that says a file can be dropped on it */
+@media (hover: hover) and (pointer: fine) {
+  .cl-drop { min-height: 84px; }
+  .cl-drop-p { display: none; }
+  .cl-drop-d { display: inline; }
+}
+@keyframes clPulse { to { opacity: .35; } }
+/* what went wrong with the request and what to do (and, in .ok, a package already held) */
+.cl-note { margin: -6px 0 0; display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(240,138,126,.45); background: rgba(240,138,126,.08); font-size: 14px; line-height: 1.45; color: var(--ink); }
+.cl-note p { margin: 0; }
+.cl-note .sub { color: var(--muted); }
+.cl-note.ok { border-color: rgba(230,180,80,.45); background: rgba(230,180,80,.08); }
+/* the reason «Enviar» waits (no brand, no logo yet), and «A reservar…» while the request goes out */
+.cl-need { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); text-align: center; }
+.cl-acts .btn.wait { opacity: .55; }
+.cl-acts .btn[aria-busy="true"] { opacity: 1; }
+.cl-acts .btn[aria-busy="true"] svg { animation: clPulse .7s ease-in-out infinite alternate; }
 /* step 2 */
+/* the spots are held: until when, the request number, the 48 hours for the proof of payment */
+.cl-held { display: grid; gap: 6px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(230,180,80,.5); background: rgba(230,180,80,.08); }
+.cl-held p { margin: 0; }
+.cl-held-t { display: flex; align-items: center; gap: 8px; font-size: 17px; line-height: 1.3; color: var(--ink); }
+.cl-held-t svg { flex: none; width: 20px; height: 20px; color: var(--gold); }
+.cl-held-t b { font-weight: 700; }
+.cl-held-id { font-size: 13px; color: var(--muted); }
+.cl-held-id b { color: var(--ink); font-weight: 600; letter-spacing: .04em; }
+.cl-held-p { font-size: 14px; line-height: 1.5; color: var(--muted); }
+.cl-gobox .btn { width: 100%; min-height: 52px; font-size: 16px; }
 /* after the email action only: the address to copy, for a computer with no mail app */
 .cl-mailfb { margin: -6px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 2px 14px; border-radius: 12px; background: var(--bg-3); font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-mailfb b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
