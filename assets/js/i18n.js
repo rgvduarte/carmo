@@ -227,6 +227,8 @@ const EN = {
   "sup.p": "You don't need to be a brand to help me make a living from triathlon. Contributions go towards race entries, travel and kit, in the season that can take me to Kona.",
   "sup.b1": "Support on GoFundMe",
   "sup.b2": "In-kind support",
+  "gfm.k": "GoFundMe campaign",
+  "gfm.share": "Share",
   "sup.i1h": "Equipment",
   "sup.i1p": "Bike, wheels, wetsuit and shoes.",
   "sup.i2h": "Nutrition and health",
@@ -322,6 +324,8 @@ const PT_JS = {
   'part.suit': (n, lo, hi) => `${n} espaços, de ${lo} a ${hi}. Uso\u2060-\u2060o em todos os triatlos e em treino.`,
   'part.helmet': (n, lo, hi) => `${n} espaços, de ${lo} a ${hi}. Uso\u2060-\u2060o na bicicleta, em todos os triatlos.`,
   'gfm.soon': 'A campanha no GoFundMe abre em breve.', 'suit.no3d': 'A vista 3D não está disponível neste dispositivo. A tabela tem todos os espaços.', 'gfm.help': 'Quero apoiar',
+  'gfm.of': 'angariados de', 'gfm.raised': 'angariados', 'gfm.n': (n) => (n === 1 ? 'apoiante' : 'apoiantes'), 'gfm.upd': (d) => `Atualizado a ${d}`,
+  'gfm.vt': (r, g, p) => `${r} de ${g} (${p})`, 'gfm.stext': 'A época 2027 do Gonçalo Carmo, a caminho de Kona.',
 };
 const EN_JS = {
   'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders', 'z.helmet': 'Helmet', 'z.suit': 'Suit',
@@ -358,6 +362,8 @@ const EN_JS = {
   'part.suit': (n, lo, hi) => `${n} spots, from ${lo} to ${hi}. I wear it at every triathlon and in training.`,
   'part.helmet': (n, lo, hi) => `${n} spots, from ${lo} to ${hi}. I wear it on the bike, at every triathlon.`,
   'gfm.soon': 'The GoFundMe page opens soon.', 'suit.no3d': 'The 3D view is not available on this device. The rate card has every spot.', 'gfm.help': 'I want to help',
+  'gfm.of': 'raised of', 'gfm.raised': 'raised', 'gfm.n': (n) => (n === 1 ? 'supporter' : 'supporters'), 'gfm.upd': (d) => `Updated ${d}`,
+  'gfm.vt': (r, g, p) => `${r} of ${g} (${p})`, 'gfm.stext': 'Gonçalo Carmo\'s 2027 season, on the way to Kona.',
 };
 
 let lang = 'pt';
