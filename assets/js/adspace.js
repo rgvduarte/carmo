@@ -288,6 +288,7 @@ function renderStats() {
   const av = available();
   const prices = SPOTS.map((s) => s.price);
   flowSet($('#avail-n'), av.length);
+  $('#only-n').textContent = t('rc.free', av.length);
   flowSet($('#hero-spots'), av.length);
   $('#avail-t').textContent = SPOTS.length;
   $('#avail-pct').textContent = `${Math.round((av.length / SPOTS.length) * 100)}%`;
@@ -306,17 +307,23 @@ function renderStats() {
 // the whole suit can be asked for only while every suit spot is free (helmet sales do not matter)
 const titleOpen = () => ofItem('suit').every((s) => s.status === 'available');
 
+// The tiers as a small table, one row each: [dot] Principal · 400–600 € · 3 espaços, with the columns lined up
 function renderLegend() {
-  const host = $('#tiers-legend');
-  host.textContent = '';
+  const body = $('#tiers-legend tbody');
+  body.textContent = '';
+  // '400–600 €' (PT) or '€400–600' (EN): the currency once, on the side the language writes it
+  const range = (lo, hi) => (lo === hi ? money(lo) : getLang() === 'en' ? `${money(lo)}–${numFmt(hi)}` : `${numFmt(lo)}–${money(hi)}`);
   for (const tr of DATA.tiers) {
     const inTier = SPOTS.filter((s) => tierOf(s).key === tr.key);
     if (!inTier.length) continue;
     const lo = Math.min(...inTier.map((s) => s.price)), hi = Math.max(...inTier.map((s) => s.price));
-    const span = document.createElement('span');
-    const i = document.createElement('i'); i.className = `t-${tr.key}`;
-    span.append(i, `${pick(tr)} · ${lo === hi ? money(lo) : `${money(lo)} ${getLang() === 'en' ? 'to' : 'a'} ${money(hi)}`} · ${inTier.length}`);
-    host.appendChild(span);
+    const row = document.createElement('tr');
+    const cell = (cls, txt) => { const td = document.createElement('td'); td.className = cls; td.textContent = txt; row.appendChild(td); return td; };
+    const nm = cell('tl-name', pick(tr));
+    const dot = document.createElement('i'); dot.className = `t-${tr.key}`; dot.setAttribute('aria-hidden', 'true'); nm.prepend(dot);
+    cell('tl-range', range(lo, hi));
+    cell('tl-n', t('pk.spots', inTier.length));
+    body.appendChild(row);
   }
 }
 
@@ -769,7 +776,8 @@ function bindUI() {
     $$('[data-sort]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
     renderRateCard();
   }));
-  $('#only-avail').addEventListener('change', (e) => { onlyAvail = e.target.checked; renderRateCard(); });
+  // a real switch: the whole row is the button, Space and Enter toggle it
+  $('#only-avail').addEventListener('click', (e) => { onlyAvail = !onlyAvail; e.currentTarget.setAttribute('aria-checked', String(onlyAvail)); renderRateCard(); });
   $('#sd-add').addEventListener('click', () => selected && toggleBasket(selected));
   $('#sd-try').addEventListener('click', () => { $('#tryon').classList.toggle('on'); });
   $('#sd-share').addEventListener('click', async () => {

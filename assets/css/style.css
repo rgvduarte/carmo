@@ -602,14 +602,27 @@ section { position: relative; }
 
 .ratecard-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ratecard-head h3 { font: 700 20px/1 var(--sans); }
-.tiers-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 16px; font-size: 12px; color: var(--muted); }
-.tiers-legend span { display: inline-flex; align-items: center; gap: 6px; }
+/* the tiers: a three-row table, columns lined up, numbers in tabular figures */
+.tiers-legend { width: 100%; margin-top: 16px; border-collapse: collapse; font-size: 13px; line-height: 1.3; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tiers-legend td { padding: 8px 0; border-top: 1px solid var(--line); }
+.tiers-legend tr:first-child td { border-top: 0; }
+.tiers-legend .tl-name { width: 100%; color: var(--ink); }
+.tiers-legend .tl-name i { margin-right: 10px; vertical-align: 1px; }
+.tiers-legend .tl-range, .tiers-legend .tl-n { padding-left: 18px; text-align: right; }
 .tiers-legend i, .row-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
 .t-principal { background: var(--gold); }
 .t-oficial { background: var(--ink); }
 .t-fornecedor { background: var(--dim); }
-.only-avail { display: flex; align-items: center; gap: 10px; margin: 16px 0 4px; font-size: 14px; color: var(--muted); min-height: 36px; }
-.only-avail input, .tryon input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--gold); }
+/* «Mostrar só os disponíveis»: one full-width row, the label on the left and a switch on the right */
+.only-avail { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 4px; min-height: 50px; padding: 0 12px 0 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-3); color: var(--ink); font: 500 14px/1.3 var(--sans); text-align: left; cursor: pointer; transition: border-color .2s; }
+.only-avail:hover { border-color: var(--line-2); }
+.only-avail .only-n { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.only-avail .only-n::before { content: "· "; }
+.only-avail .sw { flex: none; position: relative; width: 44px; height: 26px; border-radius: 13px; background: var(--line-2); transition: background .25s; }
+.only-avail .sw i { position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); transition: transform .25s var(--ease), background .25s; }
+.only-avail[aria-checked="true"] .sw { background: var(--gold); }
+.only-avail[aria-checked="true"] .sw i { transform: translateX(18px); background: #111; }
+.tryon input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--gold); }
 .rc-group { margin-top: 14px; }
 .rc-group h4 { display: flex; justify-content: space-between; margin: 0; padding: 10px 0; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
 .rc-list { list-style: none; margin: 0; padding: 0; }
@@ -1001,5 +1014,16 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .btn { min-height: 50px; }
   .rc-row { padding: 12px 0; }
   .rc-row .add { width: 40px; height: 40px; }
+  /* rate card head: the title on its own line, the sort control full width in two equal halves */
+  #ratecard .ratecard-head { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  #ratecard .ratecard-head .seg-tabs { display: grid; grid-template-columns: 1fr 1fr; width: 100%; }
+  #ratecard .ratecard-head .seg-tabs button { min-height: 40px; font-size: 14px; }
+  /* the free count goes under the label, so the row never wraps mid-phrase */
+  .only-avail { min-height: 58px; padding: 8px 12px 8px 14px; }
+  .only-avail .only-n { display: block; margin-top: 2px; font-size: 12px; }
+  .only-avail .only-n::before { content: none; }
+}
+@media (max-width: 360px) {
+  .only-avail { gap: 10px; padding: 8px 10px 8px 12px; font-size: 13px; }
 }
 @keyframes menuIn { to { opacity: 1; transform: none; } }

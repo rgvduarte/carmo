@@ -429,8 +429,8 @@
               <button type="button" data-sort="price" aria-pressed="false" data-i18n="rc.price">Por preço</button>
             </div>
           </div>
-          <div class="tiers-legend" id="tiers-legend"></div>
-          <label class="only-avail"><input type="checkbox" id="only-avail"> <span data-i18n="rc.only">Mostrar só os disponíveis</span></label>
+          <table class="tiers-legend" id="tiers-legend" aria-label="Escalões de preço" data-i18n-attr="aria-label:a.tiers"><tbody></tbody></table>
+          <button type="button" class="only-avail" id="only-avail" role="switch" aria-checked="false"><span class="only-t"><span data-i18n="rc.only">Mostrar só os disponíveis</span> <span class="only-n" id="only-n"></span></span><span class="sw" aria-hidden="true"><i></i></span></button>
           <div id="rc-body"></div>
         </div>
       </div>
