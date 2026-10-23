@@ -124,6 +124,8 @@ input::placeholder { color: var(--dim); }
 /* the @login gives way first, then the wordmark (a narrow phone, or before Anton has loaded): the buttons always fit */
 .top .mark { flex: 0 1 auto; min-width: 0; overflow: hidden; font-size: 19px; margin-right: auto; }
 .top .mark img { flex: none; }
+/* room for the slant of the last letter when the wordmark is clipped on a narrow phone */
+.top .mark { padding-right: .14em; }
 .top .mark img { width: 22px; height: 22px; }
 .who { flex: 0 1000 auto; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; }
 .top .icon, .top .btn { flex: none; }
@@ -290,6 +292,71 @@ dialog.tall[open] { display: flex; flex-direction: column; }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 dialog .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
 .banner { position: sticky; top: 0; z-index: 30; background: var(--bad); color: #1b0b08; text-align: center; font-weight: 600; font-size: 14px; padding: 8px 16px; }
+
+/* ---------- /admin/strava/: one card per step, done above, locked below ---------- */
+.sv-clear { flex: none; padding: 0 4px; }
+.sv-main { padding-top: 22px; padding-bottom: 40px; }
+.sv-main h1.display { font-size: clamp(38px, 11vw, 64px); }
+.sv { scroll-margin-top: 76px; }
+.sv-h { display: flex; align-items: center; gap: 12px; font: 600 17px/1.25 var(--sans); min-height: 30px; }
+/* a step's heading takes focus so a screen reader lands on it; the open card already shows where you are */
+.sv-h:focus, .sv-h:focus-visible { outline: none; }
+.sv-n { flex: none; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(230,180,80,.55); color: var(--gold); font: 600 13px/1 var(--mono); }
+.sv[data-state="done"] .sv-n { background: var(--ok); border-color: var(--ok); color: transparent; position: relative; }
+.sv[data-state="done"] .sv-n::before { content: "✓"; position: absolute; inset: 0; display: grid; place-items: center; color: #0b0b0c; font: 700 14px/1 var(--sans); }
+.sv[data-state="locked"] { background: transparent; }
+.sv[data-state="locked"] .sv-h { color: var(--dim); }
+.sv[data-state="locked"] .sv-n { border-color: var(--line-2); color: var(--dim); }
+.sv:not([data-state="open"]) .sv-body, .sv:not([data-state="done"]) .sv-sum { display: none; }
+.sv-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; margin: 6px 0 -6px 42px; color: var(--muted); font-size: 14px; min-height: 32px; }
+.sv-sum b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.sv-sum .link { min-height: 44px; }
+.sv-sum.sv-acct { flex-wrap: nowrap; }
+.sv-sum.sv-acct > span:last-child { min-width: 0; }
+.sv-body { margin-top: 14px; }
+.sv-body p { margin: 0 0 14px; color: #dcdbd5; font-size: 15px; }
+.sv-body p.hint { color: var(--muted); font-size: 14px; margin: 12px 0 0; }
+.sv-body p.hint a { color: var(--ink); }
+.sv-body .notes { margin: 0 0 14px; }
+.sv-body .notes:empty { display: none; }
+.sv-form .field { margin-top: 18px; }
+.sv-form .field .hint { margin-top: 7px; }
+.sv-acts { display: grid; gap: 10px; margin: 0 0 12px; }
+.sv-next { margin-top: 18px; }
+.btn.ok { border-color: var(--ok); color: var(--ok); background: transparent; }
+
+.sv-vals { margin: 16px 0 0; border-top: 1px solid var(--line); }
+.sv-vals > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 2px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.sv-vals dt { grid-column: 1; font: 600 12px/1.3 var(--sans); letter-spacing: .02em; text-transform: uppercase; color: var(--muted); }
+.sv-vals dd { margin: 0; }
+.sv-vals .v { grid-column: 1; font: 500 15px/1.35 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+.sv-vals .c { grid-column: 2; grid-row: 1 / span 2; }
+.sv-vals .btn { min-width: 92px; }
+/* the Strava address, for when the button opens the Strava app instead of the page */
+.sv-vals.sv-addr { margin-top: 8px; }
+.sv-body p.sv-then { margin: 20px 0 0; }
+.sv-then + .sv-vals { margin-top: 8px; }
+.sv-need { margin: -8px 0 22px; max-width: 34em; }
+/* the Client Secret is a text field (never a password field a password manager saves or fills), masked once it holds a value */
+.sv-mask:not(:placeholder-shown) { -webkit-text-security: disc; }
+
+.sv-secs { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; }
+.sv-sec { padding: 12px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-3); }
+/* the name never breaks: on a narrow phone its copy button drops below it, over the value's copy button */
+.sv-sec-n { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.sv-sec-n code { font-size: 14px; white-space: nowrap; }
+.sv-sec-n .btn { flex: none; margin-left: auto; }
+.sv-sec-v { display: block; margin: 10px 0; padding: 11px 12px; min-height: 44px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); font: 500 14px/1.45 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
+.sv-sec-b { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sv-sec-b .btn { padding: 0 10px; }
+
+.sv-who { display: flex; align-items: center; gap: 14px; padding: 12px 14px; margin: 0 0 14px; border-radius: 12px; border: 1px solid rgba(111,191,115,.4); background: rgba(111,191,115,.07); }
+.sv-who p { margin: 0; min-width: 0; font-size: 14px; color: var(--muted); }
+.sv-who b { display: block; margin-top: 2px; font-size: 18px; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
+.sv-pic { flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--bg-3); }
+.sv-ini { flex: none; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--line-2); background: var(--bg-3); color: var(--ink); font: 600 18px/1 var(--sans); }
+.sv-pic.sm, .sv-ini.sm { width: 28px; height: 28px; font-size: 11px; }
+.sv-body p.sv-ok { margin: 14px 0; color: var(--ink); font-weight: 600; }
 
 @media (min-width: 760px) {
   .card { padding: 22px 22px; }
