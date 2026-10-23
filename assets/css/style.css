@@ -472,20 +472,29 @@ section { position: relative; }
 .season-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .season-title .hib { width: clamp(48px, 6vw, 84px); height: auto; aspect-ratio: 1; color: var(--ink-dark); --sun: var(--gold-ink); flex: none; }
 .season { margin-top: clamp(48px, 6vw, 80px); display: grid; grid-template-columns: repeat(var(--n, 7), minmax(0, 1fr)); border-top: 1px solid var(--ink-dark); }
-.race { padding: 16px 14px 20px 0; position: relative; }
+/* every cell is a column with its status on the floor, so the statuses of one row line up whatever the text above */
+.race { padding: 16px 14px 20px 0; position: relative; min-width: 0; display: flex; flex-direction: column; }
 .race + .race { padding-left: 14px; border-left: 1px solid var(--line-dark); }
 .race .when { font: 500 11px/1 var(--mono); letter-spacing: .14em; color: var(--muted-dark); text-transform: uppercase; }
-.race h3 { margin: 14px 0 6px; font: 700 15px/1.25 var(--sans); text-transform: uppercase; letter-spacing: 0.01em; }
-.race p { margin: 0; font-size: 13px; color: var(--muted-dark); line-height: 1.45; }
-.race { min-width: 0; -webkit-hyphens: auto; hyphens: auto; }
-.race .st { margin-top: 14px; }
-/* eight columns get narrow before the list layout takes over: a status wraps inside its column instead of running out */
-.race .badge { max-width: 100%; white-space: normal; border-radius: 14px; }
+.race h3 { margin: 14px 0 6px; font: 700 15px/1.25 var(--sans); text-transform: uppercase; letter-spacing: 0.01em; overflow-wrap: break-word; }
+.race p { margin: 0; font-size: 13px; color: var(--muted-dark); line-height: 1.45; text-wrap: pretty; }
+.race .st { margin-top: auto; padding-top: 16px; }
+.race .badge { max-width: 100%; }
 .race.goal { background: var(--ink-dark); color: var(--paper); padding-left: 16px; padding-right: 16px; border-left: 0; }
 .race.goal .when, .race.goal p { color: rgba(242,241,236,0.7); }
 .race.goal h3 { color: var(--gold); }
 .race.goal .badge { border-color: rgba(230,180,80,0.6); color: var(--gold); }
 .race .main { position: absolute; top: -26px; left: 16px; font: 500 11px/1 var(--mono); letter-spacing: .14em; color: var(--muted-dark); text-transform: uppercase; }
+/* below 1440 px eight columns get too narrow for the names and statuses: two rows of four, the goal closing the second */
+@media (min-width: 1081px) and (max-width: 1439px) {
+  .season { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .race { padding: 18px 18px 22px; }
+  .race + .race { padding-left: 18px; }
+  .race:nth-child(4n+1) { padding-left: 0; border-left: 0; }
+  .race:nth-child(n+5) { border-top: 1px solid var(--line-dark); }
+  .race.goal { padding-left: 18px; border-left: 0; border-top: 0; }
+  .race .main { position: static; margin-bottom: 12px; color: var(--gold); }
+}
 .season-foot { margin-top: clamp(48px, 6vw, 80px); display: grid; grid-template-columns: 1fr 1.2fr; gap: clamp(28px, 5vw, 72px); align-items: center; }
 .season-foot .lead { color: var(--muted-dark); }
 .route { position: relative; }

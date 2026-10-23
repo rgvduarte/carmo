@@ -88,7 +88,10 @@ function renderSeason() {
     if (r.status === 'goal') { const m = document.createElement('span'); m.className = 'main'; m.textContent = t('season.main'); d.appendChild(m); }
     const w = document.createElement('span'); w.className = 'when'; w.textContent = fmtWhen(r);
     const h = document.createElement('h3'); h.textContent = pick(r);
-    const p = document.createElement('p'); p.textContent = `${pick(r.where)} · ${pick(r.what)}`;
+    // when the line wraps, a number stays with its unit and its thousands ('18 km', '~1 000 km', '1.ª edição') and a
+    // separator ends the line it follows instead of opening the next one
+    const keep = (x) => x.replace(/(\d) (?=\d{3}\b)/g, '$1\u00a0').replace(/(\d) (km|h)\b/g, '$1\u00a0$2').replace(/(\.[ªº]) /g, '$1\u00a0').replace(/ · /g, '\u00a0· ');
+    const p = document.createElement('p'); p.textContent = keep(`${pick(r.where)} · ${pick(r.what)}`);
     const st = document.createElement('div'); st.className = 'st';
     const b = document.createElement('span'); b.className = `badge${r.status === 'goal' ? ' gold' : r.status === 'planned' ? ' dim' : ''}`; b.textContent = t(`st.status.${r.status}`);
     st.appendChild(b);
