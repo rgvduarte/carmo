@@ -19,7 +19,7 @@ if (process.argv.includes('--template')) {
   const opts = [...data.spots.map(optionFor), TITLE_OPTION].map((o) => `        - "${o}"`).join('\n');
   await mkdir('.github/ISSUE_TEMPLATE', { recursive: true });
   await writeFile(FORM, `name: Atualizar espaço do fato
-description: Marca um espaço como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
+description: Marca um espaço do fato ou do capacete como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
 title: "Espaço do fato"
 body:
   - type: markdown
@@ -57,7 +57,7 @@ ${opts}
     id: logo
     attributes:
       label: Logótipo
-      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no fato 3D. Opcional.
+      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no modelo 3D. Opcional.
   - type: input
     id: until
     attributes:
@@ -83,6 +83,9 @@ if (!id) fail('não reconheci o espaço.');
 const target = id === 'fato' ? data.title : data.spots.find((s) => s.id === id);
 if (!target) fail(`o espaço "${id}" não existe em data/spots.json.`);
 const label = id === 'fato' ? 'Fato completo' : `${pad2(target.n)} · ${target.pt.name}`;
+// helmet spots ("item": "helmet") live on the 3D helmet and link to #capacete/<id>; the title is the whole suit
+const onHelmet = target.item === 'helmet';
+const link = id === 'fato' ? 'https://gocarmo.com/#fato' : `https://gocarmo.com/#${onHelmet ? 'capacete' : 'fato'}/${id}`;
 
 const statusField = field('Estado');
 const status = { Vendido: 'sold', Reservado: 'reserved', 'Disponível': 'available' }[statusField];
@@ -139,6 +142,6 @@ await writeFile(SPOTS, `${JSON.stringify(data, null, 2)}\n`);
 
 const word = { sold: 'vendido', reserved: `reservado até ${until}`, available: 'disponível' }[status];
 const lines = [`Feito. **${label}** está agora ${word}${brand && status !== 'available' ? ` (${brand})` : ''}.`];
-if (status === 'sold') lines.push(target.logo ? 'O logótipo já está no fato 3D.' : 'Sem logótipo: o espaço aparece como vendido, com o nome da marca na lista "Já no fato".');
-lines.push('', 'O site atualiza-se em cerca de um minuto: https://gocarmo.com/#fato');
+if (status === 'sold') lines.push(target.logo ? `O logótipo já está no ${onHelmet ? 'capacete' : 'fato'} 3D.` : 'Sem logótipo: o espaço aparece como vendido, com o nome da marca na lista de marcas do site.');
+lines.push('', `O site atualiza-se em cerca de um minuto: ${link}`);
 console.log(lines.join('\n'));

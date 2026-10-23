@@ -1,5 +1,5 @@
 name: Atualizar espaço do fato
-description: Marca um espaço como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
+description: Marca um espaço do fato ou do capacete como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
 title: "Espaço do fato"
 body:
   - type: markdown
@@ -30,6 +30,10 @@ body:
         - "18 · Meio das costas · 200 € (costas-centro)"
         - "19 · Lombar · 100 € (lombar)"
         - "20 · Glúteos · 300 € (gluteos)"
+        - "21 · Topo do capacete · 400 € (capacete-topo)"
+        - "22 · Capacete, lado esquerdo · 200 € (capacete-lateral-e)"
+        - "23 · Capacete, lado direito · 200 € (capacete-lateral-d)"
+        - "24 · Traseira do capacete · 100 € (capacete-traseira)"
         - "Fato completo · 3000 € (fato)"
     validations:
       required: true
@@ -57,7 +61,7 @@ body:
     id: logo
     attributes:
       label: Logótipo
-      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no fato 3D. Opcional.
+      description: Anexa aqui um PNG com fundo transparente (ou SVG). No telemóvel, toca no ícone de anexar. Aparece no modelo 3D. Opcional.
   - type: input
     id: until
     attributes:
