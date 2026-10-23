@@ -361,6 +361,9 @@ addEventListener('beforeprint', () => folded().forEach((d) => { d.dataset.wasOpe
 addEventListener('afterprint', () => folded().forEach((d) => { if (d.dataset.wasOpen === 'false') d.open = false; }));
 initReveal();
 document.documentElement.classList.add('ready');
+// booted: a later deploy may use the fresh reload again, and the address loses the cache-buster
+try { sessionStorage.removeItem('gc.fresh'); } catch (_) {}
+if (/[?&]fresh=/.test(location.search)) history.replaceState(history.state, '', location.pathname + location.hash);
 flowStatic();
 loadStrava();
 

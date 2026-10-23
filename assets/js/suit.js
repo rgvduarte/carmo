@@ -759,7 +759,7 @@ export class Suit extends Kit {
     if (typeof Worker === 'undefined' || /[?&]noworker\b/.test(location.search)) return local();
     return new Promise((res, rej) => {
       let w;
-      try { w = new Worker(new URL('./suit-worker.js', import.meta.url), { type: 'module' }); } catch (e) { rej(e); return; }
+      try { w = new Worker(import.meta.resolve ? import.meta.resolve('./suit-worker.js') : new URL('./suit-worker.js', import.meta.url), { type: 'module' }); } catch (e) { rej(e); return; }
       const done = (f) => { clearTimeout(timer); w.terminate(); f(); };
       const timer = setTimeout(() => done(() => rej(new Error('mesh worker timeout'))), 60000);
       w.onmessage = (e) => done(() => (e.data.ok ? res(e.data) : rej(new Error(e.data.error))));
