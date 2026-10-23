@@ -57,15 +57,17 @@ Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. 
    código `KONA`). A forma escolhida vai escrita na mensagem que recebes («Pagamento: MB WAY» ou «Pagamento:
    transferência bancária») e o passo Pagar abre nela. Acima de 2 000 € o MB WAY fica desligado, com a razão por baixo.
    Se a marca mudar de forma no passo Pagar depois de enviar, aparece «Mudaste a forma de pagamento? Diz-me na conversa.»
-   Ao enviar o pedido por WhatsApp (o botão dourado), email ou Instagram (dois botões lado a lado), a app abre com a
+   Ao enviar o pedido por WhatsApp (o botão dourado) ou email (por baixo, ao lado do Instagram), a app abre com a
    mensagem pronta e o pedido passa sozinho ao passo Pagar, à espera quando a marca voltar ao site (mesmo que o
-   telemóvel tenha recarregado a página, e na forma de pagar que escolheu ou para a qual mudou). Se o WhatsApp não abrir
-   (a página continua no ecrã 2,5 s depois do toque, o telemóvel volta da página wa.me sem a app, ou num computador ao
-   voltar ao separador), o passo Pagar mostra no topo «O WhatsApp não abriu? Envia por email ou Instagram» com os mesmos
-   dois botões; se a app só abrir depois, a linha desaparece quando a marca volta. O site nunca diz que a mensagem foi
-   enviada. O Instagram copia a mensagem («Mensagem copiada. Cola-a na conversa do Instagram.») e abre a conversa com
-   @goncalo.carmo99; se o browser não deixar copiar, a mensagem aparece selecionada numa caixa para copiar à mão, e se
-   bloquear o novo separador, aparece o botão «Abrir o Instagram».
+   telemóvel tenha recarregado a página ou que a marca volte a carregar em Reservar, e na forma de pagar que a
+   mensagem disse ou para a qual mudou; «Já enviei o pedido» também). Se o WhatsApp não abrir (a página continua no
+   ecrã 2,5 s depois do toque, ou o telemóvel volta da página wa.me sem a app), o passo Pagar mostra no topo «O
+   WhatsApp não abriu? Envia por email ou Instagram» com os mesmos dois botões; se a app só abrir depois, a linha
+   desaparece quando a marca volta. Num computador o site não sabe se o WhatsApp Web funcionou: ao voltar ao separador
+   (ou 2,5 s depois) aparece só uma linha discreta, «Sem WhatsApp?» com os dois botões. O site nunca diz que a mensagem foi enviada. O
+   Instagram copia a mensagem e passa ao passo Pagar, que começa por «Mensagem copiada. Cola-a na conversa do
+   Instagram:» e o botão «Abrir o Instagram» (a conversa com @goncalo.carmo99, no mesmo separador no telemóvel para
+   abrir a app); se o browser não deixar copiar, a mensagem aparece selecionada na mesma caixa para copiar à mão.
    **Feito** fecha o pedido e esvazia o pacote. O email abre a app de email do aparelho com a mesma mensagem; se a
    marca escrever uma mensagem muito longa, o email leva só o início (há apps que não abrem links de email enormes)
    e o pedido avisa-a de que pelo WhatsApp vai inteira.

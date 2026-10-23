@@ -693,11 +693,12 @@ const igUrl = () => `https://ig.me/m/${SITE.instagram}`;
 
 // A sent request is noted for this tab only (sessionStorage, gone when the tab closes): if the phone reloads the page
 // while the buyer is in WhatsApp, Mail or the bank app, the payment opens again by itself, on the way to pay the message
-// named (SENT_PAY) or the tab picked since (PAY_TAB). «Feito» and «Limpar» forget it.
+// named (SENT_PAY) or the tab picked since (PAY_TAB); a reopen from the bar comes back on them too. «Feito» and «Limpar»
+// forget it.
 const SENT = 'gc.claim.sent', SENT_PAY = 'gc.claim.pay', PAY_TAB = 'gc.claim.tab', WA_NAV = 'gc.claim.wa';
 const NOTES = [SENT, SENT_PAY, PAY_TAB, WA_NAV];
 const pkKey = () => (wantTitle ? 'title' : [...basket].sort().join(','));
-const noteSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); sessionStorage.setItem(SENT, pkKey()); sessionStorage.setItem(SENT_PAY, payNow()); } catch (_) {} };
+const noteSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); sessionStorage.setItem(SENT, pkKey()); sessionStorage.setItem(SENT_PAY, sentPay); } catch (_) {} };
 const forgetSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); } catch (_) {} };
 function resumeClaim() {
   let sent = null, pay = null, tab = null, waNav = false;
@@ -718,8 +719,10 @@ function resumeClaim() {
 // transfer). Every send action opens the app and moves the dialog on to step 2, so the payment waits there when the buyer
 // is back. payPick: the way to pay, picked in step 1 and followed by the tabs in step 2 (one value for both). sentPay: the
 // way the request that went out named, so a switch after sending can ask the buyer to say so in the conversation.
-// igFail: 'copy' when the browser refused the clipboard, 'open' when it blocked the Instagram tab (the message is copied)
-let clStep = 1, payPick = 'mb', sentPay = '', sentBy = '', waFail = false, igFail = '', igText = '';
+// waFail: 'no' when WhatsApp did not take over on a phone, 'maybe' on a computer (WhatsApp Web may well have worked).
+// igBox: the Instagram box in step 2, 'open' once the message is copied (the link to the conversation), 'copy' when the
+// browser refused the clipboard (the message to copy by hand, then the link)
+let clStep = 1, payPick = 'mb', sentPay = '', sentBy = '', waFail = '', igBox = '', igText = '';
 // MB WAY takes at most SITE.mbwayMax per transfer (2 000 EUR, exactly 2 000 included); above it, transfer only
 const mbwayOk = (net) => !!SITE.mbway && net <= (SITE.mbwayMax || Infinity);
 const payNow = () => (payPick === 'mb' && mbwayOk(totals().net) ? 'mb' : 'tr');
@@ -728,11 +731,12 @@ const isPay = (v) => v === 'mb' || v === 'tr';
 function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
   const dlg = $('#claim');
   // MB WAY first whenever it can take the amount (the quicker way on a phone); nothing is remembered between opens,
-  // except by a reload after a request went out (resumeClaim), which comes back on the way the message named, or on the
-  // tab the buyer switched to after sending
+  // except once a request went out for this same package (a reload, or the bar's «Reservar» again): the dialog comes back
+  // on the way the message named, or on the tab the buyer switched to after sending, so «Já enviei o pedido» still knows
+  if (!isPay(pay)) try { if (sessionStorage.getItem(SENT) === pkKey()) [pay, tab] = [SENT_PAY, PAY_TAB].map((k) => sessionStorage.getItem(k)); } catch (_) {}
   payPick = isPay(tab) ? tab : isPay(pay) ? pay : mbwayOk(totals().net) ? 'mb' : 'tr';
   sentPay = isPay(pay) ? pay : '';
-  sentBy = waNav ? 'wa' : ''; waFail = waNav; igFail = ''; igText = '';
+  sentBy = waNav ? 'wa' : ''; waFail = waNav ? 'no' : ''; igBox = ''; igText = '';
   stopWa();
   $('#cl-items').hidden = true;
   if (!$('#cl-nif').value.trim() && !$('#cl-msg').value.trim()) {
@@ -792,11 +796,15 @@ function renderClaim() {
   // a computer with no mail app does nothing on a mailto: link, so there step 2 offers the address to copy after the
   // email action; a phone always has Mail, and the line would only push «Feito» off the screen
   $('#cl-mailfb').hidden = sentBy !== 'mail' || touch();
-  // WhatsApp did not take over: email and Instagram, the same two actions as in step 1, at the top of the payment
-  $('#cl-wafb').hidden = !(sentBy === 'wa' && waFail);
-  // Instagram did not go all the way: the clipboard was refused (the message to copy by hand, then the conversation
-  // behind a link), or the browser blocked the new tab (the message is copied: only the link)
-  const ig = sentBy === 'ig' ? igFail : '';
+  // WhatsApp did not take over: email and Instagram, the same two actions as in step 1, at the top of the payment.
+  // A computer back on this tab cannot tell whether WhatsApp Web worked: there it is one quiet row, «Sem WhatsApp?»
+  const wafb = $('#cl-wafb'), maybe = waFail === 'maybe';
+  wafb.hidden = !(sentBy === 'wa' && waFail);
+  wafb.classList.toggle('lite', maybe);
+  $('#cl-wafb-q').hidden = maybe; $('#cl-wafb-q2').hidden = !maybe;
+  // Instagram: the message is copied (the line says to paste it, then the link to the conversation), or the clipboard was
+  // refused (the message to copy by hand, then the same link)
+  const ig = sentBy === 'ig' ? igBox : '';
   $('#cl-igfb').hidden = !ig;
   $('#cl-igfb-copy').hidden = ig !== 'copy';
   $('#cl-igfb-txt').hidden = ig !== 'copy';
@@ -837,19 +845,20 @@ function setTab(tab, { focus = false, user = false } = {}) {
 }
 
 // a request goes out (by: 'wa', 'mail', 'ig', or '' for «Já enviei o pedido»): noted for a reload, with the way to pay
-// its message named
+// its message named. «Já enviei» sends nothing: after a request that went out here, the way stays the one it named
 function sent(by) {
-  sentBy = by; sentPay = payNow(); waFail = false; igFail = '';
+  sentBy = by; if (by || !sentPay) sentPay = payNow(); waFail = ''; igBox = '';
   if (by !== 'wa') { stopWa(); waTap = null; }
   noteSent();
 }
 
 // Did WhatsApp take over? After a tap on its link the page either loses the screen (the app, or WhatsApp Web in a new
 // tab: it goes hidden or loses focus) or, on a phone without the app, loads the wa.me page in this same tab. Step 2 then
-// asks «O WhatsApp não abriu?» with email and Instagram when nothing at all happened within 2.5 s, when a computer comes
-// back to this tab (whether WhatsApp Web worked there is unknown), or when a phone comes back from the wa.me page
-// (bfcache, or a reload: WA_NAV). A phone back from the app sees nothing new, and the line goes again when the app only
-// took over after those 2.5 s (a slow phone). Nothing here ever says a message went out.
+// asks «O WhatsApp não abriu?» with email and Instagram when, on a phone, nothing at all happened within 2.5 s or the
+// phone comes back from the wa.me page (bfcache, or a reload: WA_NAV). A computer gets the same two actions behind
+// «Sem WhatsApp?», back on this tab or 2.5 s on: WhatsApp Web opens in a new tab there (maybe in the background), so
+// whether it worked is never known. A phone back from the app sees nothing new, and the line goes again when the app
+// only took over after those 2.5 s (a slow phone). Nothing here ever says a message went out.
 // waTap: the last tap on the WhatsApp link, and the kind of device then (read at the tap: while the page unloads,
 // matchMedia no longer answers, Chrome says «not coarse»)
 let waWatch = null, waTap = null;
@@ -858,7 +867,7 @@ function watchWa() {
   stopWa();
   waTap = { at: Date.now(), touch: touch() };
   const w = waWatch = { at: waTap.at, left: false, touch: waTap.touch };
-  w.t = setTimeout(() => { if (waWatch === w && !w.left && document.visibilityState === 'visible') waNoApp({ keep: true }); }, WA_WAIT);
+  w.t = setTimeout(() => { if (waWatch === w && !w.left && document.visibilityState === 'visible') waNoApp({ keep: true, maybe: !w.touch }); }, WA_WAIT);
 }
 function stopWa() { if (waWatch) clearTimeout(waWatch.t); waWatch = null; }
 function waSeen(visible) {
@@ -871,8 +880,8 @@ function waSeen(visible) {
   }
   if (!w.left) return;
   stopWa();
-  if (!w.touch) waNoApp();
-  else if (waFail) { waFail = false; renderClaim(); }
+  if (!w.touch) waNoApp({ maybe: true });
+  else if (waFail) { waFail = ''; renderClaim(); }
 }
 // the page itself is leaving soon after the tap: on a phone, that is the wa.me page loading here instead of the app
 function waGone() {
@@ -887,15 +896,17 @@ function waBack(e) {
   try { nav = !!sessionStorage.getItem(WA_NAV); sessionStorage.removeItem(WA_NAV); } catch (_) {}
   if (nav) waNoApp();
 }
-// keep: the 2.5 s timer goes on watching, in case the app takes over late
-function waNoApp({ keep = false } = {}) {
+// keep: the 2.5 s timer goes on watching, in case the app takes over late. maybe: a computer, which cannot tell
+function waNoApp({ keep = false, maybe = false } = {}) {
   if (!keep) stopWa();
   if (sentBy !== 'wa' || !$('#claim').open) { stopWa(); return; }
   const was = waFail;
-  waFail = true;
+  waFail = maybe ? 'maybe' : 'no';
   renderClaim();
-  if (clStep === 2 && !was) say($('#cl-wafb-t').textContent);
+  if (clStep === 2 && !was) say(shownText($('#cl-wafb-t')));
 }
+// the words of a line without its hidden parts (the line's two openings, one hidden)
+const shownText = (el) => [...el.childNodes].filter((n) => !n.hidden).map((n) => n.textContent).join('').replace(/\s+/g, ' ').trim();
 // a polite word for a screen reader when something shows up on its own (the WhatsApp line above)
 function say(text) { const el = $('#cl-live'); el.textContent = ''; setTimeout(() => { el.textContent = text; }, 60); }
 
@@ -1129,8 +1140,8 @@ function bindUI() {
   $('#cl-igfb-go').addEventListener('click', (e) => appTarget(e.currentTarget));
   // email: a real mailto: link, filled in at the tap: the browser hands it to the default mail app once the click is
   // done, then the dialog moves on (a step later, so the link is still on screen when the browser follows it).
-  // Instagram: the message goes to the clipboard, then the conversation opens. Both live in step 1 and, after a WhatsApp
-  // link that did not open, at the top of step 2.
+  // Instagram: the message goes to the clipboard, and step 2 says so and how to use it before the buyer leaves. Both live
+  // in step 1 and, after a WhatsApp link that did not open, at the top of step 2.
   $$('#claim [data-send="mail"]').forEach((a) => a.addEventListener('click', (e) => {
     if (!brandOk()) { e.preventDefault(); return; }
     e.currentTarget.href = mailUrl();
@@ -1140,19 +1151,18 @@ function bindUI() {
     if (!brandOk()) return;
     const text = message();
     sent('ig');
-    // the clipboard call starts inside the tap (Safari asks for that), and the copy is done before Instagram opens
+    // the clipboard call starts inside the tap (Safari asks for that). Copied: step 2 starts with «Mensagem copiada. Cola-a
+    // na conversa do Instagram:» over «Abrir o Instagram», a real link the buyer taps (this same tab on a phone, so iOS
+    // hands ig.me to the app; a new tab on a computer; never a popup to block). Opening it now would take the buyer away
+    // before the line could say to paste
     if (await copy(text)) {
-      // no 'noopener' in the features, so a blocked tab shows as null; the opener is cut by hand. Blocked, step 2 says
-      // «Mensagem copiada» itself, over the link to the conversation
-      const w = window.open(igUrl(), '_blank');
-      if (w) { try { w.opener = null; } catch (_) {} } else igFail = 'open';
+      igBox = 'open';
       goStep(2);
-      if (w) toast(t('toast.copied'));
+      say(shownText($('#cl-igfb-open')));
       return;
     }
-    // no clipboard: the message waits selected in step 2, and the conversation opens from the link under it (opening
-    // it now would take the buyer away before they could copy)
-    igFail = 'copy'; igText = text;
+    // no clipboard: the message waits selected in the same box, over the same link
+    igBox = 'copy'; igText = text;
     goStep(2, { focus: false });
     const ta = $('#cl-igfb-txt');
     ta.focus({ preventScroll: true }); ta.select();
