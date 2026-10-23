@@ -25,7 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=1ca85a55">
+<link rel="stylesheet" href="assets/css/style.css?v=a22a6302">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -58,13 +58,13 @@
   "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=e8d3fb57",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=7dee7a86",
   "./assets/js/admin.js": "./assets/js/admin.js?v=a16130c0",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=f166799d",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=ee9d8329",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
   "./assets/js/data.js": "./assets/js/data.js?v=32fc95bf",
   "./assets/js/flow.js": "./assets/js/flow.js?v=c994a0dc",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=d18c7c22",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=55483b20",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=710a8e53",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=eee25ffa",
   "./assets/js/main.js": "./assets/js/main.js?v=3b0d1ec8",
   "./assets/js/marks.js": "./assets/js/marks.js?v=42ebc301",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
@@ -744,6 +744,15 @@
           <p class="cl-line"><span class="cl-txt"><span id="cl-what"></span> · <b id="cl-tot"></b></span><button type="button" class="link cl-more" id="cl-more" aria-expanded="false" aria-controls="cl-items" hidden></button></p>
           <ul class="cl-items" id="cl-items" hidden></ul>
         </div>
+        <!-- how the buyer will pay: written in the request, and step 2 opens on it -->
+        <div class="cl-pay" id="cl-pay" role="radiogroup" aria-labelledby="cl-pay-l">
+          <p class="cl-pay-l" id="cl-pay-l" data-i18n="cl.payby">Pagar por</p>
+          <div class="cl-pay-seg">
+            <label><input type="radio" name="cl-pay" id="cl-pay-mb" value="mb"><span>MB WAY</span></label>
+            <label><input type="radio" name="cl-pay" id="cl-pay-tr" value="tr"><span data-i18n="pay.tr">Transferência</span></label>
+          </div>
+          <p class="cl-hint" id="cl-pay-cap" hidden></p>
+        </div>
         <div class="cl-fields">
           <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
           <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome (opcional)</label><input id="cl-name" autocomplete="name" enterkeyhint="done"></div>
@@ -755,19 +764,40 @@
         </div>
         <div class="cl-acts">
           <a class="btn gold" id="cl-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></a>
-          <a class="btn ghost" id="cl-mail" href="mailto:allez@gocarmo.com"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg><span data-i18n="cl.mail">Enviar por email</span></a>
-          <button type="button" class="link" id="cl-ig" data-i18n="cl.ig">ou copiar a mensagem para o Instagram</button>
+          <div class="cl-alt">
+            <a class="btn ghost" id="cl-mail" data-send="mail" href="mailto:allez@gocarmo.com" aria-label="Enviar por email" data-i18n-attr="aria-label:a.mail"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg><span>Email</span></a>
+            <button type="button" class="btn ghost" id="cl-ig" data-send="ig" aria-label="Enviar por Instagram" data-i18n-attr="aria-label:a.ig"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg><span>Instagram</span></button>
+          </div>
         </div>
         <p class="cl-foot"><button type="button" class="link" id="cl-sent"><span data-i18n="cl.sent">Já enviei o pedido</span> <span aria-hidden="true">→</span></button></p>
       </section>
       <!-- step 2: pay by transfer or MB WAY -->
       <section class="cl-pane" id="cl-s2" hidden>
+        <!-- WhatsApp did not take over (not installed): the same email and Instagram actions as step 1. A computer cannot
+             tell whether WhatsApp Web worked: «Sem WhatsApp?», one quiet row (.lite) -->
+        <div class="cl-fb" id="cl-wafb" hidden>
+          <p class="cl-fb-t" id="cl-wafb-t"><b id="cl-wafb-q" data-i18n="cl.wafbq">O WhatsApp não abriu?</b><b id="cl-wafb-q2" data-i18n="cl.wafbq2" hidden>Sem WhatsApp?</b> <span data-i18n="cl.wafb">Envia por email ou Instagram</span></p>
+          <div class="cl-alt">
+            <a class="btn ghost" data-send="mail" href="mailto:allez@gocarmo.com" aria-label="Enviar por email" data-i18n-attr="aria-label:a.mail"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg><span>Email</span></a>
+            <button type="button" class="btn ghost" data-send="ig" aria-label="Enviar por Instagram" data-i18n-attr="aria-label:a.ig"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg><span>Instagram</span></button>
+          </div>
+        </div>
+        <!-- Instagram: the message is copied (what to do with it, then the link to the conversation), or the browser refused
+             the clipboard (the message, selected, to copy by hand, then the same link) -->
+        <div class="cl-fb" id="cl-igfb" hidden>
+          <label class="cl-fb-t" id="cl-igfb-copy" for="cl-igfb-txt"><b data-i18n="cl.igfbq">Não deu para copiar.</b> <span data-i18n="cl.igfb">Copia a mensagem e cola-a na conversa do Instagram:</span></label>
+          <p class="cl-fb-t" id="cl-igfb-open" hidden><b data-i18n="cl.igokq">Mensagem copiada.</b> <span data-i18n="cl.igok">Cola-a na conversa do Instagram:</span></p>
+          <textarea id="cl-igfb-txt" rows="4" readonly></textarea>
+          <a class="btn ghost" id="cl-igfb-go" href="https://ig.me/m/goncalo.carmo99" target="_blank" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg><span data-i18n="cl.igopen">Abrir o Instagram</span></a>
+        </div>
         <p class="cl-mailfb" id="cl-mailfb" hidden><span><span data-i18n="cl.mailfb">Não abriu? Copia o email:</span> <b id="cl-mailfb-a">allez@gocarmo.com</b></span><button type="button" class="cp" id="cl-mailfb-cp" data-copy="allez@gocarmo.com" data-toast="toast.email" aria-label="Copiar email" data-i18n-attr="aria-label:a.cpmail"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></p>
         <div class="pay-seg" id="pay-tabs" role="tablist" aria-label="Forma de pagamento" data-i18n-attr="aria-label:a.paytabs">
-          <button type="button" role="tab" id="pt-tr" data-tab="tr" aria-controls="pay-panel" aria-selected="false" tabindex="-1" data-i18n="pay.tr">Transferência</button>
           <button type="button" role="tab" id="pt-mb" data-tab="mb" aria-controls="pay-panel" aria-selected="true">MB WAY</button>
+          <button type="button" role="tab" id="pt-tr" data-tab="tr" aria-controls="pay-panel" aria-selected="false" tabindex="-1" data-i18n="pay.tr">Transferência</button>
         </div>
         <p class="pay-cap" id="pay-cap" hidden></p>
+        <!-- a switch after the request went out: the message says the other method -->
+        <p class="pay-cap pay-chg" id="pay-chg" hidden></p>
         <div class="pay-panel" id="pay-panel" role="tabpanel" aria-labelledby="pt-mb">
           <div class="mb-head" data-for="mb">
             <picture><source type="image/webp" srcset="assets/img/mbway-272.webp 272w" sizes="100px"><img class="mb-logo" src="assets/img/mbway-272.png" srcset="assets/img/mbway-272.png 272w, assets/img/mbway-544.png 544w" sizes="100px" width="100" height="60" alt="MB WAY" decoding="async"></picture>
@@ -788,6 +818,7 @@
           <button type="button" class="link" id="cl-back"><span aria-hidden="true">←</span> <span data-i18n="cl.back">Voltar</span></button>
         </div>
       </section>
+      <p class="sr-only" id="cl-live" aria-live="polite"></p>
     </div>
   </form>
 </dialog>
