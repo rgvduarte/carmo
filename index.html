@@ -68,6 +68,8 @@
   <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 6.9 4c2.2 0 3.6 1.2 5.1 3 1.5-1.8 2.9-3 5.1-3C21 4 23.1 8.2 21.6 11.7 19.5 16.4 12 21 12 21z"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.6v12.8a.9.9 0 0 0 1.37.77l10.2-6.4a.9.9 0 0 0 0-1.54L9.37 4.83A.9.9 0 0 0 8 5.6z"/></symbol>
+  <symbol id="i-spotify" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm4.6 14.45a.62.62 0 0 1-.86.2c-2.35-1.44-5.3-1.76-8.79-.96a.62.62 0 1 1-.28-1.21c3.81-.87 7.08-.5 9.72 1.11.3.18.39.57.21.86zm1.22-2.73a.78.78 0 0 1-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.17a.78.78 0 1 1-.45-1.49c3.63-1.1 8.15-.57 11.24 1.33.37.22.48.7.25 1.07zm.11-2.84C14.7 8.97 9.39 8.79 6.32 9.72a.94.94 0 1 1-.54-1.79c3.52-1.07 9.38-.86 13.08 1.34a.94.94 0 0 1-.93 1.61z"/></symbol>
 </svg>
 
 <header class="nav" id="nav">
@@ -282,6 +284,46 @@
         <div class="logo"><svg style="color:#fff" aria-hidden="true" focusable="false"><use href="#i-strava"/></svg></div>
         <div><h3 data-i18n="data.sh">Perfil no Strava</h3><p data-i18n="data.sp">Natação, bicicleta e corrida, com distância, ritmo e desnível de cada sessão.</p></div>
         <a class="btn ghost sm" href="https://www.strava.com/athletes/50182673" target="_blank" rel="noopener"><span data-i18n="data.sb">Abrir no Strava</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+      </div>
+    </div>
+    <!-- PLAYLIST: hidden until SITE.playlist has a link. The cover card is local; Spotify loads only on request. -->
+    <div class="listen" id="ouvir" hidden>
+      <div class="listen-copy">
+        <p class="eyebrow" data-i18n="pl.k">Banda sonora</p>
+        <h3 class="display h3 rv" data-i18n="pl.h">Ouve o que eu ouço.</h3>
+        <p class="lead muted rv" data-i18n="pl.p">É o que ouço quando treino: sobretudo rap tuga, com Drake, Justin Bieber, J. Cole e Tems pelo meio. Está ordenada como um treino, com aquecimento, progressão, pico e retorno à calma.</p>
+      </div>
+      <div class="pl" id="pl">
+        <div class="pl-stage">
+          <div class="pl-face">
+            <div class="pl-head">
+              <picture class="pl-cover"><source type="image/webp" srcset="assets/img/playlist-400.webp 400w, assets/img/playlist-800.webp 800w" sizes="(max-width: 760px) 96px, 136px"><img src="assets/img/playlist-400.jpg" alt="Capa da playlist Go Hard and Go Carmo: o Gonçalo de bicicleta, em posição aero" width="800" height="800" loading="lazy" data-i18n-attr="alt:pl.alt"></picture>
+              <div>
+                <p class="pl-k" data-i18n="pl.kind">Playlist no Spotify</p>
+                <p class="pl-name" id="pl-name">Go Hard and Go Carmo</p>
+                <p class="pl-sub">Gonçalo Carmo · <span id="pl-count">31 músicas</span></p>
+              </div>
+            </div>
+            <p class="pl-artists" id="pl-artists"></p>
+            <div class="pl-order">
+              <div class="pl-bars" id="pl-bars" aria-hidden="true"></div>
+              <ul class="pl-phases" id="pl-phases"></ul>
+            </div>
+          </div>
+          <div class="pl-frame" id="pl-frame">
+            <span class="pl-tag" aria-hidden="true">Go Hard and Go Carmo</span>
+            <button type="button" class="pl-x" id="pl-x" hidden aria-label="Fechar o leitor" data-i18n-attr="aria-label:a.plx">×</button>
+          </div>
+        </div>
+        <p class="pl-note" id="pl-note" hidden><span class="dot" aria-hidden="true"></span><span data-i18n="pl.docked">O leitor está fixo no fundo do ecrã. Para parar a música, fecha-o no ×.</span></p>
+        <div class="pl-acts">
+          <button type="button" class="btn" id="pl-play"><svg aria-hidden="true" focusable="false"><use href="#i-play"/></svg><span data-i18n="pl.play">Ouvir aqui</span></button>
+          <button type="button" class="btn" id="pl-dock" hidden><span data-i18n="pl.dock">Ouvir enquanto vês o site</span></button>
+          <button type="button" class="btn" id="pl-undock" hidden><span data-i18n="pl.undock">Trazer o leitor para aqui</span></button>
+          <a class="btn ghost" id="pl-open" href="https://open.spotify.com/" target="_blank" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-spotify"/></svg><span data-i18n="pl.open">Abrir no Spotify</span></a>
+        </div>
+        <p class="pl-fine"><span id="pl-privacy" data-i18n="pl.privacy">Nada é carregado do Spotify até escolheres «Ouvir aqui».</span> <span data-i18n="pl.preview">Sem sessão iniciada no Spotify, o leitor toca 30 segundos de cada música. Para ouvires tudo, abre a playlist no Spotify; no telemóvel, abre na app.</span></p>
+        <p class="sr-only" id="pl-status" aria-live="polite"></p>
       </div>
     </div>
   </div>

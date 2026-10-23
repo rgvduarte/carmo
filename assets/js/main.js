@@ -1,10 +1,11 @@
-// Page bootstrap: language, nav, smooth scroll, scroll-driven scenes, data blocks and the sponsor studio.
+// Page bootstrap: language, nav, smooth scroll, scroll-driven scenes, data blocks, the playlist and the sponsor studio.
 import { initLang, onLang, t, pick, money, numFmt, getLang, fmtDay } from './i18n.js';
 import { SITE, RESULTS, SEASON, BUDGET, IRONMAN_SPLITS, SOCIAL } from './data.js';
 import { weekMultiples, heatmap, splitBar } from './charts.js';
 import { initMarks, refreshMarks } from './marks.js';
 import { flowSet, flowStatic } from './flow.js';
 import { initAdspace, userHasInteracted, deepLinked } from './adspace.js';
+import { initPlaylist } from './playlist.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -354,6 +355,7 @@ $('#print-kit').addEventListener('click', () => window.print());
 const folded = () => $$('details.all-results');
 addEventListener('beforeprint', () => folded().forEach((d) => { d.dataset.wasOpen = String(d.open); d.open = true; }));
 addEventListener('afterprint', () => folded().forEach((d) => { if (d.dataset.wasOpen === 'false') d.open = false; }));
+safe(initPlaylist);
 initReveal();
 document.documentElement.classList.add('ready');
 flowStatic();

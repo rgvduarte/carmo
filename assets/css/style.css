@@ -468,6 +468,73 @@ section { position: relative; }
   .strava-card .btn { grid-column: 1 / -1; }
 }
 
+/* ---------- playlist: cover card, player in place, docked player ---------- */
+.listen { margin-top: clamp(72px, 9vw, 128px); padding-top: clamp(40px, 5vw, 64px); border-top: 1px solid var(--line-2); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 540px); gap: clamp(32px, 6vw, 96px); align-items: center; }
+.listen-copy .h3 { margin-bottom: 22px; }
+.listen-copy .lead { max-width: 44ch; }
+.pl { min-width: 0; }
+/* 352 px is Spotify's playlist embed: the cover card holds the same box, so the swap does not move the page */
+.pl-stage { position: relative; min-height: 354px; border: 1px solid var(--line); border-radius: var(--r); background: var(--bg-2); overflow: hidden; }
+.pl-face { min-height: 352px; padding: clamp(18px, 2.2vw, 24px); display: flex; flex-direction: column; justify-content: space-between; gap: 18px; }
+.pl-head { display: grid; grid-template-columns: clamp(96px, 26%, 136px) minmax(0, 1fr); gap: 18px; align-items: center; }
+.pl-cover { display: block; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--bg-3); box-shadow: 0 14px 30px -12px rgba(0,0,0,.8); }
+.pl-cover img { width: 100%; height: 100%; object-fit: cover; }
+.pl-k { margin: 0; font: 500 11px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.pl-name { margin: 10px 0 0; font: 700 clamp(20px, 2vw, 26px)/1.12 var(--sans); letter-spacing: -0.02em; }
+.pl-sub { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+.pl-artists { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.pl-bars { display: grid; grid-template-columns: repeat(var(--n, 31), minmax(0, 1fr)); align-items: end; gap: 2px; height: 44px; }
+.pl-bars i { display: block; border-radius: 1px; background: rgba(242,241,236,0.5); }
+.pl-bars i.peak, .pl-phases li.peak::before { background: var(--gold); }
+.pl-phases { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font: 500 11px/1.3 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pl-phases li { display: inline-flex; align-items: center; gap: 6px; }
+.pl-phases li::before { content: ""; width: 8px; height: 8px; border-radius: 1px; background: rgba(242,241,236,0.5); }
+.pl-phases b { color: var(--ink); font-weight: 600; }
+.pl-frame { display: none; }
+.pl-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: var(--bg-2); }
+.pl-frame iframe:focus-visible { outline-offset: -3px; border-radius: 12px; }   /* the stage clips anything outside */
+.pl.inline .pl-face { display: none; }
+.pl.inline .pl-frame { display: block; position: absolute; inset: 0; }
+/* docked: the same iframe, fixed to the bottom; it climbs over the studio's package bar and steps aside for the spot sheet */
+.pl.docked .pl-frame {
+  display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 6px;
+  position: fixed; z-index: 46; right: max(16px, env(safe-area-inset-right)); bottom: calc(16px + env(safe-area-inset-bottom)); width: min(440px, calc(100% - 32px));
+  padding: 6px; border: 1px solid var(--line-2); border-radius: 18px; background: var(--bg-2); box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  transition: transform .5s var(--ease); animation: dockIn .5s var(--ease);
+}
+.pl.docked .pl-frame iframe { height: 80px; border-radius: 12px; }
+.pl-tag { display: none; }
+body.pk-on .pl.docked .pl-frame { transform: translateY(calc(-1 * (var(--pk-h, 64px) + 10px))); }
+body.sheet-open .pl.docked .pl-frame { transform: translateY(calc(100% + 40px)); visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
+@keyframes dockIn { from { opacity: 0; translate: 0 24px; } }
+.pl-x { border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--ink); font-size: 22px; line-height: 1; display: grid; place-items: center; transition: background .2s, border-color .2s; }
+.pl-x:hover { background: var(--bg-3); border-color: var(--line-2); }
+.pl-note { display: flex; align-items: center; gap: 10px; margin: 16px 0 0; font-size: 14px; }
+.pl-note .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+.pl-acts { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.pl-fine { margin: 14px 0 0; font-size: 12px; line-height: 1.5; color: var(--dim); }
+body.dock-on footer { padding-bottom: calc(126px + env(safe-area-inset-bottom)); }
+body.dock-on.pk-on footer { padding-bottom: calc(126px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
+@media (max-width: 960px) {
+  .listen { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .pl.docked .pl-frame { left: calc(12px + env(safe-area-inset-left)); right: calc(12px + env(safe-area-inset-right)); width: auto; }
+  .pl-acts .btn { flex: 1 1 auto; }
+}
+/* Spotify's 80 px player needs about 300 px or its play button falls off: under 390 px the close button moves to a top row */
+@media (max-width: 389px) {
+  .pl.docked .pl-frame { grid-template-columns: minmax(0, 1fr) 40px; grid-template-areas: "tag x" "player player"; row-gap: 4px; }
+  .pl.docked .pl-frame iframe { grid-area: player; }
+  .pl.docked .pl-x { grid-area: x; height: 30px; font-size: 18px; }
+  .pl.docked .pl-tag { grid-area: tag; display: block; align-self: center; padding-left: 6px; font: 500 11px/1.2 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.dock-on footer { padding-bottom: calc(160px + env(safe-area-inset-bottom)); }
+  body.dock-on.pk-on footer { padding-bottom: calc(160px + var(--pk-h, 64px) + 10px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 339px) {
+  .pl.docked .pl-frame { left: calc(6px + env(safe-area-inset-left)); right: calc(6px + env(safe-area-inset-right)); padding: 4px; border-radius: 16px; }
+}
+
 /* ---------- season 2027 ---------- */
 .season-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
 .season-title .hib { width: clamp(48px, 6vw, 84px); height: auto; color: var(--ink-dark); flex: none; }
@@ -848,7 +915,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   @page { size: A4; margin: 12mm; }
   :root { color-scheme: light; --ink: #111; --muted: #555; --dim: #666; --line: rgba(0,0,0,.14); --line-2: rgba(0,0,0,.25); --bg: #fff; --bg-2: #fff; --bg-3: #f4f4f4; --gold: var(--gold-ink); }
   body { background: #fff; color: #111; font-size: 10.5pt; }
-  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .studio, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .all-results summary, .strava-card, .season-title .hib { display: none !important; }
+  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .studio, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .all-results summary, .strava-card, .season-title .hib, .listen { display: none !important; }
   .section, .marks { padding: 14pt 0; }
   .card, .race, .sheet-row, .kpi, .contact-list li, .budget .row, .year, .give { break-inside: avoid; }
   h2, h3 { break-after: avoid; }

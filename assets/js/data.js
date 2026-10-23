@@ -1,4 +1,4 @@
-// Content that changes during the season lives here: links, results, calendar, budget.
+// Content that changes during the season lives here: links, results, calendar, budget, playlist.
 // Edit this file (or data/spots.json for the suit) and push; the page updates itself.
 
 export const SITE = {
@@ -15,7 +15,23 @@ export const SITE = {
   payee: 'Gonçalo Carmo',
   // Optional: the phone number linked to MB WAY (e.g. '916395103'). Leave empty to hide it.
   mbway: '',
+  // The public Spotify link of "Go Hard and Go Carmo" (Share > Copy link to playlist). While it is empty the
+  // "Ouve o que eu ouço" block does not show. Off the live domain, ?playlist=<link> previews any public playlist.
+  playlist: '',
   updated: '2026-10-22',
+};
+
+// The playlist as it is on Spotify: shown on the cover card before anything loads from Spotify.
+// `phases` is the running order, in tracks; keep it in step with the playlist if it changes.
+export const PLAYLIST = {
+  name: 'Go Hard and Go Carmo',
+  artists: ['Plutónio', 'Dillaz', 'X-Tense', 'GROGNation', 'Regula', 'Papillon', 'Drake', 'Justin Bieber', 'J. Cole', 'Tems'],
+  phases: [
+    { k: 'warm', pt: 'Aquecimento', en: 'Warm-up', n: 6 },
+    { k: 'build', pt: 'Progressão', en: 'Build', n: 8 },
+    { k: 'peak', pt: 'Pico', en: 'Peak', n: 9 },
+    { k: 'cool', pt: 'Retorno à calma', en: 'Cool-down', n: 8 },
+  ],
 };
 
 // Official results (timing companies / IRONMAN), checked 22 Oct 2026.

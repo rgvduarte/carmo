@@ -89,6 +89,19 @@ const EN = {
   "data.sh": "Strava profile",
   "data.sp": "Swim, bike and run, with distance, pace and climbing for every session.",
   "data.sb": "Open in Strava",
+  "pl.k": "Soundtrack",
+  "pl.h": "Hear what I hear.",
+  "pl.p": "It's what I listen to when I train: mostly Portuguese rap, with Drake, Justin Bieber, J. Cole and Tems in between. It runs like a session, with a warm-up, a build, a peak and a cool-down.",
+  "pl.alt": "Cover of the Go Hard and Go Carmo playlist: Gonçalo on the bike, in the aero position",
+  "pl.kind": "Spotify playlist",
+  "pl.play": "Listen here",
+  "pl.dock": "Listen while you browse",
+  "pl.undock": "Bring the player back here",
+  "pl.open": "Open in Spotify",
+  "pl.docked": "The player is docked at the bottom of the screen. To stop the music, close it with the ×.",
+  "pl.privacy": "Nothing loads from Spotify until you choose “Listen here”.",
+  "pl.preview": "If you're not logged in to Spotify, the player plays 30 seconds of each track. To hear it all, open the playlist in Spotify; on a phone, it opens in the app.",
+  "a.plx": "Close the player",
   "season.k": "04 · Goals",
   "season.h": "The 2027<br>season",
   "season.p": "Seven races in Portugal and Spain, from February to September, including a qualifying IRONMAN for Kona. IRONMAN races have official photographers. Before and after every race, I post with my sponsors tagged.",
@@ -278,6 +291,8 @@ const PT_JS = {
   'strava.heat': 'Horas por dia, últimas 52 semanas',
   'share.title': 'Espaço no fato do Gonçalo Carmo', 'mock.sub': (n, p) => `Espaço ${n} · ${p} · época 2027 · Gonçalo Carmo`,
   'gfm.soon': 'A campanha no GoFundMe abre em breve.', 'suit.no3d': 'A vista 3D não está disponível neste dispositivo. A tabela tem todos os espaços.', 'gfm.help': 'Quero apoiar',
+  'pl.count': (n) => `${n} músicas`, 'pl.with': (list) => `Com ${list}.`, 'pl.frame': (name) => `Leitor do Spotify: ${name}`, 'pl.region': 'Leitor do Spotify',
+  'pl.s.dock': 'O leitor ficou fixo no fundo do ecrã.', 'pl.s.undock': 'O leitor voltou para a secção.', 'pl.s.close': 'Leitor fechado. A música parou.',
 };
 const EN_JS = {
   'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders',
@@ -302,6 +317,8 @@ const EN_JS = {
   'strava.heat': 'Hours per day, last 52 weeks',
   'share.title': 'A spot on Gonçalo Carmo\'s suit', 'mock.sub': (n, p) => `Spot ${n} · ${p} · 2027 season · Gonçalo Carmo`,
   'gfm.soon': 'The GoFundMe page opens soon.', 'suit.no3d': 'The 3D view is not available on this device. The rate card has every spot.', 'gfm.help': 'I want to help',
+  'pl.count': (n) => `${n} tracks`, 'pl.with': (list) => `With ${list}.`, 'pl.frame': (name) => `Spotify player: ${name}`, 'pl.region': 'Spotify player',
+  'pl.s.dock': 'The player is now docked at the bottom of the screen.', 'pl.s.undock': 'The player is back in the section.', 'pl.s.close': 'Player closed. The music has stopped.',
 };
 
 let lang = 'pt';
