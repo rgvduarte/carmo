@@ -24,6 +24,11 @@ const WIDTH = [[0, 0.1015, 1.8], [0.1, 0.1025, 2.2], [0.2, 0.1048, 2.45], [0.32,
   [0.52, 0.1063, 2.68], [0.58, 0.1061, 2.65], [0.64, 0.1050, 2.5], [0.72, 0.1010, 2.35], [0.76, 0.0952, 2.3], [0.8, 0.0877, 2.3],
   [0.85, 0.0729, 2.3], [0.89, 0.0605, 2.3], [0.93, 0.0460, 2.35], [0.97, 0.0329, 2.45], [1, 0.022, 2.6]];
 const V_CROWN = 0.46;     // the crown top: front-face arches fan out from the temples up to here
+// Seen from the front the lower edge is a chevron, not a level U (p46, and the race photos, where the number sits right
+// above it): the edge dips 1.8 cm at the centre in straight arms from the temples, with a slightly rounded tip. The dip
+// is a vertical shift of the lowest arches, fading out 4 cm up the front face, so the plan view keeps its round brow.
+const DIP = 0.018, V_DIP = 0.09, DIP_TIP = 0.12;
+const chevron = (t) => 1 - (Math.hypot(t, DIP_TIP) - DIP_TIP) / (Math.hypot(1, DIP_TIP) - DIP_TIP);   // t = |x| / half width
 const AXIS_Z = -0.065;    // the turntable axis runs through the middle of the helmet, not the ear canal
 const EAR_Z = -0.0897;    // ear corner: the visor ends here and the rim starts to rise
 const N = 150;            // arches, evenly spaced along the centreline
@@ -35,10 +40,11 @@ const PAINT = {
   white: '#f3f4f6', red: '#ad111b', red2: '#b8141d', ink: [0x12, 0x13, 0x16],
   pbrWhite: 'rgb(0,46,0)', pbrFoil: 'rgb(90,100,40)', pbrVinyl: [0, 77, 0],
 };
-// Red holographic stripes, measured on the top view (p45): [v, inner edge, total width] in metres of arc from the
-// centreline. About 10.5 cm apart over the front and crown, then converging and tapering towards the tail. Of the total,
-// 70% is the wide holographic stripe, 10% the white pinstripe and 20% the narrow red stripe.
-const STRIPES = [[0, 0.050, 0.035], [0.2, 0.051, 0.035], [0.37, 0.053, 0.035], [0.55, 0.053, 0.032], [0.64, 0.049, 0.027],
+// Red holographic stripes, measured on the top view (p45) and the front view (p46): [v, inner edge, total width] in
+// metres of arc from the centreline. About 10 cm apart over the front and crown, then converging and tapering towards the
+// tail; on the front face they widen towards the brow (5 cm at the visor line). Of the total, 70% is the wide
+// holographic stripe, 10% the white pinstripe and 20% the narrow red stripe.
+const STRIPES = [[0, 0.049, 0.051], [0.15, 0.050, 0.046], [0.3, 0.052, 0.038], [0.37, 0.053, 0.035], [0.55, 0.053, 0.032], [0.64, 0.049, 0.027],
   [0.735, 0.0455, 0.022], [0.805, 0.042, 0.016], [0.87, 0.039, 0.0115], [0.92, 0.036, 0.0075], [1, 0.032, 0.0025]];
 const stripeIn = (v) => hermite(STRIPES, v)[0];
 const stripeW = (v) => hermite(STRIPES, v)[1] * 0.7;
@@ -93,7 +99,7 @@ class Shell {
       const v = i / (N - 1), c = rim.getPointAt(tau(v));
       const f = new THREE.Vector3().subVectors(S, c), b = f.length();
       const [a, n] = hermite(WIDTH, v);
-      const A = { v, c, f: f.divideScalar(b), b, a, e: 2 / n, L: new Float32Array(K + 1) };
+      const A = { v, c, f: f.divideScalar(b), b, a, e: 2 / n, dip: DIP * (1 - smooth(clamp(v / V_DIP, 0, 1))), L: new Float32Array(K + 1) };
       const p = this.point(A, -Math.PI / 2), q = new THREE.Vector3();
       for (let k = 1; k <= K; k++) { this.point(A, phiOfT((2 * k) / K - 1), q); A.L[k] = A.L[k - 1] + p.distanceTo(q); p.copy(q); }
       A.half = A.L[K] / 2;
@@ -101,9 +107,12 @@ class Shell {
     });
     this.span = 1.03 * Math.max(...this.arches.map((A) => A.L[K]));
   }
-  // point on an arch at angle phi (0 = top centreline, +90 deg = left rim)
+  // point on an arch at angle phi (0 = top centreline, +90 deg = left rim), the lowest arches pulled down into the chevron
   point(A, phi, out = new THREE.Vector3()) {
-    return out.copy(A.c).addScaledVector(X, A.a * sgnPow(Math.sin(phi), A.e)).addScaledVector(A.f, A.b * Math.pow(Math.max(0, Math.cos(phi)), A.e));
+    const sn = Math.sin(phi);
+    out.copy(A.c).addScaledVector(X, A.a * sgnPow(sn, A.e)).addScaledVector(A.f, A.b * Math.pow(Math.max(0, Math.cos(phi)), A.e));
+    if (A.dip) out.y -= A.dip * chevron(Math.pow(Math.abs(sn), A.e));
+    return out;
   }
   sOf(A, phi) {   // signed arc length from the top
     const k = ((tOfPhi(phi) + 1) / 2) * K, k0 = clamp(Math.floor(k), 0, K - 1);
