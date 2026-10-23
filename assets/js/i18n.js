@@ -12,7 +12,7 @@ const EN = {
   "hero.alt": "Gonçalo Carmo smiling at the finish line, wearing sunglasses",
   "hero.role": "Triathlete · Lisbon",
   "hero.big": "Every race, every session",
-  "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. Now I want to make triathlon my living, with brands on the team, as in motocross. The goal is a Kona slot.",
+  "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. Now I want to make triathlon my living, with brands on the team, as I had in motocross. The goal is a Kona slot.",
   "hero.cta1": "See the suit and helmet",
   "hero.cta2": "Support",
   "hero.t1": "Marathon",
@@ -52,7 +52,7 @@ const EN = {
   "story.t4": "seven races with brands",
   "flight.d0": "Swim · 3.8 km",
   "flight.h0": "Kailua Bay.",
-  "flight.p0": "Kona is a non-wetsuit ocean swim. In Cascais, in a wetsuit, I swam 1:01:42.",
+  "flight.p0": "Kona, the target race, is a non-wetsuit ocean swim. In Cascais, in a wetsuit, I swam 1:01:42.",
   "flight.d1": "Bike · 180 km",
   "flight.h1": "Queen Kaʻahumanu Highway.",
   "flight.p1": "It's five hours across the lava fields in crosswinds. At every triathlon, the bike is where the suit and helmet stay in view the longest. My bike split in Cascais was 4:56.",
@@ -282,7 +282,7 @@ const EN = {
   "sup.mc": "Copy number",
   "sup.to": "To",
   "a.view1": "Suit view", "a.view2": "Helmet view", "a.zoomout": "Zoom out", "a.zoomin": "Zoom in", "a.sort": "Sort", "a.pkg": "Package", "a.close": "Close",
-  "a.mainnav": "Main", "a.home": "Gonçalo Carmo, home", "a.flight": "Kona, the target race, leg by leg",
+  "a.mainnav": "Main", "a.home": "Gonçalo Carmo, home", "a.title": "Gonçalo Carmo · Every race, every session", "a.flight": "Kona, the target race, leg by leg",
   "a.splits": "Splits: swim 1:01:42, T1 6:00, bike 4:56:43, T2 3:22, run 3:27:22",
 };
 

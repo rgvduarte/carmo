@@ -1,4 +1,4 @@
-# Gonçalo Carmo · Road to Kona
+# Gonçalo Carmo · Cada prova, cada treino
 
 Página de atleta e plataforma de patrocínio do fato e do capacete de competição da época 2027.
 Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor.
