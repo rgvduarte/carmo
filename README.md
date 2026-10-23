@@ -170,9 +170,21 @@ alternativa, mas só depois de o branch por defeito ser `gh-pages`.
 
 ## Ligar o Strava (uma vez)
 
-Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo:
+Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo.
 
-1. Em https://www.strava.com/settings/api cria uma aplicação (Website: `https://gocarmo.com/`, Authorization Callback Domain: `localhost`).
+**Pelo telemóvel (o caminho normal):** abre **https://gocarmo.com/admin/strava/** e segue os cinco passos. A página cria a ligação no próprio browser e mostra os três valores para copiar para o GitHub:
+
+1. Cria a aplicação no Strava (os valores a escrever estão na página, cada um com botão de copiar) e cola o Client ID.
+2. Autoriza com a conta do Gonçalo. O Strava volta sozinho à página.
+3. Cola o Client Secret. A página troca o código pelo refresh token e mostra «Ligado como …».
+4. Cria os três secrets no GitHub, um por linha: `STRAVA_CLIENT_ID`, `STRAVA_CLIENT_SECRET` e `STRAVA_REFRESH_TOKEN`. Só a conta dona do repositório pode criar secrets.
+5. Actions → **Strava sync** → Run workflow. A partir daí corre todas as manhãs.
+
+A página só fala com `www.strava.com` (a CSP não deixa outra ligação) e não guarda nada: o Client ID fica no separador (sessionStorage) só durante a ida e volta ao Strava, o Client Secret e os tokens ficam em memória. «Limpar» apaga tudo.
+
+**À mão, com terminal (alternativa):**
+
+1. Em https://www.strava.com/settings/api cria uma aplicação (Website: `https://gocarmo.com`, Authorization Callback Domain: `gocarmo.com`; o Strava aceita sempre `localhost` também).
 2. Abre, com a conta do Gonçalo:
    `https://www.strava.com/oauth/authorize?client_id=CLIENT_ID&response_type=code&redirect_uri=http://localhost&approval_prompt=force&scope=read,activity:read_all`
 3. Depois de autorizar, o browser vai para `http://localhost/?code=XXXX…`. Copia o valor de `code`.
@@ -202,7 +214,9 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html` e de `admin/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html` e de `admin/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+
+Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo.
 
 ## Créditos técnicos
 
