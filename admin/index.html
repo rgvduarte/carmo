@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'sha256-dOQZsju1waUYmYzJ2R9tpNse7cO6y2L9bMKOJXEdLHc='; connect-src 'self' https://api.github.com https://gocarmo.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-URmpp6ZhyWOFCcQrP1sOLvxn+T6YXkbTNkW/NmrwIio='; connect-src 'self' https://api.github.com https://gocarmo.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/css/admin.css">
-<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }</script>
+<script type="importmap">{ "imports": { "three": "../assets/vendor/three@0.170.0/build/three.module.min.js", "three/addons/": "../assets/vendor/three@0.170.0/examples/jsm/" } }</script>
 <script type="module" src="../assets/js/admin.js"></script>
 </head>
 <body>
@@ -32,7 +32,7 @@
       <li>Abre <b>github.com/settings/personal-access-tokens/new</b> (botão abaixo) com a conta dona do repositório.</li>
       <li>Em «Repository access» escolhe «Only select repositories» e depois <b>rgvduarte/carmo</b>. Validade: 90 dias.</li>
       <li>Em «Permissions» junta <b>Contents</b> e escolhe <b>Read and write</b>. O Metadata fica em Read sozinho.</li>
-      <li>Carrega em «Generate token», copia o código (começa por <code>github_pat_</code>) e cola-o aqui em baixo.</li>
+      <li>Carrega em «Generate token» e copia o código (começa por <code>github_pat_</code>). O GitHub só o mostra uma vez: guarda-o nas Palavras-passe ou nas Notas do telemóvel e cola-o aqui em baixo.</li>
     </ol>
     <a class="btn ghost" id="new-token" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Criar token no GitHub ↗</a>
   </section>
@@ -42,13 +42,13 @@
       <label for="tok">Token</label>
       <input id="tok" name="tok" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_…" enterkeyhint="go">
     </div>
-    <label class="check"><input type="checkbox" id="remember"><span>Lembrar neste telemóvel</span></label>
-    <p class="hint">Sem isto, sais quando fechares o separador.</p>
+    <label class="check"><input type="checkbox" id="remember" aria-describedby="remember-hint"><span>Lembrar neste telemóvel</span></label>
+    <p class="hint" id="remember-hint">Guarda o token neste telemóvel, para todo o site gocarmo.com. Sem isto, ao fechar o separador tens de colar o token outra vez.</p>
     <button class="btn gold wide" type="submit" id="login-go">Entrar</button>
     <p class="err" id="login-err" role="alert" aria-live="assertive"></p>
   </form>
 
-  <p class="fine">Se o GitHub não te deixar escolher rgvduarte/carmo (és colaborador e não dono), <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=gocarmo%20admin" target="_blank" rel="noopener">cria um token clássico</a> com public_repo e 30 dias de validade.</p>
+  <p class="fine">Se o GitHub não te deixar escolher rgvduarte/carmo (és colaborador e não dono), <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=gocarmo%20admin" target="_blank" rel="noopener">cria um token clássico</a> só com public_repo e 7 dias de validade. Atenção: esse token pode escrever em todos os repositórios públicos a que a tua conta tem acesso, não só neste. Apaga-o quando acabares.</p>
   <p class="fine">Sem token à mão? <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">Usa o formulário do GitHub</a>.</p>
 </main>
 
@@ -59,12 +59,13 @@
       <span class="mark"><img src="../assets/img/favicon.svg" alt="" width="22" height="22">GOCARMO<span class="tag">ADMIN</span></span>
       <span class="who mono" id="who"></span>
       <button class="icon" type="button" id="reload" aria-label="Atualizar a lista" title="Atualizar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="btn sm ghost" type="button" id="logout">Sair</button>
+      <button class="btn sm ghost logout" type="button" id="logout">Sair</button>
     </div>
   </header>
 
   <main class="wrap list-main">
     <p class="meta mono" id="meta" aria-live="polite">A ler do GitHub…</p>
+    <div class="pub" id="pub" role="status" aria-live="polite" hidden></div>
     <p class="summary" id="summary"></p>
 
     <section class="card ref">
@@ -89,7 +90,7 @@
 
   <div class="bar" id="bar" hidden>
     <div class="bar-in wrap">
-      <p class="bar-sum"><b id="bar-n"></b><span id="bar-total"></span><button type="button" class="link" id="bar-clear">Limpar</button></p>
+      <p class="bar-sum"><b id="bar-n"></b><span id="bar-total"></span><button type="button" class="link clear" id="bar-clear">Limpar</button></p>
       <div class="acts">
         <button type="button" class="btn" data-act="reserved">Reservar</button>
         <button type="button" class="btn gold" data-act="sold">Vendido</button>
@@ -120,10 +121,12 @@
       <label for="f-until">Reservado até</label>
       <input id="f-until" type="date">
       <p class="hint">Depois deste dia o espaço volta a ficar livre sozinho.</p>
+      <ul class="holds" id="sh-holds" hidden></ul>
     </div>
     <div class="field" data-only="sold">
       <span class="lbl" id="logo-lbl">Logótipo <span class="opt">(opcional)</span></span>
       <label class="btn ghost file"><input id="f-logo" type="file" class="sr-only" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-labelledby="logo-lbl">Escolher logótipo</label>
+      <p class="hint">PNG, JPG ou WebP até 3 MB. Um SVG é convertido em PNG.</p>
       <p class="file-info mono" id="logo-info" hidden></p>
       <div class="tiles" id="tiles" hidden>
         <figure class="tile on-white"><img id="tile-w" alt="O logótipo sobre branco"><figcaption>Sobre branco</figcaption></figure>

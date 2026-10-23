@@ -20,6 +20,8 @@ export const MSG = {
   logoType: 'O logótipo tem de ser PNG, JPG, WebP ou SVG.',
   logoBig: 'O logótipo tem mais de 3 MB.',
   svgActive: 'Este SVG tem código ativo. Exporta-o em PNG.',
+  svgBad: 'Este SVG não abre como imagem. Exporta-o em PNG.',
+  svgRaster: 'Não consegui converter este SVG em PNG. Exporta-o em PNG.',
 };
 
 export class RuleError extends Error {}
@@ -85,6 +87,7 @@ export function normalize(action, { brand = '', url = '', until = '' } = {}, tod
 // files to write (all with the one logo blob) and delete.
 export function applyAction(raw, ids, action, f, { today, brandFiles = [], logoExt = null } = {}) {
   if (!['reserved', 'sold', 'available'].includes(action)) throw new RuleError('Estado inválido.');
+  if (logoExt && !STORED.includes(logoExt)) throw new RuleError('Um SVG não vai para o site tal como está: a página converte-o primeiro em PNG.');
   const data = structuredClone(raw);
   const writes = [], deletes = new Set();
   const filesOf = (id) => brandFiles.filter((name) => name.startsWith(`${id}.`)).map((name) => `${BRANDS}/${name}`);
@@ -149,8 +152,9 @@ const hostOf = (u) => { try { return u ? new URL(u).host.replace(/^www\./, '') :
 
 // ---------- guards (on the effective view) ----------
 // blocked: the action cannot go ahead. confirms: it can, after a yes. brand: the normalised brand, or
-// undefined before the sheet is filled in (then only the checks that do not depend on it run).
-export function guard(raw, now, ids, action, brand) {
+// undefined before the sheet is filled in (then only the checks that do not depend on it run). until: the
+// reservation's new last day, when known.
+export function guard(raw, now, ids, action, brand, until) {
   const v = effective(raw, now), T = v.title, blocked = [], confirms = [];
   const known = brand !== undefined;
   const titleHeld = T.status === 'reserved' || T.status === 'sold';
@@ -180,10 +184,26 @@ export function guard(raw, now, ids, action, brand) {
     if (!known) continue;
     if (x.own === 'reserved' && r.brand !== brand) confirms.push(action === 'reserved'
       ? `${lbl}: substitui a reserva de ${who} (até ${fmtDay(r.until)}).`
-      : `${lbl}: estava reservado para ${who} até ${fmtDay(r.until)}. Passa a ${brand}.`);
+      : `${lbl}: estava reservado para ${who} (até ${fmtDay(r.until)}). Passa a ${brand}.`);
+    // the same brand asking for one more spot must not cut its longer hold short without a word
+    if (action === 'reserved' && x.own === 'reserved' && r.brand === brand && until && r.until && until < r.until)
+      confirms.push(`${lbl}: a reserva de ${who} acabava a ${fmtDay(r.until)}; passa a acabar a ${fmtDay(until)}`);
     if (x.own === 'sold' && r.brand !== brand) confirms.push(`${lbl}: vendido a ${who}. Fica de ${brand}${r.logo ? ` e o logótipo de ${who} sai do site` : ''}.`);
   }
   return { blocked: [...new Set(blocked)], confirms };
+}
+
+// the reservations the targets hold now (a lapsed one is gone), for the sheet and the default date
+export function holds(raw, now, ids) {
+  const v = effective(raw, now);
+  return sortTargets(raw, ids).map((id) => ({ id, x: targetOf(v, id), r: targetOf(raw, id) }))
+    .filter(({ x, r }) => x && r && x.own === 'reserved' && r.until).map(({ id, r }) => ({ id, brand: r.brand || '', until: r.until }));
+}
+// today + 3, or later when the same brand already holds a selected spot for longer
+export function defaultUntil(raw, now, ids, brand) {
+  const d = addDays(todayUTC(now), 3);
+  const held = brand ? holds(raw, now, ids).filter((h) => h.brand === brand).map((h) => h.until).sort().pop() : '';
+  return held && held > d ? held : d;
 }
 
 // what the admin saw of each target when the sheet opened; a save stops if any of it changed meanwhile
@@ -197,10 +217,29 @@ export function changedSince(snap, raw) {
 }
 
 // ---------- payment reference: 'KONA 01 21 22', 'kona 1,21', 'KONA-01-21', 'KONA FATO' ----------
-export function parseRef(text, data) {
-  // what comes after KONA, when it is there (a pasted bank line may carry a date or an amount before it)
+// Only the run of codes right after KONA counts. A pasted bank line may carry a date before KONA and an amount after
+// the codes ('TRF KONA 21 22 600,00 EUR', 'KONA 21 · 20,00 €', 'KONA 03 1 080,00'): the run stops at the first word
+// that is not a code, at an amount and at any number of three or more digits.
+const REF_SEP = /[\s;·|+&#-]+/;
+const REF_LIST = /^\d{1,2}(?:[.,]\d{1,2})*$/;   // '01', '1,21', '01.21'
+// '20,00', '600.00' and '1,00' are amounts; '1,21' is spots 1 and 21 (no price has cents)
+const isAmount = (t) => { const m = t.match(/^(\d+)[.,](\d{2})$/); return !!m && (m[1].length >= 3 || m[2] === '00'); };
+export function refTokens(text) {
   const up = String(text || '').toUpperCase(), at = up.indexOf('KONA');
-  const toks = (at >= 0 ? up.slice(at + 4) : up).match(/FATO|APOIO|\d+/g) || [];
+  const parts = (at >= 0 ? up.slice(at + 4) : up).split(REF_SEP).map((t) => t.replace(/^[.,]+|[.,]+$/g, '')).filter(Boolean);
+  const toks = [];
+  for (let i = 0; i < parts.length; i++) {
+    const t = parts[i];
+    if (t === 'FATO' || t === 'APOIO') { toks.push(t); continue; }
+    if (t === 'E') continue;   // 'KONA 21 E 22'
+    if (isAmount(t) || !REF_LIST.test(t)) break;
+    if (/^\d$/.test(t) && /^\d{3}(?:[.,]\d{2})?$/.test(parts[i + 1] || '')) break;   // '1 080,00': an amount's first digit
+    toks.push(...t.split(/[.,]/));
+  }
+  return toks;
+}
+export function parseRef(text, data) {
+  const toks = refTokens(text);
   const out = { ids: [], unknown: [], note: '' };
   if (toks.includes('APOIO') && !toks.some((x) => x !== 'APOIO')) { out.note = 'KONA APOIO é um donativo, não um espaço.'; return out; }
   const nums = [...new Set(toks.filter((x) => /^\d+$/.test(x)).map(Number))];
@@ -250,9 +289,13 @@ export function sniffLogo(bytes) {
   return null;
 }
 export const MIME = { png: 'image/png', jpg: 'image/jpeg', webp: 'image/webp', svg: 'image/svg+xml' };
+// What may go to assets/img/brands. A logo is served from gocarmo.com, the origin that keeps the admin token, and an
+// SVG opened on its own is a document there that runs its scripts. So the page draws an SVG onto a canvas and
+// uploads that PNG: the brand's SVG bytes never reach the site. The checks below only explain early why a file
+// will not do; they are not what keeps the site safe.
+export const STORED = ['png', 'jpg', 'webp'];
 
-// A logo is served from gocarmo.com, the origin that keeps the admin token, and an SVG opened on its own runs its
-// scripts: refuse any active content or reference that leaves the file.
+// a quick look at the text (the page also checks the parsed file, svgProblem)
 export function svgSafe(text) {
   if (/<script|<foreignObject|<iframe|<embed|<object|<!ENTITY|\son[a-z]+\s*=|javascript:/i.test(text)) return false;
   for (const m of text.matchAll(/(?:^|[\s"'])(?:xlink:)?href\s*=\s*(["'])([\s\S]*?)\1/gi)) {
@@ -276,6 +319,75 @@ export function checkLogo(bytes) {
   return { ext, mime: MIME[ext] };
 }
 export const logoPath = (id, ext) => `${BRANDS}/${id}.${ext}`;
+
+// Only UTF-8: another declared encoding can hide markup from a UTF-8 reader (ISO-2022-JP: '<scr\x1b(Bipt>').
+export function svgEncodingProblem(bytes) {
+  let text;
+  try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes); } catch (_) { return MSG.svgBad; }
+  const decl = text.replace(/^\uFEFF/, '').match(/^\s*<\?xml\b[^>]*?\bencoding\s*=\s*["']([^"']*)["']/i);
+  if (decl && !/^utf-?8$/i.test(decl[1].trim())) return MSG.svgActive;
+  if (/\x1b/.test(text)) return MSG.svgActive;
+  return null;
+}
+
+// The parsed file (DOMParser, 'image/svg+xml'): entities and prefixes are resolved by then, so <s:script>, <h:iframe>
+// and l:href="&#106;avascript:" are seen for what they are. Returns the message to show, or null.
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const ACTIVE = new Set(['script', 'foreignobject', 'iframe', 'embed', 'object', 'handler', 'listener', 'audio', 'video']);
+const ANIM = new Set(['animate', 'set', 'animatetransform', 'animatemotion', 'discard']);
+const okRef = (v) => v.startsWith('#') || /^data:image\/(png|jpeg|webp|gif)[;,]/i.test(v);
+const badUrl = (t) => [...String(t).matchAll(/url\(\s*(["']?)([^"')]*)\1\s*\)/gi)].some((m) => !okRef(m[2].trim()));
+export function svgProblem(doc) {
+  const root = doc && doc.documentElement;
+  if (!root || doc.getElementsByTagName('parsererror').length || root.namespaceURI !== SVG_NS || root.localName !== 'svg') return MSG.svgBad;
+  if ([...doc.childNodes].some((c) => c.nodeType === 7)) return MSG.svgActive;   // <?xml-stylesheet href=…?>
+  for (const n of [root, ...root.getElementsByTagName('*')]) {
+    if (n.namespaceURI !== SVG_NS) return MSG.svgActive;   // XHTML, MathML or any other markup inside
+    const tag = n.localName.toLowerCase();
+    if (ACTIVE.has(tag)) return MSG.svgActive;
+    if (ANIM.has(tag)) {
+      const target = (n.getAttribute('attributeName') || '').replace(/^.*:/, '').toLowerCase();
+      if (target === 'href' || target.startsWith('on') || tag === 'discard') return MSG.svgActive;
+    }
+    for (const a of n.attributes) {
+      const name = a.localName.toLowerCase(), val = a.value.trim();
+      if (name.startsWith('on')) return MSG.svgActive;
+      if (name === 'href' && !okRef(val)) return MSG.svgActive;   // any namespace: href, xlink:href, l:href
+      if (/^\s*(java|vb)script:/i.test(val) || badUrl(val)) return MSG.svgActive;
+    }
+    if (tag === 'style' && (/@import/i.test(n.textContent) || badUrl(n.textContent))) return MSG.svgActive;
+  }
+  return null;
+}
+
+// the size to draw an SVG at: its width/height, else its viewBox (null if it gives neither)
+export function svgSize(doc) {
+  const r = doc.documentElement;
+  const num = (v) => { const m = String(v || '').trim().match(/^(\d*\.?\d+)(px)?$/); return m ? parseFloat(m[1]) : 0; };
+  let w = num(r.getAttribute('width')), h = num(r.getAttribute('height'));
+  const vb = String(r.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+  const hasVb = vb.length === 4 && vb[2] > 0 && vb[3] > 0;
+  if ((!w || !h) && hasVb) {
+    if (w) h = (w * vb[3]) / vb[2];
+    else if (h) w = (h * vb[2]) / vb[3];
+    else { w = vb[2]; h = vb[3]; }
+  }
+  return w > 0 && h > 0 ? { w, h } : null;
+}
+// canvas size for an SVG of this size: the longest side `side` px
+export function rasterSize(size, side = 1200) {
+  const k = side / Math.max(size.w, size.h);
+  return { w: Math.max(1, Math.round(size.w * k)), h: Math.max(1, Math.round(size.h * k)) };
+}
+
+// git's own id for a file's bytes (sha1 of "blob <length>\0" + bytes): tells whether a logo is already there
+export async function gitBlobSha(bytes) {
+  const head = new TextEncoder().encode(`blob ${bytes.length}\0`);
+  const all = new Uint8Array(head.length + bytes.length);
+  all.set(head); all.set(bytes, head.length);
+  const d = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-1', all));
+  return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 // ---------- helpers for the GitHub contents API ----------
 export function decodeB64Utf8(b64) {

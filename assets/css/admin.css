@@ -121,14 +121,26 @@ input::placeholder { color: var(--dim); }
 /* ---------- top bar ---------- */
 .top { position: sticky; top: 0; z-index: 20; background: rgba(11,11,12,.86); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top); }
 .top-in { display: flex; align-items: center; gap: 8px; min-height: 60px; }
-.top .mark { flex: none; font-size: 19px; margin-right: auto; }
+/* the @login gives way first, then the wordmark (a narrow phone, or before Anton has loaded): the buttons always fit */
+.top .mark { flex: 0 1 auto; min-width: 0; overflow: hidden; font-size: 19px; margin-right: auto; }
+.top .mark img { flex: none; }
 .top .mark img { width: 22px; height: 22px; }
-.who { flex: 0 1 auto; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; }
+.who { flex: 0 1000 auto; min-width: 0; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; }
 .top .icon, .top .btn { flex: none; }
+.top .logout { margin-left: 12px; }
+@media (max-width: 340px) { .top .logout { margin-left: 4px; } .top .tag { display: none; } }
 @media (max-width: 380px) { .who { display: none; } .top .tag { margin-left: 6px; } }
 
 .list-main { padding-top: 14px; padding-bottom: 28px; }
 .meta { color: var(--dim); font-size: 12px; margin: 0 0 4px; }
+/* saves on their way to the site, and the last one seen live */
+.pub { margin: 2px 0 10px; display: grid; gap: 2px; }
+.pub-l { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; margin: 0; font-size: 14px; color: var(--muted); min-height: 32px; }
+.pub-l.live { color: var(--ink); }
+.pub-l.late { color: #f3e3c0; }
+.pub-l a { display: inline-flex; align-items: center; min-height: 44px; padding: 0 4px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.pub-l .link { min-height: 44px; padding: 0 6px; color: var(--gold); }
+.pub-l .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--gold); border-right-color: transparent; animation: spin .9s linear infinite; flex: none; }
 .summary { margin: 0 0 14px; font-weight: 600; font-size: 15px; }
 .summary span { white-space: nowrap; }
 
@@ -187,7 +199,7 @@ input::placeholder { color: var(--dim); }
 .bar-sum { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; font-size: 15px; }
 .bar-sum b { font-weight: 700; }
 .bar-sum #bar-total { color: var(--muted); font-family: var(--mono); font-size: 14px; }
-.bar-sum .link { margin-left: auto; min-height: 32px; }
+.bar-sum .link { margin-left: auto; min-height: 44px; padding: 0 12px; margin-right: -12px; }
 .acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .acts .btn { padding: 0 8px; min-height: 50px; }
 
@@ -202,6 +214,7 @@ dialog.sheet[open] { animation: up .32s var(--ease); }
 dialog::backdrop { background: rgba(0,0,0,.62); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .sh-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: flex-start; gap: 12px; padding: 18px 0 12px; background: var(--bg-2); }
 .sh-head h2 { flex: 1; font: 400 25px/1.05 var(--display); font-style: italic; text-transform: uppercase; padding-top: .08em; overflow-wrap: anywhere; }
+@media (max-width: 420px) { .sh-head h2 { font-size: 22px; } }
 .x { flex: none; width: 44px; height: 44px; margin: -6px -6px 0 0; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-3); font-size: 24px; line-height: 1; color: var(--ink); }
 .sh-sum { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
 .sh-sum b { color: var(--ink); font-weight: 600; }
@@ -221,6 +234,9 @@ dialog.small .sh-foot { position: static; }
 .tile.on-black img { background: #0b0b0c; }
 .tile figcaption { font-size: 12px; color: var(--dim); margin-top: 5px; text-align: center; }
 #see3d { width: 100%; margin-top: 2px; }
+.holds { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; color: var(--ink); }
+.holds li { padding-left: 14px; position: relative; overflow-wrap: anywhere; }
+.holds li::before { content: ""; position: absolute; left: 0; top: .55em; width: 6px; height: 6px; border-radius: 50%; background: var(--gold); }
 .current { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; font-size: 14px; color: var(--muted); }
 .current img { width: 72px; height: 40px; object-fit: contain; background: #fff; border-radius: 8px; padding: 4px; flex: none; }
 
@@ -231,6 +247,7 @@ dialog.small .sh-foot { position: static; }
 .notes li.block::before { background: var(--bad); content: "×"; }
 
 .cf-list { list-style: none; margin: 0 0 12px; padding: 0; border-top: 1px solid var(--line); }
+.cf-list:empty { display: none; }
 .cf-list li { padding: 10px 2px; border-bottom: 1px solid var(--line); font-size: 15px; overflow-wrap: anywhere; }
 .cf-text { color: var(--muted); margin: 0 0 4px; font-size: 15px; }
 
@@ -247,8 +264,12 @@ dialog.small .sh-foot { position: static; }
 .ticks li.fail i { border-color: var(--bad); color: var(--bad); }
 .ticks li.fail i::before { content: "×"; }
 .ticks li.wait i { border-color: var(--gold); }
+.ticks li.unknown { color: var(--ink); }
+.ticks li.unknown i { border-color: var(--gold); color: var(--gold); }
+.ticks li.unknown i::before { content: "?"; }
 .msg { margin: 0 0 10px; font-size: 15px; }
 .msg.bad { color: var(--bad); }
+.msg.warn { color: #f3e3c0; }
 .links { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .links a { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 12px; text-decoration: none; font-weight: 500; }
 .links a span { color: var(--muted); font: 500 12px/1 var(--mono); }
@@ -281,8 +302,10 @@ dialog .toast { bottom: calc(96px + env(safe-area-inset-bottom)); }
   .acts .btn { padding: 0 24px; }
   .bar-in { display: flex; align-items: center; gap: 16px; }
   .bar-sum { margin: 0; flex: 1; }
-  .bar-sum .link { margin-left: 4px; }
+  .bar-sum .link { margin-left: 4px; margin-right: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  /* no slide-in at all: a sheet is where it stays from its first frame, so a tap lands where it was aimed */
+  dialog.sheet[open] { animation: none; }
 }
