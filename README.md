@@ -12,7 +12,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Resultados**: resultados oficiais e gráficos (meias distâncias, parciais do IRONMAN, lugar na geral).
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
 - **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
-- **O fato e o capacete**: estúdio 3D com 24 espaços à venda, 20 no fato e 4 no capacete aero (botão Fato | Capacete). Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar num pacote e reservar por WhatsApp, email ou Instagram.
+- **O fato e o capacete**: estúdio 3D com 24 espaços à venda, 20 no fato e 4 no capacete aero (botão Fato | Capacete). Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar num pacote, reservar por WhatsApp, email ou Instagram e pagar por transferência ou MB WAY.
 - **Apoiar**: GoFundMe, apoio em espécie e orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
 
@@ -25,24 +25,32 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
 | Link do GoFundMe | `assets/js/data.js` → `SITE.gofundme` |
-| IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway` |
+| IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 
 ## Vender um espaço
 
-**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva (e em Apoiar).
-O site mostra o montante já com desconto e um descritivo com os números dos espaços, por exemplo
-`KONA 01` ou `KONA 09 16 20`, para cada pagamento se ligar ao pedido sem dúvidas. Os espaços do capacete são
+**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva (e em Apoiar), ou MB WAY
+para o número do Gonçalo (916 395 103) até 2 000 € por envio, o máximo que o MB WAY deixa mandar de uma vez.
+Acima disso, como o fato completo (3 000 €), o pedido só mostra a transferência. O site mostra o montante já com
+desconto e um descritivo com os números dos espaços, por exemplo `KONA 01` ou `KONA 09 16 20`, para cada pagamento se
+ligar ao pedido sem dúvidas. Os espaços do capacete são
 os números 21 a 24, por isso um pacote com fato e capacete fica, por exemplo, `KONA 01 21 22`. O fato completo usa
-`KONA FATO` e os donativos `KONA APOIO`. IBAN, titular e MB WAY (opcional) estão em `assets/js/data.js` → `SITE`.
+`KONA FATO` e os donativos `KONA APOIO`. IBAN, titular, número MB WAY e o limite por envio estão em
+`assets/js/data.js` → `SITE` (`mbway: ''` esconde o MB WAY).
+Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. Num mês com vendas grandes, pede transferência.
 
 **O fluxo.**
-1. A marca escolhe e envia o pedido (WhatsApp, email ou Instagram), com marca, NIF e referência.
+1. A marca escolhe os espaços e carrega em **Reservar**. O pedido tem dois passos, um ecrã cada:
+   **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem) e **Pagar**
+   (Transferência ou MB WAY, cada um com três linhas para copiar: IBAN ou número, montante e código `KONA`).
+   Ao enviar o pedido por WhatsApp, email ou Instagram, a app abre com a mensagem pronta e o pedido passa
+   sozinho ao passo Pagar, à espera quando a marca voltar ao site.
 2. Confirmas em 24 horas. Se a marca precisar de tempo, marcas o espaço como **Reservado**: fica guardado
    três dias e depois volta a ficar disponível sozinho, sem teres de fazer nada.
-3. Quando a transferência entra, marcas como **Vendido**. O espaço fecha para toda a gente, sai do pacote
+3. Quando o pagamento entra, marcas como **Vendido**. O espaço fecha para toda a gente, sai do pacote
    e do tour, mostra «Vendido · Marca» na tabela, a marca entra na lista de marcas («Já no fato», «Já no capacete»
    ou os dois) e, se enviares o logótipo, ele aparece no fato ou no capacete 3D.
 4. Se duas pessoas pagarem o mesmo espaço, fica com ele quem pagou primeiro e devolves o valor ao outro

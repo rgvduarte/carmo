@@ -57,6 +57,7 @@ export async function initAdspace({ onSuitReady } = {}) {
   if (selected) select(selected); else syncItemTabs();
   onLang(() => {
     renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
+    if ($('#claim').open) renderClaim();
     for (const m of models()) { m.labels = kitLabels(); m.money = money; m.drawOverlay(); m.kick(); }
     const ld = $('#item-loading span'); if (ld) ld.textContent = t('helmet.loading');
     const gl = $('#gl-lost span'); if (gl) gl.textContent = t('stage.lost');
@@ -472,8 +473,16 @@ function renderPackage() {
   pk.classList.toggle('on', on);
   document.body.classList.toggle('pk-on', on);
   if (!on) return;
-  $('#pk-total').textContent = wantTitle ? `${t('msg.title')} · ${money(net)}` : `${t('pk.spots', list.length)} · ${money(net)}`;
-  $('#pk-list').textContent = wantTitle ? '' : `${disc ? `${t('pk.disc', Math.round(disc * 100))} (${money(gross)}) · ` : ''}${list.map((s) => pick(s).name).join(', ')}`;
+  // the total stands alone on top; the count, the bundle discount and the names share the line below, where only the
+  // names give way on a narrow screen (on phones that line runs the full width of the bar, under the buttons)
+  $('#pk-total').textContent = money(net);
+  const line = $('#pk-list'); line.textContent = '';
+  const part = (cls, txt) => { const el = document.createElement('span'); el.className = cls; el.textContent = txt; line.appendChild(el); };
+  part('pk-k', wantTitle ? t('msg.title') : t('pk.spots', list.length));
+  // flex items drop a leading space, so the separator leads with a no-break one
+  if (disc) part('pk-d', `\u00a0· ${t('pk.disc', Math.round(disc * 100))} (${money(gross)})`);
+  if (!wantTitle) part('pk-names', `\u00a0· ${list.map((s) => pick(s).name).join(', ')}`);
+  line.classList.toggle('has-d', !!disc);
 }
 
 function packageLink() {
@@ -488,38 +497,135 @@ function kindKey() {
   return kinds.has('helmet') ? (kinds.has('suit') ? 'B' : 'H') : '';
 }
 
-function message() {
+// short: the spots without their sizes; cut: characters to trim off the buyer's own message (email only, see mailUrl)
+function message({ short = false, cut = 0 } = {}) {
   const { list, net, gross, disc } = totals();
-  const brand = $('#cl-brand').value.trim(), name = $('#cl-name').value.trim(), nif = $('#cl-nif').value.trim(), extra = $('#cl-msg').value.trim();
+  const brand = $('#cl-brand').value.trim(), name = $('#cl-name').value.trim(), nif = $('#cl-nif').value.trim();
+  let extra = $('#cl-msg').value.trim();
+  if (cut > 0) extra = extra.length > cut + 1 ? `${extra.slice(0, extra.length - cut - 1).trimEnd()}…` : '';
   const lines = [t(`msg.hi${kindKey()}`), ''];
   if (wantTitle) lines.push(`${t('msg.title')}: ${money(net)}`);
   else {
     lines.push(`${t('msg.spots')}:`);
-    for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name} (${sizeOf(s, '×')}) · ${money(s.price)}`);
+    for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name}${short ? '' : ` (${sizeOf(s, '×')})`} · ${money(s.price)}`);
     lines.push(`${t('msg.total')}: ${money(net)}${disc ? ` (${money(gross)} −${Math.round(disc * 100)}%)` : ''}`);
   }
   if (brand) lines.push(`${t('msg.brand')}: ${brand}`);
   if (name) lines.push(`${t('msg.name')}: ${name}`);
   if (nif) lines.push(`${t('msg.nif')}: ${nif}`);
   lines.push(`${t('msg.ref')}: ${payRef()}`);
+  lines.push(t(mbwayOk(net) ? 'msg.pay' : 'msg.payTr'));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
 }
 
+// The email goes through the device's own mail app: a plain mailto: link, never a webmail compose URL. Some mail apps
+// cut a long mailto, so the body stays under MAIL_MAX characters: a big package drops the spot sizes first, then a long
+// message of the buyer's own is trimmed (WhatsApp and Instagram carry the full text).
+const MAIL_MAX = 1800;
+function mailUrl() {
+  let body = message();
+  if (body.length > MAIL_MAX) body = message({ short: true });
+  if (body.length > MAIL_MAX) body = message({ short: true, cut: body.length - MAIL_MAX });
+  return `mailto:${SITE.email}?subject=${encodeURIComponent(t(`msg.subject${kindKey()}`))}&body=${encodeURIComponent(body)}`;
+}
+
+// ---------- booking dialog ----------
+// Two steps, one screen each: 1 «Reservar» (what, the brand, send the request) and 2 «Pagar» (transfer or MB WAY).
+// Every send action opens the app and moves the dialog on to step 2, so the payment waits there when the buyer is back.
+let clStep = 1, payTab = 'tr', sentBy = '';
+// MB WAY takes at most SITE.mbwayMax per transfer (2 000 EUR, exactly 2 000 included); above it, transfer only
+const mbwayOk = (net) => !!SITE.mbway && net <= (SITE.mbwayMax || Infinity);
+
 function openClaim() {
-  const { list, net } = totals();
-  const label = wantTitle ? t('msg.title') : t('pk.spots', list.length);
-  const lines = wantTitle ? [] : list.map((s) => `<li>${String(s.n).padStart(2, '0')} · ${escapeHtml(pick(s).name)} · ${sizeOf(s, '×')}<b>${escapeHtml(money(s.price))}</b></li>`);
-  const { gross, disc } = totals();
-  $('#cl-sum').innerHTML = `${lines.length ? `<ul class="cl-list">${lines.join('')}</ul>` : ''}${disc ? `<p class="cl-disc">${escapeHtml(t('pk.disc', Math.round(disc * 100)))} · ${escapeHtml(money(gross))}</p>` : ''}<p>${t('cl.sum', escapeHtml(label), escapeHtml(money(net)))}</p>`;
+  const dlg = $('#claim');
+  // MB WAY first whenever it can take the amount (the quicker way on a phone); nothing is remembered between opens
+  payTab = mbwayOk(totals().net) ? 'mb' : 'tr';
+  sentBy = '';
+  $('#cl-items').hidden = true;
+  if (!$('#cl-nif').value.trim() && !$('#cl-msg').value.trim()) { $('#cl-extra').hidden = true; $('#cl-add').hidden = false; }
+  brandErr(false);
+  goStep(1, { focus: false });
+  for (const m of models()) m.hold(true);
+  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  $('#claim .close').focus({ preventScroll: true });
+}
+
+function goStep(n, { focus = true } = {}) {
+  clStep = n;
+  $('#cl-s1').hidden = n !== 1;
+  $('#cl-s2').hidden = n !== 2;
+  renderClaim();
+  $('#claim .dlg-body').scrollTop = 0;
+  // the heading takes focus, so a screen reader hears «Pagar» / «Reservar» and Tab starts from the top of the step
+  if (focus) { const h = $('#cl-h'); h.tabIndex = -1; h.focus({ preventScroll: true }); }
+}
+
+function renderClaim() {
+  const { list, gross, net, disc } = totals();
+  $('#claim').dataset.step = clStep;
+  $('#cl-h').textContent = t(clStep === 1 ? 'cl.h1' : 'cl.h2');
+  $('#cl-step').textContent = t('cl.step', clStep);
+  // step 1: one line («Peito · 600 €», «3 espaços · 1 080 €»); a package lists its spots and the saving behind «ver»
+  $('#cl-what').textContent = wantTitle ? t('cl.title') : list.length === 1 ? pick(list[0]).name : t('pk.spots', list.length);
+  $('#cl-tot').textContent = money(net);
+  const items = $('#cl-items'), more = $('#cl-more');
+  more.hidden = wantTitle || list.length < 2;
+  if (more.hidden) items.hidden = true;
+  more.textContent = t(items.hidden ? 'cl.more' : 'cl.less');
+  more.setAttribute('aria-expanded', String(!items.hidden));
+  items.textContent = '';
+  const li = (k, v, cls = '') => { const el = document.createElement('li'); if (cls) el.className = cls; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = k; b.textContent = v; el.append(a, b); items.appendChild(el); };
+  if (!wantTitle) for (const s of list) li(`${pad2(s.n)} ${pick(s).name}`, money(s.price));
+  if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`, 'save');
+  if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t('cl.err');
+  // step 2: the same amount and KONA code under either tab
   $('#pay-amt').textContent = money(net);
-  $('#pay-amt-cp').dataset.copy = String(net).replace('.', ',');
+  $('#pay-amt-cp').dataset.copy = String(net);
   $('#pay-ref').textContent = payRef();
   $('#pay-ref-cp').dataset.copy = payRef();
-  const dlg = $('#claim');
-  if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  // a desktop with no mail app does nothing on a mailto: link, so step 2 offers the address to copy after the email action
+  $('#cl-mailfb').hidden = sentBy !== 'mail';
+  const ok = mbwayOk(net), cap = $('#pay-cap');
+  $('#pay-tabs').hidden = !SITE.mbway;
+  $('#pt-mb').disabled = !ok;
+  cap.hidden = ok || !SITE.mbway;
+  cap.textContent = t('cl.mbmax', money(SITE.mbwayMax || 0));
+  setTab(ok ? payTab : 'tr');
 }
+
+// Transferência | MB WAY: one panel whose rows follow the tab (IBAN or the MB WAY number, then amount and code)
+function setTab(tab, { focus = false } = {}) {
+  payTab = tab;
+  for (const b of $$('#pay-tabs [role="tab"]')) {
+    const on = b.dataset.tab === tab;
+    b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
+    if (on && focus) b.focus();
+  }
+  const panel = $('#pay-panel'), mb = tab === 'mb';
+  panel.setAttribute('aria-labelledby', mb ? 'pt-mb' : 'pt-tr');
+  $$('[data-for]', panel).forEach((el) => { el.hidden = el.dataset.for !== tab; });
+  // the KONA code is the transfer's «descritivo» and MB WAY's «descrição»
+  $('#pay-ref-k').textContent = t(mb ? 'pay.desc' : 'pay.ref');
+  const cp = $('#pay-ref-cp');
+  cp.dataset.toast = mb ? 'toast.desc' : 'toast.ref';
+  cp.setAttribute('aria-label', t(mb ? 'a.cpdesc' : 'a.cpref'));
+}
+
+// the brand is the one thing a request cannot go without
+function brandErr(on) {
+  const er = $('#cl-brand-err');
+  er.hidden = !on; er.textContent = on ? t('cl.err') : '';
+  $('#cl-brand').setAttribute('aria-invalid', String(on));
+}
+function brandOk() {
+  const el = $('#cl-brand'), ok = !!el.value.trim();
+  brandErr(!ok);
+  if (!ok) el.focus();
+  return ok;
+}
+
 // The transfer description: the spot numbers, so a payment can be matched to its spots at a glance.
 // Helmet spots are numbered after the suit (21-24), so one reference covers both: KONA 01 21 22.
 function payRef() {
@@ -531,10 +637,13 @@ function fillPayee() {
   $$('[data-iban]').forEach((el) => { el.textContent = iban; });
   $$('[data-payee]').forEach((el) => { el.textContent = SITE.payee; });
   $$('[data-copy-iban]').forEach((el) => { el.dataset.copy = (SITE.iban || '').replace(/\s+/g, ''); });
-  const mb = $('#pay-mbway');
-  if (mb) { mb.hidden = !SITE.mbway; if (SITE.mbway) { $('#pay-mb').textContent = SITE.mbway.replace(/(\d{3})(?=\d)/g, '$1 '); $('#pay-mb-cp').dataset.copy = SITE.mbway; } }
+  // 916 395 103 on screen, the 9 digits on the clipboard
+  const mb = String(SITE.mbway || '').replace(/\D/g, '');
+  $('#pay-mb').textContent = mb.replace(/(\d{3})(?=\d)/g, '$1 ');
+  $('#pay-mb-cp').dataset.copy = mb;
+  $('#cl-mailfb-a').textContent = SITE.email;
+  $('#cl-mailfb-cp').dataset.copy = SITE.email;
 }
-const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (_) {
@@ -687,12 +796,41 @@ function bindUI() {
   $('#tp-btn').addEventListener('click', () => { wantTitle = true; renderPackage(); openClaim(); });
   $('#pk-clear').addEventListener('click', () => { wantTitle = false; basket.clear(); saveBasket(); });
   $('#pk-go').addEventListener('click', openClaim);
-  $('#cl-wa').addEventListener('click', () => window.open(`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message())}`, '_blank', 'noopener'));
-  $('#cl-mail').addEventListener('click', () => { location.href = `mailto:${SITE.email}?subject=${encodeURIComponent(t(`msg.subject${kindKey()}`))}&body=${encodeURIComponent(message())}`; });
+  // each send action opens the app as before and moves the dialog on to the payment
+  $('#cl-wa').addEventListener('click', () => {
+    if (!brandOk()) return;
+    window.open(`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message())}`, '_blank', 'noopener');
+    sentBy = 'wa'; goStep(2);
+  });
+  // a real mailto: link, filled in at the tap: the browser hands it to the default mail app once the click is done,
+  // then the dialog moves on (a step later, so the link is still on screen when the browser follows it)
+  $('#cl-mail').addEventListener('click', (e) => {
+    if (!brandOk()) { e.preventDefault(); return; }
+    e.currentTarget.href = mailUrl();
+    sentBy = 'mail'; setTimeout(() => goStep(2), 0);
+  });
   $('#cl-ig').addEventListener('click', async () => {
+    if (!brandOk()) return;
+    sentBy = 'ig';
     const ok = await copy(message());
     if (ok) toast(t('toast.copied'));
     window.open(`https://ig.me/m/${SITE.instagram}`, '_blank', 'noopener');
+    goStep(2);
+  });
+  $('#cl-brand').addEventListener('input', (e) => { if (e.target.value.trim()) brandErr(false); });
+  $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
+  $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
+  $('#cl-sent').addEventListener('click', () => goStep(2));
+  $('#cl-back').addEventListener('click', () => goStep(1));
+  $('#cl-done').addEventListener('click', () => { $('#claim').close(); toast(t('toast.thanks')); });
+  $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  // arrow keys move along the tabs (the MB WAY tab is skipped while it is off)
+  $('#pay-tabs').addEventListener('keydown', (e) => {
+    const tabs = $$('#pay-tabs [role="tab"]').filter((b) => !b.disabled), i = tabs.indexOf(document.activeElement);
+    const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+    if (i < 0 || j === undefined) return;
+    e.preventDefault();
+    setTab(tabs[(j + tabs.length) % tabs.length].dataset.tab, { focus: true });
   });
   fillPayee();
   document.addEventListener('click', async (e) => {
@@ -702,9 +840,16 @@ function bindUI() {
     toast(t(b.dataset.toast || 'toast.copy'));
     b.classList.add('ok'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('ok'), 1600);
   });
-  $('#claim').addEventListener('close', () => { wantTitle = false; renderPackage(); });
+  $('#claim').addEventListener('close', () => { wantTitle = false; renderPackage(); for (const m of models()) m.hold(false); });
   $('#claim .close').addEventListener('click', () => $('#claim').close());
   $('#claim-form').addEventListener('submit', (e) => e.preventDefault());
+  // Enter (the keyboard's «next» / «done») moves on to the next field, and leaves the last one
+  $('#claim-form').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    e.preventDefault();
+    const fields = $$('#cl-s1 input, #cl-s1 textarea').filter((x) => x.offsetParent), next = fields[fields.indexOf(e.target) + 1];
+    if (next) next.focus(); else e.target.blur();
+  });
   // keyboard: arrows step through the selected spot's model in price order, Esc clears
   let studioInView = false;
   // in view = crossing the middle of the screen (a share of the studio's own height breaks as the rate card grows)

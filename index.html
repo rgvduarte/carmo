@@ -446,7 +446,7 @@
     <div class="steps">
       <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Um ou vários espaços. A partir de três, tens 10% de desconto.</p></div>
       <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Reserva</h4><p data-i18n="sp.p2">Envias o pedido por WhatsApp, email ou Instagram. Confirmo em 24 horas e guardo o espaço durante três dias.</p></div>
-      <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Pagamento</h4><p data-i18n="sp.p3">Transferência para o IBAN do pedido, com a referência dos espaços no descritivo. Recebes a fatura.</p></div>
+      <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Pagamento</h4><p data-i18n="sp.p3">Por transferência, ou MB WAY até 2&nbsp;000&nbsp;€, com a referência dos espaços no descritivo. Recebes a fatura.</p></div>
       <div class="rv"><b>04</b><h4 data-i18n="sp.h4">É teu</h4><p data-i18n="sp.p4">O espaço fecha e a tua marca aparece aqui, no fato ou no capacete. No equipamento real, entra antes do primeiro triatlo da época.</p></div>
     </div>
     <div class="rules">
@@ -562,33 +562,67 @@
   <button type="button" class="btn sm" id="pk-go" data-i18n="pk.go">Reservar</button>
 </div>
 
-<dialog id="claim" data-lenis-prevent aria-labelledby="cl-h">
-  <form class="dlg" method="dialog" id="claim-form">
-    <button type="button" class="close" aria-label="Fechar" data-i18n-attr="aria-label:a.close">×</button>
-    <h3 id="cl-h" data-i18n="cl.h">Pedido de reserva</h3>
-    <div class="sum" id="cl-sum"></div>
-    <p class="step-h"><span class="n">1</span><span data-i18n="cl.s1">Envia o pedido</span></p>
-    <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca ou empresa</label><input id="cl-brand" autocomplete="organization"></div>
-    <div class="field-row">
-      <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome</label><input id="cl-name" autocomplete="name"></div>
-      <div class="field"><label for="cl-nif" data-i18n="cl.nif">NIF para a fatura</label><input id="cl-nif" inputmode="numeric" autocomplete="off" maxlength="20"></div>
-    </div>
-    <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem (opcional)</label><textarea id="cl-msg"></textarea></div>
-    <div class="acts">
-      <button type="button" class="btn gold sm" id="cl-wa"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg>WhatsApp</button>
-      <button type="button" class="btn sm" id="cl-mail"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg>Email</button>
-      <button type="button" class="btn ghost sm" id="cl-ig"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg><span data-i18n="cl.ig">Instagram (copia a mensagem)</span></button>
-    </div>
-    <div class="pay">
-      <p class="step-h"><span class="n">2</span><span data-i18n="cl.s2">Paga por transferência</span></p>
-      <dl class="pay-rows">
-        <div><dt>IBAN</dt><dd><span data-iban></span><button type="button" class="cp" data-copy-iban data-toast="toast.iban" aria-label="Copiar IBAN" data-i18n-attr="aria-label:a.cpiban"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
-        <div><dt data-i18n="pay.payee">Titular</dt><dd><span data-payee></span></dd></div>
-        <div><dt data-i18n="pay.amt">Montante</dt><dd><span id="pay-amt"></span><button type="button" class="cp" id="pay-amt-cp" data-toast="toast.amt" aria-label="Copiar montante" data-i18n-attr="aria-label:a.cpamt"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
-        <div><dt data-i18n="pay.ref">Descritivo</dt><dd><span id="pay-ref"></span><button type="button" class="cp" id="pay-ref-cp" data-toast="toast.ref" aria-label="Copiar descritivo" data-i18n-attr="aria-label:a.cpref"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
-        <div id="pay-mbway" hidden><dt>MB WAY</dt><dd><span id="pay-mb"></span><button type="button" class="cp" id="pay-mb-cp" data-toast="toast.mb" aria-label="Copiar número MB WAY" data-i18n-attr="aria-label:a.cpmb"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
-      </dl>
-      <p class="fine" data-i18n="cl.pay">Podes pagar já ou depois de eu confirmar. O espaço fecha quando a transferência entra e a tua marca passa a aparecer no fato ou no capacete. Se alguém o tiver fechado antes, devolvo o valor no próprio dia.</p>
+<dialog id="claim" data-lenis-prevent aria-labelledby="cl-h" aria-describedby="cl-step" data-step="1">
+  <form class="dlg" method="dialog" id="claim-form" novalidate>
+    <header class="dlg-head">
+      <div class="dlg-ttl">
+        <h3 id="cl-h">Reservar</h3>
+        <p class="dlg-step" id="cl-step">Passo 1 de 2</p>
+      </div>
+      <button type="button" class="close" aria-label="Fechar" data-i18n-attr="aria-label:a.close"><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+      <span class="dlg-prog" aria-hidden="true"><i></i></span>
+    </header>
+    <div class="dlg-body">
+      <!-- step 1: what, who, send -->
+      <section class="cl-pane" id="cl-s1">
+        <div class="cl-sum" id="cl-sum">
+          <p class="cl-line"><span class="cl-txt"><span id="cl-what"></span> · <b id="cl-tot"></b></span><button type="button" class="link cl-more" id="cl-more" aria-expanded="false" aria-controls="cl-items" hidden></button></p>
+          <ul class="cl-items" id="cl-items" hidden></ul>
+        </div>
+        <div class="cl-fields">
+          <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
+          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome</label><input id="cl-name" autocomplete="name" enterkeyhint="done"></div>
+          <button type="button" class="link cl-add" id="cl-add" aria-expanded="false" aria-controls="cl-extra"><span aria-hidden="true">+</span> <span data-i18n="cl.add">Adicionar NIF ou mensagem</span></button>
+          <div class="cl-extra" id="cl-extra" hidden>
+            <div class="field"><label for="cl-nif" data-i18n="cl.nif">NIF para a fatura</label><input id="cl-nif" inputmode="numeric" autocomplete="off" maxlength="20" enterkeyhint="next"></div>
+            <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem</label><textarea id="cl-msg" rows="3"></textarea></div>
+          </div>
+        </div>
+        <div class="cl-acts">
+          <button type="button" class="btn gold" id="cl-wa"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></button>
+          <a class="btn ghost" id="cl-mail" href="mailto:allez@gocarmo.com"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg><span data-i18n="cl.mail">Enviar por email</span></a>
+          <button type="button" class="link" id="cl-ig" data-i18n="cl.ig">ou copiar a mensagem para o Instagram</button>
+        </div>
+        <p class="cl-foot"><button type="button" class="link" id="cl-sent"><span data-i18n="cl.sent">Já enviei o pedido</span> <span aria-hidden="true">→</span></button></p>
+      </section>
+      <!-- step 2: pay by transfer or MB WAY -->
+      <section class="cl-pane" id="cl-s2" hidden>
+        <p class="cl-mailfb" id="cl-mailfb" hidden><span><span data-i18n="cl.mailfb">Não abriu? Copia o email:</span> <b id="cl-mailfb-a">allez@gocarmo.com</b></span><button type="button" class="cp" id="cl-mailfb-cp" data-copy="allez@gocarmo.com" data-toast="toast.email" aria-label="Copiar email" data-i18n-attr="aria-label:a.cpmail"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></p>
+        <div class="pay-seg" id="pay-tabs" role="tablist" aria-label="Forma de pagamento" data-i18n-attr="aria-label:a.paytabs">
+          <button type="button" role="tab" id="pt-tr" data-tab="tr" aria-controls="pay-panel" aria-selected="false" tabindex="-1" data-i18n="pay.tr">Transferência</button>
+          <button type="button" role="tab" id="pt-mb" data-tab="mb" aria-controls="pay-panel" aria-selected="true">MB WAY</button>
+        </div>
+        <p class="pay-cap" id="pay-cap" hidden></p>
+        <div class="pay-panel" id="pay-panel" role="tabpanel" aria-labelledby="pt-mb">
+          <div class="mb-head" data-for="mb">
+            <picture><source type="image/webp" srcset="assets/img/mbway-272.webp 272w" sizes="88px"><img class="mb-logo" src="assets/img/mbway-272.png" srcset="assets/img/mbway-272.png 272w, assets/img/mbway-544.png 544w" sizes="88px" width="88" height="53" alt="MB WAY" decoding="async"></picture>
+            <p class="pay-who"><span data-i18n="pay.name">Nome</span>: <b data-payee>Gonçalo Carmo</b></p>
+          </div>
+          <dl class="pay-rows">
+            <div data-for="tr"><dt>IBAN</dt><dd><span data-iban></span><button type="button" class="cp" data-copy-iban data-toast="toast.iban" aria-label="Copiar IBAN" data-i18n-attr="aria-label:a.cpiban"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+            <div data-for="mb"><dt data-i18n="pay.num">Número</dt><dd><span id="pay-mb"></span><button type="button" class="cp" id="pay-mb-cp" data-toast="toast.mb" aria-label="Copiar número MB WAY" data-i18n-attr="aria-label:a.cpmb"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+            <div><dt data-i18n="pay.amt">Montante</dt><dd><span id="pay-amt"></span><button type="button" class="cp" id="pay-amt-cp" data-toast="toast.amt" aria-label="Copiar montante" data-i18n-attr="aria-label:a.cpamt"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+            <div><dt id="pay-ref-k">Descrição</dt><dd><span id="pay-ref"></span><button type="button" class="cp" id="pay-ref-cp" data-toast="toast.desc" aria-label="Copiar descrição"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg></button></dd></div>
+          </dl>
+          <p class="pay-who" data-for="tr"><span data-i18n="pay.payee">Titular</span>: <b data-payee>Gonçalo Carmo</b></p>
+          <p class="pay-how" data-for="mb" data-i18n="pay.how">No MB WAY: Enviar dinheiro › número › valor › descrição</p>
+        </div>
+        <p class="pay-note" data-i18n="cl.pay">O espaço fica teu quando o pagamento entrar. Se alguém o fechar antes, devolvo no mesmo dia.</p>
+        <div class="cl-acts">
+          <button type="button" class="btn" id="cl-done" data-i18n="cl.done">Feito</button>
+          <button type="button" class="link" id="cl-back"><span aria-hidden="true">←</span> <span data-i18n="cl.back">Voltar</span></button>
+        </div>
+      </section>
     </div>
   </form>
 </dialog>

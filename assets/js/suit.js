@@ -781,7 +781,9 @@ export class Kit {
     this.resize(); this.kick();
   }
 
-  kick() { if (this.active && !this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
+  kick() { if (this.active && !this.held && !this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
+  // the booking dialog holds the stage still behind it: nothing to see there, and the blurred backdrop stays cheap
+  hold(on) { this.held = on; if (!on) this.kick(); }
 
   // The GL context came back after a loss. three.js has rebuilt its GL state and uploads the canvas atlases again on
   // the next frame; only the room reflection has to be rendered anew, and every material that holds it swapped over.
@@ -793,7 +795,7 @@ export class Kit {
   }
 
   loop(t) {
-    if (!this.active || !this.visible || document.hidden) { this.running = false; return; }
+    if (!this.active || this.held || !this.visible || document.hidden) { this.running = false; return; }
     if (this.pendingHover) {
       const e = this.pendingHover; this.pendingHover = null;
       const id = this.pick(e);

@@ -114,7 +114,7 @@ section { position: relative; }
 .light .btn.ghost { border-color: var(--line-dark); }
 .btn.sm { min-height: 40px; padding: 0 16px; font-size: 14px; }
 .btn[disabled] { opacity: .45; pointer-events: none; }
-.btn svg { width: 18px; height: 18px; }
+.btn svg { flex: none; width: 18px; height: 18px; }
 .chip {
   display: inline-flex; align-items: center; gap: 8px;
   min-height: 36px; padding: 0 14px; border-radius: 999px;
@@ -641,14 +641,28 @@ section { position: relative; }
 .title-partner .price small { display: block; font: 500 12px/1.3 var(--sans); color: var(--muted); margin-top: 6px; }
 .title-partner .btn { grid-column: 1 / -1; justify-self: start; }
 
-.package { position: fixed; z-index: 45; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translate(-50%, 140%); width: min(720px, calc(100% - 24px)); background: rgba(242,241,236,0.97); color: #111; border-radius: 18px; padding: 12px 12px 12px 20px; display: flex; align-items: center; gap: 14px; box-shadow: none; visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
+.package { position: fixed; z-index: 45; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translate(-50%, 140%); width: min(720px, calc(100% - 24px)); background: var(--paper); color: #111; border-radius: 18px; padding: 12px 12px 12px 20px; display: flex; align-items: center; gap: 14px; box-shadow: none; visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
 .package.on { transform: translate(-50%, 0); visibility: visible; box-shadow: 0 20px 60px rgba(0,0,0,0.5); transition: transform .5s var(--ease); }
 .package .sum { flex: 1; min-width: 0; }
-.package .sum b { font: 700 18px/1.1 var(--sans); }
-.package .sum span { display: block; font-size: 13px; color: #555; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.package .sum b { display: block; font: 700 18px/1.2 var(--sans); white-space: nowrap; }
+/* the count and the bundle discount always show in full; only the names give way */
+#pk-list { display: flex; min-width: 0; margin-top: 2px; font-size: 13px; line-height: 1.35; color: #555; white-space: nowrap; }
+#pk-list > span { flex: none; }
+#pk-list .pk-d { color: var(--gold-ink); }
+#pk-list .pk-names { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .package .btn { --b: #111; --f: #f2f1ec; }
 .package .btn.ghost { color: #111; border-color: rgba(0,0,0,0.2); background: transparent; }
-@media (max-width: 560px) { .package .btn.ghost { padding: 0 12px; } .package { gap: 8px; padding-left: 16px; } }
+/* phones: total and buttons on one row, the count and discount line under the whole bar */
+@media (max-width: 560px) {
+  .package { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 8px; row-gap: 2px; align-items: center; padding: 10px 10px 10px 16px; }
+  .package .sum { display: contents; }
+  #pk-total { grid-area: 1 / 1; }
+  #pk-clear { grid-area: 1 / 2; }
+  #pk-go { grid-area: 1 / 3; }
+  #pk-list { grid-area: 2 / 1 / 3 / -1; margin-top: 0; }
+  #pk-list.has-d .pk-names { display: none; }
+  .package .btn.ghost { padding: 0 12px; }
+}
 
 .offer { margin-top: clamp(64px, 8vw, 120px); display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .offer .card h3 { font-size: 18px; }
@@ -762,45 +776,91 @@ footer { padding: 28px 0 40px; border-top: 1px solid var(--line); font-size: 13p
 footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 footer a { color: var(--muted); }
 
-/* ---------- dialog ---------- */
-dialog { border: 0; padding: 0; background: transparent; color: var(--ink); max-width: min(560px, calc(100% - 24px)); width: 100%; }
+/* ---------- booking dialog ---------- */
+/* A centred card on desktop, a full-height sheet on phones. The header (title, step, close) stays put while the body
+   scrolls, and each step is one short screen: 1 Reservar, 2 Pagar. */
+dialog#claim { border: 0; padding: 0; margin: auto; background: transparent; color: var(--ink); width: min(460px, calc(100% - 32px)); max-width: none; max-height: min(800px, calc(100vh - 48px)); max-height: min(800px, calc(100dvh - 48px)); overflow: hidden; }
+dialog#claim[open] { display: flex; }
 dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
-.dlg { background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 20px; padding: clamp(22px, 3vw, 32px); }
-.dlg h3 { margin: 0; font: 700 24px/1.2 var(--sans); letter-spacing: -0.02em; }
-.dlg .sum { margin: 14px 0 0; padding: 14px 16px; border-radius: 12px; background: var(--bg-3); font-size: 14px; color: var(--muted); }
-.dlg .sum b { color: var(--ink); }
-.dlg .sum p { margin: 0; }
-.cl-list { list-style: none; margin: 0 0 10px; padding: 0 0 10px; border-bottom: 1px solid var(--line); display: grid; gap: 6px; }
-.cl-list li { display: flex; justify-content: space-between; gap: 12px; }
-.cl-disc { color: var(--gold); margin-bottom: 4px !important; }
-body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
-@media (min-width: 1081px) { body.pk-on .stage { height: calc(100svh - var(--nav-h) - 84px - 92px); } }
-.stage.no3d { height: auto; min-height: 160px; }
-.field { display: grid; gap: 6px; margin-top: 14px; }
+.dlg { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 20px; overflow: hidden; }
+.dlg-head { flex: none; position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 14px 14px 24px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
+.dlg-head h3 { margin: 0; padding-top: 3px; font: 700 22px/1.2 var(--sans); letter-spacing: -0.02em; }
+.dlg-step { margin: 6px 0 0; font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.dlg-head .close { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; color: var(--ink); display: grid; place-items: center; cursor: pointer; transition: background .2s, border-color .2s; }
+.dlg-head .close:hover { background: var(--bg-3); border-color: var(--ink); }
+.dlg-head .close svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.dlg-prog { position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; }
+.dlg-prog i { display: block; width: 50%; height: 100%; background: var(--gold); transition: width .5s var(--ease); }
+#claim[data-step="2"] .dlg-prog i { width: 100%; }
+.dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px 24px 26px; }
+.cl-pane { display: grid; gap: 22px; animation: paneIn .35s var(--ease); }
+/* a step never starts invisible, even on a phone that drops frames */
+@keyframes paneIn { from { opacity: .5; transform: translateY(8px); } }
+.dlg .link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--muted); font: 500 14px/1.3 var(--sans); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; cursor: pointer; }
+.dlg .link:hover { color: var(--ink); text-decoration-color: currentColor; }
+/* a link with a glyph (+, →) underlines its words only */
+.dlg .link:has(> [aria-hidden]) { text-decoration: none; }
+.dlg .link:has(> [aria-hidden]) > span:not([aria-hidden]) { text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
+.dlg .link:has(> [aria-hidden]):hover > span:not([aria-hidden]) { text-decoration-color: currentColor; }
+/* step 1 */
+.cl-sum { padding: 4px 8px 4px 16px; border-radius: 14px; background: var(--bg-3); }
+.cl-line { margin: 0; min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 16px; color: var(--muted); }
+.cl-txt { min-width: 0; }
+.cl-txt b { color: var(--ink); font-weight: 700; white-space: nowrap; }
+#cl-what { color: var(--ink); }
+.cl-more { flex: none; }
+.cl-items { list-style: none; margin: 0 8px 12px 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 8px; font-size: 14px; color: var(--muted); }
+.cl-items li { display: flex; justify-content: space-between; gap: 12px; }
+.cl-items li span:last-child { flex: none; color: var(--ink); }
+.cl-items .save, .cl-items .save span:last-child { color: var(--gold); }
+.cl-fields, .cl-extra { display: grid; gap: 14px; }
+.cl-add { justify-self: start; margin: -6px 0; }
+.field { display: grid; gap: 6px; }
 .field label { font-size: 13px; color: var(--muted); }
-.field input, .field textarea { width: 100%; min-height: 46px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink); font-size: 16px; }
-.field textarea { min-height: 92px; resize: vertical; }
-.dlg .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
-.dlg .close { float: right; width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 20px; line-height: 1; }
-.dlg .fine { margin: 14px 0 0; font-size: 12px; color: var(--dim); }
-.step-h { display: flex; align-items: center; gap: 10px; margin: 24px 0 0; font: 600 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-.step-h .n { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--line-2); display: grid; place-items: center; font-size: 11px; color: var(--ink); letter-spacing: 0; }
-.field-row { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 10px; }
-.pay { margin-top: 26px; padding-top: 2px; border-top: 1px solid var(--line); }
-.pay-rows { margin: 14px 0 0; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
-.pay-rows > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: center; gap: 10px; min-height: 52px; padding: 6px 6px 6px 14px; }
-.pay-rows > div + div { border-top: 1px solid var(--line); }
-.pay-rows > div[hidden] { display: none; }
-.pay-rows dt { font-size: 12px; color: var(--muted); }
-.pay-rows dd { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; font: 500 14.5px/1.35 var(--mono); color: var(--ink); }
-.pay-rows dd > span { min-width: 0; overflow-wrap: anywhere; }
-.pay-rows dd > span:only-child { padding: 8px 0; }
-.cp { flex: none; width: 40px; height: 40px; border: 0; border-radius: 10px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: color .2s, background .2s; }
+.field input, .field textarea { width: 100%; min-height: 50px; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink); font-size: 16px; }
+.field textarea { min-height: 88px; resize: vertical; }
+.field input[aria-invalid="true"] { border-color: #f08a7e; }
+.field input[aria-invalid="true"]:focus-visible { outline-color: #f08a7e; }
+.field .err { margin: 0; font-size: 13px; color: #f08a7e; }
+.cl-acts { display: grid; gap: 10px; }
+.cl-acts .btn { width: 100%; min-height: 52px; padding: 0 16px; font-size: 16px; }
+.cl-acts .link { justify-self: center; }
+.cl-foot { margin: -6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: center; }
+/* step 2 */
+/* after the email action only: the address to copy, for a computer with no mail app */
+.cl-mailfb { margin: -6px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 2px 14px; border-radius: 12px; background: var(--bg-3); font-size: 13px; line-height: 1.4; color: var(--muted); }
+.cl-mailfb b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+.pay-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); }
+.pay-seg [role="tab"] { min-height: 44px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 15px/1 var(--sans); cursor: pointer; transition: background .25s, color .25s; }
+.pay-seg [aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.pay-seg [role="tab"]:disabled { opacity: .4; cursor: not-allowed; }
+.pay-cap { margin: -14px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+.pay-panel { display: grid; gap: 14px; }
+.mb-head { display: flex; align-items: center; gap: 14px; }
+/* the official MB WAY artwork on its own white chip, never recoloured or outlined */
+.mb-logo { flex: none; width: 88px; height: auto; border-radius: 10px; background: #fff; }
+.pay-who, .pay-how { margin: 0; font-size: 13px; color: var(--muted); }
+.pay-who b { color: var(--ink); font-weight: 600; }
+.pay-rows { margin: 0; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
+.pay-rows > div { position: relative; display: grid; align-content: center; gap: 4px; min-height: 66px; padding: 12px 60px 12px 16px; }
+.pay-rows > div:not([hidden]) ~ div:not([hidden]) { border-top: 1px solid var(--line); }
+.pay-rows dt { font: 500 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.pay-rows dd { margin: 0; font: 500 16px/1.35 var(--mono); color: var(--ink); }
+.pay-rows dd > span { display: block; overflow-wrap: anywhere; text-wrap: balance; }
+.pay-rows .cp { position: absolute; right: 8px; top: 50%; margin-top: -22px; }
+.pay-note { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); }
+.cp { flex: none; width: 44px; height: 44px; border: 0; border-radius: 12px; background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; transition: color .2s, background .2s; }
 .cp:hover { color: var(--ink); background: var(--bg-3); }
 .cp svg, .give-cp svg { width: 18px; height: 18px; grid-area: 1 / 1; transition: opacity .2s, transform .3s var(--ease); }
 .cp .i-ok, .give-cp .i-ok { opacity: 0; transform: scale(.6); color: var(--gold); }
 .cp.ok .i-cp, .ok .give-cp .i-cp { opacity: 0; transform: scale(.6); }
 .cp.ok .i-ok, .ok .give-cp .i-ok { opacity: 1; transform: none; }
+/* copy toasts stay inside the dialog, above the bottom safe area */
+dialog#claim .toast { position: absolute; top: auto; bottom: calc(20px + env(safe-area-inset-bottom)); width: max-content; text-align: center; transform: translate(-50%, 12px); }
+dialog#claim .toast.on { transform: translate(-50%, 0); }
+body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
+@media (min-width: 1081px) { body.pk-on .stage { height: calc(100svh - var(--nav-h) - 84px - 92px); } }
+.stage.no3d { height: auto; min-height: 160px; }
 /* sponsors that closed a spot */
 .onsuit { margin: 22px auto 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 6px 18px; font-size: 14px; }
 .onsuit .k { font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
@@ -888,11 +948,13 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 /* ---------- mobile, first-class ---------- */
 .sheet-x { display: none; }
 @media (max-width: 760px) {
-  dialog#claim[open] { margin: auto 0 0; max-width: 100%; width: 100%; max-height: 94svh; animation: sheetUp .45s var(--ease); }
-  dialog#claim .dlg { border-radius: 22px 22px 0 0; border-bottom: 0; padding: 20px 18px calc(22px + env(safe-area-inset-bottom)); }
-  dialog#claim .acts .btn { flex: 1 1 auto; justify-content: center; }
-  .pay-rows > div { grid-template-columns: 82px minmax(0, 1fr); }
-  .pay-rows dd { font-size: 13.5px; }
+  /* the booking dialog becomes a full-height sheet: nothing squeezed, the close button always in reach */
+  dialog#claim { width: 100%; height: 100vh; height: 100dvh; max-height: none; margin: 0; }
+  dialog#claim[open] { animation: sheetUp .45s var(--ease); }
+  dialog#claim .dlg { border: 0; border-radius: 0; }
+  .dlg-head { padding: calc(10px + env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left)); }
+  .dlg-head h3 { font-size: 20px; }
+  .dlg-body { padding: 20px max(18px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); }
   .give-cp > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .give-iban { font-size: 14.5px; }
 }

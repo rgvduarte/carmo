@@ -13,8 +13,11 @@ export const SITE = {
   // payee name against the IBAN before sending, so `payee` must be the exact account holder name.
   iban: 'PT50003501250000532893068',
   payee: 'Gonçalo Carmo',
-  // Optional: the phone number linked to MB WAY (e.g. '916395103'). Leave empty to hide it.
-  mbway: '',
+  // MB WAY: the phone number linked to it, shown as a second way to pay in the booking dialog. Leave empty to hide it.
+  // MB WAY lets a person send at most 2 000 EUR per transfer (mbway.pt, 2025 limits), so above `mbwayMax` the dialog
+  // offers the bank transfer only.
+  mbway: '916395103',
+  mbwayMax: 2000,
   updated: '2026-10-22',
 };
 
