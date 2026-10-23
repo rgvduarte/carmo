@@ -1,5 +1,5 @@
 // Builds the trisuit mesh off the main thread (suit-mesh.js) and hands the buffers back without copying them.
-import { buildMesh } from './suit-mesh.js';
+import { buildMesh } from './suit-mesh.js?v=b3644acd';
 
 self.onmessage = (e) => {
   try {
