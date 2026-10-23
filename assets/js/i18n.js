@@ -246,6 +246,7 @@ const EN = {
   "ct.alt": "Portrait of Gonçalo Carmo wearing mirrored sunglasses",
   "ft.data": "Data updated on",
   "ft.top": "Back to top",
+  "ft.press": "press/",
   "pk.clear": "Clear",
   "pk.go": "Book",
   "cl.brand": "Brand",

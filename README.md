@@ -21,6 +21,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   Instagram e pagar por transferência ou MB WAY.
 - **Apoiar**: GoFundMe, transferência ou MB WAY, apoio em espécie e orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
+- **Imprensa** (`/imprensa`, em inglês `/press`, ligada no rodapé): bios de 50 e 150 palavras com botão de copiar,
+  ficha, resultados, fotografias para descarga com legenda e crédito, logótipos e contactos, mais o kit de imprensa em
+  PDF (PT e EN) e um ZIP com tudo. Página estática: não carrega os scripts do 3D e funciona sem JavaScript.
 
 PT e EN (botão no topo; a língua também segue o browser).
 
@@ -34,6 +37,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
+| Página de imprensa | `imprensa/index.html` (PT), `press/index.html` (EN), `assets/css/press.css`; os ficheiros para descarga (PDF, ZIP, fotografias, logótipos, textos) em `imprensa/files/`. Os `[PREENCHER: …]` e `[CONFIRMAR]` à vista são para preencher antes de publicar. As fotografias só devem ficar para descarga com a autorização escrita de cada fotógrafo (`imprensa/files/fotos/CREDITOS.txt`) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 | Fotografias do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
