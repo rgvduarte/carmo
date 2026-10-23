@@ -82,6 +82,48 @@ pode ser 0, ±90 ou 180.
 capacete e `gocarmo.com/#capacete` abre o estúdio no capacete. `#fato/title` pede o fato completo e
 `#pacote=peito,capacete-topo` abre um pacote.
 
+## Página de admin
+
+**Onde.** `gocarmo.com/admin/`. Não tem link no site e os motores de busca não a mostram (`noindex` e
+`robots.txt`). Funciona no telemóvel. Serve para reservar, vender e libertar espaços do fato e do capacete
+com o site no ar, sem mexer em código.
+
+**A chave (uma vez, com a conta dona do repositório).**
+1. Abre https://github.com/settings/personal-access-tokens/new.
+2. Em «Repository access» escolhe «Only select repositories» e depois `rgvduarte/carmo`. Validade: 90 dias.
+3. Em «Permissions» junta **Contents** e escolhe **Read and write**. O Metadata fica em Read sozinho.
+4. Carrega em «Generate token», copia o código (começa por `github_pat_`) e cola-o na página.
+
+Se a pessoa for colaboradora e não dona do repositório, o GitHub não a deixa escolher `rgvduarte/carmo` neste
+tipo de token. Nesse caso, cria um token clássico em https://github.com/settings/tokens/new com `public_repo` e
+30 dias de validade. A página aceita os dois.
+«Lembrar neste telemóvel» guarda o token só nesse browser. Sem isso, a sessão acaba quando fechas o separador.
+
+**O que cada botão faz.** Escolhes um ou mais espaços na lista. Também podes colar a referência do pagamento,
+por exemplo `KONA 01 21 22` ou `KONA FATO`, e a página seleciona esses espaços e mostra o total esperado.
+- **Reservar**: precisa da marca. Por defeito fica reservado três dias (podes mudar a data). Depois desse dia o
+  espaço volta a ficar livre sozinho.
+- **Vendido**: precisa da marca. O link é opcional (`https://marca.pt` ou `@marca`) e o logótipo também (PNG, SVG,
+  JPG ou WebP, até 3 MB). Antes de guardar, o logótipo aparece sobre branco e sobre preto, e em «Ver no 3D» vês
+  como fica no fato ou no capacete. O ficheiro fica em `assets/img/brands/<espaço>.<ext>`. Se venderes outra vez
+  à mesma marca sem escolher ficheiro, o logótipo atual fica.
+- **Libertar**: depois de confirmares, o espaço volta a ficar livre. A marca, o link, a data e o logótipo saem.
+- **Fato completo**: vai sempre sozinho. Só se reserva ou vende com os 20 espaços do fato livres (ou da mesma
+  marca). Enquanto estiver reservado ou vendido, os espaços do fato ficam fechados. Os do capacete não.
+
+**O que acontece quando guardas.** Cada ação é **um commit no `gh-pages`**, com uma mensagem como
+`Espaços 01 e 21 vendidos a Marca X (admin)`. O `data/spots.json` fica exatamente como o formulário do GitHub o
+deixaria. Se alguém tiver guardado ao mesmo tempo, a página volta a ler e tenta outra vez. Se esse alguém tiver
+mexido nos mesmos espaços, a página não guarda e explica o que mudou. Depois espera até o site mostrar a
+mudança (normalmente 1 a 2 minutos) e dá os links para o espaço no site e para o commit.
+
+**Revogar o token.** Em https://github.com/settings/personal-access-tokens abre o token e carrega em «Delete»
+(token clássico: https://github.com/settings/tokens). Num telemóvel perdido, revogar basta. No teu telemóvel,
+«Sair» apaga o token desse browser.
+
+O formulário do GitHub (Issues → **Atualizar espaço do fato ou do capacete**) continua a funcionar como
+alternativa, mas só depois de o branch por defeito ser `gh-pages`.
+
 ## Ligar o Strava (uma vez)
 
 Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo:
