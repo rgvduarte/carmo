@@ -1,27 +1,27 @@
 Gonçalo Carmo · Ficha
 
-Nome:                       Gonçalo Carmo
-Modalidade:                 Triatlo, longa distância
-Cidade:                     Lisboa, Portugal
-Ano de nascimento:          [PREENCHER: data de nascimento]
-Escalão IRONMAN 2026:       M25-29
-Equipa:                     LB Squad Portugal
-Treinador:                  Lino Barruncho
-Origem desportiva:          Motocross desde os 9 anos; mais de dez épocas nos campeonatos de Portugal e de Espanha; até 2021
-Número de motocross:        99 [CONFIRMAR]
-Primeiro triatlo:           Triatlo Longo de Caminha, 24.05.2025, 4:32:54
-Distância completa:         IRONMAN Portugal-Cascais, 17.10.2026, 9:35:08; 52.º de 1 981; 12.º de 321 no M25-29
-Parciais:                   Natação 1:01:42 · T1 6:00 · Bicicleta 4:56:43 · T2 3:22 · Corrida 3:27:22
-Melhores marcas em corrida: Maratona 2:44:13 (Sevilha 2026) · Meia maratona 1:16:56 (Descobrimentos 2025) · 10 km 33:48 (Santo António 2026)
-Vitória de escalão:         Triatlo de Sines 2026, 1.º de 83 no M25-29
-Circuito:                   HMS Triathlon Series 2026, 1.º do escalão 25-29 M, 6.º da geral
-Treino:                     Duas sessões por dia, perto de 21 h por semana (declarado)
-Época 2027:                 7 provas em Portugal e Espanha; IRONMAN de qualificação na Península Ibérica, julho, [PREENCHER: IRONMAN de qualificação e data]
-Objetivo:                   Viver do triatlo; Kona assim que conseguir a vaga
-Marca pessoal:              GOCARMO · Road to Kona · #GoCarmo
-Redes:                      Instagram e TikTok @goncalo.carmo99 · Strava 50182673
-Site:                       gocarmo.com
-Contacto de imprensa:       allez@gocarmo.com · +351 916 395 103
+Nome:                 Gonçalo Carmo
+Modalidade:           Triatlo, longa distância
+Cidade:               Lisboa, Portugal
+Ano de nascimento:    [PREENCHER: data de nascimento]
+Escalão IRONMAN 2026: M25-29
+Equipa:               LB Squad Portugal
+Treinador:            Lino Barruncho
+Origem desportiva:    Motocross desde os 9 anos; mais de dez épocas nos campeonatos de Portugal e de Espanha; até 2021
+Número de motocross:  99 [CONFIRMAR]
+Primeiro triatlo:     Triatlo Longo de Caminha, 24.05.2025, 4:32:54
+Distância completa:   IRONMAN Portugal-Cascais, 17.10.2026, 9:35:08; 52.º de 1 981; 12.º de 321 no M25-29
+Parciais:             Natação 1:01:42 · T1 6:00 · Bicicleta 4:56:43 · T2 3:22 · Corrida 3:27:22
+Marcas em corrida:    Maratona 2:44:13 (Sevilha 2026) · Meia maratona 1:16:56 (Descobrimentos 2025) · 10 km 33:48 (Santo António 2026)
+Vitória de escalão:   Triatlo de Sines 2026, 1.º de 83 no M25-29
+Circuito:             HMS Triathlon Series 2026, 1.º do escalão 25-29 M, 6.º da geral
+Treino:               Duas sessões por dia, perto de 21 h por semana (declarado)
+Época 2027:           7 provas em Portugal e Espanha; IRONMAN de qualificação na Península Ibérica, julho, [PREENCHER: IRONMAN de qualificação e data]
+Objetivo:             Viver do triatlo; Kona assim que conseguir a vaga
+Marca pessoal:        GOCARMO · Road to Kona · #GoCarmo
+Redes:                Instagram e TikTok @goncalo.carmo99 · Strava 50182673
+Site:                 gocarmo.com
+Contacto de imprensa: allez@gocarmo.com · +351 916 395 103
 
 Em três linhas
 Gonçalo Carmo · [PREENCHER: idade] · Lisboa, Portugal. Cresceu no motocross, com mais de dez épocas nos campeonatos de Portugal e de Espanha. Fez o primeiro triatlo em maio de 2025 e terminou o IRONMAN Portugal-Cascais em 9:35:08 dezassete meses depois. Vem à procura da vaga para Kona.
