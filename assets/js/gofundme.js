@@ -1,7 +1,7 @@
 // GoFundMe in «Apoiar». data/gofundme.json is the one place for the campaign: its link and its numbers.
 // - no link (or no file): the button stays a quiet WhatsApp button with a note, as before the campaign;
 // - a link: the button turns gold and opens the campaign, and the campaign card shows with «Partilhar»;
-// - a link and `raised`: the card also shows the amount, the bar to the goal, the supporters and the date.
+// - a link and `raised`: the card also shows the amount, the bar to the goal, the number of donations and the date.
 // GoFundMe has no public data feed and its terms forbid scraping, so the numbers are copied by hand (README → GoFundMe).
 import { t, pick, getLang, numFmt, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
@@ -15,10 +15,11 @@ const okUrl = (u) => { try { const x = new URL(u); return x.protocol === 'https:
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
 let GFM;   // undefined while the file is being read; null when there is no campaign link
 
-// index.html preloads the file, so it is usually here before the page boots and the card never pushes «Apoiar» down
+// index.html asks for the file in its head (window.__gfm), so it is usually here before the page boots and the card
+// never pushes «Apoiar» down; the fetch here is only for a page without that head script
 export async function loadGofundme() {
   let d = null;
-  try { const r = await fetch('data/gofundme.json', { cache: 'no-cache' }); if (r.ok) d = await r.json(); } catch (_) { /* no campaign */ }
+  try { d = await (window.__gfm || fetch('data/gofundme.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null))); } catch (_) { /* no campaign */ }
   const url = d ? okUrl(d.url) : '';
   if (d && d.url && !url) console.warn('data/gofundme.json: the url must be an https link on gofundme.com or gofund.me');
   GFM = url ? {
@@ -33,7 +34,7 @@ export async function loadGofundme() {
   renderGofundme();
 }
 
-// a figure with a bold value: «angariados de <b>15 700 €</b>», «<b>41</b> apoiantes»
+// a figure with a bold value: «angariados de <b>15 700 €</b>», «<b>41</b> doações»
 function bit(before, value, after) {
   const s = document.createElement('span'); s.className = 'nw';
   const b = document.createElement('b'); b.textContent = value;
@@ -55,7 +56,7 @@ export function renderGofundme() {
     card.hidden = true;
     return;
   }
-  a.href = GFM.url; a.className = 'btn gold'; icon.setAttribute('href', '#i-heart');
+  a.href = GFM.url; a.className = 'btn gold'; icon.setAttribute('href', '#i-heart'); label.textContent = t('gfm.go');
   if (note) note.hidden = true;
   card.hidden = false;
   const title = pick(GFM.title);

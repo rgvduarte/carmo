@@ -179,7 +179,7 @@ O link da campanha e os números que aparecem em Apoiar estão só em `data/gofu
 | `title` | texto | Título da campanha, igual ao do GoFundMe |
 | `goal` | número | Meta. Sem ela não há barra nem percentagem |
 | `raised` | número | Valor angariado. `null` esconde o valor e a barra: fica o título, «Partilhar» e o botão |
-| `supporters` | número | Número de doações que a página do GoFundMe mostra («apoiantes» no site) |
+| `supporters` | número | Número de doações que a página do GoFundMe mostra |
 | `currency` | `"EUR"` | Moeda da campanha |
 | `updated` | `"AAAA-MM-DD"` | Dia em que copiaste os números. Aparece como «Atualizado a …» |
 
@@ -195,7 +195,7 @@ este mesmo link: no telemóvel abre a folha de partilha; no computador copia o l
 4. O site mostra os números novos em 1 a 2 minutos.
 
 Se o ficheiro ficar com um erro (uma vírgula a mais, umas aspas a menos), o site volta ao botão «Quero apoiar». Abre o
-ficheiro outra vez e corrige. Sem JavaScript, o botão abre a página inicial do GoFundMe.
+ficheiro outra vez e corrige. Sem JavaScript, o botão fica «Quero apoiar» (WhatsApp).
 
 **Porque não é automático.** A GoFundMe não tem API pública nem outra forma oficial de ler os números de uma
 angariação pessoal. Os dados estruturados da página (JSON-LD) não trazem o valor, a meta nem as doações. E os Termos da
