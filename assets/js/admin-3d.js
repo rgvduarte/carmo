@@ -71,5 +71,5 @@ export async function preview(el, { spots, cands, blob, root }) {
   if (!suit) suit = new Suit(stage, { spots: ctx.suit, money, labels: LABELS, onSelect() {}, onHover() {}, active: false });
   await dress(suit, ctx.suit);
   await show(first);
-  return { items, first, show, close };
+  return { items, first, show, close, helmetReady: () => !!helmet && helmet._ctx === ctx };
 }

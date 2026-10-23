@@ -599,7 +599,7 @@ async function open3d() {
   if (!sheet || !sheet.logo || !base) return;
   const d = $('#v3d'), msg = $('#v3d-msg'), tabs = $('#v3d-tabs'), loading = $('#v3d-loading');
   msg.textContent = 'Arrasta para rodar. É o mesmo desenho que o site faz.';
-  tabs.hidden = true; loading.hidden = false;
+  tabs.hidden = true; loading.hidden = false; loading.textContent = 'A abrir o modelo 3D…';
   d.showModal();
   const raw = base.data, ids = sheet.ids, now = Date.now();
   try {
@@ -653,7 +653,10 @@ function bind() {
   $$('#v3d-tabs [data-item]').forEach((b) => b.addEventListener('click', async () => {
     if (!v3d) return;
     $$('#v3d-tabs [data-item]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    const loading = $('#v3d-loading'), first = b.dataset.item === 'helmet' && !v3d.helmetReady();
+    if (first) { loading.textContent = 'A preparar o capacete…'; loading.hidden = false; }   // built once, on first view
     try { await v3d.show(b.dataset.item); } catch (e) { console.error(e); toast('O capacete 3D não abriu neste aparelho.'); }
+    finally { if (first) loading.hidden = true; }
   }));
 
   const net = () => { $('#offline').hidden = navigator.onLine !== false; };

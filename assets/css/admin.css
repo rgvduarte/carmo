@@ -260,7 +260,7 @@ dialog.tall[open] { display: flex; flex-direction: column; }
 .v3d-tabs { display: flex; gap: 8px; margin: 0 0 10px; }
 .stage { position: relative; flex: 1; min-height: 62svh; border-radius: 16px; overflow: hidden; background: radial-gradient(ellipse at 50% 42%, #232327 0%, #141416 55%, #0e0e10 100%); touch-action: pan-y; }
 .stage canvas { position: absolute; inset: 0; }
-.stage .loading { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--muted); font-size: 14px; text-align: center; padding: 20px; }
+.stage .loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; margin: 0; color: var(--ink); font-size: 14px; text-align: center; padding: 20px; background: rgba(14,14,16,.55); }
 #v3d .hint { margin: 10px 0 0; }
 #v3d .sh-foot { grid-template-columns: 1fr; position: static; margin-top: 8px; }
 
