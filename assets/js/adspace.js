@@ -164,6 +164,7 @@ function ensureHelmet() {
       if (!suit) return false;
       helmet = new Helmet(stage, { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: suit.renderer, active: false });
       helmet.setBasket([...basket]);
+      await helmet.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
       await printSponsors(helmet);
       await helmet.ready();
       return true;
