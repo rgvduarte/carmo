@@ -1,3 +1,6 @@
 _video/
 _manual/
 _domain/
+worker/node_modules/
+worker/.wrangler/
+worker/.dev.vars

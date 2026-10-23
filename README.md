@@ -129,8 +129,37 @@ colaboradora apenas deste repositório.
 «Lembrar neste telemóvel» guarda o token nesse telemóvel, para todo o site gocarmo.com (fica desligado de
 origem). Sem isso, ao fechar o separador tens de colar o token outra vez. «Sair» pergunta antes de apagar.
 
-**O que cada botão faz.** Escolhes um ou mais espaços na lista. Também podes colar a referência do pagamento,
-por exemplo `KONA 01 21 22` ou `KONA FATO`, e a página seleciona esses espaços e mostra o total esperado.
+**Colar pedido ou referência.** Colas a referência do pagamento, por exemplo `KONA 01 21 22` ou `KONA FATO`, e a
+página seleciona esses espaços e mostra o total esperado. Também podes colar a mensagem inteira do pedido (do
+WhatsApp, do email, ou só o link `gocarmo.com/#pacote=…`): a página seleciona os espaços e mostra num resumo os
+espaços, a marca, o nome, o NIF (e se o último algarismo confere), a forma de pagamento, a referência e o total, com
+um aviso quando o total ou um preço já não batem com os de agora, ou quando um espaço já está reservado ou vendido.
+Dois botões: **Reservar 48 h** (abre a reserva com a marca e a data de daqui a 48 horas) e **Marcar como vendido**
+(abre a venda com a marca). Os espaços saem do link do pedido; se não houver link, das linhas `• 21 Topo do capacete`.
+No telemóvel, depois de colar, o teclado fecha e o resumo sobe com os dois botões; enquanto o resumo estiver aberto
+nos espaços do pedido, a barra de baixo esconde-se (os botões do resumo já fazem o mesmo, com a marca do pedido).
+Se os espaços já estiverem reservados por um pedido do site, o resumo diz qual, o primeiro botão passa a
+**Prolongar 48 h** (do próprio pedido) e **Marcar como vendido** é o **Confirmar compra** desse pedido, com o
+logótipo. O mesmo com a referência (`KONA 21`) e com **Vendido** na barra: um espaço de um pedido do site vende-se
+sempre pelo pedido, para o logótipo ir para o site. Se a chave dos pedidos ainda não estiver neste separador, a
+página pede-a primeiro e depois continua.
+
+**Pedidos.** Aparece quando o site recebe as compras sozinho (ver **Compras automáticas**). Na primeira vez pede a
+chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. O
+GitHub não mostra a `ADMIN_KEY` outra vez: guarda-a nas Palavras-passe do telemóvel, que a preenchem sozinhas. Cada
+pedido mostra o logótipo, a marca, os espaços, o total, a data, o canal, a forma de pagamento, o nome e o NIF, a
+mensagem e quanto tempo falta para a reserva acabar.
+- **Confirmar compra**: abre a venda com a marca e o logótipo do pedido. Ao guardar, é uma venda como as outras (um
+  commit com o teu token, o logótipo vai para o site) e o pedido fica confirmado. Se os espaços já estiverem
+  vendidos a essa marca, o botão é **Marcar como confirmado**; se foram vendidos sem logótipo, aparece antes
+  **Pôr o logótipo do pedido**.
+- **Prolongar 48 h**: mais dois dias de reserva, no site também.
+- **Cancelar**: depois de confirmares, os espaços que ainda estão reservados por esse pedido voltam a ficar livres.
+  O pedido fica em «Fechados». Num pedido falso, marca «bloquear quem o fez durante 30 dias».
+Reservar ou vender um espaço de um pedido do site pela lista, sem ser pelo pedido, pergunta antes: o pedido deixa de
+controlar a reserva, e uma venda assim fica sem o logótipo do pedido.
+
+**O que cada botão faz.** Escolhes um ou mais espaços na lista (ou colas a referência ou o pedido, em cima).
 - **Reservar**: precisa da marca. Por defeito fica reservado três dias (podes mudar a data). Depois desse dia o
   espaço volta a ficar livre sozinho. Se a mesma marca já tiver um espaço reservado por mais tempo, a data
   proposta é essa, e a página pergunta antes de encurtar uma reserva.
@@ -167,6 +196,40 @@ o token pode estar guardado.
 
 O formulário do GitHub (Issues → **Atualizar espaço do fato ou do capacete**) continua a funcionar como
 alternativa, mas só depois de o branch por defeito ser `gh-pages`.
+
+## Compras automáticas
+
+O site pode receber as compras sozinho, através de um pequeno serviço no Cloudflare (o Worker em `worker/`, com
+instruções em `worker/README.md`).
+
+1. A marca escolhe os espaços, escreve a marca e envia o logótipo (obrigatório). O site manda o pedido ao Worker e
+   diz à marca que tem 48 horas para enviar o comprovativo, para o patrocínio ficar fechado.
+2. O Worker reserva os espaços por 48 horas no `data/spots.json` (um commit no `gh-pages`) e guarda o pedido e o
+   logótipo. O Gonçalo recebe a mensagem do pedido como hoje (WhatsApp ou email).
+3. Quando o pagamento entra, o Gonçalo abre a página de admin, em **Pedidos** carrega em **Confirmar compra** e
+   guarda. O espaço fica vendido no site com o logótipo da marca. O pagamento recebe um recibo de donativo.
+4. Se o pagamento não chegar, a reserva acaba sozinha ao fim das 48 horas (no fim desse dia). **Cancelar** liberta
+   antes; **Prolongar 48 h** dá mais dois dias.
+
+**Contra abusos.** Até 6 espaços por pedido (mais, só o fato completo). No máximo 8 espaços presos ao mesmo tempo por
+pedidos do site por pagar, venha de onde vier (o fato completo conta como os 8). Por endereço de internet: 1 pedido
+aberto e 3 por dia, e 7 dias de pausa depois de um pedido cancelado ou que acabou sem pagamento. Um pedido falso
+cancela-se com «bloquear» (30 dias). Antes de ligar o site ao Worker, liga também o Turnstile do Cloudflare
+(`TURNSTILE_SECRET`). Os detalhes estão em `worker/README.md`.
+
+**Ligar (uma vez).** Os quatro secrets (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `SPOTS_GITHUB_TOKEN`,
+`ADMIN_KEY`) estão em Settings → Secrets and variables → Actions. A action **Deploy pedidos** publica o Worker a
+cada push que mude `worker/` (ou à mão, em Actions → Deploy pedidos → Run workflow, com o branch por defeito em
+`gh-pages`) e escreve no resumo o endereço, por exemplo `https://gocarmo-pedidos.<conta>.workers.dev`. Esse endereço
+vai para `assets/js/data.js` → `SITE.requestsApi`; depois `node scripts/stamp.mjs` e publica. Com `requestsApi: ''`
+nada muda no site nem na página de admin.
+
+**Privacidade.** O nome e o NIF servem só para o recibo. Cada pedido fica guardado 180 dias no Cloudflare e depois
+apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. No `data/spots.json`, público, só ficam a marca, o
+último dia da reserva e o número do pedido.
+
+Enquanto o pedido de reserva do site não envia para o Worker (vem na próxima versão), os pedidos chegam só por
+WhatsApp, email ou Instagram: cola a mensagem em **Colar pedido ou referência**.
 
 ## Ligar o Strava (uma vez)
 

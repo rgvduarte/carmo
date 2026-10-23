@@ -1,0 +1,35 @@
+# The booking-request Worker (requests.js), on its workers.dev address. Published by
+# .github/workflows/deploy-pedidos.yml, which finds or creates the KV namespace «gocarmo-pedidos» and writes its id
+# below for that run only (the file in git keeps the placeholder). See README.md.
+name = "gocarmo-pedidos"
+main = "requests.js"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = false
+
+# requests hold names and NIFs: no request logs
+[observability]
+enabled = false
+
+[[kv_namespaces]]
+binding = "PEDIDOS"
+id = "KV_NAMESPACE_ID"
+
+[vars]
+SITE_ORIGIN = "https://gocarmo.com"
+REPO = "rgvduarte/carmo"
+BRANCH = "gh-pages"
+# spots held at once by the site's unpaid requests, whoever asks (the whole suit fills it alone)
+MAX_HELD = "8"
+
+# bursts per address (an IPv6 /64), counted by Cloudflare in each location: no KV writes. POST /pedido, and every
+# admin call (checked before the key is compared). namespace_id: any number, unique in the account.
+[[ratelimits]]
+name = "RL_PEDIDO"
+namespace_id = "4101"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "RL_ADMIN"
+namespace_id = "4102"
+simple = { limit = 60, period = 60 }
