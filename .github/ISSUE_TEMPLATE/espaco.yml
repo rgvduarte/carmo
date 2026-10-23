@@ -1,6 +1,6 @@
-name: Atualizar espaço do fato
+name: Atualizar espaço do fato ou do capacete
 description: Marca um espaço do fato ou do capacete como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
-title: "Espaço do fato"
+title: "Espaço do fato ou do capacete"
 body:
   - type: markdown
     attributes:

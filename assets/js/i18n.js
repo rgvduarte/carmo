@@ -161,7 +161,7 @@ const EN = {
   "of.k2": "Official · from €150",
   "of.h2": "Content and reports",
   "of.b1": "Announcement post and story on Instagram",
-  "of.b2": "Training photos with your logo for your own channels",
+  "of.b2": "Training or race photos with your logo, for your own channels",
   "of.b3": "Mid-season and end-of-season report with results and reach",
   "of.k3": "Principal · from €400",
   "of.h3": "Main partner",

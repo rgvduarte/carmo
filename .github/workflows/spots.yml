@@ -1,6 +1,6 @@
-name: Atualizar espaço do fato
+name: Atualizar espaço do fato ou do capacete
 
-# Runs when someone who manages the repo opens the "Atualizar espaço do fato" issue form.
+# Runs when someone who manages the repo opens the "Atualizar espaço do fato ou do capacete" issue form.
 # It edits data/spots.json (and saves the logo), commits to gh-pages, replies and closes the issue.
 # Issue forms and issue-triggered workflows are read from the default branch, so the repo's
 # default branch must be gh-pages (Settings → General → Default branch).

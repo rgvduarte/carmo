@@ -1,4 +1,4 @@
-// Updates data/spots.json from a "Atualizar espaço do fato" issue (see .github/ISSUE_TEMPLATE/espaco.yml).
+// Updates data/spots.json from a "Atualizar espaço do fato ou do capacete" issue (see .github/ISSUE_TEMPLATE/espaco.yml).
 //   ISSUE_BODY="..." node scripts/spot-update.mjs      apply the form, print a reply in Markdown
 //   node scripts/spot-update.mjs --template            rewrite the issue form from data/spots.json
 import { readFile, writeFile, mkdir, readdir, unlink } from 'node:fs/promises';
@@ -18,9 +18,9 @@ const TITLE_OPTION = `Fato completo · ${eur(data.title.price)} (fato)`;
 if (process.argv.includes('--template')) {
   const opts = [...data.spots.map(optionFor), TITLE_OPTION].map((o) => `        - "${o}"`).join('\n');
   await mkdir('.github/ISSUE_TEMPLATE', { recursive: true });
-  await writeFile(FORM, `name: Atualizar espaço do fato
+  await writeFile(FORM, `name: Atualizar espaço do fato ou do capacete
 description: Marca um espaço do fato ou do capacete como vendido, reservado ou outra vez disponível. O site atualiza-se sozinho em cerca de um minuto.
-title: "Espaço do fato"
+title: "Espaço do fato ou do capacete"
 body:
   - type: markdown
     attributes:

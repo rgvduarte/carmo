@@ -49,10 +49,9 @@ os números 21 a 24, por isso um pacote com fato e capacete fica, por exemplo, `
    no próprio dia (está escrito no pedido).
 
 **Como fechar um espaço pelo telemóvel (sem mexer em código).**
-No GitHub (app ou browser): Issues → New issue → **Atualizar espaço do fato** (serve também para os espaços
-do capacete, 21 a 24). Escolhe o espaço e o estado,
+No GitHub (app ou browser): Issues → New issue → **Atualizar espaço do fato ou do capacete**. Escolhe o espaço e o estado,
 escreve a marca, cola o link e arrasta o logótipo (PNG com fundo transparente). Ao submeter, a action
-`Atualizar espaço do fato` muda o `data/spots.json`, guarda o logótipo em `assets/img/brands/`,
+`Atualizar espaço do fato ou do capacete` muda o `data/spots.json`, guarda o logótipo em `assets/img/brands/`,
 responde no próprio pedido e fecha-o. O site atualiza-se em cerca de um minuto.
 Só funciona para quem gere o repositório e precisa que o branch por defeito seja `gh-pages`
 (Settings → General → Default branch). Se mudares espaços ou preços, corre
