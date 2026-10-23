@@ -19,7 +19,8 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   parte dele se aproxima e, enquanto isso, mostra a fotografia e «A carregar o capacete». Dá para rodar, escolher,
   experimentar o logótipo, descarregar o mockup, juntar espaços dos dois num pacote, reservar por WhatsApp, email ou
   Instagram e pagar por transferência ou MB WAY.
-- **Apoiar**: GoFundMe, transferência ou MB WAY, apoio em espécie e orçamento estimado da época.
+- **Apoiar**: GoFundMe (com o valor angariado e a barra até à meta), transferência ou MB WAY, apoio em espécie e
+  orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
 
 PT e EN (botão no topo; a língua também segue o browser).
@@ -30,7 +31,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 |---|---|
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
-| Link do GoFundMe | `assets/js/data.js` → `SITE.gofundme` |
+| Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
@@ -230,6 +231,44 @@ apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. No `data/spo
 
 Enquanto o pedido de reserva do site não envia para o Worker (vem na próxima versão), os pedidos chegam só por
 WhatsApp, email ou Instagram: cola a mensagem em **Colar pedido ou referência**.
+
+## GoFundMe
+
+O link da campanha e os números que aparecem em Apoiar estão só em `data/gofundme.json`. Mais nenhum ficheiro tem o link.
+
+| Campo | Formato | O que faz |
+|---|---|---|
+| `url` | `"https://www.gofundme.com/f/<slug>"` | Link da campanha. Vazio, o botão fica «Quero apoiar» (WhatsApp) com a nota «A campanha no GoFundMe abre em breve.». Preenchido, o botão fica dourado, «Apoiar no GoFundMe», e aparece o cartão da campanha com «Partilhar» |
+| `title` | texto | Título da campanha, igual ao do GoFundMe |
+| `goal` | número | Meta. Sem ela não há barra nem percentagem |
+| `raised` | número | Valor angariado. `null` esconde o valor e a barra: fica o título, «Partilhar» e o botão |
+| `supporters` | número | Número de doações que a página do GoFundMe mostra |
+| `currency` | `"EUR"` | Moeda da campanha |
+| `updated` | `"AAAA-MM-DD"` | Dia em que copiaste os números. Aparece como «Atualizado a …» |
+
+Os números vão sem aspas, sem espaços, sem € e sem separador de milhares: `1250`, nunca `"1 250 €"`.
+Só é aceite um link `https://` do `gofundme.com` ou do `gofund.me`. Usa o link da campanha (`https://www.gofundme.com/f/…`),
+não um link de partilha copiado com sessão iniciada, que leva o teu nome como quem partilhou. O «Partilhar» do site usa
+este mesmo link: no telemóvel abre a folha de partilha; no computador copia o link.
+
+**Atualizar os números (à mão, pelo telemóvel).**
+1. Abre a campanha no GoFundMe e vê o valor angariado, a meta e o número de doações.
+2. No GitHub (no browser do telemóvel também dá), abre `data/gofundme.json` no branch `gh-pages` e carrega no lápis.
+3. Muda `raised`, `supporters` e `updated` (e `goal`, se mudaste a meta). Carrega em «Commit changes».
+4. O site mostra os números novos em 1 a 2 minutos.
+
+Se o ficheiro ficar com um erro (uma vírgula a mais, umas aspas a menos), o site volta ao botão «Quero apoiar». Abre o
+ficheiro outra vez e corrige. Sem JavaScript, o botão fica «Quero apoiar» (WhatsApp).
+
+**Porque não é automático.** A GoFundMe não tem API pública nem outra forma oficial de ler os números de uma
+angariação pessoal. Os dados estruturados da página (JSON-LD) não trazem o valor, a meta nem as doações. E os Termos da
+GoFundMe (12.3) proíbem robots e scraping, mesmo nas páginas `/f/` que o `robots.txt` deixa ler. Um script a ler a página
+arriscava pausar a campanha, por isso não existe. O widget oficial («Website widget») mostra o valor ao vivo, mas traz o
+aspeto da GoFundMe e um script de outro servidor, e o site não corre scripts de fora (ver «Código de terceiros»).
+
+**O que não pode ir para o GoFundMe.** IBAN, MB WAY ou instruções para doar por fora, e qualquer coisa em troca de um
+donativo: os espaços do fato e do capacete vendem-se só aqui no site e nunca são recompensa (Termos 6.1 e 8.12).
+Agradecer nas atualizações da campanha pode.
 
 ## Ligar o Strava (uma vez)
 

@@ -840,6 +840,8 @@ async function copy(text) {
     ta.remove(); return ok;
   }
 }
+// the GoFundMe «Partilhar» copies its link and confirms with the same toast
+export { toast, copy };
 
 // ---------- tour ----------
 // each part has its own tour: it visits that part's free spots only, so the camera never leaves its model

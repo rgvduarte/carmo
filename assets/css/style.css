@@ -821,6 +821,30 @@ section { position: relative; }
   .inkind { grid-template-columns: 1fr; }
   .inkind div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
 }
+/* the GoFundMe campaign (gofundme.js, data/gofundme.json): shown once there is a link; the bar only with numbers */
+.gfm { margin-top: 32px; max-width: 460px; padding: 16px 18px 18px; border: 1px solid var(--line-2); border-radius: var(--r); }
+.gfm:not([hidden]) + .cta { margin-top: 16px; }
+.gfm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; }
+.gfm-k { margin: 0; font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gfm-share { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; margin-right: -10px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 13px/1 var(--sans); transition: color .2s, background .2s; }
+.gfm-share:hover { color: var(--ink); background: var(--bg-3); }
+.gfm-share svg { width: 18px; height: 18px; }
+.gfm-t { margin: 6px 0 0; font: 650 17px/1.3 var(--sans); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.gfm-meter { margin-top: 18px; }
+/* the amount has its own line, so its digits can roll without moving anything around it */
+.gfm-row { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.gfm-v { font: 700 clamp(32px, 3.4vw, 42px)/1 var(--sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gfm-p { font: 600 13px/1 var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gfm-bar { margin-top: 14px; height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.gfm-bar i { display: block; width: 0; height: 100%; border-radius: 6px; background: var(--gold); transition: width 1.4s var(--ease) .25s; }
+.gfm.in .gfm-bar i { width: var(--w, 0%); }
+.gfm-sub { margin: 12px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gfm-sub b { color: var(--ink); font-weight: 600; }
+.gfm-upd { margin: 4px 0 0; font-size: 12px; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { .gfm-bar i { transition: none; } }
+@media (forced-colors: active) { .gfm-bar { border: 1px solid CanvasText; } .gfm-bar i { forced-color-adjust: none; background: Highlight; } }
+@media (max-width: 760px) { .gfm-share { min-height: 44px; } }
+@media print { .gfm { display: none !important; } }
 
 /* ---------- media ---------- */
 .media-grid { margin-top: clamp(40px, 5vw, 72px); display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: clamp(120px, 14vw, 210px); gap: 12px; }

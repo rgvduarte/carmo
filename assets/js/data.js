@@ -7,8 +7,7 @@ export const SITE = {
   whatsapp: '351916395103',
   email: 'allez@gocarmo.com',
   strava: 'https://www.strava.com/athletes/50182673',
-  // Paste the campaign link here once it is live (e.g. https://gofund.me/xxxx).
-  gofundme: '',
+  // The GoFundMe link and its numbers live in data/gofundme.json (README → GoFundMe), not here.
   // Bank transfer, shown in the booking dialog and in "Apoiar". Since October 2025 banks check the
   // payee name against the IBAN before sending, so `payee` must be the exact account holder name.
   iban: 'PT50003501250000532893068',
