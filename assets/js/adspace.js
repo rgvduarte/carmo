@@ -1,12 +1,15 @@
-// Sponsor platform: rate card, spot card, package, claim flow, logo try-on and the 3D stage.
-// The stage holds two models on one renderer: the suit, and the helmet (helmet.js, built the first time it is shown).
+// Sponsor platform: rate cards, spot card, package, claim flow, logo try-on and the 3D stages.
+// Chapter 05 has two parts, the suit (#o-fato) and the helmet (#o-capacete), each with its own stage, view buttons and rate
+// card. One renderer serves both: its canvas moves into the stage of the part on screen and that part's model becomes
+// active. The helmet (helmet.js) is built the first time its part comes near the screen.
 import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const AREAS = ['front', 'sides', 'shoulders', 'legs', 'back', 'helmet'];
+const AREAS = ['front', 'sides', 'shoulders', 'legs', 'back'];
+const ITEMS = ['suit', 'helmet'];
 const STORE = 'gc.package.2027';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = () => matchMedia('(max-width: 760px)').matches;
@@ -14,8 +17,9 @@ const mobile = () => matchMedia('(max-width: 760px)').matches;
 const touch = () => matchMedia('(pointer: coarse)').matches;
 
 let DATA = null, SPOTS = [], suit = null, helmet = null, kit = null, SuitClass = null, helmetBuild = null;
-// item: the model on the stage now. want: the model asked for last (set at once, before any await).
-let item = 'suit', want = 'suit';
+// item: the model on stage now. want: the model asked for last (set at once, before any await).
+// onScreen: the part crossing the middle of the screen. landing: the part a deep link or a pick is scrolling to.
+let item = 'suit', want = 'suit', onScreen = null, landing = null, hashLand = null, nearHelmet = false, booted = false, scrollToEl = null, nudgeBy = null;
 let selected = null, basket = new Set(), sortMode = 'area', onlyAvail = false, wantTitle = false;
 let tourCtl = null, logoFile = null, interacted = false;
 
@@ -23,6 +27,13 @@ const byId = (id) => SPOTS.find((s) => s.id === id);
 const itemOf = (s) => s.item || 'suit';   // a spot without "item" is on the suit
 const ofItem = (it) => SPOTS.filter((s) => itemOf(s) === it);
 const models = () => [suit, helmet].filter(Boolean);
+const modelOf = (it) => (it === 'helmet' ? helmet : suit);
+const partOf = (it) => $(`.part[data-item="${it}"]`);
+const stageOf = (it) => $(`.stage[data-item="${it}"]`);
+const act = (it, a) => $(`[data-act="${a}"]`, stageOf(it));
+const pressed = (b) => !!b && b.getAttribute('aria-pressed') === 'true';
+// the part crossing the middle of the viewport right now
+const midPart = () => ITEMS.find((it) => { const r = partOf(it)?.getBoundingClientRect(); return r && r.top <= innerHeight / 2 && r.bottom >= innerHeight / 2; }) || null;
 const tierOf = (s) => DATA.tiers.find((x) => s.price >= x.min) || DATA.tiers[DATA.tiers.length - 1];
 const available = () => SPOTS.filter((s) => s.status === 'available');
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -35,7 +46,8 @@ const ibanPretty = (s) => s.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim()
 // while the booking dialog is open the toast sits just under its sticky header, clear of «Feito» and «Voltar» below
 const toast = (msg) => { const el = $('#toast'); const dlg = $('#claim'); const host = dlg && dlg.open ? $('.dlg-head', dlg) : document.body; if (el.parentElement !== host) host.appendChild(el); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 3200); };
 
-export async function initAdspace({ onSuitReady } = {}) {
+export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null } = {}) {
+  scrollToEl = scrollTo; nudgeBy = nudge || ((dy) => scrollBy(0, dy));
   try {
     const res = await fetch('data/spots.json', { cache: 'no-cache' });
     DATA = await res.json();
@@ -57,7 +69,7 @@ export async function initAdspace({ onSuitReady } = {}) {
   readHash();
   renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
   bindUI();
-  if (selected) select(selected); else syncItemTabs();
+  if (selected) select(selected);
   resumeClaim();
   onLang(() => {
     renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
@@ -66,48 +78,86 @@ export async function initAdspace({ onSuitReady } = {}) {
     const ld = $('#item-loading span'); if (ld) ld.textContent = t('helmet.loading');
     const gl = $('#gl-lost span'); if (gl) gl.textContent = t('stage.lost');
   });
-  // the 3D stage loads when the section approaches the viewport
-  const stage = $('#stage');
+  // the 3D view loads when the entry cards or either stage approach the viewport (so it is ready by the time the suit
+  // part is reached, and a helmet deep link, which lands far below the suit, still gets it)
   const io = new IntersectionObserver(async (en) => {
-    if (!en[0].isIntersecting) return;
+    if (!en.some((e) => e.isIntersecting)) return;
     io.disconnect();
     await mountSuit();
     if (suit && onSuitReady) onSuitReady(suit);
   }, { rootMargin: '600px 0px' });
-  io.observe(stage);
+  [$('.entry'), ...ITEMS.map(stageOf)].forEach((el) => el && io.observe(el));
+  // the helmet is built once its part comes near, so it is usually ready by the time it is on screen
+  const near = new IntersectionObserver((en) => {
+    if (!en[0].isIntersecting) return;
+    near.disconnect(); nearHelmet = true;
+    if (suit) ensureHelmet();
+  }, { rootMargin: '400px 0px' });
+  near.observe(stageOf('helmet'));
+  // the part on screen is the one crossing the middle of the viewport; the stage follows it. Read from the layout on every
+  // scroll (an IntersectionObserver reports a frame late and can skip a state when the page jumps twice in one frame)
+  const check = () => { const it = midPart(); if (it) partShown(it); };
+  addEventListener('scroll', check, { passive: true });
+  addEventListener('resize', check);
+  check();
+  booted = true;
 }
 
 function kitLabels() { return { sold: t('lbl.sold'), reserved: t('lbl.reserved'), top: t('lbl.top') }; }
 const onModelSelect = (id) => { stopTour(); select(id, { from3d: true }); };
 
 async function mountSuit() {
-  const stage = $('#stage');
   try {
     const mod = await import('./suit.js');
     if (!mod.webglAvailable()) throw new Error('webgl');
     SuitClass = mod.Suit;
-    // a helmet deep link: the suit is built idle, so it never flashes up before the helmet
+    // the helmet part is the one on screen (or a helmet deep link): the suit is built idle, so it never flashes up first
     const first = want === 'helmet';
-    suit = kit = new mod.Suit(stage, { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !first });
+    suit = kit = new mod.Suit(stageOf('suit'), { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !first });
     item = 'suit';
     suit.setBasket([...basket]);
     // the booking dialog can be up before the stage is (a reload that brings the payment back): hold still behind it
     if ($('#claim').open) suit.hold(true);
     printSponsors(suit);
-    stage.addEventListener('suit:interact', () => { interacted = true; stopTour(); $('#btn-rotate').setAttribute('aria-pressed', 'false'); });
-    stage.addEventListener('suit:frame', placeCallout);
-    watchContext(suit.canvas);
-    if (first) {
-      const ld = $('#stage-loading'); delete ld.dataset.i18n; ld.textContent = t('helmet.loading');
-      await showItem('helmet');
-      if (item !== 'helmet') { suit.setActive(true); syncItemTabs(); }   // the helmet could not be built
+    for (const st of $$('.stage')) {
+      st.addEventListener('suit:interact', () => { interacted = true; stopTour(); act(st.dataset.item, 'rotate')?.setAttribute('aria-pressed', 'false'); });
+      st.addEventListener('suit:frame', () => { if (kit) kit._drawn = true; placeCallout(); });
     }
+    watchContext(suit.canvas);
     $('#stage-loading')?.remove();
-    if (selected && itemOf(byId(selected)) === item) kit.select(selected, { focus: true });
+    if (!first) liveIn('suit');
+    else {
+      await showItem('helmet');
+      // the helmet could not be built, or the suit part came back on screen while it was: the suit takes the stage
+      if (item !== 'helmet' && kit) { suit.setActive(true); liveIn('suit'); }
+    }
+    if (kit && selected && itemOf(byId(selected)) === item) kit.select(selected, { focus: true });
+    if (nearHelmet && suit) ensureHelmet();
   } catch (e) {
     $('#stage-loading')?.remove();
     no3d();
   }
+}
+
+// The canvas is in the stage of `it`; the other stage keeps the last frame its model drew (a still, not a blank box),
+// or the static picture of its model if that model never drew.
+function liveIn(it) {
+  for (const x of ITEMS) {
+    const st = stageOf(x);
+    st.classList.toggle('live', x === it);
+    if (x === it) st.classList.remove('frozen');
+  }
+}
+function freeze(m) {
+  const st = m && m.canvas.parentElement;
+  if (!st || !st.classList.contains('stage') || !m._drawn) return;
+  let fz = $(':scope > .stage-freeze', st);
+  if (!fz) { fz = document.createElement('canvas'); fz.className = 'stage-freeze'; fz.setAttribute('aria-hidden', 'true'); st.prepend(fz); }
+  try {
+    fz.width = m.canvas.width; fz.height = m.canvas.height;
+    fz.getContext('2d').drawImage(m.canvas, 0, 0);
+    st.classList.add('frozen');
+  } catch (_) { st.classList.remove('frozen'); }
 }
 
 // Phones drop the GL context of a tab under memory pressure, often while it sits in the background (the booking
@@ -123,7 +173,7 @@ function watchContext(canvas) {
     glBack = new Promise((res) => { done = res; }); glBack.done = () => { clearTimeout(timer); glBack = null; done(); };
     const lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = 'gl-lost';
     const sp = document.createElement('span'); sp.textContent = t('stage.lost'); lbl.appendChild(sp);
-    $('#stage').appendChild(lbl);
+    (canvas.parentElement || stageOf('suit')).appendChild(lbl);
     arm();
   });
   document.addEventListener('visibilitychange', arm);
@@ -137,39 +187,43 @@ function watchContext(canvas) {
 
 // no WebGL (or the context did not come back): the rate card carries the sale on its own
 function no3d() {
-  const stage = $('#stage');
   for (const m of models()) m.setActive(false);
   suit = helmet = kit = null;
   if (glBack) glBack.done();
   stopTour();
   $('#callout').classList.remove('on');
-  $$('canvas, .loading', stage).forEach((n) => n.remove());
+  for (const it of ITEMS) stageStill(it, 'suit.no3d');
+  ['#sd-try', '#tryon'].forEach((q) => { const n = $(q); if (n) n.hidden = true; });
+}
+// a stage without 3D: the picture of its model stays, with a line that says why, and its 3D controls go
+function stageStill(it, key) {
+  const stage = stageOf(it);
+  $$(':scope > canvas, .loading', stage).forEach((n) => n.remove());
+  stage.classList.remove('live', 'frozen');
   if (!$('.stage-fallback', stage)) {
     const fb = document.createElement('div');
     fb.className = 'stage-fallback';
-    fb.dataset.i18n = 'suit.no3d';
-    fb.textContent = t('suit.no3d');
+    const sp = document.createElement('span'); sp.dataset.i18n = key; sp.textContent = t(key); fb.appendChild(sp);
     stage.appendChild(fb);
   }
   stage.classList.add('no3d');
+  // a still picture does not need to stay on screen while the rate card scrolls
+  const studio = stage.closest('.studio'); studio.classList.add('no3d'); studio.classList.remove('compact');
   $$('.stage-ui, .stage-foot', stage).forEach((n) => n.remove());
-  ['#sd-try', '#tryon', '#btn-tour', '#chapters'].forEach((q) => { const n = $(q); if (n) n.hidden = true; });
+  const ch = $(`.chapters[data-item="${it}"]`); if (ch) ch.hidden = true;
 }
 
 // The helmet, built once on first view, on the suit's renderer (one canvas, one GL context).
+// The label «A carregar o capacete» sits in the helmet's stage from the start and goes once the build is over.
 function ensureHelmet() {
   helmetBuild ||= (async () => {
-    const stage = $('#stage');
-    const lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = 'item-loading';
-    const sp = document.createElement('span'); sp.textContent = t('helmet.loading'); lbl.appendChild(sp);
-    if (!$('#stage-loading')) stage.appendChild(lbl);
     try {
       const { Helmet } = await import('./helmet.js');
       // the build is synchronous: let the label paint first
       await new Promise((res) => requestAnimationFrame(() => setTimeout(res, 0)));
       if (glBack) await glBack;   // a lost context cannot compile or upload: wait for it to come back
       if (!suit) return false;
-      helmet = new Helmet(stage, { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: suit.renderer, active: false });
+      helmet = new Helmet(stageOf('helmet'), { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: suit.renderer, active: false });
       helmet.setBasket([...basket]);
       if ($('#claim').open) helmet.hold(true);
       await helmet.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
@@ -179,50 +233,80 @@ function ensureHelmet() {
     } catch (e) {
       console.error(e);
       helmet = null;
-      if (suit) {
-        toast(t('toast.helmet'));
-        const b = $('[data-item="helmet"]');
-        if (b) { if (document.activeElement === b) $('[data-item="suit"]')?.focus(); b.disabled = true; }
-      }
+      // the helmet's part keeps its picture and its rate card; only its 3D controls go
+      if (suit) { toast(t('toast.helmet')); stageStill('helmet', 'toast.helmet'); }
       return false;
-    } finally { lbl.remove(); }
+    } finally { $('#item-loading')?.remove(); }
   })();
   return helmetBuild;
 }
 
-function syncItemTabs() {
-  $$('[data-item]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.item === want)));
-  const ld = $('#item-loading'); if (ld) ld.hidden = want !== 'helmet';   // back on the suit while the helmet builds
-}
-
-// Put the suit or the helmet on the stage. Several calls can overlap (taps while the helmet builds):
-// only the last one asked for (`want`) switches, and it selects whatever is selected by then.
+// Put the suit or the helmet on stage: its model becomes active and the shared canvas moves into its part's stage.
+// Several calls can overlap (scrolling back and forth while the helmet builds): only the last one asked for (`want`)
+// switches, and it selects whatever is selected by then.
 async function showItem(it) {
-  want = it; syncItemTabs();
+  want = it;
   if (!kit) return;                        // no stage yet: mountSuit reads `want`
   if (it === item) return;
   stopTour();                              // a tour on the old model would select its spots and undo `want`
-  if (it === 'helmet' && !(await ensureHelmet())) { if (want === 'helmet') { want = item; syncItemTabs(); } return; }
+  if (it === 'helmet' && !(await ensureHelmet())) { if (want === 'helmet') want = item; return; }
   if (want !== it || item === it || !kit) return;
   stopTour();                              // and one started while the helmet was building
-  const next = it === 'helmet' ? helmet : suit;
+  const next = modelOf(it);
+  freeze(kit);
   kit.setActive(false);
   kit = next; item = it;
-  // the stage switches (spots, rotate) carry over to the model coming up
-  const spotsOn = $('#btn-spots').getAttribute('aria-pressed') === 'true';
+  const co = $('#callout'); co.classList.remove('on'); stageOf(it).appendChild(co);
+  // each stage has its own switches (spots, rotate)
+  const spotsOn = pressed(act(it, 'spots'));
   kit.setShowSpots(spotsOn);
-  kit.setAuto($('#btn-rotate').getAttribute('aria-pressed') === 'true');
+  kit.setAuto(pressed(act(it, 'rotate')));
   kit.setActive(true);
+  liveIn(it);
   if (!kit._revealed) { kit._revealed = true; kit.reveal(); }
-  $$('[data-view]').forEach((x) => x.setAttribute('aria-pressed', 'false'));
-  $('#callout').classList.remove('on');
   const s = selected && byId(selected);
-  $('#spot-status').textContent = s && itemOf(s) === item ? `${t(`z.${it}`)} · ${pick(s).name} · ${money(s.price)}` : t(`z.${it}`);
   if (s && itemOf(s) === item) {
-    if (!spotsOn) { $('#btn-spots').setAttribute('aria-pressed', 'true'); kit.setShowSpots(true); }
+    if (!spotsOn) { act(it, 'spots')?.setAttribute('aria-pressed', 'true'); kit.setShowSpots(true); }
     kit.select(selected, { focus: true });
     if ($('#tryon').classList.contains('on') && logoFile) applyLogo();
   } else kit.select(null);
+}
+
+// The part crossing the middle of the screen changed: its model takes the stage. While a deep link or a pick in the
+// other part scrolls there, the parts it passes on the way are not shown.
+function partShown(it) {
+  if (it === onScreen) return;
+  onScreen = it;
+  if (landing) return;
+  // a phone's spot sheet belongs to the part it was opened in
+  const s = selected && byId(selected);
+  if (s && itemOf(s) !== it && $('#spot-card').classList.contains('open')) closeSheet();
+  showItem(it);
+}
+// scroll a part into view (main.js passes the page's scroller, Lenis or native) and show its model once there
+function land(it, { immediate = false } = {}) {
+  const el = partOf(it);
+  if (!el || !scrollToEl || landing === it) return;
+  landing = it;
+  const done = () => {
+    if (landing !== it) return;
+    landing = null;
+    const now = midPart();
+    if (now) onScreen = now;
+    if (now && now !== want && !(selected && itemOf(byId(selected)) === want)) showItem(now);
+  };
+  Promise.resolve(scrollToEl(el, { immediate })).then(done, done);
+  setTimeout(done, 2500);   // never stay locked if the scroller does not report back
+}
+// a change in the suit's part while the helmet's part is being read would push the page: keep the helmet part in place
+// (not while the page is about to land somewhere else anyway)
+function steady(fn, on = true) {
+  const a = on && !landing && !mobile() && midPart() === 'helmet' ? partOf('helmet') : null;
+  const y0 = a ? a.getBoundingClientRect().top : 0;
+  fn();
+  if (!a) return;
+  const dy = a.getBoundingClientRect().top - y0;
+  if (Math.abs(dy) > 0.5) nudgeBy(dy);
 }
 
 // Sold spots wear the sponsor's real logo on the 3D model (spots.json → "logo").
@@ -286,26 +370,36 @@ const statusText = (s) => {
 export function getSuit() { return suit; }
 export function getHelmet() { return helmet; }
 export function getKit() { return kit; }
-export function deepLinked() { return /^#(fato|capacete|pacote=)/.test(location.hash) || !!selected || wantTitle; }
+// where a deep link lands: the part of its spot (or of its package), the chapter for a mixed package, or nowhere
+export function landTarget() {
+  if (hashLand) return partOf(hashLand);
+  return /^#fato$/.test(location.hash) ? $('#fato') : null;
+}
 export function userHasInteracted() { return interacted || !!selected; }
 
 // ---------- stats ----------
-// The counts cover every spot, suit and helmet; the title package is the suit's 20 alone.
+// The chapter's counts cover every spot, suit and helmet; each entry card and part counts its own; the title package
+// is the suit's 20 alone.
 function renderStats() {
   const av = available();
-  const prices = SPOTS.map((s) => s.price);
   flowSet($('#avail-n'), av.length);
-  $('#only-n').textContent = t('rc.free', av.length);
   flowSet($('#hero-spots'), av.length);
   $('#avail-t').textContent = SPOTS.length;
   $('#avail-pct').textContent = `${Math.round((av.length / SPOTS.length) * 100)}%`;
   $('#avail-bar').style.width = `${(av.length / SPOTS.length) * 100}%`;
-  const eur = { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 };
-  flowSet($('#st-n'), SPOTS.length);
-  flowSet($('#st-from'), Math.min(...prices), { format: eur });
-  const top = av.slice().sort((a, b) => b.price - a.price)[0];
-  if (top) flowSet($('#st-top'), top.price, { format: eur }); else $('#st-top').textContent = t(SPOTS.some((s) => s.status === 'reserved') ? 'st.reserved' : 'st.sold');
-  flowSet($('#st-title'), DATA.title.price, { format: eur });
+  $('#ad-sub').textContent = t('ad.sub', SPOTS.length, ofItem('suit').length, ofItem('helmet').length);
+  $('#only-n').textContent = t('rc.free', av.filter((s) => itemOf(s) === 'suit').length);
+  for (const it of ITEMS) {
+    const all = ofItem(it), free = all.filter((s) => s.status === 'available');
+    if (!all.length) continue;
+    // «20 espaços · desde 60 €»; once some are taken, «18 de 20 livres» and the cheapest one still free
+    $(`#en-${it}-n`).textContent = !free.length ? t('en.none') : free.length === all.length ? t('pk.spots', all.length) : t('en.left', free.length, all.length);
+    const from = $(`#en-${it}-from`);
+    from.hidden = !free.length;
+    if (free.length) from.textContent = t('en.from', money(Math.min(...free.map((s) => s.price))));
+    const prices = all.map((s) => s.price);
+    $(`#pt-p${it === 'suit' ? 1 : 2}`).textContent = t(`part.${it}`, all.length, money(Math.min(...prices)), money(Math.max(...prices)));
+  }
   $('#tp-price').textContent = money(DATA.title.price);
   const tpBtn = $('#tp-btn');
   tpBtn.disabled = DATA.title.status !== 'available' || !titleOpen();
@@ -314,31 +408,40 @@ function renderStats() {
 // the whole suit can be asked for only while every suit spot is free (helmet sales do not matter)
 const titleOpen = () => ofItem('suit').every((s) => s.status === 'available');
 
-// The tiers as a small table, one row each: [dot] Principal · 400–600 € · 3 espaços, with the columns lined up
+// The tiers as a small table per part, one row each: [dot] Principal · 400–600 € · 3 espaços, with the columns lined up
 function renderLegend() {
-  const body = $('#tiers-legend tbody');
-  body.textContent = '';
   // '400–600 €' (PT) or '€400–600' (EN): the currency once, on the side the language writes it
   const range = (lo, hi) => (lo === hi ? money(lo) : getLang() === 'en' ? `${money(lo)}–${numFmt(hi)}` : `${numFmt(lo)}–${money(hi)}`);
-  for (const tr of DATA.tiers) {
-    const inTier = SPOTS.filter((s) => tierOf(s).key === tr.key);
-    if (!inTier.length) continue;
-    const lo = Math.min(...inTier.map((s) => s.price)), hi = Math.max(...inTier.map((s) => s.price));
-    const row = document.createElement('tr');
-    const cell = (cls, txt) => { const td = document.createElement('td'); td.className = cls; td.textContent = txt; row.appendChild(td); return td; };
-    const nm = cell('tl-name', pick(tr));
-    const dot = document.createElement('i'); dot.className = `t-${tr.key}`; dot.setAttribute('aria-hidden', 'true'); nm.prepend(dot);
-    cell('tl-range', range(lo, hi));
-    cell('tl-n', t('pk.spots', inTier.length));
-    body.appendChild(row);
+  for (const it of ITEMS) {
+    const body = $(`.ratecard[data-item="${it}"] .tiers-legend tbody`);
+    if (!body) continue;
+    body.textContent = '';
+    for (const tr of DATA.tiers) {
+      const inTier = ofItem(it).filter((s) => tierOf(s).key === tr.key);
+      if (!inTier.length) continue;
+      const lo = Math.min(...inTier.map((s) => s.price)), hi = Math.max(...inTier.map((s) => s.price));
+      const row = document.createElement('tr');
+      const cell = (cls, txt) => { const td = document.createElement('td'); td.className = cls; td.textContent = txt; row.appendChild(td); return td; };
+      const nm = cell('tl-name', pick(tr));
+      const dot = document.createElement('i'); dot.className = `t-${tr.key}`; dot.setAttribute('aria-hidden', 'true'); nm.prepend(dot);
+      cell('tl-range', range(lo, hi));
+      cell('tl-n', t('pk.spots', inTier.length));
+      body.appendChild(row);
+    }
   }
 }
 
 // ---------- rate card ----------
+// The suit's card groups its 20 spots by area or by price tier (and can hide the taken ones); the helmet's lists its 4.
 function renderRateCard() {
+  const hb = $('#rc-body-h');
+  hb.textContent = '';
+  const hl = document.createElement('ul'); hl.className = 'rc-list';
+  for (const s of ofItem('helmet').sort((a, b) => a.n - b.n)) hl.appendChild(row(s));
+  hb.appendChild(hl);
   const host = $('#rc-body');
   host.textContent = '';
-  const list = SPOTS.filter((s) => !onlyAvail || s.status === 'available');
+  const list = ofItem('suit').filter((s) => !onlyAvail || s.status === 'available');
   const groups = [];
   if (sortMode === 'area') {
     for (const a of AREAS) { const items = list.filter((s) => s.area === a).sort((x, y) => x.n - y.n); if (items.length) groups.push({ title: t(`z.${a}`), items }); }
@@ -347,7 +450,7 @@ function renderRateCard() {
   }
   for (const g of groups) {
     const box = document.createElement('div'); box.className = 'rc-group';
-    const h = document.createElement('h4');
+    const h = document.createElement('h5');
     const sum = g.items.filter((s) => s.status === 'available').reduce((a, s) => a + s.price, 0);
     const l = document.createElement('span'); l.textContent = g.title;
     const r = document.createElement('span'); r.textContent = `${g.items.length} · ${money(sum)}`;
@@ -365,7 +468,8 @@ function row(s) {
   const dot = document.createElement('i'); dot.className = `row-dot t-${tierOf(s).key}`;
   const n = document.createElement('span'); n.className = 'n'; n.textContent = String(s.n).padStart(2, '0');
   const nm = document.createElement('button'); nm.type = 'button'; nm.className = 'nm';
-  nm.textContent = pick(s).name;
+  // inside its own part a helmet row drops the «Capacete, …» its full name carries (spots.json → pt/en.short)
+  nm.textContent = pick(s).short || pick(s).name;
   const small = document.createElement('small'); small.textContent = sizeOf(s);
   nm.appendChild(small);
   nm.setAttribute('aria-label', `${pick(s).name}, ${money(s.price)}, ${statusText(s)}`);
@@ -388,18 +492,22 @@ function row(s) {
 }
 
 // ---------- selection + card ----------
-// A spot on the other model switches the stage first (showItem selects it once that model is up).
+// A spot on the other model switches the stage first (showItem selects it once that model is up), and when its part is
+// not the one on screen (a deep link, a hash change) the page scrolls there.
 function select(id, { from3d = false, focus = true } = {}) {
   selected = id && byId(id) ? id : null;
   const it = selected ? itemOf(byId(selected)) : want, switching = it !== item;
   // the model on stage lets go of its spot at once: the card already shows the new one, and if the other model
   // cannot be built (helmet.js failed to load) the stage stays neutral instead of highlighting the old spot
   if (switching) { if (kit) kit.select(null); showItem(it); }
-  else { if (want !== it) { want = it; syncItemTabs(); } if (kit && !from3d) kit.select(selected, { focus }); }
-  renderCard();
+  else { want = it; if (kit && !from3d) kit.select(selected, { focus }); }
+  const away = !!selected && booted && it !== midPart();
+  renderCard({ steadyView: !away });
+  if (away) land(it);
   $$('.rc-row').forEach((r) => r.classList.toggle('sel', r.dataset.id === selected));
   $$('.chapter[data-focus]').forEach((c) => c.classList.toggle('on', c.dataset.focus === selected));
-  if (selected && kit && $('#btn-spots').getAttribute('aria-pressed') !== 'true') { $('#btn-spots').setAttribute('aria-pressed', 'true'); if (!switching) kit.setShowSpots(true); }
+  const sp = act(it, 'spots');
+  if (selected && sp && !pressed(sp)) { sp.setAttribute('aria-pressed', 'true'); if (!switching && kit) kit.setShowSpots(true); }
   $$('[data-view]').forEach((x) => x.setAttribute('aria-pressed', 'false'));
   const tryon = $('#tryon');
   if (tryon.classList.contains('on') && logoFile && selected && !switching) applyLogo();   // showItem re-applies it after a switch
@@ -412,17 +520,25 @@ function select(id, { from3d = false, focus = true } = {}) {
   if (open) { sheet.scrollTop = 0; if (from3d && navigator.vibrate) navigator.vibrate(8); }
 }
 
-function renderCard() {
-  const s = selected && byId(selected);
-  $('#spot-empty').hidden = !!s;
-  $('#spot-detail').hidden = !s;
+// One spot card, in the panel of its spot's part; each part shows its own prompt while none of its spots is picked.
+// (On phones the card is a bottom sheet, so where it sits in the page does not matter.)
+function renderCard({ steadyView = true } = {}) {
+  const s = selected && byId(selected), card = $('#spot-card');
+  const host = s ? $(`.spot-slot[data-item="${itemOf(s)}"]`) : null;
+  steady(() => {
+    if (host && card.parentElement !== host) host.appendChild(card);
+    $$('.spot-slot').forEach((sl) => sl.classList.toggle('held', sl === host));
+    card.classList.toggle('has', !!s);
+  }, steadyView);
   if (!s) return;
   const tr = tierOf(s);
   const topId = SPOTS.find((x) => x.top)?.id;
   $('#sd-id').textContent = `${String(s.n).padStart(2, '0')} · ${t(`z.${s.area}`).toUpperCase()}`;
   $('#sd-name').textContent = pick(s).name;
   $('#sd-price').textContent = money(s.price);
-  $('#sd-tier').textContent = `${pick(tr)} · ${getLang() === 'en' ? `${DATA.season} season` : `época ${DATA.season}`}`;
+  // «Principal · época 2027»: on a phone two lines of their own, never a break inside «época 2027»
+  const tier = $('#sd-tier'); tier.textContent = '';
+  for (const [cls, txt] of [['t1', pick(tr)], ['t2', getLang() === 'en' ? `${DATA.season} season` : `época ${DATA.season}`]]) { const sp = document.createElement('span'); sp.className = cls; sp.textContent = txt; tier.appendChild(sp); }
   $('#sd-size').textContent = sizeOf(s);
   $('#sd-status').textContent = statusText(s);
   $('#sd-status').className = `badge${s.status === 'available' ? '' : ' dim'}`;
@@ -702,6 +818,10 @@ function fillPayee() {
   const mb = String(SITE.mbway || '').replace(/\D/g, '');
   $('#pay-mb').textContent = mb.replace(/(\d{3})(?=\d)/g, '$1 ');
   $('#pay-mb-cp').dataset.copy = mb;
+  // the same number for a donation in Apoiar (`mbway: ''` hides it there too)
+  $('#give-mb-n').textContent = mb.replace(/(\d{3})(?=\d)/g, '$1 ');
+  $('#give-mb').dataset.copy = mb;
+  $('#give-mb').hidden = !mb; $('#give-or').hidden = !mb;
   $('#cl-mailfb-a').textContent = SITE.email;
   $('#cl-mailfb-cp').dataset.copy = SITE.email;
   $('#cl-wa').href = `https://wa.me/${SITE.whatsapp}`;
@@ -717,16 +837,23 @@ async function copy(text) {
 }
 
 // ---------- tour ----------
-// the tour stays on the model on stage, so the camera never jumps between the suit and the helmet
-function startTour() {
-  if (!kit) return;
-  stopTour();
-  tourCtl = new AbortController();
-  const ids = available().filter((s) => itemOf(s) === item).sort((a, b) => b.price - a.price || a.n - b.n).map((s) => s.id);
-  $('#btn-tour').classList.add('on');
-  kit.tour(ids, (id) => select(id, { from3d: true }), tourCtl.signal).finally(() => $('#btn-tour').classList.remove('on'));
+// each part has its own tour: it visits that part's free spots only, so the camera never leaves its model
+const tourBtn = (it) => $(`.chapters[data-item="${it}"] [data-tour]`);
+function startTour(it) {
+  withModel(it, (k) => {
+    stopTour();
+    const ctl = tourCtl = new AbortController();
+    const ids = available().filter((s) => itemOf(s) === it).sort((a, b) => b.price - a.price || a.n - b.n).map((s) => s.id);
+    const b = tourBtn(it); b?.classList.add('on');
+    k.tour(ids, (id) => select(id, { from3d: true }), ctl.signal).finally(() => b?.classList.remove('on'));
+  });
 }
-function stopTour() { if (tourCtl) { tourCtl.abort(); tourCtl = null; $('#btn-tour')?.classList.remove('on'); } }
+function stopTour() { if (tourCtl) { tourCtl.abort(); tourCtl = null; $$('[data-tour]').forEach((b) => b.classList.remove('on')); } }
+// run fn on the model of part `it`, bringing it on stage first if needed (a tap in a part whose model is not up yet)
+function withModel(it, fn) {
+  if (kit && item === it) { fn(kit); return; }
+  showItem(it).then(() => { if (kit && item === it) fn(kit); });
+}
 
 // ---------- logo try-on ----------
 async function applyLogo() {
@@ -760,20 +887,28 @@ async function downloadMockup() {
 // #fato/<id> and #capacete/<id> select any spot (select() brings up its model); #capacete opens the helmet, and so
 // does a #capacete/ link whose id is empty or unknown (a typo, or a spot renamed since the link was shared).
 // Only those helmet links write `want`: the model on stage is always switched by showItem().
+// hashLand: the part the link lands in (a package on one model lands in that model's part, a mixed one on the chapter).
 function readHash() {
   const h = decodeURIComponent(location.hash.slice(1));
+  hashLand = null;
   if (h.startsWith('pacote=')) {
     const ids = h.slice(7).split(',').filter((id) => byId(id)?.status === 'available');
     if (ids.length) { basket = new Set(ids); try { localStorage.setItem(STORE, JSON.stringify(ids)); } catch (_) {} }
+    const kinds = new Set(ids.map((id) => itemOf(byId(id))));
+    if (kinds.size === 1) hashLand = [...kinds][0];
     history.replaceState(null, '', `${location.pathname}${location.search}#fato`);
   } else if (h === 'fato/title') {
     wantTitle = DATA.title.status === 'available' && titleOpen();
+    hashLand = 'suit';
   } else if (/^capacete(\/|$)/.test(h)) {
     const id = h.slice(9);
     if (byId(id)) selected = id; else { selected = null; want = 'helmet'; }
+    hashLand = selected ? itemOf(byId(selected)) : 'helmet';
   } else if (/^fato\/./.test(h)) {
     const id = h.slice(h.indexOf('/') + 1);
-    if (byId(id)) selected = id;
+    if (byId(id)) { selected = id; hashLand = itemOf(byId(id)); } else hashLand = 'suit';
+  } else if (h === 'o-fato' || h === 'o-capacete') {
+    hashLand = h === 'o-fato' ? 'suit' : 'helmet';
   }
 }
 
@@ -786,46 +921,43 @@ function bindSheet() {
   sheet.addEventListener('pointermove', (e) => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sheet.style.setProperty('--drag', `${dy}px`); });
   const end = () => { if (y0 === null) return; sheet.classList.remove('dragging'); y0 = null; if (dy > 90) { select(null); if (kit) kit.home(); } else sheet.style.removeProperty('--drag'); };
   sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);
-  // on phones the stage shrinks while the rate card is being read
-  const studio = $('.studio');
-  new IntersectionObserver((en) => { studio.classList.toggle('compact', mobile() && en[0].isIntersecting); }, { rootMargin: '-55% 0px -10% 0px' }).observe($('#ratecard'));
-  addEventListener('resize', () => { if (!mobile()) { sheet.classList.remove('open'); document.body.classList.remove('sheet-open'); studio.classList.remove('compact'); } });
+  // on phones the suit's stage shrinks while its long rate card is being read (the helmet's four rows need no room:
+  // shrinking its stage would only move its short card in and out of the band, over and over)
+  const studio = $('.studio[data-item="suit"]');
+  new IntersectionObserver((en) => { studio.classList.toggle('compact', mobile() && en[0].isIntersecting && !studio.classList.contains('no3d')); }, { rootMargin: '-55% 0px -10% 0px' }).observe($('.ratecard[data-item="suit"]'));
+  addEventListener('resize', () => { if (!mobile()) { closeSheet(); $$('.studio').forEach((x) => x.classList.remove('compact')); } });
 }
+function closeSheet() { $('#spot-card').classList.remove('open'); document.body.classList.remove('sheet-open'); }
 
 function bindUI() {
   bindSheet();
-  // Fato | Capacete: bound here (not when the stage mounts), so an early tap still sets `want`
-  $$('[data-item]').forEach((b) => b.addEventListener('click', () => {
-    const it = b.dataset.item;
-    if (it === want && it === item) return;
-    stopTour(); interacted = true;
-    want = it;   // so select(null) below stays on the model asked for
-    select(null);
-    showItem(it).then(() => { if (item === it && want === it) { kit.home(); kit.setAuto($('#btn-rotate').getAttribute('aria-pressed') === 'true'); } });
-  }));
+  // each stage's controls drive the model of their own part (bound here, before the stage mounts, so an early tap counts)
+  const partIt = (el) => el.closest('[data-item]').dataset.item;
+  const pickedHere = (it) => selected && itemOf(byId(selected)) === it;
   $$('[data-view]').forEach((b) => b.addEventListener('click', () => {
+    const it = partIt(b);
     stopTour(); interacted = true;
-    $$('[data-view]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
-    select(null);
-    kit && kit.view(b.dataset.view);
-    $('#btn-rotate').setAttribute('aria-pressed', 'false');
+    if (pickedHere(it)) select(null);
+    $$('[data-view]', stageOf(it)).forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    act(it, 'rotate')?.setAttribute('aria-pressed', 'false');
+    withModel(it, (k) => k.view(b.dataset.view));
   }));
-  $('#btn-rotate').addEventListener('click', (e) => {
-    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
-    e.currentTarget.setAttribute('aria-pressed', String(on));
-    if (on) { select(null); stopTour(); }
-    kit && kit.setAuto(on);
-  });
-  $('#btn-spots').addEventListener('click', (e) => {
-    const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
-    e.currentTarget.setAttribute('aria-pressed', String(on));
-    if (!on) select(null);
-    kit && kit.setShowSpots(on);
-  });
-  $('#zoom-in').addEventListener('click', () => kit && kit.zoom(1));
-  $('#zoom-out').addEventListener('click', () => kit && kit.zoom(-1));
+  $$('[data-act="rotate"]').forEach((b) => b.addEventListener('click', () => {
+    const it = partIt(b), on = !pressed(b);
+    b.setAttribute('aria-pressed', String(on));
+    if (on) { stopTour(); if (pickedHere(it)) select(null); }
+    withModel(it, (k) => k.setAuto(on));
+  }));
+  $$('[data-act="spots"]').forEach((b) => b.addEventListener('click', () => {
+    const it = partIt(b), on = !pressed(b);
+    b.setAttribute('aria-pressed', String(on));
+    if (!on && pickedHere(it)) select(null);
+    withModel(it, (k) => k.setShowSpots(on));
+  }));
+  $$('[data-act="zoom-in"]').forEach((b) => b.addEventListener('click', () => withModel(partIt(b), (k) => k.zoom(1))));
+  $$('[data-act="zoom-out"]').forEach((b) => b.addEventListener('click', () => withModel(partIt(b), (k) => k.zoom(-1))));
   $$('.chapter[data-focus]').forEach((c) => c.addEventListener('click', () => { stopTour(); interacted = true; select(c.dataset.focus); }));
-  $('#btn-tour').addEventListener('click', () => { interacted = true; tourCtl ? stopTour() : startTour(); });
+  $$('[data-tour]').forEach((b) => b.addEventListener('click', () => { interacted = true; const on = b.classList.contains('on'); stopTour(); if (!on) startTour(partIt(b)); }));
   $$('[data-sort]').forEach((b) => b.addEventListener('click', () => {
     sortMode = b.dataset.sort;
     $$('[data-sort]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
@@ -897,7 +1029,7 @@ function bindUI() {
     forgetSent();
     wantTitle = false; basket.clear(); saveBasket();
     $('#claim').close();
-    if (document.activeElement?.closest('#package')) { const h = $('#ratecard h3'); h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    if (document.activeElement?.closest('#package')) { const h = $(`.ratecard[data-item="${midPart() || 'suit'}"] h4`); h.tabIndex = -1; h.focus({ preventScroll: true }); }
     toast(t('toast.thanks'));
   });
   $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
@@ -927,15 +1059,15 @@ function bindUI() {
     const fields = $$('#cl-s1 input, #cl-s1 textarea').filter((x) => x.offsetParent), next = fields[fields.indexOf(e.target) + 1];
     if (next) next.focus(); else e.target.blur();
   });
-  // keyboard: arrows step through the selected spot's model in price order, Esc clears
-  let studioInView = false;
-  // in view = crossing the middle of the screen (a share of the studio's own height breaks as the rate card grows)
-  new IntersectionObserver((en) => { studioInView = en[0].isIntersecting; }, { rootMargin: '-35% 0px -35% 0px' }).observe($('.studio'));
+  // keyboard: arrows step through the spots of the part on screen in price order, Esc clears
   document.addEventListener('keydown', (e) => {
-    if (!selected || !studioInView || /input|textarea|select/i.test(document.activeElement?.tagName || '') || $('#claim').open) return;
-    if (document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('.studio')) return;
-    // the selected spot's model, not `item`: while the helmet builds, the suit is still on stage
-    const order = ofItem(itemOf(byId(selected))).sort((a, b) => b.price - a.price || a.n - b.n);
+    if (!selected || /input|textarea|select/i.test(document.activeElement?.tagName || '') || $('#claim').open) return;
+    if (document.activeElement && document.activeElement !== document.body && !document.activeElement.closest('.part')) return;
+    // the selected spot's part, and only while it is the one on screen (not `item`: while the helmet builds, the suit
+    // is still on stage)
+    const it = itemOf(byId(selected));
+    if (it !== midPart()) return;
+    const order = ofItem(it).sort((a, b) => b.price - a.price || a.n - b.n);
     const i = order.findIndex((s) => s.id === selected);
     if (e.key === 'ArrowRight') { e.preventDefault(); select(order[(i + 1) % order.length].id); }
     else if (e.key === 'ArrowLeft') { e.preventDefault(); select(order[(i - 1 + order.length) % order.length].id); }
@@ -946,6 +1078,7 @@ function bindUI() {
     readHash(); renderPackage();
     for (const m of models()) m.setBasket([...basket]);
     if (selected || selected !== was || want !== item) select(selected);
+    if (hashLand && hashLand !== midPart()) land(hashLand);
   });
 }
 

@@ -581,10 +581,12 @@
       },
       "pt": {
         "name": "Topo do capacete",
+        "short": "Topo",
         "pitch": "Fica no topo, entre as riscas vermelhas. Na bicicleta vê-se nas fotos tiradas de cima e de trás."
       },
       "en": {
         "name": "Helmet top",
+        "short": "Top",
         "pitch": "On top, between the red stripes. On the bike it shows in photos taken from above and from behind."
       }
     },
@@ -609,10 +611,12 @@
       },
       "pt": {
         "name": "Capacete, lado esquerdo",
+        "short": "Lado esquerdo",
         "pitch": "Na bicicleta a cabeça fica parada, por isso o logótipo sai direito nas fotos de perfil."
       },
       "en": {
         "name": "Helmet, left side",
+        "short": "Left side",
         "pitch": "On the bike my head stays still, so the logo reads level in side-on photos."
       }
     },
@@ -637,10 +641,12 @@
       },
       "pt": {
         "name": "Capacete, lado direito",
+        "short": "Lado direito",
         "pitch": "O mesmo espaço, nas fotos tiradas do lado direito da estrada."
       },
       "en": {
         "name": "Helmet, right side",
+        "short": "Right side",
         "pitch": "The same spot, in photos taken from the right-hand side of the road."
       }
     },
@@ -665,10 +671,12 @@
       },
       "pt": {
         "name": "Traseira do capacete",
+        "short": "Traseira",
         "pitch": "É o que vê quem segue atrás de mim na bicicleta."
       },
       "en": {
         "name": "Helmet rear",
+        "short": "Rear",
         "pitch": "What the riders behind me see on the bike."
       }
     }

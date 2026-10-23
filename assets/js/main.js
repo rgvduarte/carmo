@@ -4,7 +4,7 @@ import { SITE, RESULTS, SEASON, BUDGET, IRONMAN_SPLITS, SOCIAL } from './data.js
 import { weekMultiples, heatmap, splitBar } from './charts.js';
 import { initMarks, refreshMarks } from './marks.js';
 import { flowSet, flowStatic } from './flow.js';
-import { initAdspace, userHasInteracted, deepLinked } from './adspace.js';
+import { initAdspace, userHasInteracted, landTarget } from './adspace.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -314,9 +314,9 @@ function initMotion(getSuit) {
     live.style.strokeDasharray = L; live.style.strokeDashoffset = L;
     G.to(live, { strokeDashoffset: 0, ease: 'none', scrollTrigger: { trigger: '.route', start: 'top 85%', end: 'bottom 45%', scrub: true } });
   }
-  // the suit turns to face you as the studio scrolls in
+  // the suit turns to face you as its part of the studio scrolls in
   ST.create({
-    trigger: '.studio', start: 'top bottom', end: 'top 25%', scrub: true,
+    trigger: '.studio[data-item="suit"]', start: 'top bottom', end: 'top 25%', scrub: true,
     onUpdate: (self) => {
       const s = getSuit();
       if (!s || userHasInteracted()) return;
@@ -363,13 +363,27 @@ let suitRef = null;
 const startMotion = () => {
   let lenis = null;
   try { ({ lenis } = initMotion(() => suitRef)); } catch (e) { console.error(e); }
-  const toStudio = () => { const el = $(/^#(fato\/.|capacete)/.test(location.hash) ? '.studio' : '#fato'); if (!el) return; if (lenis) lenis.scrollTo(el, { offset: -nav.offsetHeight, immediate: true }); else el.scrollIntoView(); };
+  // scroll to an element just under the nav; resolves once there (adspace waits for it before showing the part's model)
+  // (an absolute target: Lenis measures an element against its own scroll value, which can lag a scroll it did not make)
+  const scrollToEl = (el, { immediate = false } = {}) => new Promise((done) => {
+    const top = el.getBoundingClientRect().top + scrollY - nav.offsetHeight;
+    if (lenis) { lenis.scrollTo(top, { immediate, duration: 1.2, onComplete: done }); if (immediate) done(); return; }
+    scrollTo({ top, behavior: immediate || reduce ? 'auto' : 'smooth' });
+    setTimeout(done, immediate || reduce ? 0 : 900);
+  });
+  // a deep link lands in its part (#fato/peito, #capacete/…, #fato/title), or on the chapter for #fato and a mixed package;
+  // not if the visitor has scrolled in the meantime
+  const y0 = scrollY;
+  const toStudio = () => { const el = landTarget(); if (el && Math.abs(scrollY - y0) < 2) scrollToEl(el, { immediate: true }); };
   initAdspace({
+    scrollTo: scrollToEl,
+    // move the page by dy at once, keeping Lenis in step (a change above the part being read must not push it)
+    nudge: (dy) => { if (lenis) lenis.scrollTo(scrollY + dy, { immediate: true, force: true }); else scrollBy(0, dy); },
     onSuitReady: (s) => {
       suitRef = s;
       if (userHasInteracted()) { s._revealed = true; s.reveal(); if (s.selected) s.focus(s.selected); return; }
       // match the scroll pose before the first frame so the suit never jumps
-      const st = window.ScrollTrigger && window.ScrollTrigger.getAll().find((x) => x.trigger && x.trigger.classList && x.trigger.classList.contains('studio'));
+      const st = window.ScrollTrigger && window.ScrollTrigger.getAll().find((x) => x.trigger && x.trigger.matches && x.trigger.matches('.studio[data-item="suit"]'));
       if (st && !reduce) {
         const k = st.progress, e = 1 - Math.pow(1 - k, 3);
         s.setPose({ rot: lerp(Math.PI * 1.15, -0.314, e), dist: lerp(3.2, 2.2, e), ty: 0.19, y: lerp(0.5, 0.23, e) }, { shortest: false });
@@ -378,7 +392,7 @@ const startMotion = () => {
         if (k >= 0.999) s.setAuto(true);
       } else { s.reveal(); s.setAuto(!reduce); }
     },
-  }).then(() => { if (deepLinked()) requestAnimationFrame(toStudio); });
+  }).then(() => requestAnimationFrame(toStudio));
   safe(() => initMarks({ lenis }));
 };
 // GSAP/Lenis are deferred classic scripts; modules run after them, but guard anyway

@@ -12,8 +12,14 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Resultados**: resultados oficiais e gráficos (meias distâncias, parciais do IRONMAN, lugar na geral).
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
 - **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
-- **O fato e o capacete**: estúdio 3D com 24 espaços à venda, 20 no fato e 4 no capacete aero (botão Fato | Capacete). Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar num pacote, reservar por WhatsApp, email ou Instagram e pagar por transferência ou MB WAY.
-- **Apoiar**: GoFundMe, apoio em espécie e orçamento estimado da época.
+- **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir à introdução há dois cartões
+  grandes, «O fato» e «O capacete», cada um com a fotografia do modelo, o número de espaços, o preço mais baixo e um botão
+  que leva à sua parte. Cada parte tem o seu modelo 3D, as vistas, a visita guiada e a tabela de preços (a do fato também
+  o fato completo). Há um só modelo 3D ativo de cada vez: o da parte que está no ecrã. O capacete só é preparado quando a
+  parte dele se aproxima e, enquanto isso, mostra a fotografia e «A carregar o capacete». Dá para rodar, escolher,
+  experimentar o logótipo, descarregar o mockup, juntar espaços dos dois num pacote, reservar por WhatsApp, email ou
+  Instagram e pagar por transferência ou MB WAY.
+- **Apoiar**: GoFundMe, transferência ou MB WAY, apoio em espécie e orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
 
 PT e EN (botão no topo; a língua também segue o browser).
@@ -29,10 +35,12 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
+| Fotografias do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
 ## Vender um espaço
 
-**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva (e em Apoiar), ou MB WAY
+**Como se paga.** Transferência bancária para o IBAN que aparece no pedido de reserva (e em Apoiar, para donativos, com o
+MB WAY ao lado), ou MB WAY
 para o número do Gonçalo (916 395 103) até 2 000 € por envio, o máximo que o MB WAY deixa mandar de uma vez.
 Acima disso, como o fato completo (3 000 €), o pedido só mostra a transferência. O site mostra o montante já com
 desconto e um descritivo com os números dos espaços, por exemplo `KONA 01` ou `KONA 09 16 20`, para cada pagamento se
@@ -79,6 +87,7 @@ Só funciona para quem gere o repositório e precisa que o branch por defeito se
 | `logoMono` | `"#f6f7f9"` | Força uma cor única no logótipo (por defeito, logótipos escuros ficam brancos sobre o preto) |
 | `until` | `"2026-10-31"` | Último dia da reserva |
 | `item` | `"helmet"` | O espaço é no capacete (sem este campo, é no fato) |
+| `pt.short`, `en.short` | `"Lado esquerdo"` | Nome curto na tabela da parte do capacete (opcional; no pedido e na mensagem vai o nome completo) |
 
 O `title` (fato completo) aceita os mesmos campos. Vendido, fecha os 20 espaços do fato com o nome da marca e
 põe o logótipo no peito. O capacete fica de fora: os 4 espaços dele vendem-se à parte, e o desconto de pacote
@@ -89,9 +98,10 @@ volta do corpo, 0 = frente), `t` (altura em metros), `w` × `h` (cm) e `rot`. No
 ângulo no arco (0 = linha do topo, +90 = lado esquerdo), `t` são metros ao longo do topo a contar da viseira, e `rot`
 pode ser 0, ±90 ou 180.
 
-**Links diretos.** `gocarmo.com/#fato/peito` abre um espaço do fato, `gocarmo.com/#capacete/capacete-topo` um do
-capacete e `gocarmo.com/#capacete` abre o estúdio no capacete. `#fato/title` pede o fato completo e
-`#pacote=peito,capacete-topo` abre um pacote.
+**Links diretos.** Cada link abre a parte certa do capítulo 05. `gocarmo.com/#fato/peito` abre um espaço do fato,
+`gocarmo.com/#capacete/capacete-topo` um do capacete, `#o-fato` e `#o-capacete` levam a cada parte e `#capacete` abre a
+parte do capacete. `#fato/title` pede o fato completo. `#pacote=peito,capacete-topo` abre um pacote: se for só de um dos
+dois, leva à parte dele; com espaços do fato e do capacete, ao início do capítulo, onde estão os dois cartões.
 
 ## Página de admin
 
