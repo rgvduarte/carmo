@@ -1,11 +1,13 @@
 // Procedural 3D trisuit: geometry, print texture, spot tiles, picking, focus/tour, scroll poses
 // and logo try-on. Everything is generated in code (no external mesh), so the suit, its panels
 // and every sponsor spot stay editable from data/spots.json.
+// Kit holds what every sponsor model shares (atlas, spot tiles, picking, poses, tour, logos, loop);
+// Suit and the lazily loaded Helmet (helmet.js) extend it and can share one renderer.
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-const TAU = Math.PI * 2;
-const DEG = Math.PI / 180;
+export const TAU = Math.PI * 2;
+export const DEG = Math.PI / 180;
 const ATLAS = 2048;
 
 // colourway: white top, black shorts, charcoal side panels, gold accent
@@ -14,7 +16,7 @@ export const COLORS = {
   seamOnLight: 'rgba(0,0,0,0.14)', seamOnDark: 'rgba(255,255,255,0.08)',
   gold: '#e6b450', inkDark: '#141414', inkLight: '#f6f7f9',
 };
-export const HOME = { rot: -18 * DEG, dist: 2.2, ty: 0.19, y: 0.23 };
+export const HOME = { rot: -18 * DEG, dist: 2.2, ty: 0.19, y: 0.23, x: 0 };
 
 // Atlas regions (canvas px). Each part of the suit owns one rectangle of the texture.
 const REGIONS = {
@@ -52,23 +54,24 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const smooth = (t) => t * t * (3 - 2 * t);
 
 // Cubic Hermite through non-uniform control points (Catmull-Rom style tangents).
-function profileAt(y) {
-  const P = TORSO;
-  if (y <= P[0][0]) return P[0].slice(1);
-  if (y >= P[P.length - 1][0]) return P[P.length - 1].slice(1);
+// P rows are [x, ...values]; returns the values at x.
+export function hermite(P, x) {
+  if (x <= P[0][0]) return P[0].slice(1);
+  if (x >= P[P.length - 1][0]) return P[P.length - 1].slice(1);
   let i = 0;
-  while (y > P[i + 1][0]) i++;
+  while (x > P[i + 1][0]) i++;
   const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
   const h = p2[0] - p1[0];
-  const t = (y - p1[0]) / h, t2 = t * t, t3 = t2 * t;
+  const t = (x - p1[0]) / h, t2 = t * t, t3 = t2 * t;
   const out = [];
-  for (let k = 1; k < 5; k++) {
+  for (let k = 1; k < p1.length; k++) {
     const m1 = ((p2[k] - p0[k]) / (p2[0] - p0[0] || 1)) * h;
     const m2 = ((p3[k] - p1[k]) / (p3[0] - p1[0] || 1)) * h;
     out.push((2 * t3 - 3 * t2 + 1) * p1[k] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2[k] + (t3 - t2) * m2);
   }
   return out;
 }
+const profileAt = (y) => hermite(TORSO, y);
 
 // A suit part is a stack of super-elliptic rings. Each ring keeps an arc-length table so that
 // texture u is proportional to distance around the body (logos keep their proportions).
@@ -123,7 +126,7 @@ class Part {
     n.addScaledVector(ax, -n.dot(ax)).normalize();
     return { p, n };
   }
-  geometry(cols, region) {
+  geometry(cols, region, size = ATLAS) {
     const R = this.rings.length;
     const pos = new Float32Array(R * (cols + 1) * 3), uv = new Float32Array(R * (cols + 1) * 2);
     const p = new THREE.Vector3();
@@ -133,7 +136,7 @@ class Part {
         const u = j / cols, k = i * (cols + 1) + j;
         this.point(this.rings[i], this.phiForU(i, u), p);
         pos.set([p.x, p.y, p.z], k * 3);
-        uv.set([(region.x + u * region.w) / ATLAS, 1 - (region.y + (1 - v) * region.h) / ATLAS], k * 2);
+        uv.set([(region.x + u * region.w) / size, 1 - (region.y + (1 - v) * region.h) / size], k * 2);
       }
     }
     const idx = [];
@@ -253,8 +256,38 @@ const FRAG_EMIT = `#include <emissivemap_fragment>
   totalEmissiveRadiance += vec3(0.55) * ringH;
 }`;
 
-export class Suit {
-  constructor(container, { spots, onSelect, onHover, money, labels = {} }) {
+// One PMREM room per renderer, shared by every scene drawn with it (WebGLRenderer has no userData).
+const ENVS = new WeakMap();
+export function envFor(r) {
+  let e = ENVS.get(r);
+  if (!e) { e = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; ENVS.set(r, e); }
+  return e;
+}
+const DEV = typeof location !== 'undefined' && /[?&]dev\b/.test(location.search);
+
+// A sponsor model: one scene and camera, a colour atlas (base) and a spot-tile atlas (over).
+// Subclasses set the statics and implement build() and drawBase(); everything else is shared.
+// Several models can draw to one renderer (pass `renderer`); only the active one renders and takes input.
+// No instance class fields in subclasses: this constructor calls build() before their initialisers run.
+export class Kit {
+  static ATLAS = ATLAS;
+  static REGIONS = {};
+  static HOME = HOME;
+  static VIEWS = {};
+  static ZOOM = [1.1, 3.2];
+  static Y_RANGE = [-0.3, 0.66];   // world y span of the reveal sweep
+  static ENV = 0.75;               // room reflection strength
+
+  static makeRenderer() {
+    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    r.outputColorSpace = THREE.SRGBColorSpace;
+    r.toneMapping = THREE.NeutralToneMapping !== undefined ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    return r;
+  }
+
+  constructor(container, { spots, onSelect, onHover, money, labels = {}, renderer = null, active = true }) {
+    const K = this.constructor;
     this.el = container;
     this.spots = spots;
     this.onSelect = onSelect || (() => {});
@@ -264,61 +297,45 @@ export class Suit {
     this.selected = null; this.hovered = null; this.basket = new Set();
     this.logos = new Map();   // spot id -> canvas (prepared logo)
     this.reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this.state = { ...HOME };
-    this.goal = { ...HOME };
+    this.size = K.ATLAS;
+    this.state = { ...K.HOME };
+    this.goal = { ...K.HOME };
     this.vel = 0; this.auto = !this.reduce; this.autoSpeed = 0.0026;
     this.uni = {
       uOverlay: { value: null }, uSpots: { value: 1 }, uReveal: { value: -0.2 },
       uTime: { value: 0 }, uDim: { value: 0 }, uSelOn: { value: 0 }, uHovOn: { value: 0 },
       uSel: { value: new THREE.Vector4(-1, -1, -1, -1) }, uHov: { value: new THREE.Vector4(-1, -1, -1, -1) },
-      uGold: { value: new THREE.Color(COLORS.gold) }, uYMin: { value: -0.3 }, uYMax: { value: 0.66 },
+      uGold: { value: new THREE.Color(COLORS.gold) }, uYMin: { value: K.Y_RANGE[0] }, uYMax: { value: K.Y_RANGE[1] },
     };
     this.spotsGoal = 1; this.revealGoal = -0.2; this.dimGoal = 0;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.NeutralToneMapping !== undefined ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    this.ownsRenderer = !renderer;
+    this.renderer = renderer || Kit.makeRenderer();
     this.canvas = this.renderer.domElement;
-    this.canvas.setAttribute('aria-hidden', 'true');
-    this.el.appendChild(this.canvas);
+    if (this.canvas.parentElement !== this.el) { this.canvas.setAttribute('aria-hidden', 'true'); this.el.appendChild(this.canvas); }
+    this.active = active;
 
     this.scene = new THREE.Scene();
-    const pmrem = new THREE.PMREMGenerator(this.renderer);
-    this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.scene.environmentIntensity = 0.75;
+    this.scene.environment = envFor(this.renderer);
+    this.scene.environmentIntensity = K.ENV;
     this.camera = new THREE.PerspectiveCamera(28, 1, 0.05, 20);
     const key = new THREE.DirectionalLight(0xffffff, 2.2); key.position.set(1.2, 1.9, 3.0);
     const rim = new THREE.DirectionalLight(0xdfe6ff, 1.5); rim.position.set(-2.4, 1.6, -2.0);
     const rim2 = new THREE.DirectionalLight(0xfff1dc, 0.8); rim2.position.set(2.4, 0.6, -2.2);
     this.scene.add(key, rim, rim2, new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 0.3));
 
-    this.parts = buildParts();
-    this.base = document.createElement('canvas'); this.base.width = this.base.height = ATLAS;
-    this.over = document.createElement('canvas'); this.over.width = this.over.height = ATLAS;
+    this.base = document.createElement('canvas'); this.base.width = this.base.height = this.size;
+    this.over = document.createElement('canvas'); this.over.width = this.over.height = this.size;
     this.bctx = this.base.getContext('2d', { willReadFrequently: true });
     this.octx = this.over.getContext('2d');
-    const maxAniso = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
-    this.baseTex = new THREE.CanvasTexture(this.base); this.baseTex.colorSpace = THREE.SRGBColorSpace; this.baseTex.anisotropy = maxAniso;
-    this.overTex = new THREE.CanvasTexture(this.over); this.overTex.colorSpace = THREE.SRGBColorSpace; this.overTex.anisotropy = maxAniso;
+    this.maxAniso = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
+    this.baseTex = new THREE.CanvasTexture(this.base); this.baseTex.colorSpace = THREE.SRGBColorSpace; this.baseTex.anisotropy = this.maxAniso;
+    this.overTex = new THREE.CanvasTexture(this.over); this.overTex.colorSpace = THREE.SRGBColorSpace; this.overTex.anisotropy = this.maxAniso;
     this.uni.uOverlay.value = this.overTex;
 
-    const mat = new THREE.MeshPhysicalMaterial({ map: this.baseTex, roughness: 0.62, metalness: 0, sheen: 0.8, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8a8a8a) });
-    mat.onBeforeCompile = (sh) => {
-      Object.assign(sh.uniforms, this.uni);
-      sh.vertexShader = sh.vertexShader.replace('#include <common>', VERT_HEAD).replace('#include <begin_vertex>', VERT_BODY);
-      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', FRAG_HEAD).replace('#include <map_fragment>', FRAG_MAP).replace('#include <emissivemap_fragment>', FRAG_EMIT);
-    };
-    const inner = new THREE.MeshStandardMaterial({ color: 0xb3b5b9, roughness: 1, side: THREE.BackSide });
     this.model = new THREE.Group();
     this.meshes = [];
-    const cols = { torso: 168, legL: 96, legR: 96, sleeveL: 64, sleeveR: 64 };
-    for (const [name, part] of Object.entries(this.parts)) {
-      const g = part.geometry(cols[name], REGIONS[name]);
-      const m = new THREE.Mesh(g, mat); m.userData.part = name;
-      this.model.add(m, new THREE.Mesh(g, inner)); this.meshes.push(m);
-    }
-    this.addDetails();
+    this.build();
     this.scene.add(this.model);
     this.scene.add(this.shadowPlane());
 
@@ -332,107 +349,71 @@ export class Suit {
     this.kick();
   }
 
-  addDetails() {
-    // dark recess inside each sleeve so the hollow reads as depth
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xc4c6ca, roughness: 1 });
-    for (const k of ['sleeveL', 'sleeveR']) {
-      const part = this.parts[k], r = part.rings[5];
-      const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), capMat);
-      cap.position.copy(r.c); cap.scale.set(r.a * 0.98, r.bf * 0.98, 1);
-      const up = new THREE.Vector3().subVectors(part.rings[part.rings.length - 1].c, part.rings[0].c).normalize();
-      cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), up);
-      this.model.add(cap);
-    }
-    // zip puller just under the collar
-    const T = this.parts.torso;
-    const { p, n } = T.anchor(0, T.vFor(0.625));
-    const pull = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.026, 0.004), new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: 0.35, metalness: 0.6 }));
-    pull.position.copy(p).addScaledVector(n, 0.004).add(new THREE.Vector3(0, -0.012, 0));
-    pull.lookAt(pull.position.clone().add(n));
-    pull.rotateX(-0.25);
-    this.model.add(pull);
+  // subclass: parts, meshes (push pickable ones to this.meshes, with userData.part) and details
+  build() {}
+  // subclass: paint this.base, then this.printLogos()
+  drawBase() {}
+
+  // the spot shader: tiles from the overlay atlas, dimming outside the selection, gold ring
+  patch(mat) {
+    mat.onBeforeCompile = (sh) => {
+      Object.assign(sh.uniforms, this.uni);
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', VERT_HEAD).replace('#include <begin_vertex>', VERT_BODY);
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', FRAG_HEAD).replace('#include <map_fragment>', FRAG_MAP).replace('#include <emissivemap_fragment>', FRAG_EMIT);
+    };
+    return mat;
   }
 
-  shadowPlane() {
+  shadowPlane(w = 0.9, d = 0.5, y = -0.265) {
     const c = document.createElement('canvas'); c.width = c.height = 256;
     const g = c.getContext('2d');
     const grd = g.createRadialGradient(128, 128, 0, 128, 128, 128);
     grd.addColorStop(0, 'rgba(0,0,0,0.5)'); grd.addColorStop(1, 'rgba(0,0,0,0)');
     g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-    m.rotation.x = -Math.PI / 2; m.position.y = -0.265;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = y;
     return m;
   }
 
   // ---------- spots on the atlas ----------
   layoutSpots() {
     this.rects = new Map();
+    const S = this.size;
     for (const s of this.spots) {
       const part = this.parts[s.part];
       if (!part) continue;
-      const R = REGIONS[s.part];
+      const R = this.constructor.REGIONS[s.part];
       const v = part.vFor(s.t), u = part.uAt(s.phi, v), circ = part.circAt(v);
-      const du = (s.w / 100) / circ, dv = (s.h / 100) / part.length;
+      // surface length per unit v; the helmet shell's varies across the arch, the suit's is constant
+      const len = part.lengthAt ? part.lengthAt(u, v) : part.length;
+      const du = (s.w / 100) / circ, dv = (s.h / 100) / len;
       const r = {
         part: s.part,
         x: R.x + (u - du / 2) * R.w, y: R.y + (1 - v - dv / 2) * R.h, w: du * R.w, h: dv * R.h,
-        pxcmX: R.w / (circ * 100), pxcmY: R.h / (part.length * 100),
+        pxcmX: R.w / (circ * 100), pxcmY: R.h / (len * 100),
         anchor: part.anchor(s.phi, v),
       };
-      r.uv = new THREE.Vector4(r.x / ATLAS, 1 - (r.y + r.h) / ATLAS, (r.x + r.w) / ATLAS, 1 - r.y / ATLAS);
+      r.uv = new THREE.Vector4(r.x / S, 1 - (r.y + r.h) / S, (r.x + r.w) / S, 1 - r.y / S);
+      if (part.uRim) this.rimCheck(s, r, part, R, v, dv);
       this.rects.set(s.id, r);
     }
   }
 
-  // panel band centred on an angle, following the arc-length layout row by row
-  band(part, R, phiDeg, widthM, v0, v1, color, offsetM = 0) {
-    const ctx = this.bctx;
-    ctx.fillStyle = color;
-    for (let py = Math.round(R.y + (1 - v1) * R.h); py < R.y + (1 - v0) * R.h; py++) {
-      const v = 1 - (py - R.y) / R.h, C = part.circAt(v);
-      const u = part.uAt(phiDeg, v) + offsetM / C, du = widthM / C;
-      ctx.fillRect(R.x + (u - du / 2) * R.w, py, du * R.w + 0.6, 1);
+  // open parts (the helmet shell) end at a rim that moves in uv; a rect past it would be cut off silently.
+  // r.rimMargin = least distance (cm) from the rect to the rim; ?dev warns under 1 cm.
+  rimCheck(s, r, part, R, v, dv) {
+    const ua = (r.x - R.x) / R.w, ub = ua + r.w / R.w;
+    let m = Infinity;
+    for (let k = 0; k <= 8; k++) {
+      const vv = v - dv / 2 + (dv * k) / 8, ur = part.uRim(vv);
+      m = Math.min(m, (ur - ub) * part.circAt(vv) * 100, (ua - (1 - ur)) * part.circAt(vv) * 100);
     }
+    r.rimMargin = m;
+    if (DEV && m < 1) console.warn(`spot ${s.id}: ${m.toFixed(2)} cm from the rim`);
   }
-  rowY(part, R, t) { return R.y + (1 - part.vFor(t)) * R.h; }
 
-  drawBase() {
-    const ctx = this.bctx, P = this.parts, T = P.torso, RT = REGIONS.torso;
-    // shorts everywhere, then the white top over the torso above the waist and on the sleeves
-    ctx.fillStyle = COLORS.shorts; ctx.fillRect(0, 0, ATLAS, ATLAS);
-    const waistPx = this.rowY(T, RT, WAIST_Y);
-    ctx.fillStyle = COLORS.top; ctx.fillRect(RT.x, RT.y, RT.w, waistPx - RT.y);
-    for (const k of ['sleeveL', 'sleeveR']) { const R = REGIONS[k]; ctx.fillRect(R.x, R.y, R.w, R.h); }
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // shorts: wide white stripe down the outer thigh and a white gripper hem
-    for (const [k, outer] of [['legL', 90], ['legR', 270]]) {
-      const part = P[k], R = REGIONS[k];
-      this.band(part, R, outer, 0.13, 0.05, 1, COLORS.panel);
-      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.93, R.w, R.h * 0.07);
-      this.stitch(R.x, R.y + R.h * 0.915, R.x + R.w, COLORS.seamOnDark);
-      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = '600 13px "JetBrains Mono", ui-monospace, monospace';
-      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.035) * R.w, R.y + R.h * 0.965);
-    }
-    // sleeves: plain white with a stitched cuff
-    for (const k of ['sleeveL', 'sleeveR']) {
-      const R = REGIONS[k];
-      ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(R.x, R.y + R.h * 0.9, R.w, R.h * 0.1);
-      this.stitch(R.x, R.y + R.h * 0.885, R.x + R.w, COLORS.seamOnLight);
-    }
-    // waist seam and stitching
-    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(RT.x, waistPx - 1, RT.w, 3);
-    this.stitch(RT.x, waistPx - 8, RT.x + RT.w, COLORS.seamOnLight);
-    // grey collar
-    const collarPx = this.rowY(T, RT, 0.642);
-    ctx.fillStyle = COLORS.collar; ctx.fillRect(RT.x, RT.y, RT.w, collarPx - RT.y);
-    // front zip: grey tape and teeth from the collar to ZIP_END
-    const zx = RT.x + T.uAt(0, T.vFor(0.56)) * RT.w;
-    const zTop = collarPx, zBot = this.rowY(T, RT, ZIP_END);
-    ctx.fillStyle = COLORS.zip; ctx.fillRect(zx - 8, zTop, 16, zBot - zTop);
-    ctx.fillStyle = '#8f9298';
-    for (let y = zTop + 2; y < zBot - 2; y += 5) { ctx.fillRect(zx - 4, y, 3, 2.2); ctx.fillRect(zx + 1, y + 2.5, 3, 2.2); }
-    ctx.fillStyle = '#3d4045'; roundRect(ctx, zx - 7, zBot - 5, 14, 9, 4); ctx.fill();
-    // printed logos: sold sponsors and any logo being tried on
+  // sold sponsors and any logo being tried on, printed on the base atlas
+  printLogos() {
     for (const s of this.spots) {
       const r = this.rects.get(s.id);
       if (!r) continue;
@@ -440,13 +421,6 @@ export class Suit {
       const logo = this.logos.get(s.id) || (s.status === 'sold' && s._logo);
       if (logo) this.drawLogo(logo, s, r);
     }
-    this.baseTex.needsUpdate = true;
-  }
-
-  stitch(x0, y, x1, color) {
-    const ctx = this.bctx;
-    ctx.fillStyle = color;
-    for (let x = x0; x < x1; x += 12) ctx.fillRect(x, y, 6, 2);
   }
 
   isLightAt(r) {
@@ -455,13 +429,13 @@ export class Suit {
   }
 
   drawLogo(img, s, r) {
-    const ctx = this.bctx, rot = s.rot || 0;
-    const wcm = rot ? s.h : s.w, hcm = rot ? s.w : s.h;    // logo axes in surface cm
+    const ctx = this.bctx, rot = s.rot || 0, q = Math.abs(rot) === 90;   // q: logo axes swapped on the surface
+    const wcm = q ? s.h : s.w, hcm = q ? s.w : s.h;    // logo axes in surface cm
     const fit = Math.min((wcm * 0.84) / img.width, (hcm * 0.78) / img.height);
     const lw = img.width * fit, lh = img.height * fit;
     ctx.save();
     ctx.translate(r.x + r.w / 2, r.y + r.h / 2);
-    if (rot) { ctx.rotate(rot * DEG); ctx.drawImage(img, (-lw * r.pxcmY) / 2, (-lh * r.pxcmX) / 2, lw * r.pxcmY, lh * r.pxcmX); }
+    if (rot) { const px = q ? r.pxcmY : r.pxcmX, py = q ? r.pxcmX : r.pxcmY; ctx.rotate(rot * DEG); ctx.drawImage(img, (-lw * px) / 2, (-lh * py) / 2, lw * px, lh * py); }
     else ctx.drawImage(img, (-lw * r.pxcmX) / 2, (-lh * r.pxcmY) / 2, lw * r.pxcmX, lh * r.pxcmY);
     ctx.restore();
   }
@@ -469,7 +443,7 @@ export class Suit {
   // the tile printed on each spot: dashed frame, number and price (or its status)
   drawOverlay() {
     const ctx = this.octx;
-    ctx.clearRect(0, 0, ATLAS, ATLAS);
+    ctx.clearRect(0, 0, this.size, this.size);
     const topId = this.topId();
     for (const s of this.spots) {
       const r = this.rects.get(s.id);
@@ -499,18 +473,21 @@ export class Suit {
       }
       if (!hasLogo) {
         const small = Math.min(r.w, r.h) < 90;
+        const rot = s.rot || 0, q = Math.abs(rot) === 90, flip = Math.abs(rot) === 180;
         ctx.fillStyle = isTop ? COLORS.gold : ink;
         ctx.globalAlpha = 0.85;
         ctx.font = `600 ${small ? 13 : 16}px "JetBrains Mono", ui-monospace, monospace`;
         ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+        // a tile turned 180° (read from behind) gets its number turned with it
+        if (flip) { ctx.save(); ctx.translate(r.x + r.w / 2, r.y + r.h / 2); ctx.rotate(Math.PI); ctx.translate(-(r.x + r.w / 2), -(r.y + r.h / 2)); }
         ctx.fillText(String(s.n).padStart(2, '0'), x + 10, y + 8);
+        if (flip) ctx.restore();
         ctx.globalAlpha = 1;
         const label = sold ? this.labels.sold : reserved ? this.labels.reserved : this.money(s.price);
-        const rot = s.rot || 0;
         ctx.save();
         ctx.translate(r.x + r.w / 2, r.y + r.h / 2 + (rot ? 0 : small ? 4 : 7));
         if (rot) ctx.rotate(rot * DEG);
-        const span = rot ? h : w, depth = rot ? w : h;
+        const span = q ? h : w, depth = q ? w : h;
         const fs = fitText(ctx, label, span * 0.78, Math.min(depth * 0.5, 72), 800, 'Inter, system-ui, sans-serif');
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = ink;
@@ -532,6 +509,18 @@ export class Suit {
     return s && s.id;
   }
 
+  // panel band centred on an angle, following the arc-length layout row by row
+  band(part, R, phiDeg, widthM, v0, v1, color, offsetM = 0) {
+    const ctx = this.bctx;
+    ctx.fillStyle = color;
+    for (let py = Math.round(R.y + (1 - v1) * R.h); py < R.y + (1 - v0) * R.h; py++) {
+      const v = 1 - (py - R.y) / R.h, C = part.circAt(v);
+      const u = part.uAt(phiDeg, v) + offsetM / C, du = widthM / C;
+      ctx.fillRect(R.x + (u - du / 2) * R.w, py, du * R.w + 0.6, 1);
+    }
+  }
+  rowY(part, R, t) { return R.y + (1 - part.vFor(t)) * R.h; }
+
   // ---------- interaction ----------
   bind() {
     const c = this.canvas;
@@ -540,14 +529,20 @@ export class Suit {
     this.ptr = new THREE.Vector2();
     let down = null, lastX = 0, lastT = 0;
     c.addEventListener('pointerdown', (e) => {
+      if (!this.active) return;
       down = { x: e.clientX, y: e.clientY, rot: this.goal.rot, moved: false, id: e.pointerId };
       lastX = e.clientX; lastT = performance.now(); this.vel = 0;
       this.el.dispatchEvent(new CustomEvent('suit:interact'));
     });
     this.onMove = (e) => {
+      if (!this.active) return;
       if (down && e.pointerId === down.id) {
         const dx = e.clientX - down.x, dy = e.clientY - down.y;
-        if (!down.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) { down.moved = true; this.auto = false; try { c.setPointerCapture(e.pointerId); } catch (_) {} }
+        if (!down.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+          down.moved = true; this.auto = false; try { c.setPointerCapture(e.pointerId); } catch (_) {}
+          // a focus pan leaves the turntable axis off-centre; recentre so the model turns in place
+          if (this.goal.x) { this.goal.x = 0; this.goal.ty = this.constructor.HOME.ty; }
+        }
         if (down.moved) {
           const now = performance.now();
           this.goal.rot = down.rot + dx * 0.0105;
@@ -559,6 +554,7 @@ export class Suit {
       if (e.target === c && e.pointerType === 'mouse') { this.pendingHover = e; this.kick(); }
     };
     this.onUp = (e) => {
+      if (!this.active) return;
       if (!down || e.pointerId !== down.id) return;
       if (!down.moved && e.target === c) this.clickAt(e);
       down = null;
@@ -566,7 +562,7 @@ export class Suit {
     window.addEventListener('pointermove', this.onMove);
     window.addEventListener('pointerup', this.onUp);
     window.addEventListener('pointercancel', () => { down = null; });
-    c.addEventListener('pointerleave', () => { if (this.hovered) this.setHover(null); c.style.cursor = ''; });
+    c.addEventListener('pointerleave', () => { if (!this.active) return; if (this.hovered) this.setHover(null); c.style.cursor = ''; });
     this.ro = new ResizeObserver(() => this.resize());
     this.ro.observe(this.el);
     this.io = new IntersectionObserver((en) => { this.visible = en[0].isIntersecting; this.kick(); });
@@ -580,7 +576,7 @@ export class Suit {
     this.ray.setFromCamera(this.ptr, this.camera);
     const hit = this.ray.intersectObjects(this.meshes, false)[0];
     if (!hit || !hit.uv || this.uni.uSpots.value < 0.5) return null;
-    const px = hit.uv.x * ATLAS, py = (1 - hit.uv.y) * ATLAS, part = hit.object.userData.part;
+    const px = hit.uv.x * this.size, py = (1 - hit.uv.y) * this.size, part = hit.object.userData.part;
     for (const s of this.spots) {
       const r = this.rects.get(s.id);
       if (r && r.part === part && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return s.id;
@@ -620,19 +616,12 @@ export class Suit {
   setShowSpots(on) { this.spotsGoal = on ? 1 : 0; if (!on) this.select(null); this.kick(); }
   setAuto(on) { this.auto = on && !this.reduce; this.kick(); }
   update(spots) { this.spots = spots; this.layoutSpots(); this.drawBase(); this.drawOverlay(); this.kick(); }
-  // hide every tile, then sweep them in from the collar down
+  // hide every tile, then sweep them in from the top down
   hideSpots() { this.uni.uReveal.value = -0.2; this.revealGoal = -0.2; this.kick(); }
   reveal() { if (this.reduce) { this.uni.uReveal.value = this.revealGoal = 1.2; } else { this.uni.uReveal.value = -0.2; this.revealGoal = 1.2; } this.kick(); }
 
-  // turn the model so the spot faces the camera and frame it
-  focus(id) {
-    const s = this.spots.find((x) => x.id === id), r = this.rects.get(id);
-    if (!s || !r) return;
-    const size = Math.max(s.w, s.h);
-    const wy = r.anchor.p.y;
-    const tilt = s.part.startsWith('sleeve') ? (s.phi > 0 ? -12 : 12) * DEG : 0;
-    this.setPose({ rot: -s.phi * DEG + tilt, dist: clamp(1.05 + size * 0.028, 1.15, 1.9), ty: wy, y: wy + 0.05 });
-  }
+  // subclass: turn the model so the spot faces the camera and frame it
+  focus() {}
 
   setPose(p, { shortest = true } = {}) {
     if (p.rot !== undefined) {
@@ -644,18 +633,18 @@ export class Suit {
       }
       this.goal.rot = target; this.vel = 0; this.auto = false;
     }
-    for (const k of ['dist', 'ty', 'y']) if (p[k] !== undefined) this.goal[k] = p[k];
+    for (const k of ['dist', 'ty', 'y', 'x']) if (p[k] !== undefined) this.goal[k] = p[k];
     this.kick();
   }
 
   view(name) {
-    const a = { hero: HOME.rot / DEG, front: 0, left: -90, back: 180, right: 90 }[name] ?? 0;
+    const K = this.constructor, v = K.VIEWS[name] ?? K.VIEWS.front;
     this.select(null);
-    this.setPose({ rot: a * DEG, dist: HOME.dist, ty: HOME.ty, y: HOME.y });
+    this.setPose({ ...K.HOME, ...v });
   }
 
-  home() { this.select(null); this.setPose({ ...HOME }); }
-  zoom(dir) { this.setPose({ dist: clamp(this.goal.dist * (dir > 0 ? 0.84 : 1.19), 1.1, 3.2) }); }
+  home() { this.select(null); this.setPose({ ...this.constructor.HOME }); }
+  zoom(dir) { const [a, b] = this.constructor.ZOOM; this.setPose({ dist: clamp(this.goal.dist * (dir > 0 ? 0.84 : 1.19), a, b) }); }
 
   async tour(ids, onStep, signal) {
     let first = true;
@@ -742,20 +731,30 @@ export class Suit {
   }
 
   // ---------- loop ----------
+  // setSize clears the shared drawing buffer, so only the active model touches the renderer
   resize() {
     const w = this.el.clientWidth || 1, h = this.el.clientHeight || 1;
-    this.renderer.setSize(w, h, false);
-    this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+    if (this.active) {
+      this.renderer.setSize(w, h, false);
+      this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
+    }
     this.camera.aspect = w / h;
-    this.fit = w / h < 0.85 ? 1 + (0.85 - w / h) * 1.05 : 1;   // keep the whole suit framed on tall screens
+    this.fit = w / h < 0.85 ? 1 + (0.85 - w / h) * 1.05 : 1;   // keep the whole model framed on tall screens
     this.camera.updateProjectionMatrix();
     this.kick();
   }
 
-  kick() { if (!this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
+  // hand the shared canvas to this model (on) or let it go idle (off)
+  setActive(on) {
+    this.active = on; this.pendingHover = null;
+    if (!on) { this.vel = 0; if (this.hovered) this.setHover(null); this.canvas.style.cursor = ''; return; }
+    this.resize(); this.kick();
+  }
+
+  kick() { if (this.active && !this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
 
   loop(t) {
-    if (!this.visible || document.hidden) { this.running = false; return; }
+    if (!this.active || !this.visible || document.hidden) { this.running = false; return; }
     if (this.pendingHover) {
       const e = this.pendingHover; this.pendingHover = null;
       const id = this.pick(e);
@@ -766,7 +765,7 @@ export class Suit {
     else if (Math.abs(this.vel) > 0.0004) { this.goal.rot += this.vel; this.vel *= 0.93; }
     const k = this.reduce ? 1 : 0.075;
     let moving = this.auto || Math.abs(this.vel) > 0.0004;
-    for (const key of ['rot', 'dist', 'ty', 'y']) {
+    for (const key of ['rot', 'dist', 'ty', 'y', 'x']) {
       const d = this.goal[key] - this.state[key];
       this.state[key] += d * k;
       if (Math.abs(d) > 1e-4) moving = true;
@@ -779,8 +778,8 @@ export class Suit {
     u.uTime.value = t / 1000;
     if (u.uSelOn.value > 0 && !this.reduce) moving = true;   // the selection ring pulses
     this.model.rotation.y = this.state.rot;
-    this.camera.position.set(0, this.state.y, this.state.dist * (this.fit || 1));
-    this.camera.lookAt(0, this.state.ty, 0);
+    this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
+    this.camera.lookAt(this.state.x, this.state.ty, 0);
     this.renderer.render(this.scene, this.camera);
     this.el.dispatchEvent(new CustomEvent('suit:frame'));
     if (moving) requestAnimationFrame(this.loop); else this.running = false;
@@ -789,7 +788,108 @@ export class Suit {
   destroy() {
     this.visible = false; this.ro.disconnect(); this.io.disconnect();
     window.removeEventListener('pointermove', this.onMove); window.removeEventListener('pointerup', this.onUp);
-    this.renderer.dispose();
+    if (this.ownsRenderer) this.renderer.dispose();
+  }
+}
+
+export class Suit extends Kit {
+  static ATLAS = ATLAS;
+  static REGIONS = REGIONS;
+  static HOME = HOME;
+  static VIEWS = { hero: { rot: HOME.rot }, front: { rot: 0 }, left: { rot: -90 * DEG }, back: { rot: 180 * DEG }, right: { rot: 90 * DEG } };
+  static ZOOM = [1.1, 3.2];
+  static Y_RANGE = [-0.3, 0.66];
+  static ENV = 0.75;
+
+  build() {
+    this.parts = buildParts();
+    const mat = this.patch(new THREE.MeshPhysicalMaterial({ map: this.baseTex, roughness: 0.62, metalness: 0, sheen: 0.8, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8a8a8a) }));
+    const inner = new THREE.MeshStandardMaterial({ color: 0xb3b5b9, roughness: 1, side: THREE.BackSide });
+    const cols = { torso: 168, legL: 96, legR: 96, sleeveL: 64, sleeveR: 64 };
+    for (const [name, part] of Object.entries(this.parts)) {
+      const g = part.geometry(cols[name], REGIONS[name], this.size);
+      const m = new THREE.Mesh(g, mat); m.userData.part = name;
+      this.model.add(m, new THREE.Mesh(g, inner)); this.meshes.push(m);
+    }
+    this.addDetails();
+  }
+
+  addDetails() {
+    // dark recess inside each sleeve so the hollow reads as depth
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xc4c6ca, roughness: 1 });
+    for (const k of ['sleeveL', 'sleeveR']) {
+      const part = this.parts[k], r = part.rings[5];
+      const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), capMat);
+      cap.position.copy(r.c); cap.scale.set(r.a * 0.98, r.bf * 0.98, 1);
+      const up = new THREE.Vector3().subVectors(part.rings[part.rings.length - 1].c, part.rings[0].c).normalize();
+      cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), up);
+      this.model.add(cap);
+    }
+    // zip puller just under the collar
+    const T = this.parts.torso;
+    const { p, n } = T.anchor(0, T.vFor(0.625));
+    const pull = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.026, 0.004), new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: 0.35, metalness: 0.6 }));
+    pull.position.copy(p).addScaledVector(n, 0.004).add(new THREE.Vector3(0, -0.012, 0));
+    pull.lookAt(pull.position.clone().add(n));
+    pull.rotateX(-0.25);
+    this.model.add(pull);
+  }
+
+  drawBase() {
+    const ctx = this.bctx, P = this.parts, T = P.torso, RT = REGIONS.torso;
+    // shorts everywhere, then the white top over the torso above the waist and on the sleeves
+    ctx.fillStyle = COLORS.shorts; ctx.fillRect(0, 0, this.size, this.size);
+    const waistPx = this.rowY(T, RT, WAIST_Y);
+    ctx.fillStyle = COLORS.top; ctx.fillRect(RT.x, RT.y, RT.w, waistPx - RT.y);
+    for (const k of ['sleeveL', 'sleeveR']) { const R = REGIONS[k]; ctx.fillRect(R.x, R.y, R.w, R.h); }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // shorts: wide white stripe down the outer thigh and a white gripper hem
+    for (const [k, outer] of [['legL', 90], ['legR', 270]]) {
+      const part = P[k], R = REGIONS[k];
+      this.band(part, R, outer, 0.13, 0.05, 1, COLORS.panel);
+      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.93, R.w, R.h * 0.07);
+      this.stitch(R.x, R.y + R.h * 0.915, R.x + R.w, COLORS.seamOnDark);
+      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = '600 13px "JetBrains Mono", ui-monospace, monospace';
+      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.035) * R.w, R.y + R.h * 0.965);
+    }
+    // sleeves: plain white with a stitched cuff
+    for (const k of ['sleeveL', 'sleeveR']) {
+      const R = REGIONS[k];
+      ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(R.x, R.y + R.h * 0.9, R.w, R.h * 0.1);
+      this.stitch(R.x, R.y + R.h * 0.885, R.x + R.w, COLORS.seamOnLight);
+    }
+    // waist seam and stitching
+    ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(RT.x, waistPx - 1, RT.w, 3);
+    this.stitch(RT.x, waistPx - 8, RT.x + RT.w, COLORS.seamOnLight);
+    // grey collar
+    const collarPx = this.rowY(T, RT, 0.642);
+    ctx.fillStyle = COLORS.collar; ctx.fillRect(RT.x, RT.y, RT.w, collarPx - RT.y);
+    // front zip: grey tape and teeth from the collar to ZIP_END
+    const zx = RT.x + T.uAt(0, T.vFor(0.56)) * RT.w;
+    const zTop = collarPx, zBot = this.rowY(T, RT, ZIP_END);
+    ctx.fillStyle = COLORS.zip; ctx.fillRect(zx - 8, zTop, 16, zBot - zTop);
+    ctx.fillStyle = '#8f9298';
+    for (let y = zTop + 2; y < zBot - 2; y += 5) { ctx.fillRect(zx - 4, y, 3, 2.2); ctx.fillRect(zx + 1, y + 2.5, 3, 2.2); }
+    ctx.fillStyle = '#3d4045'; roundRect(ctx, zx - 7, zBot - 5, 14, 9, 4); ctx.fill();
+    // printed logos: sold sponsors and any logo being tried on
+    this.printLogos();
+    this.baseTex.needsUpdate = true;
+  }
+
+  stitch(x0, y, x1, color) {
+    const ctx = this.bctx;
+    ctx.fillStyle = color;
+    for (let x = x0; x < x1; x += 12) ctx.fillRect(x, y, 6, 2);
+  }
+
+  // turn the model so the spot faces the camera and frame it
+  focus(id) {
+    const s = this.spots.find((x) => x.id === id), r = this.rects.get(id);
+    if (!s || !r) return;
+    const size = Math.max(s.w, s.h);
+    const wy = r.anchor.p.y;
+    const tilt = s.part.startsWith('sleeve') ? (s.phi > 0 ? -12 : 12) * DEG : 0;
+    this.setPose({ rot: -s.phi * DEG + tilt, dist: clamp(1.05 + size * 0.028, 1.15, 1.9), ty: wy, y: wy + 0.05 });
   }
 }
 
@@ -807,3 +907,5 @@ function trim(c) {
 export function webglAvailable() {
   try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (_) { return false; }
 }
+
+export { sgnPow, lerp, clamp, smooth, roundRect };
