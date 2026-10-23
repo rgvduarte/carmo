@@ -516,26 +516,70 @@ section { position: relative; }
 .avail .row b { color: var(--ink); font-weight: 600; }
 .avail .bar { height: 4px; border-radius: 4px; background: var(--line); margin-top: 10px; overflow: hidden; }
 .avail .bar i { display: block; height: 100%; width: 100%; background: var(--gold); border-radius: 4px; transition: width .8s var(--ease); }
-.ad-stats { display: flex; justify-content: center; gap: 0; margin: 34px auto 0; flex-wrap: wrap; }
-.ad-stats > div { padding: 0 28px; text-align: center; }
-.ad-stats > div + div { border-left: 1px solid var(--line); }
-.ad-stats dt { font-size: 13px; color: var(--muted); }
-.ad-stats dd { margin: 6px 0 0; font: 700 clamp(24px, 2.6vw, 34px)/1 var(--sans); letter-spacing: -0.02em; }
-.ad-stats .gold dd { color: var(--gold); }
+/* the subtitle under the chapter title: what is for sale, in one line */
+.ad-sub { margin: 24px auto 0; font: 600 clamp(17px, 1.5vw, 21px)/1.4 var(--sans); letter-spacing: -0.01em; color: var(--ink); text-wrap: balance; }
+
+/* ---------- the two ways in: a big card for the suit and one for the helmet ---------- */
+.entry { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: clamp(44px, 5vw, 72px); }
+.entry-card { position: relative; display: grid; grid-template-rows: auto 1fr auto; min-width: 0; border: 1px solid var(--line); border-radius: 22px; overflow: hidden; background: var(--bg-2); transition: border-color .3s; }
+.entry-card:hover { border-color: var(--line-2); }
+.entry-img { aspect-ratio: 16 / 10; padding: 4% 8%; background: radial-gradient(ellipse at 50% 46%, #26262a 0%, #17171a 55%, var(--bg-2) 100%); }
+/* the helmet is wide and the suit tall: a little more room around the helmet keeps the two about the same weight */
+.entry-card[data-item="helmet"] .entry-img { padding: 9% 13%; }
+.entry-img picture, .entry-img img { display: block; width: 100%; height: 100%; }
+.entry-img img { object-fit: contain; }
+.entry-txt { padding: 24px 28px 0; min-width: 0; }
+.entry-h { font-size: clamp(36px, 3.6vw, 54px); }
+.entry-facts { margin: 12px 0 0; font: 600 18px/1.35 var(--sans); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.entry-facts span { white-space: nowrap; }
+.entry-facts span + span::before { content: "\00a0· "; color: var(--muted); }
+.entry-note { margin: 6px 0 0; font-size: 15px; color: var(--muted); }
+.entry-cta { justify-self: start; margin: 24px 28px 28px; }
+/* the whole card is the link's target; the focus ring stays on the button. No lift on hover: a transform would make
+   the button the box of its own overlay, which would then shrink to the button under the pointer */
+.entry-cta::after { content: ""; position: absolute; inset: 0; border-radius: 22px; }
+.entry-cta:hover { transform: none; }
+.entry-card:hover .entry-cta { background: #eec36a; border-color: #eec36a; }
 @media (max-width: 640px) {
-  .ad-stats { display: grid; grid-template-columns: 1fr 1fr; row-gap: 22px; }
-  .ad-stats > div:nth-child(odd) { border-left: 0; }
+  /* phones: stacked, the name and the numbers beside the picture, the button across the card */
+  .entry { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+}
+/* phones (and phones held sideways, where the cards stay side by side): the compact card */
+@media (max-width: 640px), (max-height: 500px) {
+  .entry-card { grid-template-columns: minmax(0, 1fr) 40%; grid-template-rows: auto auto; border-radius: 20px; }
+  .entry-img { grid-area: 1 / 2; aspect-ratio: auto; height: 156px; padding: 14px 16px 0 0; background: radial-gradient(closest-side, #26262a, rgba(21,21,23,0)); }
+  .entry-card[data-item="helmet"] .entry-img { padding: 22px 16px 6px 0; }
+  .entry-txt { grid-area: 1 / 1; align-self: center; padding: 18px 0 0 18px; }
+  .entry-h { font-size: clamp(30px, 9vw, 38px); }
+  .entry-facts { margin-top: 10px; font-size: 16px; line-height: 1.4; }
+  .entry-facts span { display: block; }
+  .entry-facts span + span::before { content: none; }
+  .entry-note { display: none; }
+  .entry-cta { grid-area: 2 / 1 / 3 / -1; justify-self: stretch; margin: 14px 16px 16px; }
+  .entry-cta::after { border-radius: 20px; }
 }
 
-.studio { margin-top: clamp(48px, 6vw, 80px); display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.9fr); gap: 20px; align-items: start; }
+/* ---------- part A (the suit) and part B (the helmet) ---------- */
+.part { margin-top: clamp(72px, 9vw, 128px); }
+.part-head { padding-top: 24px; border-top: 1px solid var(--line-2); }
+.part-h { font-size: clamp(40px, 4.4vw, 60px); }
+.part-p { margin: 10px 0 0; max-width: 62ch; font-size: 16px; color: var(--muted); text-wrap: pretty; }
+.studio { margin-top: 22px; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.9fr); gap: 20px; align-items: start; }
 .stage-wrap { position: sticky; top: calc(var(--nav-h) + 12px); }
+/* the part's heading and its whole stage fit on screen when a link lands on the part */
 .stage {
-  position: relative; height: calc(100svh - var(--nav-h) - 84px); max-height: 860px; min-height: 480px;
+  position: relative; height: calc(100svh - var(--nav-h) - 180px); max-height: 820px; min-height: 460px;
   border-radius: 22px; border: 1px solid var(--line);
   background: radial-gradient(ellipse at 50% 42%, #232327 0%, #141416 55%, #0e0e10 100%);
   overflow: hidden;
 }
-.stage canvas { position: absolute; inset: 0; cursor: grab; }
+.stage > canvas { position: absolute; inset: 0; z-index: 1; cursor: grab; }
+/* a stage without the canvas: the last frame its model drew, or the picture of the model if it never drew */
+.stage > canvas.stage-freeze { z-index: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; opacity: 0; transition: opacity .3s; }
+.stage.frozen:not(.live) > .stage-freeze { opacity: 1; }
+.stage-poster { position: absolute; inset: 8% 8% 12%; z-index: 0; pointer-events: none; transition: opacity .45s var(--ease); }
+.stage-poster img { width: 100%; height: 100%; object-fit: contain; }
+.stage.live .stage-poster, .stage.frozen .stage-poster { opacity: 0; }
 .stage-ui { position: absolute; inset: 14px 14px auto 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; flex-wrap: wrap; }
 .stage-ui > div { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
 .seg-tabs { display: inline-flex; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(11,11,12,0.5); backdrop-filter: blur(8px); }
@@ -545,9 +589,7 @@ section { position: relative; }
 .stage-foot { position: absolute; inset: auto 14px 14px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; pointer-events: none; }
 .stage-foot > * { pointer-events: auto; }
 .hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(8px); }
-/* the Fato | Capacete toggle sits bottom left (also on phones, where the view tabs are hidden), the hint beside it */
 .stage-foot .hint { margin-right: auto; }
-.item-tabs button:disabled { opacity: .4; }
 .zoom { display: flex; gap: 6px; }
 .zoom button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: rgba(11,11,12,0.5); color: var(--ink); font-size: 18px; line-height: 1; }
 .callout { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; transform: translate(-50%, calc(-100% - 18px)); opacity: 0; transition: opacity .2s; width: max-content; }
@@ -558,11 +600,12 @@ section { position: relative; }
 .callout .pill b { font-size: 16px; }
 .callout::after { content: ""; position: absolute; left: 50%; bottom: -14px; width: 1px; height: 14px; background: var(--ink); }
 .callout.top .pill { background: var(--gold); }
-.stage-fallback { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 30px; color: var(--muted); }
-.loading { position: absolute; inset: 0; display: grid; place-items: center; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
-/* the helmet loads over the idle suit: its label sits on a pill */
+/* no 3D on this device: the picture of the model stays, with the reason on a line under it */
+.stage-fallback { position: absolute; inset: auto 14px 14px; z-index: 2; display: grid; place-items: center; text-align: center; }
+.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
+/* «A carregar o fato / o capacete» and «A recuperar a vista 3D»: a pill over the picture or the last frame */
+.loading { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
 .loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); color: var(--ink); }
-#item-loading, #gl-lost { z-index: 3; pointer-events: none; }
 
 .chapters { margin: 10px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .chapter { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; background: var(--bg-2); transition: border-color .3s, background .3s; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline; min-height: 40px; }
@@ -574,12 +617,20 @@ section { position: relative; }
 
 .panel { display: grid; gap: 16px; min-width: 0; }
 .stage-wrap { min-width: 0; }
+.card h4 { margin: 0; font: 650 17px/1.3 var(--sans); letter-spacing: -0.01em; }
+/* each part's panel: its own prompt, replaced by the spot card while one of its spots is picked */
+.spot-slot { display: grid; min-width: 0; }
+.spot-slot.held > .empty-card { display: none; }
+@media (min-width: 761px) { .spot-card:not(.has) { display: none; } }
+.empty-card h4 { font: 700 24px/1.2 var(--sans); letter-spacing: -0.01em; text-wrap: balance; }
 .spot-card { min-height: auto; }
 .spot-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .spot-card .id { font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: .1em; }
-.spot-card h3 { margin: 8px 0 0; font: 700 26px/1.15 var(--sans); letter-spacing: -0.02em; }
+.spot-card h4 { margin: 8px 0 0; font: 700 26px/1.15 var(--sans); letter-spacing: -0.02em; }
 .spot-card .price { font: 700 30px/1 var(--sans); letter-spacing: -0.03em; text-align: right; }
 .spot-card .price small { display: block; font: 500 12px/1.3 var(--sans); color: var(--muted); letter-spacing: 0; margin-top: 6px; }
+.spot-card .price small span { white-space: nowrap; }
+.spot-card .price small .t2::before { content: " · "; }
 .spot-card .meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 14px; }
 .spot-card .pitch { margin: 16px 0 0; color: var(--muted); }
 .vis { margin-top: 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
@@ -601,7 +652,7 @@ section { position: relative; }
 .file-btn:focus-within { outline: 2px solid var(--gold); outline-offset: 3px; }
 
 .ratecard-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ratecard-head h3 { font: 700 20px/1 var(--sans); }
+.ratecard-head h4 { font: 700 20px/1.2 var(--sans); }
 /* the tiers: a three-row table, columns lined up, numbers in tabular figures */
 .tiers-legend { width: 100%; margin-top: 16px; border-collapse: collapse; font-size: 13px; line-height: 1.3; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tiers-legend td { padding: 8px 0; border-top: 1px solid var(--line); }
@@ -624,7 +675,7 @@ section { position: relative; }
 .only-avail[aria-checked="true"] .sw i { transform: translateX(18px); background: #111; }
 .tryon input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--gold); }
 .rc-group { margin-top: 14px; }
-.rc-group h4 { display: flex; justify-content: space-between; margin: 0; padding: 10px 0; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+.rc-group h5 { display: flex; justify-content: space-between; margin: 0; padding: 10px 0; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
 .rc-list { list-style: none; margin: 0; padding: 0; }
 .rc-row { display: grid; grid-template-columns: 14px 34px 1fr auto 40px; gap: 0 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .rc-row { cursor: pointer; }
@@ -648,7 +699,7 @@ section { position: relative; }
 .rc-row:hover .nm { text-decoration: underline; text-decoration-color: var(--line-2); }
 
 .title-partner { display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; background: linear-gradient(135deg, rgba(230,180,80,0.14), rgba(230,180,80,0.02) 60%), var(--bg-2); border-color: rgba(230,180,80,0.32); }
-.title-partner h3 { font: 700 20px/1.2 var(--sans); }
+.title-partner h4 { font: 700 20px/1.2 var(--sans); }
 .title-partner p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
 .title-partner .price { font: 700 30px/1 var(--sans); color: var(--gold); text-align: right; }
 .title-partner .price small { display: block; font: 500 12px/1.3 var(--sans); color: var(--muted); margin-top: 6px; }
@@ -715,8 +766,24 @@ section { position: relative; }
   .hint { display: none; }
   .rc-row { grid-template-columns: 10px 26px minmax(0, 1fr) auto 36px; gap: 0 8px; }
   .rc-row .st { text-align: left; }
-  .spot-card h3 { font-size: 22px; }
+  .spot-card h4 { font-size: 22px; }
   .spot-card .price { font-size: 24px; }
+}
+
+/* phones held sideways (and any short window): stage on the left, panel on the right, as on a computer, so the sticky
+   stage never covers the rate card and a picked spot's card shows beside the model */
+@media (max-height: 500px) and (min-width: 761px) {
+  .studio { grid-template-columns: minmax(0, 1.25fr) minmax(300px, 1fr); }
+  .stage-wrap { top: calc(var(--nav-h) + 8px); margin: 0; padding: 0; background: none; box-shadow: none; }
+  .stage { height: calc(100svh - var(--nav-h) - 72px); min-height: 0; }
+  .part { margin-top: 56px; }
+  /* as on phones: the model gets the stage (no view tabs, no hint), the free count sits under the switch label */
+  .stage-ui .seg-tabs, .stage-foot .hint { display: none; }
+  .stage-ui { justify-content: flex-end; }
+  .stage-foot { justify-content: flex-end; }
+  .only-avail { min-height: 58px; padding: 8px 12px 8px 14px; }
+  .only-avail .only-n { display: block; margin-top: 2px; font-size: 12px; }
+  .only-avail .only-n::before { content: none; }
 }
 
 /* ---------- support ---------- */
@@ -879,8 +946,8 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 #claim .dlg-head .toast::before { content: "✓"; content: "✓" / ""; margin-right: 8px; color: var(--gold); }
 #claim .dlg-head .toast.on { transform: translate(-50%, 0); }
 body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
-@media (min-width: 1081px) { body.pk-on .stage { height: calc(100svh - var(--nav-h) - 84px - 92px); } }
-.stage.no3d { height: auto; min-height: 160px; }
+.stage.no3d { height: min(56svh, 520px); min-height: 280px; }
+.studio.no3d .stage-wrap { position: static; }
 /* sponsors that closed a spot */
 .onsuit { margin: 22px auto 0; display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 6px 18px; font-size: 14px; }
 .onsuit .k { font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
@@ -893,12 +960,19 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .give-k { margin: 0 0 10px; font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .give-iban { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 12px 10px 16px; border: 1px solid var(--line-2); border-radius: 14px; background: transparent; color: var(--ink); font: 500 15px/1.3 var(--mono); text-align: left; cursor: pointer; transition: border-color .2s, background .2s; }
 .give-iban:hover { border-color: var(--ink); }
+.give-iban + .give-iban { margin-top: 8px; }
 .give-iban .mono { min-width: 0; overflow-wrap: anywhere; }
+/* each way to give: what it is on a small line (IBAN, or the MB WAY mark), the number to copy under it */
+.give-v { display: grid; gap: 6px; min-width: 0; }
+.give-l { display: flex; align-items: center; height: 18px; font: 500 11px/1 var(--mono); letter-spacing: .1em; color: var(--muted); }
+.give-logo { display: block; width: auto; height: 18px; }
 .give-cp { flex: none; display: inline-grid; grid-template-columns: 18px auto; align-items: center; gap: 8px; font: 600 12px/1 var(--sans); color: var(--muted); }
 .give-cp svg { grid-row: 1; grid-column: 1; }
 .give-cp > span { grid-column: 2; }
 .give-sub { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
 .give-sub b { color: var(--ink); font-weight: 600; }
+/* a label never parts from its value: the line breaks at the «·» */
+.nw { white-space: nowrap; }
 .toast { position: fixed; z-index: 60; left: 50%; top: calc(var(--nav-h) + 14px); transform: translate(-50%, -20px); opacity: 0; background: var(--ink); color: #111; padding: 12px 18px; border-radius: 999px; font: 600 14px/1.2 var(--sans); transition: opacity .3s, transform .3s var(--ease); pointer-events: none; max-width: calc(100% - 32px); }
 .toast.on { opacity: 1; transform: translate(-50%, 0); }
 
@@ -912,7 +986,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .nojs-offer { display: none; }
 .no-js .nojs-offer { display: block; max-width: 720px; margin: 40px auto 0; }
 .nojs-offer p { margin: 10px 0 0; color: var(--muted); }
-.no-js .marks-track, .no-js .studio, .no-js .package, .no-js .chapters { display: none; }
+.no-js .marks-track, .no-js .part, .no-js .entry-cta, .no-js .package { display: none; }
 /* stacked, static race scenes when GSAP did not load or JS is off (same as reduced motion) */
 .static-flight .flight, .no-js .flight { height: auto; }
 .static-flight .flight-stage, .no-js .flight-stage { position: relative; height: auto; }
@@ -945,9 +1019,11 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   @page { size: A4; margin: 12mm; }
   :root { color-scheme: light; --ink: #111; --muted: #555; --dim: #666; --line: rgba(0,0,0,.14); --line-2: rgba(0,0,0,.25); --bg: #fff; --bg-2: #fff; --bg-3: #f4f4f4; --gold: var(--gold-ink); }
   body { background: #fff; color: #111; font-size: 10.5pt; }
-  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .studio, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .all-results summary, .strava-card, .season-title .hib { display: none !important; }
+  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .all-results summary, .strava-card, .season-title .hib { display: none !important; }
   .section, .marks { padding: 14pt 0; }
-  .card, .race, .sheet-row, .kpi, .contact-list li, .budget .row, .year, .give { break-inside: avoid; }
+  .card, .race, .sheet-row, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
+  .entry-card { border-color: rgba(0,0,0,.2); background: #fff; }
+  .entry-img { background: #ecebe6 !important; }
   h2, h3 { break-after: avoid; }
   /* GSAP leaves scrubbed inline styles on the hero */
   .hero-copy, .hero .split-line > span, .hero-tag, .hero-sub, .telemetry { opacity: 1 !important; transform: none !important; }
@@ -1006,7 +1082,9 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 }
 @media (max-width: 760px) {
   .give-cp > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .give-cp { grid-template-columns: 18px; gap: 0; }
   .give-iban { font-size: 14.5px; }
+  .give-iban .mono { text-wrap: balance; }
 }
 @keyframes sheetUp { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (max-width: 760px) {
@@ -1016,11 +1094,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .stage-ui .seg-tabs { display: none; }
   .stage-ui { justify-content: flex-end; }
   .stage-foot .hint { display: none; }
-  /* Fato | Capacete stacks into a narrow column in the corner, about as wide as the zoom pair, so it stays clear of
-     the thigh spots as the suit turns */
-  .stage-foot { align-items: flex-end; }
-  .item-tabs { flex-direction: column; border-radius: 20px; padding: 3px; }
-  .item-tabs button { padding: 0 10px; min-height: 34px; border-radius: 17px; font-size: 12px; text-align: left; }
+  .stage-foot { justify-content: flex-end; }
   .stage-wrap { box-shadow: 0 14px 24px -18px rgba(0,0,0,.9); }
   .panel { padding-bottom: 110px; }
   /* spot details become a bottom sheet over the rate card */
@@ -1031,9 +1105,11 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .spot-card.open { transform: translateY(var(--drag, 0px)); visibility: visible; transition: transform .55s var(--ease); }
   .spot-card.dragging { transition: none; }
   .spot-card::before { content: ""; position: absolute; top: 9px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: var(--line-2); }
-  .spot-card #spot-empty { display: none; }
+  .spot-slot > .empty-card { display: none; }
   .sheet-x { display: grid; place-items: center; position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 18px; line-height: 1; }
   .spot-card .top { padding-right: 42px; }
+  .spot-card .price small span { display: block; }
+  .spot-card .price small .t2::before { content: none; }
   .spot-actions .btn { flex: 1 1 auto; }
   body.sheet-open .package { transform: translate(-50%, 140%); visibility: hidden; }
   /* full-screen menu */
@@ -1062,5 +1138,21 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 }
 @media (max-width: 360px) {
   .only-avail { gap: 10px; padding: 8px 10px 8px 12px; font-size: 13px; }
+}
+/* the IBAN stays on one line down to 320 px */
+@media (max-width: 380px) {
+  .give-iban { font-size: 13.5px; }
+  /* small phones: the spot's name gets the sheet's full width, the price and its tier on one line under it */
+  .spot-card .top { flex-direction: column; gap: 10px; }
+  .spot-card .price { display: flex; align-items: baseline; gap: 10px; text-align: left; }
+  .spot-card .price small { margin-top: 0; }
+  .spot-card .price small span { display: inline; }
+  .spot-card .price small .t2::before { content: " · "; }
+  /* small phones: a tighter rate card row, so the helmet's names («Lado esquerdo») keep to one line */
+  .card.ratecard { padding-left: 14px; padding-right: 14px; }
+  .rc-row { grid-template-columns: 10px 22px minmax(0, 1fr) auto 36px; gap: 0 7px; }
+}
+@media (max-width: 340px) {
+  .give-iban { font-size: 12.5px; padding: 10px 10px 10px 12px; gap: 8px; }
 }
 @keyframes menuIn { to { opacity: 1; transform: none; } }

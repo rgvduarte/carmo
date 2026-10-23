@@ -78,7 +78,7 @@
       <li><a href="#resultados" data-i18n="nav.results">Resultados</a></li>
       <li><a href="#dados" data-i18n="nav.data">Dados</a></li>
       <li><a href="#epoca" data-i18n="nav.season">Época 2027</a></li>
-      <li><a href="#fato" data-i18n="nav.suit">O fato</a></li>
+      <li><a href="#fato" data-i18n="nav.suit">Patrocínio</a></li>
       <li><a href="#apoiar" data-i18n="nav.support">Apoiar</a></li>
       <li><a href="#contacto" data-i18n="nav.contact">Contacto</a></li>
     </ul></nav>
@@ -123,7 +123,7 @@
       </div>
       <p class="hero-sub" data-i18n="hero.sub">Fiz motocross de competição durante mais de dez anos. Estreei-me no triatlo em 2025 e, no ano seguinte, fiz o IRONMAN Portugal-Cascais em 9h35. Agora quero viver do triatlo e estar no Campeonato do Mundo, em Kona, assim que conseguir a qualificação.</p>
       <div class="hero-cta">
-        <a class="btn gold" href="#fato"><span data-i18n="hero.cta1">Ver os espaços no fato</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+        <a class="btn gold" href="#fato"><span data-i18n="hero.cta1">Ver o fato e o capacete</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
         <a class="btn ghost" href="#apoiar" data-i18n="hero.cta2">Apoiar</a>
       </div>
     </div>
@@ -194,7 +194,7 @@
       <div class="wrap">
         <div class="flight-cap">
           <div><p class="discipline" data-i18n="flight.d0">Natação · 3,8 km</p><h3 class="display h3" data-i18n="flight.h0">A baía de Kailua.</h3><p data-i18n="flight.p0">Em Kona nada-se no mar e sem neoprene. Em Cascais, com fato, nadei 1:01:42.</p></div>
-          <div><p class="discipline" data-i18n="flight.d1">Ciclismo · 180 km</p><h3 class="display h3" data-i18n="flight.h1">A Queen Kaʻahumanu Highway.</h3><p data-i18n="flight.p1">São cinco horas entre campos de lava, com vento lateral, e é onde o fato fica mais tempo à vista. Em Cascais demorei 4h56.</p></div>
+          <div><p class="discipline" data-i18n="flight.d1">Ciclismo · 180 km</p><h3 class="display h3" data-i18n="flight.h1">A Queen Kaʻahumanu Highway.</h3><p data-i18n="flight.p1">São cinco horas entre campos de lava, com vento lateral, e é onde o fato e o capacete ficam mais tempo à vista. Em Cascais demorei 4h56.</p></div>
           <div><p class="discipline" data-i18n="flight.d2">Corrida · 42,2 km</p><h3 class="display h3" data-i18n="flight.h2">Aliʻi Drive e Energy Lab.</h3><p data-i18n="flight.p2">A maratona corre-se ao calor, depois dos 180 km de bicicleta. Fiz 3h27 em Cascais.</p></div>
           <div><p class="discipline" data-i18n="flight.d3">Meta · Aliʻi Drive</p><h3 class="display h3" data-i18n="flight.h3">A fotografia da meta.</h3><p data-i18n="flight.p3">É a imagem que fica de cada prova e a que mais se partilha, com o fato de frente para a câmara.</p></div>
         </div>
@@ -323,115 +323,193 @@
   </div>
 </section>
 
-<!-- THE SUIT -->
+<!-- SPONSORSHIP: the suit and the helmet, one part each -->
 <section class="section" id="fato">
   <div class="wrap">
     <div class="adspace-head">
       <p class="eyebrow gold" style="justify-content:center" data-i18n="suit.k">05 · Patrocínio</p>
-      <h2 class="display h2 rv" data-i18n-html="suit.h">O teu logo<br>no meu fato.</h2>
-      <p class="lead rv" data-i18n="suit.p">Viver do triatlo depende de patrocinadores, e é neste fato que eles aparecem. Em 2027 vou usá-lo em todos os triatlos e em treino. Tem 20 espaços para marcas, e o capacete aero que uso nas provas tem mais 4. Escolhe um, experimenta o teu logótipo no modelo e envia o pedido.</p>
+      <h2 class="display h2 rv" data-i18n-html="suit.h">A tua marca<br>comigo em<br>cada prova.</h2>
+      <p class="ad-sub rv" id="ad-sub">24 espaços: 20 no fato e 4 no capacete</p>
+      <p class="lead rv" data-i18n="suit.p">Viver do triatlo depende de patrocinadores, e é no fato e no capacete que eles aparecem. Em 2027 vou usar os dois em todos os triatlos, e o fato também em treino. Escolhe um espaço, experimenta o teu logótipo no modelo e envia o pedido.</p>
       <div class="avail rv"><div class="row"><span><b id="avail-n">24</b> <span data-i18n="suit.of">de</span> <span id="avail-t">24</span> <span data-i18n="suit.left">espaços disponíveis</span></span><span id="avail-pct">100%</span></div><div class="bar"><i id="avail-bar"></i></div></div>
       <div class="onsuit" id="onsuit" hidden><span class="k">Já no fato</span><ul id="onsuit-list"></ul></div>
-      <dl class="ad-stats rv">
-        <div><dt data-i18n="suit.st1">Espaços</dt><dd id="st-n">24</dd></div>
-        <div><dt data-i18n="suit.st2">Desde</dt><dd id="st-from">60 €</dd></div>
-        <div class="gold"><dt data-i18n="suit.st3">Destaque</dt><dd id="st-top">600 €</dd></div>
-        <div><dt data-i18n="suit.st4">Fato completo</dt><dd id="st-title">3 000 €</dd></div>
-      </dl>
+    </div>
+
+    <!-- the two ways in: a big card each, never a small toggle -->
+    <div class="entry">
+      <article class="entry-card rv" data-item="suit">
+        <div class="entry-img"><picture><source type="image/webp" srcset="assets/img/model-fato-600.webp 600w, assets/img/model-fato-1200.webp 1200w" sizes="(max-width: 640px) 40vw, 30vw"><img src="assets/img/model-fato-600.png" alt="" width="600" height="1052" loading="lazy" decoding="async"></picture></div>
+        <div class="entry-txt">
+          <p class="display entry-h" data-i18n="en.h1">O fato</p>
+          <p class="entry-facts"><span id="en-suit-n">20 espaços</span><span id="en-suit-from">desde 60 €</span></p>
+          <p class="entry-note" data-i18n="en.n1">Em todos os triatlos e em treino.</p>
+        </div>
+        <a class="btn gold entry-cta" href="#o-fato"><span data-i18n="en.b1">Ver o fato</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+      </article>
+      <article class="entry-card rv" data-item="helmet">
+        <div class="entry-img"><picture><source type="image/webp" srcset="assets/img/model-capacete-700.webp 700w, assets/img/model-capacete-1400.webp 1400w" sizes="(max-width: 640px) 40vw, 30vw"><img src="assets/img/model-capacete-700.png" alt="" width="700" height="510" loading="lazy" decoding="async"></picture></div>
+        <div class="entry-txt">
+          <p class="display entry-h" data-i18n="en.h2">O capacete</p>
+          <p class="entry-facts"><span id="en-helmet-n">4 espaços</span><span id="en-helmet-from">desde 100 €</span></p>
+          <p class="entry-note" data-i18n="en.n2">Na bicicleta, em todos os triatlos.</p>
+        </div>
+        <a class="btn gold entry-cta" href="#o-capacete"><span data-i18n="en.b2">Ver o capacete</span><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg></a>
+      </article>
     </div>
 
     <div class="card nojs-offer">
       <h3>Os 24 espaços: 20 no fato e 4 no capacete</h3>
       <p>De 60 € a 600 € por espaço, na época 2027. O fato completo (os 20 espaços do fato), com exclusividade de setor, custa 3 000 €. Para ver a tabela e reservar, escreve para <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a> ou manda mensagem por <a href="https://wa.me/351916395103">WhatsApp</a>.</p>
     </div>
-    <div class="studio">
-      <div class="stage-wrap">
-        <div class="stage" id="stage">
-          <div class="loading" id="stage-loading" data-i18n="suit.loading">A carregar o fato</div>
-          <div class="stage-ui">
-            <div class="seg-tabs" role="group" aria-label="Vista" data-i18n-attr="aria-label:a.view">
-              <button type="button" data-view="front" aria-pressed="false" data-i18n="suit.front">Frente</button>
-              <button type="button" data-view="left" aria-pressed="false" data-i18n="suit.left2">Esq.</button>
-              <button type="button" data-view="back" aria-pressed="false" data-i18n="suit.back">Trás</button>
-              <button type="button" data-view="right" aria-pressed="false" data-i18n="suit.right">Dir.</button>
+
+    <!-- PART A: the suit. One renderer serves both parts: the canvas moves into the stage of the part on screen. -->
+    <div class="part" id="o-fato" data-item="suit" role="region" aria-labelledby="pt-h1">
+      <header class="part-head">
+        <h3 class="display part-h" id="pt-h1" data-i18n="pt.h1">O fato</h3>
+        <p class="part-p" id="pt-p1">20 espaços, de 60 € a 600 €. Uso&#8288;-&#8288;o em todos os triatlos e em treino.</p>
+      </header>
+      <div class="studio" data-item="suit">
+        <div class="stage-wrap">
+          <div class="stage" id="stage" data-item="suit">
+            <picture class="stage-poster" aria-hidden="true"><source type="image/webp" srcset="assets/img/model-fato-600.webp 600w, assets/img/model-fato-1200.webp 1200w" sizes="(max-width: 1080px) 60vw, 40vw"><img src="assets/img/model-fato-600.png" alt="" width="600" height="1052" fetchpriority="low" decoding="async"></picture>
+            <div class="loading" id="stage-loading"><span data-i18n="suit.loading">A carregar o fato</span></div>
+            <div class="stage-ui">
+              <div class="seg-tabs" role="group" aria-label="Vista do fato" data-i18n-attr="aria-label:a.view1">
+                <button type="button" data-view="front" aria-pressed="false" data-i18n="suit.front">Frente</button>
+                <button type="button" data-view="left" aria-pressed="false" data-i18n="suit.left2">Esq.</button>
+                <button type="button" data-view="back" aria-pressed="false" data-i18n="suit.back">Trás</button>
+                <button type="button" data-view="right" aria-pressed="false" data-i18n="suit.right">Dir.</button>
+              </div>
+              <div>
+                <button type="button" class="chip" data-act="rotate" aria-pressed="true"><span class="dot"></span><span data-i18n="suit.rotate">Rodar</span></button>
+                <button type="button" class="chip" data-act="spots" aria-pressed="true"><span class="dot"></span><span data-i18n="suit.spots">Espaços</span></button>
+              </div>
             </div>
-            <div>
-              <button type="button" class="chip" id="btn-rotate" aria-pressed="true"><span class="dot"></span><span data-i18n="suit.rotate">Rodar</span></button>
-              <button type="button" class="chip" id="btn-spots" aria-pressed="true"><span class="dot"></span><span data-i18n="suit.spots">Espaços</span></button>
+            <div class="callout" id="callout" aria-hidden="true"><div class="pill"><small id="co-n">01</small><span id="co-name">Peito</span> · <b id="co-price">600 €</b></div></div>
+            <div class="stage-foot">
+              <span class="hint" data-i18n="suit.hint">Arrasta para rodar. Toca num espaço.</span>
+              <div class="zoom"><button type="button" data-act="zoom-out" aria-label="Afastar" data-i18n-attr="aria-label:a.zoomout">−</button><button type="button" data-act="zoom-in" aria-label="Aproximar" data-i18n-attr="aria-label:a.zoomin">+</button></div>
             </div>
           </div>
-          <div class="callout" id="callout" aria-hidden="true"><div class="pill"><small id="co-n">01</small><span id="co-name">Peito</span> · <b id="co-price">600 €</b></div></div>
-          <div class="stage-foot">
-            <div class="seg-tabs item-tabs" role="group" aria-label="Modelo" data-i18n-attr="aria-label:a.item">
-              <button type="button" data-item="suit" aria-pressed="true" data-i18n="item.suit">Fato</button>
-              <button type="button" data-item="helmet" aria-pressed="false" data-i18n="item.helmet">Capacete</button>
-            </div>
-            <span class="hint" data-i18n="suit.hint">Arrasta para rodar. Toca num espaço.</span>
-            <div class="zoom"><button type="button" id="zoom-out" aria-label="Afastar" data-i18n-attr="aria-label:a.zoomout">−</button><button type="button" id="zoom-in" aria-label="Aproximar" data-i18n-attr="aria-label:a.zoomin">+</button></div>
+          <div class="chapters" data-item="suit">
+            <button type="button" class="chapter" data-focus="peito" title="O peito é o primeiro sítio para onde se olha nas fotos de meta e nos vídeos." data-i18n-attr="title:ch.t1"><span class="k" data-i18n="ch.k1">Frente</span><span class="t" data-i18n="ch.h1">Peito</span></button>
+            <button type="button" class="chapter" data-focus="coxa-lateral-e" title="Em posição aero, coxas e laterais ficam na horizontal e os logótipos aparecem direitos nas fotos de perfil." data-i18n-attr="title:ch.t2"><span class="k" data-i18n="ch.k2">Perfil</span><span class="t" data-i18n="ch.h2">Posição aero</span></button>
+            <button type="button" class="chapter" data-focus="costas-topo" title="As costas são o que vê quem segue atrás." data-i18n-attr="title:ch.t3"><span class="k" data-i18n="ch.k3">Costas</span><span class="t" data-i18n="ch.h3">Vista de trás</span></button>
+            <button type="button" class="chapter" data-tour title="Visita guiada aos espaços disponíveis do fato, do mais caro ao mais barato." data-i18n-attr="title:ch.t4"><span class="k" data-i18n="ch.k4">Visita</span><span class="t" data-i18n="ch.h4">Ver por preço</span></button>
           </div>
         </div>
-        <div class="chapters" id="chapters">
-          <button type="button" class="chapter" data-focus="peito" title="O peito é o primeiro sítio para onde se olha nas fotos de meta e nos vídeos." data-i18n-attr="title:ch.t1"><span class="k" data-i18n="ch.k1">Frente</span><span class="t" data-i18n="ch.h1">Peito</span></button>
-          <button type="button" class="chapter" data-focus="coxa-lateral-e" title="Em posição aero, coxas e laterais ficam na horizontal e os logótipos aparecem direitos nas fotos de perfil." data-i18n-attr="title:ch.t2"><span class="k" data-i18n="ch.k2">Perfil</span><span class="t" data-i18n="ch.h2">Posição aero</span></button>
-          <button type="button" class="chapter" data-focus="costas-topo" title="As costas são o que vê quem segue atrás." data-i18n-attr="title:ch.t3"><span class="k" data-i18n="ch.k3">Costas</span><span class="t" data-i18n="ch.h3">Vista de trás</span></button>
-          <button type="button" class="chapter" id="btn-tour" title="Visita guiada aos espaços disponíveis, do mais caro ao mais barato." data-i18n-attr="title:ch.t4"><span class="k" data-i18n="ch.k4">Visita</span><span class="t" data-i18n="ch.h4">Ver por preço</span></button>
+
+        <div class="panel">
+          <p class="sr-only" id="spot-status" aria-live="polite"></p>
+          <div class="spot-slot" data-item="suit">
+            <div class="card empty-card">
+              <span class="eyebrow gold" style="margin:0" data-i18n="spot.ek">Escolhe um espaço</span>
+              <h4 data-i18n="spot.eh1">Toca num espaço do fato ou numa linha da tabela.</h4>
+              <p data-i18n="spot.ep">Para cada espaço vês o tamanho real, o preço para 2027 e onde aparece: na bicicleta, na corrida, na meta e nas redes.</p>
+            </div>
+            <div class="card spot-card" id="spot-card">
+              <button type="button" class="sheet-x" id="sheet-x" aria-label="Fechar" data-i18n-attr="aria-label:a.close">×</button>
+              <div id="spot-detail">
+                <div class="top">
+                  <div><span class="id" id="sd-id">01 · FRENTE</span><h4 id="sd-name">Peito</h4></div>
+                  <div class="price"><span id="sd-price">600 €</span><small id="sd-tier">Principal · época 2027</small></div>
+                </div>
+                <div class="meta"><span class="badge" id="sd-size">26 × 8 cm</span><span class="badge" id="sd-status">Disponível</span><span class="badge gold" id="sd-top" hidden data-i18n="suit.st3">Destaque</span></div>
+                <p class="pitch" id="sd-pitch"></p>
+                <div class="vis" id="sd-vis"></div>
+                <div class="spot-actions">
+                  <button type="button" class="btn sm" id="sd-add" data-i18n="spot.add">Adicionar ao pacote</button>
+                  <button type="button" class="btn ghost sm" id="sd-try" data-i18n="spot.try">Experimentar o teu logótipo</button>
+                  <button type="button" class="btn ghost sm" id="sd-share" data-i18n="spot.share">Partilhar</button>
+                </div>
+                <div class="tryon" id="tryon">
+                  <div class="row">
+                    <label class="btn sm file-btn"><span data-i18n="try.up">Carregar logótipo</span><input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
+                    <button type="button" class="btn ghost sm" id="logo-dl" disabled data-i18n="try.dl">Descarregar mockup</button>
+                    <button type="button" class="btn ghost sm" id="logo-rm" disabled data-i18n="try.rm">Remover</button>
+                  </div>
+                  <div class="row">
+                    <label class="check"><input type="checkbox" id="logo-bg" checked> <span data-i18n="try.bg">Remover fundo branco</span></label>
+                    <label class="check"><input type="checkbox" id="logo-inv"> <span data-i18n="try.inv">Versão em negativo</span></label>
+                  </div>
+                  <p data-i18n="try.note">PNG, JPG, WebP ou SVG até 5 MB. O ficheiro não sai do teu dispositivo.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card title-partner rv">
+            <div><span class="eyebrow gold" style="margin:0 0 8px" data-i18n="tp.k">Title partner</span><h4 data-i18n="tp.h">O fato completo</h4><p data-i18n="tp.p">Os 20 espaços do fato, a tua marca ao lado do meu nome em toda a comunicação e exclusividade no teu setor em 2027.</p></div>
+            <div class="price"><span id="tp-price">3 000 €</span><small data-i18n="tp.s">por época</small></div>
+            <button type="button" class="btn gold sm" id="tp-btn" data-i18n="tp.b">Pedir o fato completo</button>
+          </div>
+
+          <div class="card ratecard" id="ratecard" data-item="suit">
+            <div class="ratecard-head">
+              <h4 data-i18n="rc.h">Tabela de preços</h4>
+              <div class="seg-tabs" role="group" aria-label="Ordenar" data-i18n-attr="aria-label:a.sort">
+                <button type="button" data-sort="area" aria-pressed="true" data-i18n="rc.area">Por zona</button>
+                <button type="button" data-sort="price" aria-pressed="false" data-i18n="rc.price">Por preço</button>
+              </div>
+            </div>
+            <table class="tiers-legend" id="tiers-legend" aria-label="Escalões de preço" data-i18n-attr="aria-label:a.tiers"><tbody></tbody></table>
+            <button type="button" class="only-avail" id="only-avail" role="switch" aria-checked="false"><span class="only-t"><span data-i18n="rc.only">Mostrar só os disponíveis</span> <span class="only-n" id="only-n"></span></span><span class="sw" aria-hidden="true"><i></i></span></button>
+            <div id="rc-body"></div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div class="panel">
-        <p class="sr-only" id="spot-status" aria-live="polite"></p>
-        <div class="card spot-card" id="spot-card">
-          <button type="button" class="sheet-x" id="sheet-x" aria-label="Fechar" data-i18n-attr="aria-label:a.close">×</button>
-          <div class="empty-card" id="spot-empty">
-            <span class="eyebrow gold" style="margin:0" data-i18n="spot.ek">Escolhe um espaço</span>
-            <h3 style="margin:0;font:700 24px/1.2 var(--sans)" data-i18n="spot.eh">Toca num espaço do fato ou do capacete, ou numa linha da tabela.</h3>
-            <p data-i18n="spot.ep">Para cada espaço vês o tamanho real, o preço para 2027 e onde aparece: na bicicleta, na corrida, na meta e nas redes.</p>
+    <!-- PART B: the helmet, built the first time it comes near the screen -->
+    <div class="part" id="o-capacete" data-item="helmet" role="region" aria-labelledby="pt-h2">
+      <header class="part-head">
+        <h3 class="display part-h" id="pt-h2" data-i18n="pt.h2">O capacete</h3>
+        <p class="part-p" id="pt-p2">4 espaços, de 100 € a 400 €. Uso&#8288;-&#8288;o na bicicleta, em todos os triatlos.</p>
+      </header>
+      <div class="studio" data-item="helmet">
+        <div class="stage-wrap">
+          <div class="stage" id="stage-h" data-item="helmet">
+            <picture class="stage-poster" aria-hidden="true"><source type="image/webp" srcset="assets/img/model-capacete-700.webp 700w, assets/img/model-capacete-1400.webp 1400w" sizes="(max-width: 1080px) 90vw, 50vw"><img src="assets/img/model-capacete-700.png" alt="" width="700" height="510" fetchpriority="low" decoding="async"></picture>
+            <div class="loading" id="item-loading"><span data-i18n="helmet.loading">A carregar o capacete</span></div>
+            <div class="stage-ui">
+              <div class="seg-tabs" role="group" aria-label="Vista do capacete" data-i18n-attr="aria-label:a.view2">
+                <button type="button" data-view="front" aria-pressed="false" data-i18n="suit.front">Frente</button>
+                <button type="button" data-view="left" aria-pressed="false" data-i18n="suit.left2">Esq.</button>
+                <button type="button" data-view="back" aria-pressed="false" data-i18n="suit.back">Trás</button>
+                <button type="button" data-view="right" aria-pressed="false" data-i18n="suit.right">Dir.</button>
+              </div>
+              <div>
+                <button type="button" class="chip" data-act="rotate" aria-pressed="true"><span class="dot"></span><span data-i18n="suit.rotate">Rodar</span></button>
+                <button type="button" class="chip" data-act="spots" aria-pressed="true"><span class="dot"></span><span data-i18n="suit.spots">Espaços</span></button>
+              </div>
+            </div>
+            <div class="stage-foot">
+              <span class="hint" data-i18n="suit.hint">Arrasta para rodar. Toca num espaço.</span>
+              <div class="zoom"><button type="button" data-act="zoom-out" aria-label="Afastar" data-i18n-attr="aria-label:a.zoomout">−</button><button type="button" data-act="zoom-in" aria-label="Aproximar" data-i18n-attr="aria-label:a.zoomin">+</button></div>
+            </div>
           </div>
-          <div id="spot-detail" hidden>
-            <div class="top">
-              <div><span class="id" id="sd-id">01 · FRENTE</span><h3 id="sd-name">Peito</h3></div>
-              <div class="price"><span id="sd-price">600 €</span><small id="sd-tier">Principal · época 2027</small></div>
-            </div>
-            <div class="meta"><span class="badge" id="sd-size">26 × 8 cm</span><span class="badge" id="sd-status">Disponível</span><span class="badge gold" id="sd-top" hidden data-i18n="suit.st3">Destaque</span></div>
-            <p class="pitch" id="sd-pitch"></p>
-            <div class="vis" id="sd-vis"></div>
-            <div class="spot-actions">
-              <button type="button" class="btn sm" id="sd-add" data-i18n="spot.add">Adicionar ao pacote</button>
-              <button type="button" class="btn ghost sm" id="sd-try" data-i18n="spot.try">Experimentar o teu logótipo</button>
-              <button type="button" class="btn ghost sm" id="sd-share" data-i18n="spot.share">Partilhar</button>
-            </div>
-            <div class="tryon" id="tryon">
-              <div class="row">
-                <label class="btn sm file-btn"><span data-i18n="try.up">Carregar logótipo</span><input type="file" id="logo-file" accept="image/png,image/jpeg,image/webp,image/svg+xml"></label>
-                <button type="button" class="btn ghost sm" id="logo-dl" disabled data-i18n="try.dl">Descarregar mockup</button>
-                <button type="button" class="btn ghost sm" id="logo-rm" disabled data-i18n="try.rm">Remover</button>
-              </div>
-              <div class="row">
-                <label class="check"><input type="checkbox" id="logo-bg" checked> <span data-i18n="try.bg">Remover fundo branco</span></label>
-                <label class="check"><input type="checkbox" id="logo-inv"> <span data-i18n="try.inv">Versão em negativo</span></label>
-              </div>
-              <p data-i18n="try.note">PNG, JPG, WebP ou SVG até 5 MB. O ficheiro não sai do teu dispositivo.</p>
-            </div>
+          <div class="chapters" data-item="helmet">
+            <button type="button" class="chapter" data-focus="capacete-topo" title="No topo, entre as riscas vermelhas. Vê-se nas fotos tiradas de cima e de trás." data-i18n-attr="title:ch.t5"><span class="k" data-i18n="ch.k5">Topo</span><span class="t" data-i18n="ch.h5">Visto de cima</span></button>
+            <button type="button" class="chapter" data-focus="capacete-lateral-e" title="Na bicicleta a cabeça fica parada, por isso o logótipo sai direito nas fotos de perfil." data-i18n-attr="title:ch.t6"><span class="k" data-i18n="ch.k6">Perfil</span><span class="t" data-i18n="ch.h6">Fotos de lado</span></button>
+            <button type="button" class="chapter" data-focus="capacete-traseira" title="É o que vê quem segue atrás de mim na bicicleta." data-i18n-attr="title:ch.t7"><span class="k" data-i18n="ch.k7">Trás</span><span class="t" data-i18n="ch.h7">Vista de trás</span></button>
+            <button type="button" class="chapter" data-tour title="Visita guiada aos espaços disponíveis do capacete, do mais caro ao mais barato." data-i18n-attr="title:ch.t8"><span class="k" data-i18n="ch.k4">Visita</span><span class="t" data-i18n="ch.h4">Ver por preço</span></button>
           </div>
         </div>
 
-        <div class="card title-partner rv">
-          <div><span class="eyebrow gold" style="margin:0 0 8px" data-i18n="tp.k">Title partner</span><h3 data-i18n="tp.h">O fato completo</h3><p data-i18n="tp.p">Os 20 espaços do fato, a tua marca ao lado do meu nome em toda a comunicação e exclusividade no teu setor em 2027.</p></div>
-          <div class="price"><span id="tp-price">3 000 €</span><small data-i18n="tp.s">por época</small></div>
-          <button type="button" class="btn gold sm" id="tp-btn" data-i18n="tp.b">Pedir o fato completo</button>
-        </div>
-
-        <div class="card" id="ratecard">
-          <div class="ratecard-head">
-            <h3 data-i18n="rc.h">Tabela de preços</h3>
-            <div class="seg-tabs" role="group" aria-label="Ordenar" data-i18n-attr="aria-label:a.sort">
-              <button type="button" data-sort="area" aria-pressed="true" data-i18n="rc.area">Por zona</button>
-              <button type="button" data-sort="price" aria-pressed="false" data-i18n="rc.price">Por preço</button>
+        <div class="panel">
+          <div class="spot-slot" data-item="helmet">
+            <div class="card empty-card">
+              <span class="eyebrow gold" style="margin:0" data-i18n="spot.ek">Escolhe um espaço</span>
+              <h4 data-i18n="spot.eh2">Toca num espaço do capacete ou numa linha da tabela.</h4>
+              <p data-i18n="spot.ep">Para cada espaço vês o tamanho real, o preço para 2027 e onde aparece: na bicicleta, na corrida, na meta e nas redes.</p>
             </div>
           </div>
-          <table class="tiers-legend" id="tiers-legend" aria-label="Escalões de preço" data-i18n-attr="aria-label:a.tiers"><tbody></tbody></table>
-          <button type="button" class="only-avail" id="only-avail" role="switch" aria-checked="false"><span class="only-t"><span data-i18n="rc.only">Mostrar só os disponíveis</span> <span class="only-n" id="only-n"></span></span><span class="sw" aria-hidden="true"><i></i></span></button>
-          <div id="rc-body"></div>
+
+          <div class="card ratecard" id="ratecard-h" data-item="helmet">
+            <div class="ratecard-head"><h4 data-i18n="rc.h">Tabela de preços</h4></div>
+            <table class="tiers-legend" id="tiers-legend-h" aria-label="Escalões de preço" data-i18n-attr="aria-label:a.tiers"><tbody></tbody></table>
+            <div id="rc-body-h"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -444,7 +522,7 @@
     </div>
 
     <div class="steps">
-      <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Um ou vários espaços. A partir de três, tens 10% de desconto.</p></div>
+      <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Um ou vários espaços, no fato e no capacete. A partir de três, tens 10% de desconto.</p></div>
       <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Reserva</h4><p data-i18n="sp.p2">Envias o pedido por WhatsApp, email ou Instagram. Confirmo em 24 horas e guardo o espaço durante três dias.</p></div>
       <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Pagamento</h4><p data-i18n="sp.p3">Por transferência, ou MB WAY até 2&nbsp;000&nbsp;€, com a referência dos espaços no descritivo. Recebes a fatura.</p></div>
       <div class="rv"><b>04</b><h4 data-i18n="sp.h4">É teu</h4><p data-i18n="sp.p4">O espaço fecha e a tua marca aparece aqui, no fato ou no capacete. No equipamento real, entra antes do primeiro triatlo da época.</p></div>
@@ -504,10 +582,12 @@
         <a class="btn ghost" href="#contacto" data-i18n="sup.b2">Apoio em espécie</a>
       </div>
       <p class="note" id="gofundme-note" hidden></p>
+      <!-- a donation by transfer or by MB WAY (no amount is suggested, so the MB WAY limit per transfer never comes up) -->
       <div class="give rv">
-        <p class="give-k" data-i18n="sup.tk">Por transferência</p>
-        <button type="button" class="give-iban" data-copy-iban data-toast="toast.iban"><span class="mono" data-iban>PT50 0035 0125 0000 5328 9306 8</span><span class="give-cp"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sup.tc">Copiar IBAN</span></span></button>
-        <p class="give-sub"><span data-i18n="pay.payee">Titular</span> <b data-payee>Gonçalo Carmo</b> · <span data-i18n="pay.ref">Descritivo</span> <b>KONA APOIO</b></p>
+        <p class="give-k"><span data-i18n="sup.tk">Por transferência</span><span id="give-or"> <span data-i18n="sup.tk2">ou MB WAY</span></span></p>
+        <button type="button" class="give-iban" data-copy-iban data-copy="PT50003501250000532893068" data-toast="toast.iban"><span class="give-v"><span class="give-l">IBAN</span><span class="mono" data-iban>PT50 0035 0125 0000 5328 9306 8</span></span><span class="give-cp"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sup.tc">Copiar IBAN</span></span></button>
+        <button type="button" class="give-iban give-mb" id="give-mb" data-copy="916395103" data-toast="toast.mb"><span class="give-v"><span class="give-l"><picture><source type="image/webp" srcset="assets/img/mbway-272.webp 272w" sizes="60px"><img class="give-logo" src="assets/img/mbway-272.png" srcset="assets/img/mbway-272.png 272w, assets/img/mbway-544.png 544w" sizes="60px" width="60" height="36" alt="MB WAY" loading="lazy" decoding="async"></picture></span><span class="mono" id="give-mb-n">916 395 103</span></span><span class="give-cp"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sup.mc">Copiar número</span></span></button>
+        <p class="give-sub"><span class="nw"><span data-i18n="sup.to">Em nome de</span> <b data-payee>Gonçalo Carmo</b> ·</span> <span class="nw"><span data-i18n="pay.ref">Descritivo</span> <b>KONA APOIO</b></span></p>
       </div>
       <div class="inkind rv">
         <div><b data-i18n="sup.i1h">Equipamento</b><span data-i18n="sup.i1p">Bicicleta, rodas, fato de neoprene e sapatilhas.</span></div>

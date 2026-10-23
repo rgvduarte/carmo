@@ -283,7 +283,8 @@ const DEV = typeof location !== 'undefined' && /[?&]dev\b/.test(location.search)
 
 // A sponsor model: one scene and camera, a colour atlas (base) and a spot-tile atlas (over).
 // Subclasses set the statics and implement build() and drawBase(); everything else is shared.
-// Several models can draw to one renderer (pass `renderer`); only the active one renders and takes input.
+// Several models can draw to one renderer (pass `renderer`); only the active one renders and takes input. Each model
+// has its own container: the shared canvas moves into the container of the model that becomes active.
 // No instance class fields in subclasses: this constructor calls build() before their initialisers run.
 export class Kit {
   static ATLAS = ATLAS;
@@ -330,7 +331,8 @@ export class Kit {
     this.ownsRenderer = !renderer;
     this.renderer = renderer || Kit.makeRenderer();
     this.canvas = this.renderer.domElement;
-    if (this.canvas.parentElement !== this.el) { this.canvas.setAttribute('aria-hidden', 'true'); this.el.appendChild(this.canvas); }
+    // a model on a shared renderer starts idle and only takes the canvas when it becomes active (setActive)
+    if (this.canvas.parentElement !== this.el && (this.ownsRenderer || active)) { this.canvas.setAttribute('aria-hidden', 'true'); this.el.appendChild(this.canvas); }
     this.active = active;
 
     this.scene = new THREE.Scene();
@@ -774,10 +776,11 @@ export class Kit {
     this.kick();
   }
 
-  // hand the shared canvas to this model (on) or let it go idle (off)
+  // hand the shared canvas to this model (on), into its own container, or let it go idle (off)
   setActive(on) {
     this.active = on; this.pendingHover = null;
     if (!on) { this.vel = 0; if (this.hovered) this.setHover(null); this.canvas.style.cursor = ''; return; }
+    if (this.canvas.parentElement !== this.el) { this.canvas.setAttribute('aria-hidden', 'true'); this.el.prepend(this.canvas); }
     this.resize(); this.kick();
   }
 
