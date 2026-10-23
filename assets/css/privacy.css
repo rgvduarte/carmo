@@ -16,7 +16,10 @@
 .store dt { font: 500 13px/1.6 var(--mono); color: var(--ink); overflow-wrap: anywhere; }
 .store dd { margin: 0; font-size: 15px; line-height: 1.55; color: var(--muted); }
 .legal-act { margin-top: 22px; }
-.legal-act .btn { --b: var(--ink); --f: var(--bg); }
+.legal-act .btn { --b: var(--ink); --f: var(--bg); min-height: 44px; }
+/* the PT / EN buttons are 28 px tall: a 44 px target around each */
+.legal-top .lang button { position: relative; }
+.legal-top .lang button::after { content: ""; position: absolute; inset: -8px -2px; }
 @media (max-width: 640px) {
   .store > div { grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
 }

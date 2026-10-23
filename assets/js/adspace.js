@@ -591,6 +591,8 @@ function toggleBasket(id) {
   wantTitle = false;
   if (basket.has(id)) basket.delete(id); else basket.add(id);
   saveBasket();
+  // for analytics.js (add_to_cart / remove_from_cart)
+  document.dispatchEvent(new CustomEvent('gc:basket', { detail: { id, added: basket.has(id) } }));
 }
 function saveBasket() {
   try { localStorage.setItem(STORE, JSON.stringify([...basket])); } catch (_) {}
@@ -978,8 +980,9 @@ function bindUI() {
     const s = byId(selected); if (!s) return;
     const onHelmet = itemOf(s) === 'helmet';
     const url = `${location.origin}${location.pathname}#${onHelmet ? 'capacete' : 'fato'}/${s.id}`;
-    if (navigator.share) { try { await navigator.share({ title: t(onHelmet ? 'share.titleH' : 'share.title'), text: `${pick(s).name} · ${money(s.price)}`, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
-    if (await copy(url)) toast(t('toast.link'));
+    // gc:share tells analytics.js the share happened (a dismissed share sheet or a failed copy is not a share)
+    if (navigator.share) { try { await navigator.share({ title: t(onHelmet ? 'share.titleH' : 'share.title'), text: `${pick(s).name} · ${money(s.price)}`, url }); document.dispatchEvent(new CustomEvent('gc:share', { detail: { method: 'web_share' } })); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    if (await copy(url)) { toast(t('toast.link')); document.dispatchEvent(new CustomEvent('gc:share', { detail: { method: 'copy_link' } })); }
   });
   $('#logo-file').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];

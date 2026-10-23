@@ -290,7 +290,7 @@ const EN = {
 // strings only used from JS
 const PT_JS = {
   // cookie banner (analytics.js)
-  'cs.h': 'Cookies', 'cs.p': 'Posso usar o Google Analytics para contar as visitas e ver o que interessa mais no site? Só com a tua autorização, e nunca para publicidade.',
+  'cs.h': 'Cookies', 'cs.p': 'Posso usar cookies do Google Analytics para contar as visitas e ver o que interessa mais no site? Só com a tua autorização e nunca para publicidade. Duram até seis meses e podes mudar de ideias em «Definições de cookies», no fim da página.',
   'cs.more': 'Privacidade', 'cs.no': 'Recusar', 'cs.yes': 'Aceitar',
   'cs.signal': 'O teu browser pede aos sites que não sigam as tuas visitas, por isso as estatísticas estão desligadas. Só ligam se carregares em Aceitar.',
   'cs.owner': 'Este browser já abriu a página de admin, por isso aqui as estatísticas estão sempre desligadas e as tuas visitas não contam.',
@@ -331,7 +331,7 @@ const PT_JS = {
   'gfm.soon': 'A campanha no GoFundMe abre em breve.', 'suit.no3d': 'A vista 3D não está disponível neste dispositivo. A tabela tem todos os espaços.', 'gfm.help': 'Quero apoiar',
 };
 const EN_JS = {
-  'cs.h': 'Cookies', 'cs.p': 'Can I use Google Analytics to count visits and see what interests people most on the site? Only with your permission, and never for advertising.',
+  'cs.h': 'Cookies', 'cs.p': 'May I use Google Analytics cookies to count visits and see what interests people most on the site? Only with your permission, and never for advertising. They last up to six months and you can change your mind in “Cookie settings” at the bottom of the page.',
   'cs.more': 'Privacy', 'cs.no': 'Decline', 'cs.yes': 'Accept',
   'cs.signal': 'Your browser asks sites not to track your visits, so statistics are off. They only turn on if you choose Accept.',
   'cs.owner': 'This browser has opened the admin page, so statistics are always off here and your own visits are not counted.',

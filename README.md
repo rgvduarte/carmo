@@ -209,7 +209,8 @@ Alternativa sem API: em Strava → Settings → My Account → *Download your da
 ## Google Analytics
 
 Com `SITE.ga` vazio (`assets/js/data.js`) o site não mede nada: não há aviso de cookies, nenhum cookie e nenhum
-pedido à Google. Para ligar, cola ali o ID de medição (`G-…`), corre `node scripts/stamp.mjs` e publica. Mais nada.
+pedido à Google (os tipos de letra também vêm do próprio site, de `assets/fonts/`). Para ligar, prepara o fluxo
+(passo 7) e só depois cola ali o ID de medição (`G-…`), corre `node scripts/stamp.mjs` e publica.
 
 **Criar a propriedade (uma vez, uns 10 minutos).**
 1. Em https://analytics.google.com, com a conta Google do Gonçalo, carrega em «Start measuring» (se já houver
@@ -222,29 +223,50 @@ pedido à Google. Para ligar, cola ali o ID de medição (`G-…`), corre `node 
 5. Plataforma **Web**: Website URL `https://gocarmo.com`, Stream name `gocarmo.com`, Create stream.
 6. As instruções de instalação que aparecem a seguir não são precisas: o código já está no site. Copia o
    **Measurement ID** (`G-XXXXXXXXXX`), no topo de «Web stream details».
-7. Cola-o em `assets/js/data.js` → `ga: 'G-XXXXXXXXXX'`, corre `node scripts/stamp.mjs`, faz commit e push.
+7. **No ecrã do fluxo (Admin → Data streams → gocarmo.com), antes de colares o ID no site:**
+   - **Enhanced measurement** fica ligado, mas na roda dentada desliga **Outbound clicks** e **Form interactions**,
+     e em Page views → Show advanced settings desliga **Page changes based on browser history events**. Porquê: o
+     site já manda os seus cliques para fora (`outbound_click`, sem o endereço do link) e o link do WhatsApp do
+     pedido leva na mensagem a marca, o nome e o NIF. O site esconde a mensagem enquanto a Google lê o link, mas
+     com «Outbound clicks» ligado cada clique contava duas vezes. E o menu e os espaços mudam o endereço da
+     página (`#fato`, `#fato/peito`): o histórico contava cada mudança como uma visita. Scrolls (a página lida até
+     90%) e File downloads podem ficar ligados.
+   - **Redact data**: liga a redação de emails e, em «Query parameters», escreve `text, body, subject`. É mais uma
+     rede: se algum link com a mensagem do pedido chegasse ao Analytics, essas partes eram apagadas antes de sair do
+     browser.
+8. Só depois do passo 7: cola o ID em `assets/js/data.js` → `ga: 'G-XXXXXXXXXX'`, corre `node scripts/stamp.mjs`,
+   faz commit e push.
 
-**No ecrã do fluxo (Admin → Data streams → gocarmo.com), antes de partilhares links:**
-- **Enhanced measurement** fica ligado, mas na roda dentada desliga **Outbound clicks** e **Form interactions**,
-  e em Page views → Show advanced settings desliga **Page changes based on browser history events**. Porquê: o
-  site já manda os seus cliques para fora (`click`, sem o endereço do link) e o link do WhatsApp do pedido leva na
-  mensagem a marca, o nome e o NIF; com «Outbound clicks» ligado, a Google podia receber esse endereço inteiro.
-  E o menu e os espaços mudam o endereço da página (`#fato`, `#fato/peito`): o histórico contava cada mudança como
-  uma visita. Scrolls (a página lida até 90%) e File downloads podem ficar ligados.
-- **Redact data**: liga a redação de emails e, em «Query parameters», escreve `text, body, subject`. É uma segunda
-  rede: se algum link com a mensagem do pedido chegasse ao Analytics, essas partes eram apagadas antes de sair do
-  browser.
+**Sem cliques (opcional).** O passo 7 e a retenção de dados também se fazem pela Admin API da Google, com um token
+OAuth com o scope `https://www.googleapis.com/auth/analytics.edit` (`PROP` e `STREAM` são os números da propriedade
+e do fluxo, em Admin → Property details e Web stream details):
+
+```
+PATCH https://analyticsadmin.googleapis.com/v1alpha/properties/PROP/dataStreams/STREAM/enhancedMeasurementSettings?updateMask=outboundClicksEnabled,formInteractionsEnabled,pageChangesEnabled
+{"outboundClicksEnabled": false, "formInteractionsEnabled": false, "pageChangesEnabled": false}
+
+PATCH https://analyticsadmin.googleapis.com/v1alpha/properties/PROP/dataStreams/STREAM/dataRedactionSettings?updateMask=emailRedactionEnabled,queryParameterRedactionEnabled,queryParameterKeys
+{"emailRedactionEnabled": true, "queryParameterRedactionEnabled": true, "queryParameterKeys": ["text", "body", "subject"]}
+
+PATCH https://analyticsadmin.googleapis.com/v1beta/properties/PROP/dataRetentionSettings?updateMask=eventDataRetention,resetUserDataOnNewActivity
+{"eventDataRetention": "FOURTEEN_MONTHS", "resetUserDataOnNewActivity": false}
+```
 
 **Definições recomendadas (Admin).**
 - Data collection and modification → **Data retention** → Event data retention: **14 months** → Save (por defeito
-  são 2 meses). É o prazo que a página de privacidade indica.
+  são 2 meses). É o prazo que a página de privacidade indica. Na mesma página, desliga **Reset user data on new
+  activity** → Save. Ligado (o valor por defeito), cada visita nova adia o apagamento dos dados desse visitante e
+  os 14 meses da página de privacidade deixam de ser verdade.
 - Data collection and modification → **Data collection** → **Google signals**: desligado (é o valor por defeito; o
   site também o desliga no código).
-- Data display → **Key events** → New key event → `generate_lead`. É o número que interessa: pedidos de patrocínio
-  enviados.
+- Data display → **Key events** → New key event → `generate_lead`, e nas definições dele escolhe a contagem
+  **Once per session**. É o número que interessa: pedidos de patrocínio enviados. O site já conta um só por pedido,
+  mesmo que a marca o mande por duas vias; «Once per session» cobre também fechar e voltar a abrir o pedido e
+  mandar o mesmo pacote outra vez.
 - Data display → **Custom definitions** → Create custom dimension (scope Event), uma por parâmetro: `section_id`,
-  `link_type`, `link_location`, `payment_type`, `method`, `content_type`, `new_language`. Sem isto os parâmetros
-  chegam, mas não aparecem nos relatórios. Se o GA disser que uma já existe, salta-a.
+  `link_type`, `link_location`, `payment_type`, `method`, `content_type`, `new_language`; e mais uma com scope
+  **User**: `site_language` (a língua em que o site foi visto). Sem isto os parâmetros chegam, mas não aparecem nos
+  relatórios. Se o GA disser que uma já existe, salta-a.
 - **Tráfego interno (opcional).** O teu browser já não conta: abrir `/admin/` ou `/admin/strava/` deixa nesse
   browser uma marca (`gc.internal`) e, a partir daí, as páginas públicas nunca carregam o Google Analytics nele.
   Também protege o token: o script da Google nunca corre onde o token do GitHub pode estar guardado. Para excluir
@@ -261,35 +283,41 @@ pedido à Google. Para ligar, cola ali o ID de medição (`G-…`), corre `node 
 - Os relatórios normais demoram 24 a 48 horas a encher.
 - Links para partilhar com origem: junta `utm_source`, `utm_medium` e `utm_campaign`, por exemplo
   `https://gocarmo.com/?utm_source=instagram&utm_medium=social&utm_campaign=lancamento-2026`. Aparecem em Reports
-  → Acquisition → Traffic acquisition.
+  → Acquisition → Traffic acquisition. Do endereço de entrada só os `utm_*` vão para o Analytics: o site tira os
+  outros parâmetros (`fbclid`, `igshid`, `mc_eid`…), que o Instagram, a Meta e as ferramentas de email juntam sozinhos.
 
-**O que o site mede** (tudo em `assets/js/analytics.js`; noutro ficheiro só há uma linha em `adspace.js`, que avisa
-que espaço está aberto):
+**O que o site mede** (tudo em `assets/js/analytics.js`; `adspace.js` só avisa que espaço está aberto, `gc:spot`,
+que espaço entrou ou saiu do pacote, `gc:basket`, e que um link foi partilhado, `gc:share`):
 
 | Evento | Quando | Parâmetros |
 |---|---|---|
-| `page_view` | o Analytics carrega, depois de «Aceitar» | os do Google Analytics |
+| `page_view` | o Analytics carrega, depois de «Aceitar» (e outra vez num «Aceitar» depois de recusar, que é um visitante novo) | os do Google Analytics |
 | `scroll` | a página lida até 90% (Enhanced measurement) | |
-| `section_view` | uma secção passa pelo meio do ecrã pela primeira vez: `historia`, `resultados`, `dados`, `epoca`, `o-fato`, `o-capacete`, `media`, `apoiar`, `contacto` | `section_id` |
+| `section_view` | uma secção fica um segundo no meio do ecrã, pela primeira vez: `historia`, `resultados`, `dados`, `epoca`, `o-fato`, `o-capacete`, `media`, `apoiar`, `contacto` | `section_id` |
 | `select_content` | abres um espaço: no 3D, na tabela, nos capítulos ou por link direto (a visita guiada não conta) | `content_type` (`suit_spot` ou `helmet_spot`), `content_id` e `item_id` (o id do espaço, ex. `peito`) |
-| `share` | «Partilhar» num espaço | `method` (`web_share` ou `copy_link`), `content_type`, `item_id` |
+| `add_to_cart` | juntas um espaço ao pacote | `currency` (EUR), `value` (o preço do espaço), `items` (o espaço) |
+| `remove_from_cart` | tiras um espaço do pacote | os mesmos |
+| `share` | partilhas o link de um espaço («Partilhar»): conta quando a partilha é feita ou o link fica copiado, não um ecrã de partilha fechado | `method` (`web_share` ou `copy_link`), `content_type`, `item_id` |
 | `begin_checkout` | o pedido abre no passo 1 | `currency` (EUR), `value` (o total, já com desconto), `items` (os espaços) |
 | `add_payment_info` | escolhes Transferência ou MB WAY, ou copias uma linha do pagamento (uma vez por forma, em cada pedido) | os de cima e `payment_type` (`transfer` ou `mbway`) |
-| `generate_lead` | o pedido sai por WhatsApp, email ou Instagram (um envio recusado por faltar a marca não conta) | `currency`, `value`, `method` (`whatsapp`, `email` ou `instagram`) |
-| `click` | um link para fora, exceto os do pedido | `link_type` (`whatsapp`, `email`, `instagram`, `strava`, `gofundme`, `spotify`, `tiktok` ou `other`), `link_domain`, `link_location` (a secção, `nav` ou `footer`) |
+| `generate_lead` | o pedido sai por WhatsApp, email ou Instagram, uma vez por pedido (um envio recusado por faltar a marca não conta, e mandar o mesmo pedido por outra via também não) | `currency`, `value`, `method` (`whatsapp`, `email` ou `instagram`) |
+| `outbound_click` | um link para fora, exceto os do pedido | `link_type` (`whatsapp`, `email`, `instagram`, `strava`, `gofundme`, `spotify`, `tiktok` ou `other`), `link_domain`, `link_location` (a secção, `nav` ou `footer`) |
 | `donation_intent` | em Apoiar: copias o IBAN ou o número MB WAY, ou carregas no botão do GoFundMe | `method` (`transfer`, `mbway`, `gofundme`, ou `whatsapp` enquanto não houver campanha) |
 | `language_change` | PT / EN | `new_language` |
 
-Nunca vão para a Google o que a marca escreve no pedido, emails, números de telefone, NIF, nomes de marcas nem o
-endereço dos links.
+O site manda ainda a propriedade de utilizador `site_language` (`pt` ou `en`): a língua em que o site está a ser
+visto, outra vez sempre que o visitante a muda (a do browser já vem do Google Analytics). Nunca vão para a Google o
+que a marca escreve no pedido, emails, números de telefone, NIF, nomes de marcas nem o endereço dos links.
 
 **O aviso e a lei (RGPD, Lei 41/2004, orientações da CNPD).** O script da Google só carrega depois de «Aceitar»
 (Consent Mode v2, modo básico, com anúncios e personalização sempre recusados) e só então há cookies. «Recusar» e
 «Aceitar» são iguais. Esc, ou ignorar o aviso, não é aceitar. A escolha fica seis meses no browser (`gc.consent`)
-e os cookies `_ga` duram o mesmo; se o browser não deixar guardar, o aviso volta na visita seguinte. Um browser com
-Global Privacy Control ou Do Not Track conta como «Recusar» e não vê o aviso (pode aceitar em «Definições de
-cookies»). «Definições de cookies», no rodapé, volta a abrir o aviso; recusar aí apaga os cookies `_ga` e para o
-envio na hora. Esvaziar `SITE.ga` desliga tudo e apaga os cookies `_ga` que tenham ficado.
+e os cookies `_ga` acabam com ela (o Google Analytics renova-os a cada visita, mas o site dá-lhes só o prazo que
+falta à escolha); se o browser não deixar guardar, o aviso volta na visita seguinte. Um browser com Global Privacy
+Control ou Do Not Track conta como «Recusar» e não vê o aviso (pode aceitar em «Definições de cookies»); um sinal
+ligado depois de «Aceitar» também conta como «Recusar». «Definições de cookies», no rodapé, volta a abrir o aviso;
+recusar aí apaga os cookies `_ga` e para o envio na hora. Esvaziar `SITE.ga` desliga tudo e apaga os cookies `_ga`
+que tenham ficado.
 A página `/privacidade/` (PT e EN) explica isto ao visitante: se mudares o que o site mede, atualiza-a. O que ainda
 falta confirmar está num comentário `[CONFIRMAR]` no início do ficheiro, que não aparece na página.
 
@@ -316,5 +344,5 @@ Numa página com Content-Security-Policy (as do admin), o script recalcula tamb�
 
 - Fato e capacete 3D procedimentais, feitos de raiz em [three.js](https://threejs.org) (MIT). Geometria, textura e espaços são gerados em código. O fato é um só corpo anatómico, contínuo nos ombros, nas axilas e nas ancas (`assets/js/suit-body.js`), malhado num worker (`suit-mesh.js`). O capacete é o EKOI Pure Aero do Gonçalo, medido nas fotografias do produto.
 - Scroll suave com [Lenis](https://github.com/darkroomengineering/lenis) (MIT) e cenas de scroll com [GSAP ScrollTrigger](https://gsap.com).
-- Tipografia: Anton, Inter e JetBrains Mono (Google Fonts, OFL).
+- Tipografia: Anton, Inter e JetBrains Mono (OFL), servidas pelo próprio site: `assets/fonts/` (os ficheiros do Google Fonts, só latin e latin-ext, com as licenças ao lado) e `assets/css/fonts.css`.
 - Fotografias: portefólio do atleta.
