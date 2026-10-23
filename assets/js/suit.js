@@ -3,208 +3,36 @@
 // and every sponsor spot stay editable from data/spots.json.
 // Kit holds what every sponsor model shares (atlas, spot tiles, picking, poses, tour, logos, loop);
 // Suit and the lazily loaded Helmet (helmet.js) extend it and can share one renderer.
+// The suit's body is one continuous anatomical surface (suit-body.js), meshed in a worker (suit-mesh.js).
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { BODY, Part, anchorsFor, neckY, hermite, TAU, DEG, lerp, clamp } from './suit-body.js';
 
-export const TAU = Math.PI * 2;
-export const DEG = Math.PI / 180;
 const ATLAS = 2048;
 
-// colourway: white top, black shorts, charcoal side panels, gold accent
+// colourway: white top, black shorts, white side panels, gold accent
 export const COLORS = {
-  top: '#f6f7f9', shorts: '#121519', panel: '#f6f7f9', hem: '#f6f7f9', collar: '#8c8d90', zip: '#5a5d63',
+  top: '#f6f7f9', shorts: '#121519', panel: '#f6f7f9', hem: '#f6f7f9', collar: '#2a2c30', zip: '#4a4d53', gripper: '#23262b',
   seamOnLight: 'rgba(0,0,0,0.14)', seamOnDark: 'rgba(255,255,255,0.08)',
   gold: '#e6b450', inkDark: '#141414', inkLight: '#f6f7f9',
 };
-export const HOME = { rot: -18 * DEG, dist: 2.2, ty: 0.19, y: 0.23, x: 0 };
+// the suit's studio pose (main.js scrolls into it; the helmet has its own)
+export const HOME = { rot: -18 * DEG, dist: 2.3, ty: 0.235, y: 0.27, x: 0 };
 
 // Atlas regions (canvas px). Each part of the suit owns one rectangle of the texture.
 const REGIONS = {
-  torso:   { x: 0,    y: 0,    w: 2048, h: 1228 },
-  legL:    { x: 0,    y: 1256, w: 1024, h: 452 },
-  legR:    { x: 1024, y: 1256, w: 1024, h: 452 },
-  sleeveL: { x: 0,    y: 1736, w: 1024, h: 312 },
-  sleeveR: { x: 1024, y: 1736, w: 1024, h: 312 },
+  torso:   { x: 0,    y: 0,    w: 2048, h: 1300 },
+  legL:    { x: 0,    y: 1316, w: 1024, h: 420 },
+  legR:    { x: 1024, y: 1316, w: 1024, h: 420 },
+  sleeveL: { x: 0,    y: 1752, w: 1024, h: 296 },
+  sleeveR: { x: 1024, y: 1752, w: 1024, h: 296 },
 };
-
-// Torso profile from below the crotch to the collar (m): y, half width, front depth, back depth, squareness.
-const TORSO = [
-  [0.030, 0.104, 0.058, 0.068, 2.0],
-  [0.060, 0.140, 0.084, 0.096, 2.1],
-  [0.092, 0.155, 0.095, 0.108, 2.2],
-  [0.130, 0.153, 0.096, 0.105, 2.25],
-  [0.200, 0.143, 0.094, 0.096, 2.3],
-  [0.300, 0.152, 0.102, 0.099, 2.35],
-  [0.400, 0.176, 0.119, 0.106, 2.4],
-  [0.470, 0.188, 0.117, 0.110, 2.45],
-  [0.530, 0.193, 0.104, 0.103, 2.5],
-  [0.575, 0.176, 0.087, 0.087, 2.45],
-  [0.605, 0.127, 0.071, 0.071, 2.4],
-  [0.630, 0.081, 0.061, 0.061, 2.0],
-  [0.662, 0.072, 0.059, 0.059, 2.0],
-];
-const TORSO_Y0 = 0.03;
-const TORSO_LEN = 0.632;
 const WAIST_Y = 0.165;   // top/shorts seam
-const ZIP_END = 0.485;   // the zip runs from the collar down to here
+const ZIP_END = 0.528;   // the zip runs from the collar down to here (just above the chest tile)
 
 const sgnPow = (x, p) => Math.sign(x) * Math.pow(Math.abs(x), p);
-const lerp = (a, b, t) => a + (b - a) * t;
-const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 const smooth = (t) => t * t * (3 - 2 * t);
-
-// Cubic Hermite through non-uniform control points (Catmull-Rom style tangents).
-// P rows are [x, ...values]; returns the values at x.
-export function hermite(P, x) {
-  if (x <= P[0][0]) return P[0].slice(1);
-  if (x >= P[P.length - 1][0]) return P[P.length - 1].slice(1);
-  let i = 0;
-  while (x > P[i + 1][0]) i++;
-  const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
-  const h = p2[0] - p1[0];
-  const t = (x - p1[0]) / h, t2 = t * t, t3 = t2 * t;
-  const out = [];
-  for (let k = 1; k < p1.length; k++) {
-    const m1 = ((p2[k] - p0[k]) / (p2[0] - p0[0] || 1)) * h;
-    const m2 = ((p3[k] - p1[k]) / (p3[0] - p1[0] || 1)) * h;
-    out.push((2 * t3 - 3 * t2 + 1) * p1[k] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * p2[k] + (t3 - t2) * m2);
-  }
-  return out;
-}
-const profileAt = (y) => hermite(TORSO, y);
-
-// A suit part is a stack of super-elliptic rings. Each ring keeps an arc-length table so that
-// texture u is proportional to distance around the body (logos keep their proportions).
-class Part {
-  constructor(name, rings, seamDeg, length, t0 = 0) {
-    this.name = name;
-    this.rings = rings;
-    this.seam = seamDeg * DEG;   // angle (0 = front, +90 = towards +x) where the texture wraps
-    this.length = length;
-    this.t0 = t0;                // spot heights (t) are measured from here along the part
-    this.K = 480;
-    this.tables = rings.map((r) => this.table(r));
-  }
-  point(r, phi, out = new THREE.Vector3()) {
-    const sn = Math.sin(phi), cs = Math.cos(phi), e = 2 / r.n;
-    return out.copy(r.c).addScaledVector(r.s, r.a * sgnPow(sn, e)).addScaledVector(r.f, (cs >= 0 ? r.bf : r.bb) * sgnPow(cs, e));
-  }
-  table(r) {
-    const L = new Float32Array(this.K + 1);
-    const a = this.point(r, this.seam), b = new THREE.Vector3();
-    for (let k = 1; k <= this.K; k++) {
-      this.point(r, this.seam + (k / this.K) * TAU, b);
-      L[k] = L[k - 1] + a.distanceTo(b);
-      a.copy(b);
-    }
-    return L;
-  }
-  phiForU(ti, u) {
-    const L = this.tables[ti], target = u * L[this.K];
-    let lo = 0, hi = this.K;
-    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (L[mid] < target) lo = mid; else hi = mid; }
-    const f = (target - L[lo]) / ((L[hi] - L[lo]) || 1);
-    return this.seam + ((lo + f) / this.K) * TAU;
-  }
-  uForPhiRing(ti, phi) {
-    let d = (phi - this.seam) % TAU; if (d < 0) d += TAU;
-    const L = this.tables[ti], k = (d / TAU) * this.K, k0 = Math.floor(k), k1 = Math.min(this.K, k0 + 1);
-    return lerp(L[k0], L[k1], k - k0) / L[this.K];
-  }
-  ringIndex(v) { const x = clamp(v, 0, 1) * (this.rings.length - 1); const i = Math.min(this.rings.length - 2, Math.floor(x)); return [i, i + 1, x - i]; }
-  vFor(t) { return (t - this.t0) / this.length; }
-  uAt(phiDeg, v) { const [i0, i1, f] = this.ringIndex(v); return lerp(this.uForPhiRing(i0, phiDeg * DEG), this.uForPhiRing(i1, phiDeg * DEG), f); }
-  circAt(v) { const [i0, i1, f] = this.ringIndex(v); return lerp(this.tables[i0][this.K], this.tables[i1][this.K], f); }
-  // surface point + outward normal at (phi, v), in model space
-  anchor(phiDeg, v) {
-    const [i0, i1, f] = this.ringIndex(v);
-    const a = this.point(this.rings[i0], phiDeg * DEG), b = this.point(this.rings[i1], phiDeg * DEG);
-    const p = a.lerp(b, f);
-    const c = new THREE.Vector3().lerpVectors(this.rings[i0].c, this.rings[i1].c, f);
-    const n = new THREE.Vector3().subVectors(p, c);
-    const ax = new THREE.Vector3().subVectors(this.rings[i1].c, this.rings[i0].c).normalize();
-    n.addScaledVector(ax, -n.dot(ax)).normalize();
-    return { p, n };
-  }
-  geometry(cols, region, size = ATLAS) {
-    const R = this.rings.length;
-    const pos = new Float32Array(R * (cols + 1) * 3), uv = new Float32Array(R * (cols + 1) * 2);
-    const p = new THREE.Vector3();
-    for (let i = 0; i < R; i++) {
-      const v = i / (R - 1);
-      for (let j = 0; j <= cols; j++) {
-        const u = j / cols, k = i * (cols + 1) + j;
-        this.point(this.rings[i], this.phiForU(i, u), p);
-        pos.set([p.x, p.y, p.z], k * 3);
-        uv.set([(region.x + u * region.w) / size, 1 - (region.y + (1 - v) * region.h) / size], k * 2);
-      }
-    }
-    const idx = [];
-    for (let i = 0; i < R - 1; i++) for (let j = 0; j < cols; j++) {
-      const a = i * (cols + 1) + j, b = a + 1, c = a + cols + 2, d = a + cols + 1;
-      idx.push(a, b, c, a, c, d);
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
-    g.setIndex(idx);
-    g.computeVertexNormals();
-    const n = g.attributes.normal;   // weld normals across the texture seam
-    for (let i = 0; i < R; i++) {
-      const a = i * (cols + 1), b = a + cols;
-      const x = n.getX(a) + n.getX(b), y = n.getY(a) + n.getY(b), z = n.getZ(a) + n.getZ(b), l = Math.hypot(x, y, z) || 1;
-      n.setXYZ(a, x / l, y / l, z / l); n.setXYZ(b, x / l, y / l, z / l);
-    }
-    g.computeBoundingSphere();
-    return g;
-  }
-}
-
-function buildTorso() {
-  const rings = [], N = 118;
-  for (let i = 0; i < N; i++) {
-    const y = TORSO_Y0 + (i / (N - 1)) * TORSO_LEN;
-    const [a, bf, bb, n] = profileAt(y);
-    rings.push({ c: new THREE.Vector3(0, y, 0), s: new THREE.Vector3(1, 0, 0), f: new THREE.Vector3(0, 0, 1), a, bf, bb, n });
-  }
-  return new Part('torso', rings, 225, TORSO_LEN, TORSO_Y0);
-}
-
-// Tube along an axis, rings ordered hem -> top so the winding matches the torso.
-function buildTube(name, hem, top, seamDeg, radius, N = 56) {
-  const up = new THREE.Vector3().subVectors(top, hem);
-  const length = up.length();
-  up.normalize();
-  const f = new THREE.Vector3(0, 0, 1);
-  const s = new THREE.Vector3(1, 0, 0).addScaledVector(up, -up.x).normalize();
-  const rings = [];
-  for (let i = 0; i < N; i++) {
-    const t = i / (N - 1), r = radius(t);
-    rings.push({ c: new THREE.Vector3().copy(hem).addScaledVector(up, t * length), s, f, a: r.a, bf: r.bf, bb: r.bb, n: r.n || 2.05 });
-  }
-  return new Part(name, rings, seamDeg, length);
-}
-
-function buildParts() {
-  const torso = buildTorso();
-  // thigh: the top fifth tucks inside the hips so its rim never shows
-  const leg = (t) => {
-    const k = smooth(Math.min(1, t / 0.8));
-    const tuck = t > 0.86 ? 1 - 0.3 * smooth((t - 0.86) / 0.14) : 1;
-    return { a: lerp(0.068, 0.080, k) * tuck, bf: lerp(0.071, 0.083, k) * tuck, bb: lerp(0.073, 0.090, k) * tuck };
-  };
-  const legL = buildTube('legL', new THREE.Vector3(0.088, -0.25, 0.010), new THREE.Vector3(0.073, 0.135, -0.008), 270, leg);
-  const legR = buildTube('legR', new THREE.Vector3(-0.088, -0.25, 0.010), new THREE.Vector3(-0.073, 0.135, -0.008), 90, leg);
-  // sleeve: open hem, then a domed cap that reads as the deltoid
-  const sleeve = (t) => {
-    if (t < 0.7) { const k = smooth(t / 0.7); return { a: lerp(0.047, 0.053, k), bf: lerp(0.046, 0.051, k), bb: lerp(0.046, 0.051, k) }; }
-    const c = Math.sqrt(Math.max(0, 1 - Math.pow((t - 0.7) / 0.3, 2)));
-    return { a: 0.053 * c + 0.002, bf: 0.051 * c + 0.002, bb: 0.051 * c + 0.002 };
-  };
-  const sleeveL = buildTube('sleeveL', new THREE.Vector3(0.228, 0.412, -0.004), new THREE.Vector3(0.166, 0.598, -0.006), 270, sleeve, 44);
-  const sleeveR = buildTube('sleeveR', new THREE.Vector3(-0.228, 0.412, -0.004), new THREE.Vector3(-0.166, 0.598, -0.006), 90, sleeve, 44);
-  return { torso, legL, legR, sleeveL, sleeveR };
-}
+export { hermite, TAU, DEG };
 
 // ---------- 2D helpers ----------
 function roundRect(ctx, x, y, w, h, r) {
@@ -413,7 +241,7 @@ export class Kit {
       const part = this.parts[s.part];
       if (!part) continue;
       const R = this.constructor.REGIONS[s.part];
-      const v = part.vFor(s.t), u = part.uAt(s.phi, v), circ = part.circAt(v);
+      const v = part.vFor(s.t), u = part.uAt(s.phi, v), circ = part.circAt(v, u);   // local arc density at the spot
       // surface length per unit v; the helmet shell's varies across the arch, the suit's is constant
       const len = part.lengthAt ? part.lengthAt(u, v) : part.length;
       const du = (s.w / 100) / circ, dv = (s.h / 100) / len;
@@ -544,8 +372,8 @@ export class Kit {
     const ctx = this.bctx;
     ctx.fillStyle = color;
     for (let py = Math.round(R.y + (1 - v1) * R.h); py < R.y + (1 - v0) * R.h; py++) {
-      const v = 1 - (py - R.y) / R.h, C = part.circAt(v);
-      const u = part.uAt(phiDeg, v) + offsetM / C, du = widthM / C;
+      const v = 1 - (py - R.y) / R.h, u0 = part.uAt(phiDeg, v), C = part.circAt(v, u0);
+      const u = u0 + offsetM / C, du = widthM / C;
       ctx.fillRect(R.x + (u - du / 2) * R.w, py, du * R.w + 0.6, 1);
     }
   }
@@ -602,7 +430,9 @@ export class Kit {
 
   pick(e) {
     const b = this.canvas.getBoundingClientRect();
-    this.ptr.set(((e.clientX - b.left) / b.width) * 2 - 1, -((e.clientY - b.top) / b.height) * 2 + 1);
+    // (a hair off the pixel centre: a ray through the exact middle of a centred model runs along the mirror line's
+    // shared edges, where a triangle test can miss both sides)
+    this.ptr.set(((e.clientX - b.left) / b.width) * 2 - 1 + 1e-4, -((e.clientY - b.top) / b.height) * 2 + 1 + 1e-4);
     this.ray.setFromCamera(this.ptr, this.camera);
     const hit = this.ray.intersectObjects(this.meshes, false)[0];
     if (!hit || !hit.uv || this.uni.uSpots.value < 0.5) return null;
@@ -831,94 +661,267 @@ export class Kit {
   }
 }
 
+// A procedural jersey-knit normal tile (columns of V loops), for the fabric's micro relief. size px, loops per side.
+function knitTile(size = 256, loops = 8) {
+  const H = new Float32Array(size * size), cell = size / loops;
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  const jit = Float32Array.from({ length: loops * loops }, () => 0.85 + 0.3 * rnd());
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const cx = Math.floor(x / cell), cy = Math.floor(y / cell), lx = (x % cell) / cell, ly = (y % cell) / cell;
+    let h = 0;
+    for (const [ox, ang] of [[0.3, 0.5], [0.7, -0.5]]) {   // the two legs of a loop, leaning into a V
+      const dx = lx - ox, dy = ly - 0.5, c = Math.cos(ang), s = Math.sin(ang);
+      const u = (dx * c - dy * s) / 0.2, v = (dx * s + dy * c) / 0.52;
+      h = Math.max(h, 1 - Math.min(1, u * u + v * v));
+    }
+    H[y * size + x] = Math.sqrt(h) * jit[(cy % loops) * loops + (cx % loops)] + 0.06 * rnd();
+  }
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'), img = g.createImageData(size, size), k = 2.2;
+  for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+    const at = (i, j) => H[(((j + size) % size) * size) + ((i + size) % size)];
+    const dx = (at(x + 1, y) - at(x - 1, y)) * k, dy = (at(x, y + 1) - at(x, y - 1)) * k, l = Math.hypot(dx, dy, 1);
+    const o = (y * size + x) * 4;
+    img.data[o] = (-dx / l * 0.5 + 0.5) * 255; img.data[o + 1] = (dy / l * 0.5 + 0.5) * 255; img.data[o + 2] = (1 / l * 0.5 + 0.5) * 255; img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+// rounded rectangle as a THREE.Shape (centred), for the zip slider and its puller
+function roundShape(w, h, r, hole = null) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r);
+  s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  if (hole) {
+    const [hw, hh, hy] = hole, p = new THREE.Path(), hr = Math.min(hw, hh) / 2;
+    p.absarc(0, hy + hh / 2 - hr, hr, 0, Math.PI, false); p.absarc(0, hy - hh / 2 + hr, hr, Math.PI, TAU, false);
+    s.holes.push(p);
+  }
+  return s;
+}
+
 export class Suit extends Kit {
   static ATLAS = ATLAS;
   static REGIONS = REGIONS;
   static HOME = HOME;
   static VIEWS = { hero: { rot: HOME.rot }, front: { rot: 0 }, left: { rot: -90 * DEG }, back: { rot: 180 * DEG }, right: { rot: 90 * DEG } };
   static ZOOM = [1.1, 3.2];
-  static Y_RANGE = [-0.3, 0.66];
+  static Y_RANGE = [-0.3, 0.73];
   static ENV = 0.75;
+  static BODY = BODY;
+  static MESH_CELL = 0.0064;   // surface-net cell (m): about 69 k triangles, and 4 k more in the hems' lips
 
   build() {
-    this.parts = buildParts();
-    const mat = this.patch(new THREE.MeshPhysicalMaterial({ map: this.baseTex, roughness: 0.62, metalness: 0, sheen: 0.8, sheenRoughness: 0.5, sheenColor: new THREE.Color(0x8a8a8a) }));
-    const inner = new THREE.MeshStandardMaterial({ color: 0xb3b5b9, roughness: 1, side: THREE.BackSide });
-    const cols = { torso: 168, legL: 96, legR: 96, sleeveL: 64, sleeveR: 64 };
-    for (const [name, part] of Object.entries(this.parts)) {
-      const g = part.geometry(cols[name], REGIONS[name], this.size);
-      const m = new THREE.Mesh(g, mat); m.userData.part = name;
-      this.model.add(m, new THREE.Mesh(g, inner)); this.meshes.push(m);
+    // the torso spans the atlas width and its u steps a little past 0 and 1 at its texture seam: repeat in s
+    this.baseTex.wrapS = this.overTex.wrapS = THREE.RepeatWrapping;
+    const B = this.constructor.BODY;
+    this.anchors = anchorsFor(this.spots);
+    this.parts = {};   // the body's parts come with the mesh; until then there are no tiles to lay out
+    const knit = new THREE.CanvasTexture(knitTile());
+    knit.wrapS = knit.wrapT = THREE.RepeatWrapping; knit.channel = 1; knit.anisotropy = this.maxAniso; knit.colorSpace = THREE.NoColorSpace;
+    this.mat = this.patch(new THREE.MeshPhysicalMaterial({
+      map: this.baseTex, roughness: 0.6, metalness: 0, sheen: 0.8, sheenRoughness: 0.45, sheenColor: new THREE.Color(0x8a8a8a),
+      vertexColors: true, normalMap: knit, normalScale: new THREE.Vector2(0.22, 0.22),
+    }));
+    this.inner = new THREE.MeshStandardMaterial({ color: 0x7d8085, roughness: 1, side: THREE.BackSide });
+    this.model.visible = false;   // until the mesh arrives
+    const t0 = performance.now();
+    this.ready = this.makeMesh({ body: B, anchors: this.anchors, h: this.constructor.MESH_CELL, regions: REGIONS, size: this.size, waist: WAIST_Y })
+      .then((r) => {
+        this.takeParts(r.body); this._lay = r.layout;
+        this.layoutSpots(); this.drawBase(); this.drawOverlay();
+        this.addMeshes(r);
+        this.buildMs = Math.round(performance.now() - t0);
+        return this;
+      });
+  }
+
+  // the parts, as the worker built them; the Kit reads a spot's anchor as THREE vectors
+  takeParts(data) {
+    for (const [k, d] of Object.entries(data)) {
+      const p = Part.fromData(d), q = Object.create(p);
+      q.anchor = (phi, v) => { const a = p.anchor(phi, v); return { p: new THREE.Vector3(...a.p), n: new THREE.Vector3(...a.n) }; };
+      this.parts[k] = q;
+    }
+  }
+
+  // the mesh, from a module worker; on the main thread if there is none (or it fails)
+  makeMesh(opts) {
+    const local = () => import('./suit-mesh.js').then((m) => { this.meshWhere = 'main'; return m.buildMesh(opts); });
+    if (typeof Worker === 'undefined' || /[?&]noworker\b/.test(location.search)) return local();
+    return new Promise((res, rej) => {
+      let w;
+      try { w = new Worker(new URL('./suit-worker.js', import.meta.url), { type: 'module' }); } catch (e) { rej(e); return; }
+      const done = (f) => { clearTimeout(timer); w.terminate(); f(); };
+      const timer = setTimeout(() => done(() => rej(new Error('mesh worker timeout'))), 60000);
+      w.onmessage = (e) => done(() => (e.data.ok ? res(e.data) : rej(new Error(e.data.error))));
+      w.onerror = (e) => { e.preventDefault && e.preventDefault(); done(() => rej(new Error('mesh worker failed'))); };
+      w.postMessage(opts);
+      this.meshWhere = 'worker';
+    }).catch((e) => { if (DEV) console.warn('suit mesh on the main thread:', e.message); return local(); });
+  }
+
+  addMeshes({ parts, stats }) {
+    this.stats = stats;
+    for (const k of ['torso', 'sleeveL', 'sleeveR', 'legL', 'legR']) {
+      const d = parts[k], g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(d.position, 3));
+      g.setAttribute('normal', new THREE.BufferAttribute(d.normal, 3));
+      g.setAttribute('uv', new THREE.BufferAttribute(d.uv, 2));
+      g.setAttribute('uv1', new THREE.BufferAttribute(d.uv1, 2));
+      g.setAttribute('color', new THREE.BufferAttribute(d.color, 3, true));
+      g.setIndex(new THREE.BufferAttribute(d.index, 1));
+      g.computeBoundingSphere();
+      const m = new THREE.Mesh(g, this.mat); m.userData.part = k;
+      this.model.add(m, new THREE.Mesh(g, this.inner)); this.meshes.push(m);
     }
     this.addDetails();
+    this.model.visible = true;
+    if (this.shadow) this.shadow.visible = true;
+    this.kick();
   }
 
+  // zip slider and puller under the collar, oriented by the chest's surface
   addDetails() {
-    // dark recess inside each sleeve so the hollow reads as depth
-    const capMat = new THREE.MeshStandardMaterial({ color: 0xc4c6ca, roughness: 1 });
-    for (const k of ['sleeveL', 'sleeveR']) {
-      const part = this.parts[k], r = part.rings[5];
-      const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 32), capMat);
-      cap.position.copy(r.c); cap.scale.set(r.a * 0.98, r.bf * 0.98, 1);
-      const up = new THREE.Vector3().subVectors(part.rings[part.rings.length - 1].c, part.rings[0].c).normalize();
-      cap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), up);
-      this.model.add(cap);
-    }
-    // zip puller just under the collar
-    const T = this.parts.torso;
-    const { p, n } = T.anchor(0, T.vFor(0.625));
-    const pull = new THREE.Mesh(new THREE.BoxGeometry(0.011, 0.026, 0.004), new THREE.MeshStandardMaterial({ color: 0x1b1b1d, roughness: 0.35, metalness: 0.6 }));
-    pull.position.copy(p).addScaledVector(n, 0.004).add(new THREE.Vector3(0, -0.012, 0));
-    pull.lookAt(pull.position.clone().add(n));
-    pull.rotateX(-0.25);
-    this.model.add(pull);
+    const T = this.parts.torso, y0 = neckY(0) - this.constructor.BODY.neck.binding - 0.012;
+    const a = T.anchor(0, T.vFor(y0)), b = T.anchor(0, T.vFor(y0 + 0.01));
+    const n = a.n.clone(), up = b.p.clone().sub(a.p).normalize(), x = new THREE.Vector3().crossVectors(up, n).normalize();
+    up.crossVectors(n, x).normalize();
+    const metal = new THREE.MeshStandardMaterial({ color: 0x1d1e21, roughness: 0.32, metalness: 0.7 });
+    const slider = new THREE.Mesh(new THREE.ExtrudeGeometry(roundShape(0.0085, 0.013, 0.003), { depth: 0.0022, bevelEnabled: true, bevelThickness: 0.0009, bevelSize: 0.0009, bevelSegments: 3, curveSegments: 6 }), metal);
+    const frame = new THREE.Matrix4().makeBasis(x, up, n);
+    slider.quaternion.setFromRotationMatrix(frame);
+    slider.position.copy(a.p).addScaledVector(n, 0.0011);
+    // the puller hangs from the slider's foot, lifted a little off the fabric
+    const tabG = new THREE.ExtrudeGeometry(roundShape(0.0068, 0.021, 0.0026, [0.0026, 0.006, 0.006]), { depth: 0.0009, bevelEnabled: true, bevelThickness: 0.0004, bevelSize: 0.0004, bevelSegments: 2, curveSegments: 6 });
+    tabG.translate(0, -0.0105, 0);
+    const tab = new THREE.Mesh(tabG, metal);
+    tab.quaternion.setFromRotationMatrix(frame).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), 0.17));
+    tab.position.copy(a.p).addScaledVector(n, 0.0042).addScaledVector(up, -0.0045);
+    this.model.add(slider, tab);
   }
+
+  // contact shadow: a soft pool, darker under each leg
+  shadowPlane() {
+    const c = document.createElement('canvas'); c.width = c.height = 256;
+    const g = c.getContext('2d');
+    const blob = (x, y, rx, ry, a) => {
+      g.save(); g.translate(x, y); g.scale(rx / 128, ry / 128);
+      const grd = g.createRadialGradient(0, 0, 0, 0, 0, 128); grd.addColorStop(0, `rgba(0,0,0,${a})`); grd.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grd; g.fillRect(-128, -128, 256, 256); g.restore();
+    };
+    blob(128, 128, 128, 128, 0.32); blob(88, 132, 46, 40, 0.38); blob(168, 132, 46, 40, 0.38);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.5), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.y = -0.275;
+    m.visible = !!this.meshes.length;
+    this.shadow = m;
+    return m;
+  }
+
+  // ---------- print ----------
 
   drawBase() {
-    const ctx = this.bctx, P = this.parts, T = P.torso, RT = REGIONS.torso;
+    const L = this._lay;
+    if (!L) return;   // before the body arrives the model is hidden: nothing to print yet
+    const ctx = this.bctx, P = this.parts, T = P.torso, RT = REGIONS.torso, B = this.constructor.BODY, S = this.size;
     // shorts everywhere, then the white top over the torso above the waist and on the sleeves
-    ctx.fillStyle = COLORS.shorts; ctx.fillRect(0, 0, this.size, this.size);
+    ctx.fillStyle = COLORS.shorts; ctx.fillRect(0, 0, S, S);
     const waistPx = this.rowY(T, RT, WAIST_Y);
     ctx.fillStyle = COLORS.top; ctx.fillRect(RT.x, RT.y, RT.w, waistPx - RT.y);
     for (const k of ['sleeveL', 'sleeveR']) { const R = REGIONS[k]; ctx.fillRect(R.x, R.y, R.w, R.h); }
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // shorts: wide white stripe down the outer thigh and a white gripper hem
-    for (const [k, outer] of [['legL', 90], ['legR', 270]]) {
-      const part = P[k], R = REGIONS[k];
-      this.band(part, R, outer, 0.13, 0.05, 1, COLORS.panel);
-      ctx.fillStyle = COLORS.hem; ctx.fillRect(R.x, R.y + R.h * 0.93, R.w, R.h * 0.07);
-      this.stitch(R.x, R.y + R.h * 0.915, R.x + R.w, COLORS.seamOnDark);
-      ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.font = '600 13px "JetBrains Mono", ui-monospace, monospace';
-      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.035) * R.w, R.y + R.h * 0.965);
-    }
-    // sleeves: plain white with a stitched cuff
-    for (const k of ['sleeveL', 'sleeveR']) {
+    // side panels on the legs and the hips
+    ctx.fillStyle = COLORS.panel;
+    for (const k of ['legL', 'legR', 'torso']) {
       const R = REGIONS[k];
-      ctx.fillStyle = 'rgba(0,0,0,0.05)'; ctx.fillRect(R.x, R.y + R.h * 0.9, R.w, R.h * 0.1);
-      this.stitch(R.x, R.y + R.h * 0.885, R.x + R.w, COLORS.seamOnLight);
+      for (const [py, , spans] of L.stripes[k]) for (const [ua, ub] of spans) {
+        const a = R.x + ua * R.w, b = R.x + ub * R.w;
+        if (b >= a) ctx.fillRect(a, py, b - a + 0.6, 1);
+        else { ctx.fillRect(a, py, R.x + R.w - a, 1); ctx.fillRect(R.x, py, b - R.x + 0.6, 1); }   // across the torso's wrap
+      }
     }
-    // waist seam and stitching
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // leg grippers: a charcoal elastic band with silicone dots, a coverstitch above it, the name line
+    for (const k of ['legL', 'legR']) {
+      const part = P[k], R = REGIONS[k], hemV = B.gripper.len / part.length, top = R.y + R.h * (1 - hemV);
+      ctx.fillStyle = COLORS.gripper; ctx.fillRect(R.x, top, R.w, R.y + R.h - top + 10);
+      ctx.save(); ctx.translate(R.x, top + 3); ctx.fillStyle = this.dots(ctx); ctx.fillRect(0, 0, R.w, R.y + R.h - top - 6); ctx.restore();
+      ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(R.x, top - 1, R.w, 1.6);
+      this.stitch(R.x, top - 6, R.x + R.w, 'rgba(255,255,255,0.16)');
+      this.stitch(R.x, top + 5, R.x + R.w, 'rgba(255,255,255,0.10)', 6);
+      ctx.fillStyle = 'rgba(246,247,249,0.62)'; ctx.font = '600 12px "JetBrains Mono", ui-monospace, monospace';
+      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.03) * R.w, R.y + R.h * (1 - hemV * 0.5));
+    }
+    // sleeves: a cuff band that hugs the arm, with a coverstitch
+    for (const k of ['sleeveL', 'sleeveR']) {
+      const R = REGIONS[k], part = P[k], cuff = 0.018 / part.length, top = R.y + R.h * (1 - cuff);
+      ctx.fillStyle = 'rgba(0,0,0,0.055)'; ctx.fillRect(R.x, top, R.w, R.y + R.h - top + 10);
+      ctx.fillStyle = 'rgba(0,0,0,0.16)'; ctx.fillRect(R.x, top - 1, R.w, 1.2);
+      this.stitch(R.x, top - 5, R.x + R.w, 'rgba(0,0,0,0.20)');
+      this.stitch(R.x, top + 4, R.x + R.w, 'rgba(0,0,0,0.13)');
+    }
+    // waist seam and its stitching
     ctx.fillStyle = 'rgba(0,0,0,0.3)'; ctx.fillRect(RT.x, waistPx - 1, RT.w, 3);
     this.stitch(RT.x, waistPx - 8, RT.x + RT.w, COLORS.seamOnLight);
-    // grey collar
-    const collarPx = this.rowY(T, RT, 0.642);
-    ctx.fillStyle = COLORS.collar; ctx.fillRect(RT.x, RT.y, RT.w, collarPx - RT.y);
-    // front zip: grey tape and teeth from the collar to ZIP_END
-    const zx = RT.x + T.uAt(0, T.vFor(0.56)) * RT.w;
-    const zTop = collarPx, zBot = this.rowY(T, RT, ZIP_END);
-    ctx.fillStyle = COLORS.zip; ctx.fillRect(zx - 8, zTop, 16, zBot - zTop);
-    ctx.fillStyle = '#8f9298';
-    for (let y = zTop + 2; y < zBot - 2; y += 5) { ctx.fillRect(zx - 4, y, 3, 2.2); ctx.fillRect(zx + 1, y + 2.5, 3, 2.2); }
-    ctx.fillStyle = '#3d4045'; roundRect(ctx, zx - 7, zBot - 5, 14, 9, 4); ctx.fill();
+    // raglan seams: a fine line on the torso's edge and a coverstitch 3 mm inside the torso panel
+    for (const { side, fb, pts } of L.raglan) {
+      const path = (off, dash, color, w) => {
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.setLineDash(dash); ctx.beginPath();
+        pts.forEach(([th, y], i) => { const v = T.vFor(y), u = T.uAtRad(th - side * fb * off, v), X = RT.x + u * RT.w, Y = RT.y + (1 - v) * RT.h; if (i) ctx.lineTo(X, Y); else ctx.moveTo(X, Y); });
+        ctx.stroke(); ctx.restore();
+      };
+      path(0.004, [], 'rgba(0,0,0,0.20)', 2.2);
+      path(0.026, [5, 4], 'rgba(0,0,0,0.26)', 1.7);
+    }
+    // collar binding all the way round, with its coverstitch
+    ctx.fillStyle = COLORS.collar;
+    L.collar.forEach((y, px) => { const r = this.rowY(T, RT, y); ctx.fillRect(RT.x + px, RT.y, 1, r - RT.y); });
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    L.collar.forEach((y, px) => { if (px % 9 < 5) ctx.fillRect(RT.x + px, this.rowY(T, RT, y + 0.0028) - 0.8, 1, 1.6); });
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    L.collar.forEach((y, px) => ctx.fillRect(RT.x + px, this.rowY(T, RT, y), 1, 1.2));
+    // front zip: tape and teeth from the binding down to ZIP_END
+    const zx = RT.x + T.uAt(0, T.vFor(0.58)) * RT.w;
+    const zTop = this.rowY(T, RT, neckY(0, B) - B.neck.binding) - 1, zBot = this.rowY(T, RT, ZIP_END);
+    ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(zx - 8, zTop, 16, zBot - zTop);
+    ctx.fillStyle = COLORS.zip; ctx.fillRect(zx - 6.5, zTop, 13, zBot - zTop);
+    ctx.fillStyle = '#8c9096';
+    for (let y = zTop + 2; y < zBot - 3; y += 4.4) { ctx.fillRect(zx - 3.6, y, 3.4, 2); ctx.fillRect(zx + 0.2, y + 2.2, 3.4, 2); }
+    ctx.fillStyle = '#2f3237'; roundRect(ctx, zx - 6, zBot - 4, 12, 7, 3); ctx.fill();
     // printed logos: sold sponsors and any logo being tried on
     this.printLogos();
+    this.bleed(ctx, 10);
     this.baseTex.needsUpdate = true;
   }
 
-  stitch(x0, y, x1, color) {
+  // the gripper's silicone dots, staggered: one small tile, filled as a pattern
+  dots(ctx) {
+    if (!this._dots) {
+      const c = document.createElement('canvas'); c.width = 7; c.height = 12;
+      const g = c.getContext('2d'); g.fillStyle = 'rgba(255,255,255,0.07)';
+      for (const [x, y] of [[1.2, 3], [4.7, 9]]) { g.beginPath(); g.arc(x, y, 1.25, 0, TAU); g.fill(); }
+      this._dots = ctx.createPattern(c, 'repeat');
+    }
+    return this._dots;
+  }
+
+  // copy each region's border rows outward, so filtering and mipmaps never pick up a neighbour (the yokes above
+  // the shoulder joints read the sleeves' top row)
+  bleed(ctx, n) {
+    const c = ctx.canvas;
+    for (const R of Object.values(REGIONS)) {
+      if (R.y > 0) ctx.drawImage(c, R.x, R.y, R.w, 1, R.x, Math.max(0, R.y - n), R.w, Math.min(n, R.y));
+      const yb = R.y + R.h - 1;
+      if (yb + 1 < c.height) ctx.drawImage(c, R.x, yb, R.w, 1, R.x, yb + 1, R.w, Math.min(n, c.height - yb - 1));
+    }
+  }
+
+  stitch(x0, y, x1, color, phase = 0) {
     const ctx = this.bctx;
     ctx.fillStyle = color;
-    for (let x = x0; x < x1; x += 12) ctx.fillRect(x, y, 6, 2);
+    for (let x = x0 + phase; x < x1; x += 12) ctx.fillRect(x, y, 6, 2);
   }
 
   // turn the model so the spot faces the camera and frame it

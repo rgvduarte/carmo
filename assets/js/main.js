@@ -252,6 +252,11 @@ function flight(p) {
 }
 
 // ---------- smooth scroll + scroll-driven scenes ----------
+// the suit turns to face you as the studio scrolls in: from behind, far and high, into its home pose (e: 0..1)
+function scrollPose(s, e) {
+  const H = s.constructor.HOME;
+  return { rot: lerp(Math.PI * 1.15, H.rot, e), dist: lerp(3.2, H.dist, e), ty: H.ty, y: lerp(0.5, H.y, e) };
+}
 function initMotion(getSuit) {
   const G = window.gsap, ST = window.ScrollTrigger;
   const onScroll = () => {
@@ -322,7 +327,7 @@ function initMotion(getSuit) {
       if (!s || userHasInteracted()) return;
       const k = self.progress;
       const e = 1 - Math.pow(1 - k, 3);
-      s.setPose({ rot: lerp(Math.PI * 1.15, -0.314, e), dist: lerp(3.2, 2.2, e), ty: 0.19, y: lerp(0.5, 0.23, e) }, { shortest: false });
+      s.setPose(scrollPose(s, e), { shortest: false });
       if (k > 0.35 && !s._revealed) { s._revealed = true; s.reveal(); }
       if (k >= 0.999) s.setAuto(true);
     },
@@ -372,7 +377,7 @@ const startMotion = () => {
       const st = window.ScrollTrigger && window.ScrollTrigger.getAll().find((x) => x.trigger && x.trigger.classList && x.trigger.classList.contains('studio'));
       if (st && !reduce) {
         const k = st.progress, e = 1 - Math.pow(1 - k, 3);
-        s.setPose({ rot: lerp(Math.PI * 1.15, -0.314, e), dist: lerp(3.2, 2.2, e), ty: 0.19, y: lerp(0.5, 0.23, e) }, { shortest: false });
+        s.setPose(scrollPose(s, e), { shortest: false });
         Object.assign(s.state, s.goal);
         if (k > 0.35) { s._revealed = true; s.reveal(); }
         if (k >= 0.999) s.setAuto(true);

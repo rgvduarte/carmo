@@ -82,8 +82,13 @@ async function mountSuit() {
     if (!mod.webglAvailable()) throw new Error('webgl');
     SuitClass = mod.Suit;
     // a helmet deep link: the suit is built idle, so it never flashes up before the helmet
-    const first = want === 'helmet';
-    suit = kit = new mod.Suit(stage, { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !first });
+    const idle = want === 'helmet';
+    const s = new mod.Suit(stage, { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !idle });
+    // the body is meshed in a worker: the stage keeps its loading label until the suit is ready
+    await s.ready;
+    const first = want === 'helmet';   // read again: a tap on Fato | Capacete may have changed it meanwhile
+    if (idle && !first) s.setActive(true);
+    suit = kit = s;
     item = 'suit';
     suit.setBasket([...basket]);
     printSponsors(suit);
