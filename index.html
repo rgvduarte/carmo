@@ -581,15 +581,15 @@
         </div>
         <div class="cl-fields">
           <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
-          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome</label><input id="cl-name" autocomplete="name" enterkeyhint="done"></div>
+          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome (opcional)</label><input id="cl-name" autocomplete="name" enterkeyhint="done"></div>
           <button type="button" class="link cl-add" id="cl-add" aria-expanded="false" aria-controls="cl-extra"><span aria-hidden="true">+</span> <span data-i18n="cl.add">Adicionar NIF ou mensagem</span></button>
           <div class="cl-extra" id="cl-extra" hidden>
             <div class="field"><label for="cl-nif" data-i18n="cl.nif">NIF para a fatura</label><input id="cl-nif" inputmode="numeric" autocomplete="off" maxlength="20" enterkeyhint="next"></div>
-            <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem</label><textarea id="cl-msg" rows="3"></textarea></div>
+            <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem</label><textarea id="cl-msg" rows="3"></textarea><p class="cl-hint" id="cl-mailcut" hidden data-i18n="cl.mailcut">Mensagem longa: o email só leva o início. Pelo WhatsApp vai inteira.</p></div>
           </div>
         </div>
         <div class="cl-acts">
-          <button type="button" class="btn gold" id="cl-wa"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></button>
+          <a class="btn gold" id="cl-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></a>
           <a class="btn ghost" id="cl-mail" href="mailto:allez@gocarmo.com"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg><span data-i18n="cl.mail">Enviar por email</span></a>
           <button type="button" class="link" id="cl-ig" data-i18n="cl.ig">ou copiar a mensagem para o Instagram</button>
         </div>
@@ -605,7 +605,7 @@
         <p class="pay-cap" id="pay-cap" hidden></p>
         <div class="pay-panel" id="pay-panel" role="tabpanel" aria-labelledby="pt-mb">
           <div class="mb-head" data-for="mb">
-            <picture><source type="image/webp" srcset="assets/img/mbway-272.webp 272w" sizes="88px"><img class="mb-logo" src="assets/img/mbway-272.png" srcset="assets/img/mbway-272.png 272w, assets/img/mbway-544.png 544w" sizes="88px" width="88" height="53" alt="MB WAY" decoding="async"></picture>
+            <picture><source type="image/webp" srcset="assets/img/mbway-272.webp 272w" sizes="100px"><img class="mb-logo" src="assets/img/mbway-272.png" srcset="assets/img/mbway-272.png 272w, assets/img/mbway-544.png 544w" sizes="100px" width="100" height="60" alt="MB WAY" decoding="async"></picture>
             <p class="pay-who"><span data-i18n="pay.name">Nome</span>: <b data-payee>Gonçalo Carmo</b></p>
           </div>
           <dl class="pay-rows">

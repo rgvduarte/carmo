@@ -674,6 +674,8 @@ section { position: relative; }
   #pk-go { grid-area: 1 / 3; }
   #pk-list { grid-area: 2 / 1 / 3 / -1; margin-top: 0; }
   #pk-list.has-d .pk-names { display: none; }
+  /* the bar opens the booking: its two buttons get the same 44 px thumb target as everything in the dialog */
+  .package .btn { min-height: 44px; }
   .package .btn.ghost { padding: 0 12px; }
 }
 
@@ -835,6 +837,7 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .field input[aria-invalid="true"] { border-color: #f08a7e; }
 .field input[aria-invalid="true"]:focus-visible { outline-color: #f08a7e; }
 .field .err { margin: 0; font-size: 13px; color: #f08a7e; }
+.field .cl-hint { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-acts { display: grid; gap: 10px; }
 .cl-acts .btn { width: 100%; min-height: 52px; padding: 0 16px; font-size: 16px; }
 .cl-acts .link { justify-self: center; }
@@ -850,8 +853,9 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .pay-cap { margin: -14px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
 .pay-panel { display: grid; gap: 14px; }
 .mb-head { display: flex; align-items: center; gap: 14px; }
-/* the official MB WAY artwork on its own white chip, never recoloured or outlined */
-.mb-logo { flex: none; width: 88px; height: auto; border-radius: 10px; background: #fff; }
+/* the official MB WAY artwork on its own white chip, never recoloured or outlined. 100 px puts the mark itself (77% of
+   the file, the rest is its clear space) at about 77 px, the 20 mm SIBS minimum */
+.mb-logo { flex: none; width: 100px; height: auto; border-radius: 10px; background: #fff; }
 .pay-who, .pay-how { margin: 0; font-size: 13px; color: var(--muted); }
 .pay-who b { color: var(--ink); font-weight: 600; }
 .pay-rows { margin: 0; border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; }
@@ -868,9 +872,12 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .cp .i-ok, .give-cp .i-ok { opacity: 0; transform: scale(.6); color: var(--gold); }
 .cp.ok .i-cp, .ok .give-cp .i-cp { opacity: 0; transform: scale(.6); }
 .cp.ok .i-ok, .ok .give-cp .i-ok { opacity: 1; transform: none; }
-/* copy toasts stay inside the dialog, above the bottom safe area */
-dialog#claim .toast { position: absolute; top: auto; bottom: calc(20px + env(safe-area-inset-bottom)); width: max-content; text-align: center; transform: translate(-50%, 12px); }
-dialog#claim .toast.on { transform: translate(-50%, 0); }
+/* copy toasts stay inside the dialog, just under its sticky header: never over «Feito» or «Voltar» at the bottom, and
+   always clear of the bottom safe area */
+#claim .dlg-head .toast { position: absolute; top: calc(100% + 10px); width: max-content; text-align: center; transform: translate(-50%, -8px); background: #26262a; color: var(--ink); border: 1px solid var(--line-2); box-shadow: 0 12px 32px rgba(0,0,0,.6); }
+/* a dark chip with a gold tick: it reads as a note over the page, not as one more light button */
+#claim .dlg-head .toast::before { content: "✓"; content: "✓" / ""; margin-right: 8px; color: var(--gold); }
+#claim .dlg-head .toast.on { transform: translate(-50%, 0); }
 body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 @media (min-width: 1081px) { body.pk-on .stage { height: calc(100svh - var(--nav-h) - 84px - 92px); } }
 .stage.no3d { height: auto; min-height: 160px; }
@@ -927,6 +934,12 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .flight-scene img { transform: none !important; filter: grayscale(1) !important; }
 }
 
+/* Windows high contrast: system colours replace ours, so the picked payment tab keeps a highlight of its own */
+@media (forced-colors: active) {
+  .pay-seg [aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .pay-seg [role="tab"]:disabled { color: GrayText; }
+}
+
 /* ---------- print: compact media kit ---------- */
 @media print {
   @page { size: A4; margin: 12mm; }
@@ -960,14 +973,38 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 
 /* ---------- mobile, first-class ---------- */
 .sheet-x { display: none; }
-@media (max-width: 760px) {
-  /* the booking dialog becomes a full-height sheet: nothing squeezed, the close button always in reach */
+/* phones, upright or on their side (and any short window): the booking dialog becomes a full-height sheet, nothing
+   squeezed, the close button always in reach */
+@media (max-width: 760px), (max-height: 500px) {
   dialog#claim { width: 100%; height: 100vh; height: 100dvh; max-height: none; margin: 0; }
   dialog#claim[open] { animation: sheetUp .45s var(--ease); }
   dialog#claim .dlg { border: 0; border-radius: 0; }
   .dlg-head { padding: calc(10px + env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 12px max(18px, env(safe-area-inset-left)); }
   .dlg-head h3 { font-size: 20px; }
   .dlg-body { padding: 20px max(18px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left)); }
+}
+/* a phone on its side: a one-line header (title, then the step), so the body keeps most of the 340-430 px */
+@media (max-height: 500px) {
+  .dlg-head { align-items: center; padding-top: calc(6px + env(safe-area-inset-top)); padding-bottom: 6px; }
+  .dlg-ttl { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .dlg-head h3 { padding-top: 0; font-size: 18px; }
+  .dlg-step { margin: 0; }
+  .dlg-body { padding-top: 16px; }
+  .cl-pane { gap: 18px; }
+}
+/* wide enough for two fields side by side: «Marca» and «O teu nome» share a row, so «Enviar pedido» shows without a scroll */
+@media (max-height: 500px) and (min-width: 600px) {
+  .cl-fields { grid-template-columns: 1fr 1fr; column-gap: 12px; align-items: start; }
+  .cl-add, .cl-extra { grid-column: 1 / -1; }
+}
+/* ... and on a wide one, one readable column down the middle, the full height of the screen (the notch stays outside it) */
+@media (max-height: 500px) and (min-width: 761px) {
+  dialog#claim { width: 560px; margin: 0 auto; }
+  dialog#claim .dlg { border: solid var(--line-2); border-width: 0 1px; }
+  .dlg-head { padding-left: 24px; padding-right: 12px; }
+  .dlg-body { padding-left: 24px; padding-right: 24px; }
+}
+@media (max-width: 760px) {
   .give-cp > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   .give-iban { font-size: 14.5px; }
 }

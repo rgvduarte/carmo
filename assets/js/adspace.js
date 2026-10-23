@@ -10,6 +10,8 @@ const AREAS = ['front', 'sides', 'shoulders', 'legs', 'back', 'helmet'];
 const STORE = 'gc.package.2027';
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mobile = () => matchMedia('(max-width: 760px)').matches;
+// a phone or tablet: links to WhatsApp stay in the tab (the app takes over), and mailto: always finds a mail app
+const touch = () => matchMedia('(pointer: coarse)').matches;
 
 let DATA = null, SPOTS = [], suit = null, helmet = null, kit = null, SuitClass = null, helmetBuild = null;
 // item: the model on the stage now. want: the model asked for last (set at once, before any await).
@@ -30,7 +32,8 @@ const sizeOf = (s, sep = ' × ') => `${cmOf(s.w)}${sep}${cmOf(s.h)} cm`;
 // a reservation lapses on its own once its `until` day is over, so a stale hold never blocks a sale
 const lapsed = (x) => x.status === 'reserved' && x.until && Date.parse(`${x.until}T23:59:59Z`) < Date.now();
 const ibanPretty = (s) => s.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
-const toast = (msg) => { const el = $('#toast'); const dlg = $('#claim'); const host = dlg && dlg.open ? dlg : document.body; if (el.parentElement !== host) host.appendChild(el); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 3200); };
+// while the booking dialog is open the toast sits just under its sticky header, clear of «Feito» and «Voltar» below
+const toast = (msg) => { const el = $('#toast'); const dlg = $('#claim'); const host = dlg && dlg.open ? $('.dlg-head', dlg) : document.body; if (el.parentElement !== host) host.appendChild(el); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 3200); };
 
 export async function initAdspace({ onSuitReady } = {}) {
   try {
@@ -55,6 +58,7 @@ export async function initAdspace({ onSuitReady } = {}) {
   renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
   bindUI();
   if (selected) select(selected); else syncItemTabs();
+  resumeClaim();
   onLang(() => {
     renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
     if ($('#claim').open) renderClaim();
@@ -87,6 +91,8 @@ async function mountSuit() {
     suit = kit = new mod.Suit(stage, { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !first });
     item = 'suit';
     suit.setBasket([...basket]);
+    // the booking dialog can be up before the stage is (a reload that brings the payment back): hold still behind it
+    if ($('#claim').open) suit.hold(true);
     printSponsors(suit);
     stage.addEventListener('suit:interact', () => { interacted = true; stopTour(); $('#btn-rotate').setAttribute('aria-pressed', 'false'); });
     stage.addEventListener('suit:frame', placeCallout);
@@ -165,6 +171,7 @@ function ensureHelmet() {
       if (!suit) return false;
       helmet = new Helmet(stage, { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: suit.renderer, active: false });
       helmet.setBasket([...basket]);
+      if ($('#claim').open) helmet.hold(true);
       await helmet.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
       await printSponsors(helmet);
       await helmet.ready();
@@ -456,6 +463,8 @@ function placeCallout() {
 function toggleBasket(id) {
   const s = byId(id);
   if (!s || s.status !== 'available') { toast(t('toast.sold')); return; }
+  // a different package is a new request: a note of the one sent before no longer applies
+  forgetSent();
   wantTitle = false;
   if (basket.has(id)) basket.delete(id); else basket.add(id);
   saveBasket();
@@ -504,17 +513,17 @@ function kindKey() {
   return kinds.has('helmet') ? (kinds.has('suit') ? 'B' : 'H') : '';
 }
 
-// short: the spots without their sizes; cut: characters to trim off the buyer's own message (email only, see mailUrl)
-function message({ short = false, cut = 0 } = {}) {
+// one text for WhatsApp, email and Instagram: the spots with their sizes, the total, who is asking, the KONA code.
+// sizes / extra: only the email ever drops the sizes or passes a shortened message of the buyer's own (see mailFit)
+function message({ sizes = true, extra = null } = {}) {
   const { list, net, gross, disc } = totals();
   const brand = $('#cl-brand').value.trim(), name = $('#cl-name').value.trim(), nif = $('#cl-nif').value.trim();
-  let extra = $('#cl-msg').value.trim();
-  if (cut > 0) extra = extra.length > cut + 1 ? `${extra.slice(0, extra.length - cut - 1).trimEnd()}…` : '';
+  extra ??= $('#cl-msg').value.trim();
   const lines = [t(`msg.hi${kindKey()}`), ''];
   if (wantTitle) lines.push(`${t('msg.title')}: ${money(net)}`);
   else {
     lines.push(`${t('msg.spots')}:`);
-    for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name}${short ? '' : ` (${sizeOf(s, '×')})`} · ${money(s.price)}`);
+    for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name}${sizes ? ` (${sizeOf(s, '×')})` : ''} · ${money(s.price)}`);
     lines.push(`${t('msg.total')}: ${money(net)}${disc ? ` (${money(gross)} −${Math.round(disc * 100)}%)` : ''}`);
   }
   if (brand) lines.push(`${t('msg.brand')}: ${brand}`);
@@ -528,14 +537,54 @@ function message({ short = false, cut = 0 } = {}) {
 }
 
 // The email goes through the device's own mail app: a plain mailto: link, never a webmail compose URL. Some mail apps
-// cut a long mailto, so the body stays under MAIL_MAX characters: a big package drops the spot sizes first, then a long
-// message of the buyer's own is trimmed (WhatsApp and Instagram carry the full text).
-const MAIL_MAX = 1800;
-function mailUrl() {
-  let body = message();
-  if (body.length > MAIL_MAX) body = message({ short: true });
-  if (body.length > MAIL_MAX) body = message({ short: true, cut: body.length - MAIL_MAX });
-  return `mailto:${SITE.email}?subject=${encodeURIComponent(t(`msg.subject${kindKey()}`))}&body=${encodeURIComponent(body)}`;
+// (Outlook on Windows above all) drop a mailto: link longer than about 2 000 characters, and accents, spaces and line
+// breaks take 3 to 6 characters each once encoded, so the cap is on the encoded link, not on the text. Over it, the
+// spot sizes go first; then the buyer's own message is shortened, says so in the email, and a line under the message
+// field tells the buyer before they send (WhatsApp and Instagram always carry the whole text).
+const MAIL_MAX = 2000;
+function mailFit() {
+  const url = (o) => `mailto:${SITE.email}?subject=${encodeURIComponent(t(`msg.subject${kindKey()}`))}&body=${encodeURIComponent(message(o))}`;
+  const own = $('#cl-msg').value.trim();
+  let u = url();
+  if (u.length <= MAIL_MAX) return { url: u, cut: false };
+  u = url({ sizes: false });
+  if (u.length <= MAIL_MAX || !own) return { url: u, cut: false };
+  // the longest start of the message that fits, cut on whole characters (an emoji is never split)
+  const chars = Array.from(own);
+  const short = (k) => (k ? `${chars.slice(0, k).join('').trimEnd()}…\n${t('msg.cut')}` : t('msg.cut'));
+  let lo = 0, hi = chars.length - 1;
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (url({ sizes: false, extra: short(mid) }).length <= MAIL_MAX) lo = mid; else hi = mid - 1; }
+  // end on a whole word when there is one close by
+  const sp = chars.slice(0, lo + 1).findLastIndex((c) => /\s/.test(c));
+  if (sp > 0 && lo - sp < 40) lo = sp;
+  return { url: url({ sizes: false, extra: short(lo) }), cut: true };
+}
+const mailUrl = () => mailFit().url;
+// shown under the message field only while the email would have to shorten it
+function mailCutHint() {
+  const hint = $('#cl-mailcut'), on = !!$('#cl-msg').value.trim() && mailFit().cut;
+  hint.hidden = !on;
+  if (on) $('#cl-msg').setAttribute('aria-describedby', 'cl-mailcut'); else $('#cl-msg').removeAttribute('aria-describedby');
+}
+const waUrl = () => `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message())}`;
+
+// A sent request is noted for this tab only (sessionStorage, gone when the tab closes): if the phone reloads the page
+// while the buyer is in WhatsApp or Mail, the payment opens again by itself. «Feito» and «Limpar» forget it.
+const SENT = 'gc.claim.sent';
+const pkKey = () => (wantTitle ? 'title' : [...basket].sort().join(','));
+const noteSent = () => { try { sessionStorage.setItem(SENT, pkKey()); } catch (_) {} };
+const forgetSent = () => { try { sessionStorage.removeItem(SENT); } catch (_) {} };
+function resumeClaim() {
+  let sent = null;
+  try { sent = sessionStorage.getItem(SENT); } catch (_) {}
+  if (!sent) return;
+  // the whole suit has no basket to come back from, so the note brings the title request back while it is still open
+  const was = wantTitle;
+  if (sent === 'title' && DATA.title.status === 'available' && titleOpen()) wantTitle = true;
+  // a spot sold or dropped since then changes the key, and the old payment details would be wrong: nothing opens
+  if (sent !== pkKey() || !(wantTitle || basket.size)) { wantTitle = was; return; }
+  renderPackage();
+  openClaim({ step: 2 });
 }
 
 // ---------- booking dialog ----------
@@ -545,15 +594,18 @@ let clStep = 1, payTab = 'tr', sentBy = '';
 // MB WAY takes at most SITE.mbwayMax per transfer (2 000 EUR, exactly 2 000 included); above it, transfer only
 const mbwayOk = (net) => !!SITE.mbway && net <= (SITE.mbwayMax || Infinity);
 
-function openClaim() {
+function openClaim({ step = 1 } = {}) {
   const dlg = $('#claim');
   // MB WAY first whenever it can take the amount (the quicker way on a phone); nothing is remembered between opens
   payTab = mbwayOk(totals().net) ? 'mb' : 'tr';
   sentBy = '';
   $('#cl-items').hidden = true;
-  if (!$('#cl-nif').value.trim() && !$('#cl-msg').value.trim()) { $('#cl-extra').hidden = true; $('#cl-add').hidden = false; }
+  if (!$('#cl-nif').value.trim() && !$('#cl-msg').value.trim()) {
+    const add = $('#cl-add');
+    $('#cl-extra').hidden = true; add.hidden = false; add.setAttribute('aria-expanded', 'false');
+  }
   brandErr(false);
-  goStep(1, { focus: false });
+  goStep(step, { focus: false });
   for (const m of models()) m.hold(true);
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
   $('#claim .close').focus({ preventScroll: true });
@@ -587,13 +639,15 @@ function renderClaim() {
   if (!wantTitle) for (const s of list) li(`${pad2(s.n)} ${pick(s).name}`, money(s.price));
   if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`, 'save');
   if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t('cl.err');
+  mailCutHint();
   // step 2: the same amount and KONA code under either tab
   $('#pay-amt').textContent = money(net);
   $('#pay-amt-cp').dataset.copy = String(net);
   $('#pay-ref').textContent = payRef();
   $('#pay-ref-cp').dataset.copy = payRef();
-  // a desktop with no mail app does nothing on a mailto: link, so step 2 offers the address to copy after the email action
-  $('#cl-mailfb').hidden = sentBy !== 'mail';
+  // a computer with no mail app does nothing on a mailto: link, so there step 2 offers the address to copy after the
+  // email action; a phone always has Mail, and the line would only push «Feito» off the screen
+  $('#cl-mailfb').hidden = sentBy !== 'mail' || touch();
   const ok = mbwayOk(net), cap = $('#pay-cap');
   $('#pay-tabs').hidden = !SITE.mbway;
   $('#pt-mb').disabled = !ok;
@@ -650,6 +704,7 @@ function fillPayee() {
   $('#pay-mb-cp').dataset.copy = mb;
   $('#cl-mailfb-a').textContent = SITE.email;
   $('#cl-mailfb-cp').dataset.copy = SITE.email;
+  $('#cl-wa').href = `https://wa.me/${SITE.whatsapp}`;
 }
 
 async function copy(text) {
@@ -802,35 +857,49 @@ function bindUI() {
   });
   $('#logo-dl').addEventListener('click', downloadMockup);
   $('#tp-btn').addEventListener('click', () => { wantTitle = true; renderPackage(); openClaim(); });
-  $('#pk-clear').addEventListener('click', () => { wantTitle = false; basket.clear(); saveBasket(); });
-  $('#pk-go').addEventListener('click', openClaim);
-  // each send action opens the app as before and moves the dialog on to the payment
-  $('#cl-wa').addEventListener('click', () => {
-    if (!brandOk()) return;
-    window.open(`https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message())}`, '_blank', 'noopener');
-    sentBy = 'wa'; goStep(2);
+  $('#pk-clear').addEventListener('click', () => { forgetSent(); wantTitle = false; basket.clear(); saveBasket(); });
+  $('#pk-go').addEventListener('click', () => openClaim());
+  // each send action opens the app as before and moves the dialog on to the payment.
+  // WhatsApp is a real link, filled in at the tap. On a phone it opens in this same tab: the app takes over and the page
+  // stays underneath on step 2 (a new tab would be what the buyer finds when switching back). On a computer it opens
+  // WhatsApp Web in a new tab.
+  $('#cl-wa').addEventListener('click', (e) => {
+    if (!brandOk()) { e.preventDefault(); return; }
+    const a = e.currentTarget;
+    a.href = waUrl();
+    if (touch()) a.removeAttribute('target'); else a.target = '_blank';
+    noteSent(); sentBy = 'wa'; goStep(2);
   });
   // a real mailto: link, filled in at the tap: the browser hands it to the default mail app once the click is done,
   // then the dialog moves on (a step later, so the link is still on screen when the browser follows it)
   $('#cl-mail').addEventListener('click', (e) => {
     if (!brandOk()) { e.preventDefault(); return; }
     e.currentTarget.href = mailUrl();
-    sentBy = 'mail'; setTimeout(() => goStep(2), 0);
+    noteSent(); sentBy = 'mail'; setTimeout(() => goStep(2), 0);
   });
   $('#cl-ig').addEventListener('click', async () => {
     if (!brandOk()) return;
-    sentBy = 'ig';
+    noteSent(); sentBy = 'ig';
     const ok = await copy(message());
     if (ok) toast(t('toast.copied'));
     window.open(`https://ig.me/m/${SITE.instagram}`, '_blank', 'noopener');
     goStep(2);
   });
   $('#cl-brand').addEventListener('input', (e) => { if (e.target.value.trim()) brandErr(false); });
+  $('#cl-msg').addEventListener('input', mailCutHint);
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
-  $('#cl-sent').addEventListener('click', () => goStep(2));
+  $('#cl-sent').addEventListener('click', () => { noteSent(); goStep(2); });
   $('#cl-back').addEventListener('click', () => goStep(1));
-  $('#cl-done').addEventListener('click', () => { $('#claim').close(); toast(t('toast.thanks')); });
+  // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it).
+  // The bar's «Reservar» goes with it, so focus moves on to the rate card heading.
+  $('#cl-done').addEventListener('click', () => {
+    forgetSent();
+    wantTitle = false; basket.clear(); saveBasket();
+    $('#claim').close();
+    if (document.activeElement?.closest('#package')) { const h = $('#ratecard h3'); h.tabIndex = -1; h.focus({ preventScroll: true }); }
+    toast(t('toast.thanks'));
+  });
   $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
   // arrow keys move along the tabs (the MB WAY tab is skipped while it is off)
   $('#pay-tabs').addEventListener('keydown', (e) => {

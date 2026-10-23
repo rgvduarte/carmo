@@ -47,7 +47,10 @@ Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. 
    **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem) e **Pagar**
    (Transferência ou MB WAY, cada um com três linhas para copiar: IBAN ou número, montante e código `KONA`).
    Ao enviar o pedido por WhatsApp, email ou Instagram, a app abre com a mensagem pronta e o pedido passa
-   sozinho ao passo Pagar, à espera quando a marca voltar ao site.
+   sozinho ao passo Pagar, à espera quando a marca voltar ao site (mesmo que o telemóvel tenha recarregado a página).
+   **Feito** fecha o pedido e esvazia o pacote. O email abre a app de email do aparelho com a mesma mensagem; se a
+   marca escrever uma mensagem muito longa, o email leva só o início (há apps que não abrem links de email enormes)
+   e o pedido avisa-a de que pelo WhatsApp vai inteira.
 2. Confirmas em 24 horas. Se a marca precisar de tempo, marcas o espaço como **Reservado**: fica guardado
    três dias e depois volta a ficar disponível sozinho, sem teres de fazer nada.
 3. Quando o pagamento entra, marcas como **Vendido**. O espaço fecha para toda a gente, sai do pacote
