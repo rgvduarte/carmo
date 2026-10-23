@@ -44,6 +44,16 @@ function bake(s) {
   return s;
 }
 
+// A worker has no import map, so the mesh worker's own imports carry their hash in the file. Leaf first, so a change to
+// suit-body.js changes suit-mesh.js, then suit-worker.js, then the worker's URL in the map.
+const DEPS = [['suit-mesh.js', 'suit-body.js'], ['suit-worker.js', 'suit-mesh.js']];
+for (const [f, dep] of DEPS) {
+  const p = `assets/js/${f}`, re = new RegExp(`(from '\\./${dep.replace('.', '\\.')})(?:\\?v=[0-9a-f]+)?'`);
+  const s = readFileSync(p, 'utf8');
+  if (!re.test(s)) throw new Error(`${p}: no import of ./${dep}`);
+  writeFileSync(p, s.replace(re, `$1?v=${hash(`assets/js/${dep}`)}'`));
+}
+
 // script types the browser runs (and CSP checks); a data block such as application/ld+json never runs
 const RUNS = /^(|module|importmap|text\/javascript|application\/javascript)$/i;
 

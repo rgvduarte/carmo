@@ -1059,7 +1059,8 @@ function bindSheet() {
   const sheet = $('#spot-card');
   $('#sheet-x').addEventListener('click', () => { select(null); if (kit) kit.home(); });
   let y0 = null, dy = 0;
-  sheet.addEventListener('pointerdown', (e) => { if (!mobile() || sheet.scrollTop > 0 || e.target.closest('button, input, label, a')) return; y0 = e.clientY; dy = 0; sheet.classList.add('dragging'); });
+  // the drag starts only on the grip strip (touch-action: none): anywhere else iOS scrolls and cancels the pointer
+  sheet.addEventListener('pointerdown', (e) => { if (!mobile() || !e.target.closest('.sheet-grip')) return; y0 = e.clientY; dy = 0; sheet.classList.add('dragging'); });
   sheet.addEventListener('pointermove', (e) => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sheet.style.setProperty('--drag', `${dy}px`); });
   const end = () => { if (y0 === null) return; sheet.classList.remove('dragging'); y0 = null; if (dy > 90) { select(null); if (kit) kit.home(); } else sheet.style.removeProperty('--drag'); };
   sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);

@@ -21,7 +21,8 @@
   --display: "Anton", "Impact", "Arial Narrow Bold", sans-serif;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --gutter: clamp(16px, 4vw, 56px);
+  /* never less than the safe area: viewport-fit=cover puts a sideways iPhone's island over the page edge */
+  --gutter: max(clamp(16px, 4vw, 56px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   --max: 1320px;
   --nav-h: 64px;
   --r: 14px;
@@ -47,7 +48,7 @@ button { cursor: pointer; }
 ::selection { background: var(--gold); color: #111; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
 /* gold is too faint on paper: the ring turns ink there */
-.light :focus-visible, .package :focus-visible, .nav.solid.on-light :focus-visible { outline-color: var(--ink-dark); }
+.light :focus-visible, .package :focus-visible, .nav.solid.on-light:not(.open) :focus-visible { outline-color: var(--ink-dark); }
 /* sections and main take focus from in-page links; the ring would frame the whole section */
 [tabindex="-1"]:focus { outline: none; }
 
@@ -131,17 +132,18 @@ section { position: relative; }
 .nav {
   position: fixed; inset: 0 0 auto 0; z-index: 50; height: var(--nav-h);
   display: flex; align-items: center;
-  transition: background .4s, backdrop-filter .4s, border-color .4s;
+  transition: background .4s, -webkit-backdrop-filter .4s, backdrop-filter .4s, border-color .4s;
   border-bottom: 1px solid transparent;
 }
-.nav.solid.on-light { background: rgba(242,241,236,.88); border-color: var(--line-dark); color: var(--ink-dark); }
-.nav.solid.on-light ul a { color: var(--muted-dark); }
-.nav.solid.on-light ul a:hover, .nav.solid.on-light ul a.active { color: var(--ink-dark); background: rgba(0,0,0,.05); }
-.nav.solid.on-light .lang { background: rgba(255,255,255,.6); border-color: var(--line-dark); }
-.nav.solid.on-light .lang button { color: var(--muted-dark); }
-.nav.solid.on-light .lang button[aria-pressed="true"] { background: var(--ink-dark); color: var(--paper); }
-.nav.solid.on-light .menu-btn { border-color: var(--line-dark); }
-.nav.solid.on-light .menu-btn span, .nav.solid.on-light .menu-btn span::before { background: var(--ink-dark); }
+/* over a paper section the bar turns light; an open menu is always dark, so these stop while it is open */
+.nav.solid.on-light:not(.open) { background: rgba(242,241,236,.88); border-color: var(--line-dark); color: var(--ink-dark); }
+.nav.solid.on-light:not(.open) ul a { color: var(--muted-dark); }
+.nav.solid.on-light:not(.open) ul a:hover, .nav.solid.on-light:not(.open) ul a.active { color: var(--ink-dark); background: rgba(0,0,0,.05); }
+.nav.solid.on-light:not(.open) .lang { background: rgba(255,255,255,.6); border-color: var(--line-dark); }
+.nav.solid.on-light:not(.open) .lang button { color: var(--muted-dark); }
+.nav.solid.on-light:not(.open) .lang button[aria-pressed="true"] { background: var(--ink-dark); color: var(--paper); }
+.nav.solid.on-light:not(.open) .menu-btn { border-color: var(--line-dark); }
+.nav.solid.on-light:not(.open) .menu-btn span, .nav.solid.on-light:not(.open) .menu-btn span::before { background: var(--ink-dark); }
 .nav.solid { background: rgba(11, 11, 12, 0.9); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border-color: var(--line); }
 .nav .wrap { display: flex; align-items: center; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; font: 400 22px/1 var(--display); font-style: italic; text-transform: uppercase; letter-spacing: .01em; }
@@ -167,6 +169,8 @@ section { position: relative; }
   .nav.open ul {
     display: flex; flex-direction: column; position: fixed; inset: var(--nav-h) 0 auto 0;
     background: rgba(11,11,12,0.97); padding: 16px var(--gutter) 28px; gap: 2px; border-bottom: 1px solid var(--line);
+    /* a sideways phone is shorter than the list: it scrolls inside itself, the page behind stays put */
+    max-height: calc(100vh - var(--nav-h)); max-height: calc(100dvh - var(--nav-h)); overflow-y: auto; overscroll-behavior: contain;
   }
   .nav.open ul a { font-size: 22px; padding: 14px 0; border-radius: 0; background: none; border-bottom: 1px solid var(--line); color: var(--ink); }
 }
@@ -685,13 +689,13 @@ section { position: relative; }
 .stage.live .stage-poster, .stage.frozen .stage-poster { opacity: 0; }
 .stage-ui { position: absolute; inset: 14px 14px auto 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; flex-wrap: wrap; }
 .stage-ui > div { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
-.seg-tabs { display: inline-flex; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(11,11,12,0.5); backdrop-filter: blur(8px); }
+.seg-tabs { display: inline-flex; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(11,11,12,0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .seg-tabs button { border: 0; background: transparent; color: var(--muted); font: 500 13px/1 var(--sans); padding: 9px 13px; border-radius: 999px; min-height: 34px; }
 .seg-tabs button[aria-pressed="true"] { background: rgba(255,255,255,0.1); color: var(--ink); }
-.stage-ui .chip { background: rgba(11,11,12,0.5); backdrop-filter: blur(8px); }
+.stage-ui .chip { background: rgba(11,11,12,0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .stage-foot { position: absolute; inset: auto 14px 14px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; pointer-events: none; }
 .stage-foot > * { pointer-events: auto; }
-.hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(8px); }
+.hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .stage-foot .hint { margin-right: auto; }
 .zoom { display: flex; gap: 6px; }
 .zoom button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: rgba(11,11,12,0.5); color: var(--ink); font-size: 18px; line-height: 1; }
@@ -705,10 +709,10 @@ section { position: relative; }
 .callout.top .pill { background: var(--gold); }
 /* no 3D on this device: the picture of the model stays, with the reason on a line under it */
 .stage-fallback { position: absolute; inset: auto 14px 14px; z-index: 2; display: grid; place-items: center; text-align: center; }
-.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
+.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
 /* «A carregar o fato / o capacete» and «A recuperar a vista 3D»: a pill over the picture or the last frame */
 .loading { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
-.loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); color: var(--ink); }
+.loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: var(--ink); }
 
 .chapters { margin: 10px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .chapter { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; background: var(--bg-2); transition: border-color .3s, background .3s; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline; min-height: 40px; }
@@ -725,6 +729,7 @@ section { position: relative; }
 .spot-slot { display: grid; min-width: 0; }
 .spot-slot.held > .empty-card { display: none; }
 @media (min-width: 761px) { .spot-card:not(.has) { display: none; } }
+.sheet-grip { display: none; }
 .empty-card h4 { font: 700 24px/1.2 var(--sans); letter-spacing: -0.01em; text-wrap: balance; }
 .spot-card { min-height: auto; }
 .spot-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -990,7 +995,7 @@ footer a { color: var(--muted); }
    scrolls, and each step is one short screen: 1 Reservar, 2 Pagar. */
 dialog#claim { border: 0; padding: 0; margin: auto; background: transparent; color: var(--ink); width: min(460px, calc(100% - 32px)); max-width: none; max-height: min(800px, calc(100vh - 48px)); max-height: min(800px, calc(100dvh - 48px)); overflow: hidden; }
 dialog#claim[open] { display: flex; }
-dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .dlg { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 20px; overflow: hidden; }
 .dlg-head { flex: none; position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 14px 14px 24px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
 .dlg-head h3 { margin: 0; padding-top: 3px; font: 700 22px/1.2 var(--sans); letter-spacing: -0.02em; }
@@ -1302,6 +1307,8 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .spot-card.open { transform: translateY(var(--drag, 0px)); visibility: visible; transition: transform .55s var(--ease); }
   .spot-card.dragging { transition: none; }
   .spot-card::before { content: ""; position: absolute; top: 9px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: var(--line-2); }
+  /* the drag-to-close strip over the bar: no touch-action, or iOS takes the drag for scrolling and cancels it */
+  .sheet-grip { display: block; position: absolute; top: 0; left: 0; right: 0; height: 32px; touch-action: none; }
   .spot-slot > .empty-card { display: none; }
   .sheet-x { display: grid; place-items: center; position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 18px; line-height: 1; }
   .spot-card .top { padding-right: 42px; }
@@ -1309,10 +1316,12 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .spot-card .price small .t2::before { content: none; }
   .spot-actions .btn { flex: 1 1 auto; }
   body.sheet-open .package { transform: translate(-50%, 140%); visibility: hidden; }
-  /* full-screen menu */
+  /* full-screen menu: opaque, or a paper section's text shows through the 97% panel */
   .nav.open { background: var(--bg); }
-  .nav.open ul { inset: var(--nav-h) 0 0 0 !important; height: calc(100svh - var(--nav-h)); padding: 28px var(--gutter) calc(40px + env(safe-area-inset-bottom)) !important; justify-content: flex-start; gap: 0 !important; border: 0 !important; }
-  .nav.open ul a { font: 400 clamp(40px, 12vw, 56px)/1.06 var(--display) !important; font-style: italic !important; text-transform: uppercase; letter-spacing: .01em; padding: 10px 0 !important; border-bottom: 0 !important; opacity: 0; transform: translateY(18px); animation: menuIn .6s var(--ease) forwards; }
+  .nav.open ul { inset: var(--nav-h) 0 0 0 !important; height: calc(100dvh - var(--nav-h)); background: var(--bg); padding: 28px var(--gutter) calc(40px + env(safe-area-inset-bottom)) !important; justify-content: flex-start; gap: 0 !important; border: 0 !important; }
+  /* seven links of 1.06em + 20px under the 64px bar, 68px of padding and the home bar: on a short screen (an iPhone SE
+     shows 548px) the type shrinks with the height so all seven fit, never under 32px; shorter still, the list scrolls */
+  .nav.open ul a { font: 400 clamp(40px, 12vw, 56px)/1.06 var(--display) !important; font-size: clamp(32px, min(12vw, (100dvh - 272px - env(safe-area-inset-bottom, 0px)) / 7.6), 56px) !important; font-style: italic !important; text-transform: uppercase; letter-spacing: .01em; padding: 10px 0 !important; border-bottom: 0 !important; opacity: 0; transform: translateY(18px); animation: menuIn .6s var(--ease) forwards; }
   .nav.open ul li:nth-child(2) a { animation-delay: .04s; } .nav.open ul li:nth-child(3) a { animation-delay: .08s; } .nav.open ul li:nth-child(4) a { animation-delay: .12s; }
   .nav.open ul li:nth-child(5) a { animation-delay: .16s; } .nav.open ul li:nth-child(6) a { animation-delay: .2s; } .nav.open ul li:nth-child(7) a { animation-delay: .24s; }
   .nav.open ul li:nth-child(5) a { color: var(--gold) !important; }
