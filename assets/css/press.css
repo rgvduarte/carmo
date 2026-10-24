@@ -81,7 +81,25 @@
 .story3 .why { font: 400 12px/1.5 var(--mono); color: var(--muted); }
 @media (min-width: 860px) { .story3 { grid-template-columns: 260px minmax(0, 1fr); column-gap: 48px; } }
 
-/* ---------- 03 results: the site's results sheet, retoned for a light section ---------- */
+/* ---------- 03 results: the results sheet, retoned for a light section ---------- */
+/* the main page dropped this sheet for the results marks, so the press page carries its own copy of the rules */
+.press .sheet { margin-top: 56px; border-top: 1px solid var(--line-2); }
+.press .sheet-row { display: grid; grid-template-columns: 70px minmax(0, 2.2fr) minmax(0, 1.4fr) 110px minmax(0, 1.5fr); gap: 20px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--line); position: relative; }
+.press .sheet-row .yr { font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: .12em; }
+.press .sheet-row h3 { margin: 0; font: 650 clamp(18px, 1.6vw, 22px)/1.25 var(--sans); letter-spacing: -0.01em; }
+.press .sheet-row h3 small { display: block; margin-top: 4px; font: 400 14px/1.3 var(--sans); color: var(--muted); letter-spacing: 0; }
+.press .sheet-row .dist { font-size: 14px; color: var(--muted); }
+.press .sheet-row .time { font: 600 22px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.press .sheet-row .pos { display: flex; flex-wrap: wrap; gap: 6px; }
+.press .sheet-row .splits { grid-column: 2 / -1; display: flex; gap: 18px; flex-wrap: wrap; font: 500 12px/1 var(--mono); color: var(--muted); margin-top: -6px; }
+.press .sheet-row .splits b { color: var(--ink); font-weight: 600; margin-left: 4px; }
+@media (max-width: 860px) {
+  .press .sheet-row .dist { grid-column: 2; grid-row: 2; }
+  .press .sheet-row .time { grid-column: 3; grid-row: 1; }
+  .press .sheet-row .pos { grid-column: 2 / -1; grid-row: 3; margin-top: 6px; }
+  .press .sheet-row .splits { grid-column: 2 / -1; grid-row: 4; margin-top: 6px; }
+}
+@media print { .press .sheet-row { break-inside: avoid; } }
 .light .sheet { --line: var(--line-dark); --line-2: rgba(17, 17, 18, .3); --muted: var(--muted-dark); --ink: var(--ink-dark); margin-top: clamp(32px, 4vw, 56px); }
 .light .sheet-row:hover { background: linear-gradient(90deg, rgba(0, 0, 0, .03), transparent); }
 .light .sheet-row .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--gold-ink); margin-left: 8px; vertical-align: 2px; }

@@ -44,7 +44,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
-| Página de imprensa | `imprensa/index.html` (PT), `press/index.html` (EN), `assets/css/press.css`; os ficheiros para descarga (PDF, ZIP, fotografias, logótipos, textos) em `imprensa/files/`. Os `[PREENCHER: …]` e `[CONFIRMAR]` à vista são para preencher antes de publicar. As fotografias só devem ficar para descarga com a autorização escrita de cada fotógrafo (`imprensa/files/fotos/CREDITOS.txt`) |
+| Página de imprensa | `imprensa/index.html` (PT), `press/index.html` (EN), `assets/css/press.css`; os ficheiros para descarga (PDF, ZIP, fotografias, logótipos, textos) em `imprensa/files/`. Os `[PREENCHER: …]`, `[CONFIRMAR]` e `[autor]` à vista são para preencher antes de publicar. A autorização dos fotógrafos está dada (23.10.2026); até haver os nomes, cada crédito diz «Foto: [autor]» (`imprensa/files/fotos/CREDITOS.txt`). As páginas e os ficheiros saem do gerador do kit de imprensa (`kit/out/press/_tools/`): depois de os refazer, `node scripts/stamp.mjs` |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 | Fotografias do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
