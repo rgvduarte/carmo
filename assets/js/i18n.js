@@ -322,6 +322,15 @@ const PT_JS = {
   'part.suit': (n, lo, hi) => `${n} espaços, de ${lo} a ${hi}. Uso\u2060-\u2060o em todos os triatlos e em treino.`,
   'part.helmet': (n, lo, hi) => `${n} espaços, de ${lo} a ${hi}. Uso\u2060-\u2060o na bicicleta, em todos os triatlos.`,
   'gfm.soon': 'A campanha no GoFundMe abre em breve.', 'suit.no3d': 'A vista 3D não está disponível neste dispositivo. A tabela tem todos os espaços.', 'gfm.help': 'Quero apoiar',
+  // the still picture's line when the 3D did not start for another reason (gl3d.js msgKey), and its button
+  'suit.no3dErr': 'A vista 3D não arrancou desta vez. A tabela tem todos os espaços.',
+  'suit.no3dGpu': 'A vista 3D não arrancou. Fechar o browser de vez e voltar a abri-lo costuma resolver.',
+  'suit.no3dSafari': 'A vista 3D não arrancou. Fecha o Safari de vez (desliza-o para cima nas apps abertas) e abre-o outra vez.',
+  'suit.no3dNet': 'A vista 3D não carregou. Verifica a ligação e tenta outra vez.',
+  'suit.no3dApp': 'Abre esta página no Safari ou no Chrome para veres o 3D. A tabela tem todos os espaços.',
+  'suit.no3dLock': 'O Modo de isolamento desliga a vista 3D. Podes desligá-lo só para este site em aA › Definições do site. A tabela tem todos os espaços.',
+  'suit.retry': 'Tentar outra vez',
+  'suit.loading': 'A carregar o fato',
 };
 const EN_JS = {
   'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders', 'z.helmet': 'Helmet', 'z.suit': 'Suit',
@@ -358,6 +367,13 @@ const EN_JS = {
   'part.suit': (n, lo, hi) => `${n} spots, from ${lo} to ${hi}. I wear it at every triathlon and in training.`,
   'part.helmet': (n, lo, hi) => `${n} spots, from ${lo} to ${hi}. I wear it on the bike, at every triathlon.`,
   'gfm.soon': 'The GoFundMe page opens soon.', 'suit.no3d': 'The 3D view is not available on this device. The rate card has every spot.', 'gfm.help': 'I want to help',
+  'suit.no3dErr': 'The 3D view did not start this time. The rate card has every spot.',
+  'suit.no3dGpu': 'The 3D view did not start. Closing the browser fully and opening it again usually fixes it.',
+  'suit.no3dSafari': 'The 3D view did not start. Close Safari fully (swipe it up in the app switcher) and open it again.',
+  'suit.no3dNet': 'The 3D view did not load. Check the connection and try again.',
+  'suit.no3dApp': 'Open this page in Safari or Chrome to see it in 3D. The rate card has every spot.',
+  'suit.no3dLock': 'Lockdown Mode turns the 3D view off. You can turn it off for this site only under aA › Website Settings. The rate card has every spot.',
+  'suit.retry': 'Try again',
 };
 
 let lang = 'pt';

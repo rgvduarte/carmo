@@ -1,8 +1,9 @@
 // Procedural 3D aero helmet (EKOI PURE AERO, white with red holographic stripes and a mirror visor) and its
 // four sponsor spots. Built in code like the suit, so every spot stays editable from data/spots.json.
 // Loaded on demand (import('./helmet.js')) the first time the studio shows the helmet; shares the suit's renderer.
-import * as THREE from 'three';
+import * as THREE from '../vendor/three@0.170.0/build/three.module.min.js';   // the import map's 'three', by its path
 import { Kit, envFor, hermite, DEG, sgnPow, lerp, clamp, smooth } from './suit.js';
+import { GLFail } from './gl3d.js';
 
 // Measurements traced from the product photos (side, top, front, rear), in metres. Head frame: origin at the
 // ear canal, +z forward (the brow), +y up, +x the athlete's left (as on the suit: phi +90 = left).
@@ -208,19 +209,23 @@ export class Helmet extends Kit {
     const shell = new Shell();
     this.parts = { shell };
     const R = Helmet.REGIONS.shell;
-    // PBR mask (half size: no fine detail) and the holographic flake noise that drives the film thickness
-    this.pbr = document.createElement('canvas'); this.pbr.width = this.pbr.height = Helmet.PBR;
+    // PBR mask (half size: no fine detail; lite: a quarter) and the holographic flake noise that drives the film thickness
+    this.pbrSize = Math.round(Helmet.PBR * this.k);
+    this.pbr = document.createElement('canvas'); this.pbr.width = this.pbr.height = this.pbrSize;
     this.pctx = this.pbr.getContext('2d', { willReadFrequently: true });
+    if (!this.pctx) { for (const c of [this.base, this.over, this.pbr]) c.width = c.height = 0; throw new GLFail('canvas2d', 'helmet-pbr', 'getContext(2d) returned null'); }
     this.pbrTex = new THREE.CanvasTexture(this.pbr); this.pbrTex.colorSpace = THREE.NoColorSpace; this.pbrTex.anisotropy = this.maxAniso;
     this.flake = flakeCanvas(256);
     this.flakeTex = new THREE.CanvasTexture(this.flake); this.flakeTex.colorSpace = THREE.NoColorSpace;
     this.flakeTex.wrapS = this.flakeTex.wrapT = THREE.RepeatWrapping; this.flakeTex.repeat.set(3, 3);
 
     const g = shell.geometry(COLS, R, this.size);
-    const mat = this.patch(new THREE.MeshPhysicalMaterial({
-      map: this.baseTex, roughnessMap: this.pbrTex, metalnessMap: this.pbrTex, iridescenceMap: this.pbrTex,
+    // lite: the same paint and maps without the clearcoat and the holographic film (a much shorter shader)
+    const paint = { map: this.baseTex, roughnessMap: this.pbrTex, metalnessMap: this.pbrTex, roughness: 1, metalness: 1 };
+    const mat = this.patch(this.profile.physical === false ? new THREE.MeshStandardMaterial(paint) : new THREE.MeshPhysicalMaterial({
+      ...paint, iridescenceMap: this.pbrTex,
       iridescenceThicknessMap: this.flakeTex, iridescenceThicknessRange: [200, 300],   // a warm, orange-gold film
-      roughness: 1, metalness: 1, iridescence: 1, iridescenceIOR: 1.8, clearcoat: 1, clearcoatRoughness: 0.05,
+      iridescence: 1, iridescenceIOR: 1.8, clearcoat: 1, clearcoatRoughness: 0.05,
     }));
     // spot tiles print matte, like paper stickers, so a highlight on the gloss never washes out a price
     const spotHook = mat.onBeforeCompile;
@@ -228,7 +233,7 @@ export class Helmet extends Kit {
       spotHook(sh, r);
       sh.fragmentShader = sh.fragmentShader
         .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nfloat tileA = texture2D(uOverlay, vMapUv).a * uSpots;\nroughnessFactor = mix(roughnessFactor, 0.62, tileA);')
-        .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\nmaterial.clearcoat *= 1.0 - tileA;');
+        .replace('#include <lights_physical_fragment>', '#include <lights_physical_fragment>\n#ifdef USE_CLEARCOAT\nmaterial.clearcoat *= 1.0 - tileA;\n#endif');
     };
     const m = new THREE.Mesh(g, mat); m.userData.part = 'shell';
     const inner = new THREE.Mesh(g, this.patchDim(new THREE.MeshStandardMaterial({ color: 0x0b0c0e, roughness: 0.55, side: THREE.BackSide })));
@@ -380,13 +385,14 @@ export class Helmet extends Kit {
       this.grid = grid;
       const masks = [];
       for (const make of this.markMakers()) { const m = make(); if (m) masks.push(m); await pause(); }
-      const p = this.pctx, R = Helmet.REGIONS.shell, k = Helmet.PBR / this.size;
-      p.fillStyle = PAINT.pbrWhite; p.fillRect(0, 0, Helmet.PBR, Helmet.PBR);
+      const p = this.pctx, R = Helmet.REGIONS.shell, k = this.pbrSize / this.size;
+      p.fillStyle = PAINT.pbrWhite; p.fillRect(0, 0, this.pbrSize, this.pbrSize);
       this.stripes(p, { x: R.x * k, y: R.y * k, w: R.w * k, h: R.h * k }, PAINT.pbrFoil, PAINT.pbrFoil, false);
-      for (const m of masks) p.drawImage(this.inkCanvas(m, PAINT.pbrVinyl), m.x * k, m.y * k, m.w * k, m.h * k);
+      for (const m of masks) { const cv = this.inkCanvas(m, PAINT.pbrVinyl, this.k === 1 ? 1 : k); p.drawImage(cv, m.x * k, m.y * k, m.w * k, m.h * k); cv.width = cv.height = 0; }
       this.pbrTex.needsUpdate = true;
       await pause();
-      this.markInk = masks.map((m) => ({ x: m.x, y: m.y, cv: this.inkCanvas(m, PAINT.ink) }));
+      // kept at the atlas canvas's own density (lite: half), drawn back on every repaint
+      this.markInk = masks.map((m) => ({ x: m.x, y: m.y, w: m.w, h: m.h, cv: this.inkCanvas(m, PAINT.ink, this.k) }));
       this.drawBase();
     })());
   }
@@ -395,7 +401,7 @@ export class Helmet extends Kit {
     const ctx = this.bctx, R = Helmet.REGIONS.shell, S = this.size;
     ctx.fillStyle = PAINT.white; ctx.fillRect(0, 0, S, S);
     this.stripes(ctx, R, PAINT.red, PAINT.red2, true);
-    for (const m of this.markInk) ctx.drawImage(m.cv, m.x, m.y);   // logos are printed after
+    for (const m of this.markInk) ctx.drawImage(m.cv, m.x, m.y, m.w, m.h);   // logos are printed after
     // Nothing else is printed: the top centreline and the tail top, where the stock helmet carries a race-series
     // logo, are sponsor spots 21 and 24.
     this.printLogos();
@@ -470,6 +476,7 @@ export class Helmet extends Kit {
       g.fillStyle = '#000'; g.fill(path, 'evenodd');
       const rgba = g.getImageData(0, 0, cw, ch).data, al = new Uint8Array(cw * ch);
       for (let i = 0; i < al.length; i++) al[i] = rgba[i * 4 + 3];
+      cv.width = cv.height = 0;   // only its alpha is kept: the raster's memory now, not at the next collection
       return al;
     })());
     // decal pixel coordinates of every position-map node (NaN off the shell or outside the mark's side)
@@ -506,11 +513,23 @@ export class Helmet extends Kit {
     return { x: x0 * G, y: y0 * G, w: pw, h: ph, a: out };
   }
 
-  // a mark window as a canvas of one ink colour (transparent where the mark is not)
-  inkCanvas(m, rgb) {
-    const cv = document.createElement('canvas'); cv.width = m.w; cv.height = m.h;
-    const g = cv.getContext('2d'), img = g.createImageData(m.w, m.h), out = img.data;
-    for (let i = 0; i < m.a.length; i++) if (m.a[i]) { const o = i * 4; out[o] = rgb[0]; out[o + 1] = rgb[1]; out[o + 2] = rgb[2]; out[o + 3] = m.a[i]; }
+  // a mark window as a canvas of one ink colour (transparent where the mark is not), at k of the atlas density
+  inkCanvas(m, rgb, k = 1) {
+    const w = Math.max(1, Math.round(m.w * k)), h = Math.max(1, Math.round(m.h * k));
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const g = cv.getContext('2d');
+    if (!g) throw new GLFail('canvas2d', 'helmet-ink', 'getContext(2d) returned null');
+    const img = g.createImageData(w, h), out = img.data;
+    if (k === 1) { for (let i = 0; i < m.a.length; i++) if (m.a[i]) { const o = i * 4; out[o] = rgb[0]; out[o + 1] = rgb[1]; out[o + 2] = rgb[2]; out[o + 3] = m.a[i]; } }
+    else {   // the mean alpha of the atlas texels each pixel covers
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const y0 = Math.floor(y / k), y1 = Math.min(m.h, Math.floor((y + 1) / k)), x0 = Math.floor(x / k), x1 = Math.min(m.w, Math.floor((x + 1) / k));
+        let a = 0, n = 0;
+        for (let yy = y0; yy < y1; yy++) for (let xx = x0; xx < x1; xx++) { a += m.a[yy * m.w + xx]; n++; }
+        if (!n || !a) continue;
+        const o = (y * w + x) * 4; out[o] = rgb[0]; out[o + 1] = rgb[1]; out[o + 2] = rgb[2]; out[o + 3] = Math.round(a / n);
+      }
+    }
     g.putImageData(img, 0, 0);
     return cv;
   }
@@ -568,6 +587,7 @@ export class Helmet extends Kit {
     const src = document.createElement('canvas'); src.width = cw; src.height = chh;
     const g = src.getContext('2d', { willReadFrequently: true }); g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, cw, chh);
     const L = g.getImageData(0, 0, cw, chh).data;
+    src.width = src.height = 0;
     // logo pixel coordinates at the 8 px position-map nodes around the spot; cells the logo cannot touch are skipped
     const { G, n: gn, pts } = (this.grid ||= this.positionMap()), pad = 24;
     const gx0 = Math.max(0, Math.floor((r.x - pad - R.x) / G)), gy0 = Math.max(0, Math.floor((r.y - pad - R.y) / G));
@@ -580,14 +600,15 @@ export class Helmet extends Kit {
       d.subVectors(q, p); OK[k2] = 1;
       DU[k2] = (d.dot(right) / lw + 0.5) * cw - 0.5; DV[k2] = (d.dot(down) / lh + 0.5) * chh - 0.5;
     }
-    const x0 = R.x + gx0 * G, y0 = R.y + gy0 * G, W = (gx1 - gx0 + 1) * G, Hh = (gy1 - gy0 + 1) * G;
+    // in canvas px: a lite atlas has k = 0.5 of the atlas density, so each 8-texel cell is 4 px there
+    const ka = this.k, g8 = G * ka, x0 = (R.x + gx0 * G) * ka, y0 = (R.y + gy0 * G) * ka, W = (gx1 - gx0 + 1) * g8, Hh = (gy1 - gy0 + 1) * g8;
     const ctx = this.bctx, im = ctx.getImageData(x0, y0, W, Hh), out = im.data;
     for (let cy = 0; cy <= gy1 - gy0; cy++) for (let cx = 0; cx <= gx1 - gx0; cx++) {
       const a = cy * NW + cx, b = a + 1, c = a + NW, e = c + 1;
       if (!(OK[a] && OK[b] && OK[c] && OK[e])) continue;
       if (Math.max(DU[a], DU[b], DU[c], DU[e]) < -1 || Math.min(DU[a], DU[b], DU[c], DU[e]) > cw || Math.max(DV[a], DV[b], DV[c], DV[e]) < -1 || Math.min(DV[a], DV[b], DV[c], DV[e]) > chh) continue;
-      for (let ty = 0; ty < G; ty++) for (let tx = 0; tx < G; tx++) {
-        const fx = (tx + 0.5) / G, fy = (ty + 0.5) / G;
+      for (let ty = 0; ty < g8; ty++) for (let tx = 0; tx < g8; tx++) {
+        const fx = (tx + 0.5) / g8, fy = (ty + 0.5) / g8;
         const u = lerp(lerp(DU[a], DU[b], fx), lerp(DU[c], DU[e], fx), fy), v = lerp(lerp(DV[a], DV[b], fx), lerp(DV[c], DV[e], fx), fy);
         if (u < -1 || v < -1 || u > cw || v > chh) continue;
         const iu = Math.floor(u), iv = Math.floor(v), su = u - iu, sv = v - iv;
@@ -599,7 +620,7 @@ export class Helmet extends Kit {
           al += aw; cr += L[i] * aw; cg += L[i + 1] * aw; cb += L[i + 2] * aw;
         }
         if (al <= 0.002) continue;
-        const o = ((cy * G + ty) * W + cx * G + tx) * 4;
+        const o = ((cy * g8 + ty) * W + cx * g8 + tx) * 4;
         out[o] = lerp(out[o], cr / al, al); out[o + 1] = lerp(out[o + 1], cg / al, al); out[o + 2] = lerp(out[o + 2], cb / al, al);
       }
     }
@@ -627,12 +648,27 @@ export class Helmet extends Kit {
   }
 
   // compile the physical shader and upload the atlases now, not on the first helmet frame
-  // (a context lost mid-build never reports the programs ready, so the wait is capped)
+  // Nothing is compiled or uploaded on a lost context (Safari never reports a program ready there, and three would poll
+  // for ever): adspace calls this again on the context that replaces it. On a phone the idle helmet keeps no atlas on
+  // the GPU (evict), so they are uploaded when it first takes the stage.
   async ready() {
     await this.prepare();
-    try { await Promise.race([this.renderer.compileAsync(this.scene, this.camera), new Promise((res) => setTimeout(res, 5000))]); } catch (_) {}
-    for (const t of [this.baseTex, this.overTex, this.pbrTex, this.flakeTex]) this.renderer.initTexture(t);
+    if (this.lost()) return;
+    const r = this.renderer;
+    try {
+      // compile() starts every program (in parallel where the browser can); they are awaited here for 5 s at most, and
+      // no longer once the context is lost or replaced (three's compileAsync would poll a lost one for ever)
+      const mats = r.compile(this.scene, this.camera), t0 = performance.now();
+      while (mats.size && performance.now() - t0 < 5000 && r === this.renderer && !this.lost()) {
+        for (const m of mats) { const p = r.properties.get(m).currentProgram; if (!p || p.isReady()) mats.delete(m); }
+        if (mats.size) await new Promise((res) => setTimeout(res, 10));
+      }
+    } catch (_) {}
+    if (r !== this.renderer || this.lost() || (this.profile.evict && !this.active)) return;
+    for (const t of this.gpuTextures()) this.renderer.initTexture(t);
   }
+  gpuTextures() { return [this.baseTex, this.overTex, this.pbrTex, this.flakeTex]; }
+  destroy() { super.destroy(); for (const c of [this.pbr, ...(this.markInk || []).map((m) => m.cv)]) c.width = c.height = 0; }
 }
 
 // seeded soft noise in G: thickness of the holographic film, so the foil shifts colour in flecks

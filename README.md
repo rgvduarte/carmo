@@ -220,6 +220,17 @@ O script põe no endereço de cada ficheiro uma versão calculada a partir do co
 
 Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo.
 
+O worker que constrói a malha do fato não lê o mapa de importação, por isso o script também põe a versão nos imports dele (`suit-worker.js` → `suit-mesh.js?v=…` → `suit-body.js?v=…`).
+
+## Quando o 3D não aparece num telemóvel
+
+O estúdio tenta várias vezes antes de desistir: se o iPhone tira o contexto WebGL à página (pouca memória, ou ao voltar do WhatsApp), espera que volte e, se não voltar em 1,5 s de página visível, cria outro e passa o fato e o capacete para ele (no máximo duas vezes por visita). Se o primeiro arranque falhar, tenta outra vez com outra configuração da GPU e depois numa versão mais leve. Só então mostra a fotografia com uma frase que diz porquê, o botão «Tentar outra vez» e um código pequeno (por exemplo `ctx-dead`).
+
+- Para ver o que se passou num telemóvel, abre `gocarmo.com/?debug3d`: aparece um painel com o browser, cada contexto WebGL pedido, os tempos e cada perda e recuperação. Tira um screenshot ou carrega em «Copiar». O painel fica ligado nesse separador até abrires `?debug3d=0`. Não envia nada para lado nenhum.
+- `?lite3d` força a versão leve, para comparar.
+- No Safari do iPhone, se a frase pedir para fechar o Safari de vez, é isso mesmo: o processo gráfico do Safari pode ficar estragado até a app ser fechada no seletor de apps.
+- Para tirar o painel do site, põe `DEBUG = false` no início de `assets/js/gl3d.js` e corre `node scripts/stamp.mjs`.
+
 ## Créditos técnicos
 
 - Fato e capacete 3D procedimentais, feitos de raiz em [three.js](https://threejs.org) (MIT). Geometria, textura e espaços são gerados em código. O fato é um só corpo anatómico, contínuo nos ombros, nas axilas e nas ancas (`assets/js/suit-body.js`), malhado num worker (`suit-mesh.js`). O capacete é o EKOI Pure Aero do Gonçalo, medido nas fotografias do produto.

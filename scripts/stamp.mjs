@@ -10,6 +10,19 @@ import { createHash } from 'node:crypto';
 const hash = (path) => createHash('sha256').update(readFileSync(path)).digest('hex').slice(0, 8);
 const modules = readdirSync('assets/js').filter((f) => f.endsWith('.js')).sort();
 
+// A worker has no import map, so the mesh worker's static imports carry the content hash themselves: a phone never
+// pairs a worker with a suit-mesh.js (or a suit-body.js) cached from the deploy before. Deepest first, so a change to
+// suit-body.js changes the URLs of all three. On the main thread './suit-body.js?v=<hash>' is exactly where the import
+// map sends './suit-body.js', so it stays one module.
+function pin(file, dep) {
+  const p = `assets/js/${file}`, s = readFileSync(p, 'utf8');
+  const out = s.replace(new RegExp(`(from\\s+'\\./${dep.replace(/\./g, '\\.')})(?:\\?v=[0-9a-f]+)?(')`, 'g'), `$1?v=${hash(`assets/js/${dep}`)}$2`);
+  if (!out.includes(`./${dep}?v=`)) throw new Error(`${file} no longer imports ./${dep}: update stamp.mjs`);
+  if (out !== s) writeFileSync(p, out);
+}
+pin('suit-mesh.js', 'suit-body.js');
+pin('suit-worker.js', 'suit-mesh.js');
+
 // script types the browser runs (and CSP checks); a data block such as application/ld+json never runs
 const RUNS = /^(|module|importmap|text\/javascript|application\/javascript)$/i;
 
