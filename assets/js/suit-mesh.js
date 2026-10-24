@@ -6,7 +6,7 @@
 // both sides). Each triangle goes to one part, normals and occlusion come from the field, and the half is mirrored.
 // Out come typed arrays per part: position, normal, uv (the part's own atlas parametrisation), uv1 (fabric grain,
 // metres), color (baked occlusion) and index, plus rolled lips along the openings.
-import { buildBody, bodyField, printLayout, BODY, neckY, neckTheta, seamFns, clamp } from './suit-body.js';
+import { buildBody, bodyField, printLayout, BODY, neckY, neckTheta, seamFns, clamp } from './suit-body.js?v=e86b9edf';
 
 const LIP = 3;   // segments in a hem's rolled lip (half a turn)
 export const PARTS = ['torso', 'sleeveL', 'sleeveR', 'legL', 'legR'];

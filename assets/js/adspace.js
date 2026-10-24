@@ -523,6 +523,8 @@ function select(id, { from3d = false, focus = true } = {}) {
   sheet.style.removeProperty('--drag');
   document.body.classList.toggle('sheet-open', open);
   if (open) { sheet.scrollTop = 0; if (from3d && navigator.vibrate) navigator.vibrate(8); }
+  // for analytics.js (select_content): which spot is on the card now, and whether the tour put it there
+  document.dispatchEvent(new CustomEvent('gc:spot', { detail: { id: selected, item: selected ? itemOf(byId(selected)) : null, tour: !!tourCtl } }));
 }
 
 // One spot card, in the panel of its spot's part; each part shows its own prompt while none of its spots is picked.
@@ -589,6 +591,8 @@ function toggleBasket(id) {
   wantTitle = false;
   if (basket.has(id)) basket.delete(id); else basket.add(id);
   saveBasket();
+  // for analytics.js (add_to_cart / remove_from_cart)
+  document.dispatchEvent(new CustomEvent('gc:basket', { detail: { id, added: basket.has(id) } }));
 }
 function saveBasket() {
   try { localStorage.setItem(STORE, JSON.stringify([...basket])); } catch (_) {}
@@ -651,7 +655,8 @@ function message({ sizes = true, extra = null } = {}) {
   if (name) lines.push(`${t('msg.name')}: ${name}`);
   if (nif) lines.push(`${t('msg.nif')}: ${nif}`);
   lines.push(`${t('msg.ref')}: ${payRef()}`);
-  lines.push(t(mbwayOk(net) ? 'msg.pay' : 'msg.payTr'));
+  // the way the buyer picked in step 1, so Gonçalo knows where to look for the money
+  lines.push(t(payNow() === 'mb' ? 'msg.payMb' : 'msg.payTr'));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -688,16 +693,20 @@ function mailCutHint() {
   if (on) $('#cl-msg').setAttribute('aria-describedby', 'cl-mailcut'); else $('#cl-msg').removeAttribute('aria-describedby');
 }
 const waUrl = () => `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(message())}`;
+const igUrl = () => `https://ig.me/m/${SITE.instagram}`;
 
 // A sent request is noted for this tab only (sessionStorage, gone when the tab closes): if the phone reloads the page
-// while the buyer is in WhatsApp or Mail, the payment opens again by itself. «Feito» and «Limpar» forget it.
-const SENT = 'gc.claim.sent';
+// while the buyer is in WhatsApp, Mail or the bank app, the payment opens again by itself, on the way to pay the message
+// named (SENT_PAY) or the tab picked since (PAY_TAB); a reopen from the bar comes back on them too. «Feito» and «Limpar»
+// forget it.
+const SENT = 'gc.claim.sent', SENT_PAY = 'gc.claim.pay', PAY_TAB = 'gc.claim.tab', WA_NAV = 'gc.claim.wa';
+const NOTES = [SENT, SENT_PAY, PAY_TAB, WA_NAV];
 const pkKey = () => (wantTitle ? 'title' : [...basket].sort().join(','));
-const noteSent = () => { try { sessionStorage.setItem(SENT, pkKey()); } catch (_) {} };
-const forgetSent = () => { try { sessionStorage.removeItem(SENT); } catch (_) {} };
+const noteSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); sessionStorage.setItem(SENT, pkKey()); sessionStorage.setItem(SENT_PAY, sentPay); } catch (_) {} };
+const forgetSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); } catch (_) {} };
 function resumeClaim() {
-  let sent = null;
-  try { sent = sessionStorage.getItem(SENT); } catch (_) {}
+  let sent = null, pay = null, tab = null, waNav = false;
+  try { [sent, pay, tab] = [SENT, SENT_PAY, PAY_TAB].map((k) => sessionStorage.getItem(k)); waNav = !!sessionStorage.getItem(WA_NAV); sessionStorage.removeItem(WA_NAV); } catch (_) {}
   if (!sent) return;
   // the whole suit has no basket to come back from, so the note brings the title request back while it is still open
   const was = wantTitle;
@@ -705,21 +714,34 @@ function resumeClaim() {
   // a spot sold or dropped since then changes the key, and the old payment details would be wrong: nothing opens
   if (sent !== pkKey() || !(wantTitle || basket.size)) { wantTitle = was; return; }
   renderPackage();
-  openClaim({ step: 2 });
+  // waNav: the page itself went to wa.me and came back reloaded, so the WhatsApp app never took the link
+  openClaim({ step: 2, pay, tab, waNav });
 }
 
 // ---------- booking dialog ----------
-// Two steps, one screen each: 1 «Reservar» (what, the brand, send the request) and 2 «Pagar» (transfer or MB WAY).
-// Every send action opens the app and moves the dialog on to step 2, so the payment waits there when the buyer is back.
-let clStep = 1, payTab = 'tr', sentBy = '';
+// Two steps, one screen each: 1 «Reservar» (what, the brand, how to pay, send the request) and 2 «Pagar» (MB WAY or
+// transfer). Every send action opens the app and moves the dialog on to step 2, so the payment waits there when the buyer
+// is back. payPick: the way to pay, picked in step 1 and followed by the tabs in step 2 (one value for both). sentPay: the
+// way the request that went out named, so a switch after sending can ask the buyer to say so in the conversation.
+// waFail: 'no' when WhatsApp did not take over on a phone, 'maybe' on a computer (WhatsApp Web may well have worked).
+// igBox: the Instagram box in step 2, 'open' once the message is copied (the link to the conversation), 'copy' when the
+// browser refused the clipboard (the message to copy by hand, then the link)
+let clStep = 1, payPick = 'mb', sentPay = '', sentBy = '', waFail = '', igBox = '', igText = '';
 // MB WAY takes at most SITE.mbwayMax per transfer (2 000 EUR, exactly 2 000 included); above it, transfer only
 const mbwayOk = (net) => !!SITE.mbway && net <= (SITE.mbwayMax || Infinity);
+const payNow = () => (payPick === 'mb' && mbwayOk(totals().net) ? 'mb' : 'tr');
+const isPay = (v) => v === 'mb' || v === 'tr';
 
-function openClaim({ step = 1 } = {}) {
+function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
   const dlg = $('#claim');
-  // MB WAY first whenever it can take the amount (the quicker way on a phone); nothing is remembered between opens
-  payTab = mbwayOk(totals().net) ? 'mb' : 'tr';
-  sentBy = '';
+  // MB WAY first whenever it can take the amount (the quicker way on a phone); nothing is remembered between opens,
+  // except once a request went out for this same package (a reload, or the bar's «Reservar» again): the dialog comes back
+  // on the way the message named, or on the tab the buyer switched to after sending, so «Já enviei o pedido» still knows
+  if (!isPay(pay)) try { if (sessionStorage.getItem(SENT) === pkKey()) [pay, tab] = [SENT_PAY, PAY_TAB].map((k) => sessionStorage.getItem(k)); } catch (_) {}
+  payPick = isPay(tab) ? tab : isPay(pay) ? pay : mbwayOk(totals().net) ? 'mb' : 'tr';
+  sentPay = isPay(pay) ? pay : '';
+  sentBy = waNav ? 'wa' : ''; waFail = waNav ? 'no' : ''; igBox = ''; igText = '';
+  stopWa();
   $('#cl-items').hidden = true;
   if (!$('#cl-nif').value.trim() && !$('#cl-msg').value.trim()) {
     const add = $('#cl-add');
@@ -760,6 +782,15 @@ function renderClaim() {
   if (!wantTitle) for (const s of list) li(`${pad2(s.n)} ${pick(s).name}`, money(s.price));
   if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`, 'save');
   if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t('cl.err');
+  // «Pagar por» MB WAY | Transferência: MB WAY off above its limit, with the reason on one line under it (and no choice
+  // at all when there is no MB WAY number)
+  const ok = mbwayOk(net), pay = payNow(), max = t('cl.mbmax', money(SITE.mbwayMax || 0)), grp = $('#cl-pay'), why = $('#cl-pay-cap');
+  grp.hidden = !SITE.mbway;
+  $('#cl-pay-mb').disabled = !ok;
+  $('#cl-pay-mb').checked = pay === 'mb';
+  $('#cl-pay-tr').checked = pay === 'tr';
+  why.hidden = ok; why.textContent = max;
+  if (ok) grp.removeAttribute('aria-describedby'); else grp.setAttribute('aria-describedby', 'cl-pay-cap');
   mailCutHint();
   // step 2: the same amount and KONA code under either tab
   $('#pay-amt').textContent = money(net);
@@ -769,17 +800,39 @@ function renderClaim() {
   // a computer with no mail app does nothing on a mailto: link, so there step 2 offers the address to copy after the
   // email action; a phone always has Mail, and the line would only push «Feito» off the screen
   $('#cl-mailfb').hidden = sentBy !== 'mail' || touch();
-  const ok = mbwayOk(net), cap = $('#pay-cap');
+  // WhatsApp did not take over: email and Instagram, the same two actions as in step 1, at the top of the payment.
+  // A computer back on this tab cannot tell whether WhatsApp Web worked: there it is one quiet row, «Sem WhatsApp?»
+  const wafb = $('#cl-wafb'), maybe = waFail === 'maybe';
+  wafb.hidden = !(sentBy === 'wa' && waFail);
+  wafb.classList.toggle('lite', maybe);
+  $('#cl-wafb-q').hidden = maybe; $('#cl-wafb-q2').hidden = !maybe;
+  // Instagram: the message is copied (the line says to paste it, then the link to the conversation), or the clipboard was
+  // refused (the message to copy by hand, then the same link)
+  const ig = sentBy === 'ig' ? igBox : '';
+  $('#cl-igfb').hidden = !ig;
+  $('#cl-igfb-copy').hidden = ig !== 'copy';
+  $('#cl-igfb-txt').hidden = ig !== 'copy';
+  $('#cl-igfb-open').hidden = ig !== 'open';
+  if (ig === 'copy' && $('#cl-igfb-txt').value !== igText) $('#cl-igfb-txt').value = igText;
+  const cap = $('#pay-cap');
   $('#pay-tabs').hidden = !SITE.mbway;
   $('#pt-mb').disabled = !ok;
   cap.hidden = ok || !SITE.mbway;
-  cap.textContent = t('cl.mbmax', money(SITE.mbwayMax || 0));
-  setTab(ok ? payTab : 'tr');
+  cap.textContent = max;
+  setTab(pay);
 }
 
-// Transferência | MB WAY: one panel whose rows follow the tab (IBAN or the MB WAY number, then amount and code)
-function setTab(tab, { focus = false } = {}) {
-  payTab = tab;
+// MB WAY | Transferência: one panel whose rows follow the tab (the MB WAY number or IBAN, then amount and code). The tab is
+// the step 1 choice, so a switch here is a switch of payPick; after a request went out naming the other way, one line
+// under the tabs asks the buyer to say so in the conversation.
+function setTab(tab, { focus = false, user = false } = {}) {
+  payPick = tab;
+  const chg = $('#pay-chg'), line = sentPay && tab !== sentPay ? t('pay.chg') : '';
+  // the line shows up under the tabs; a screen reader hears it when the buyer's own switch brings it
+  if (user && line && chg.hidden) say(line);
+  chg.hidden = !line; chg.textContent = line;
+  // a reload after the request went out comes back on this tab
+  if (sentPay) try { sessionStorage.setItem(PAY_TAB, tab); } catch (_) {}
   for (const b of $$('#pay-tabs [role="tab"]')) {
     const on = b.dataset.tab === tab;
     b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
@@ -795,6 +848,72 @@ function setTab(tab, { focus = false } = {}) {
   cp.setAttribute('aria-label', t(mb ? 'a.cpdesc' : 'a.cpref'));
 }
 
+// a request goes out (by: 'wa', 'mail', 'ig', or '' for «Já enviei o pedido»): noted for a reload, with the way to pay
+// its message named. «Já enviei» sends nothing: after a request that went out here, the way stays the one it named
+function sent(by) {
+  sentBy = by; if (by || !sentPay) sentPay = payNow(); waFail = ''; igBox = '';
+  if (by !== 'wa') { stopWa(); waTap = null; }
+  noteSent();
+}
+
+// Did WhatsApp take over? After a tap on its link the page either loses the screen (the app, or WhatsApp Web in a new
+// tab: it goes hidden or loses focus) or, on a phone without the app, loads the wa.me page in this same tab. Step 2 then
+// asks «O WhatsApp não abriu?» with email and Instagram when, on a phone, nothing at all happened within 2.5 s or the
+// phone comes back from the wa.me page (bfcache, or a reload: WA_NAV). A computer gets the same two actions behind
+// «Sem WhatsApp?», back on this tab or 2.5 s on: WhatsApp Web opens in a new tab there (maybe in the background), so
+// whether it worked is never known. A phone back from the app sees nothing new, and the line goes again when the app
+// only took over after those 2.5 s (a slow phone). Nothing here ever says a message went out.
+// waTap: the last tap on the WhatsApp link, and the kind of device then (read at the tap: while the page unloads,
+// matchMedia no longer answers, Chrome says «not coarse»)
+let waWatch = null, waTap = null;
+const WA_WAIT = 2500, WA_LATE = 8000;
+function watchWa() {
+  stopWa();
+  waTap = { at: Date.now(), touch: touch() };
+  const w = waWatch = { at: waTap.at, left: false, touch: waTap.touch };
+  w.t = setTimeout(() => { if (waWatch === w && !w.left && document.visibilityState === 'visible') waNoApp({ keep: true, maybe: !w.touch }); }, WA_WAIT);
+}
+function stopWa() { if (waWatch) clearTimeout(waWatch.t); waWatch = null; }
+function waSeen(visible) {
+  const w = waWatch;
+  if (!w) return;
+  if (!visible) {
+    // gone after the line showed: the app, late, or (much later) any other app the buyer opened, which says nothing
+    if (waFail && Date.now() - w.at > WA_LATE) stopWa(); else w.left = true;
+    return;
+  }
+  if (!w.left) return;
+  stopWa();
+  if (!w.touch) waNoApp({ maybe: true });
+  else if (waFail) { waFail = ''; renderClaim(); }
+}
+// the page itself is leaving soon after the tap: on a phone, that is the wa.me page loading here instead of the app
+function waGone() {
+  const w = waTap;
+  if (!w || !w.touch || sentBy !== 'wa' || Date.now() - w.at > 10000) return;
+  stopWa();
+  try { sessionStorage.setItem(WA_NAV, '1'); } catch (_) {}
+}
+function waBack(e) {
+  if (!e.persisted) return;
+  let nav = false;
+  try { nav = !!sessionStorage.getItem(WA_NAV); sessionStorage.removeItem(WA_NAV); } catch (_) {}
+  if (nav) waNoApp();
+}
+// keep: the 2.5 s timer goes on watching, in case the app takes over late. maybe: a computer, which cannot tell
+function waNoApp({ keep = false, maybe = false } = {}) {
+  if (!keep) stopWa();
+  if (sentBy !== 'wa' || !$('#claim').open) { stopWa(); return; }
+  const was = waFail;
+  waFail = maybe ? 'maybe' : 'no';
+  renderClaim();
+  if (clStep === 2 && !was) say(shownText($('#cl-wafb-t')));
+}
+// the words of a line without its hidden parts (the line's two openings, one hidden)
+const shownText = (el) => [...el.childNodes].filter((n) => !n.hidden).map((n) => n.textContent).join('').replace(/\s+/g, ' ').trim();
+// a polite word for a screen reader when something shows up on its own (the WhatsApp line above)
+function say(text) { const el = $('#cl-live'); el.textContent = ''; setTimeout(() => { el.textContent = text; }, 60); }
+
 // the brand is the one thing a request cannot go without
 function brandErr(on) {
   const er = $('#cl-brand-err');
@@ -803,6 +922,8 @@ function brandErr(on) {
 }
 function brandOk() {
   const el = $('#cl-brand'), ok = !!el.value.trim();
+  // the email and Instagram actions also sit in step 2 (when WhatsApp did not open): the brand field is back in step 1
+  if (!ok && clStep !== 1) goStep(1, { focus: false });
   brandErr(!ok);
   if (!ok) el.focus();
   return ok;
@@ -830,16 +951,32 @@ function fillPayee() {
   $('#cl-mailfb-a').textContent = SITE.email;
   $('#cl-mailfb-cp').dataset.copy = SITE.email;
   $('#cl-wa').href = `https://wa.me/${SITE.whatsapp}`;
+  appTarget($('#cl-wa'));
+  $$('#claim [data-send="mail"]').forEach((a) => { a.href = `mailto:${SITE.email}`; });
+  $('#cl-igfb-go').href = igUrl();
+  appTarget($('#cl-igfb-go'));
+}
+// WhatsApp (and the «Abrir o Instagram» link) on a phone open in this same tab, so the universal link hands over to the
+// app and the page stays underneath on step 2 (a new tab would be what the buyer finds when switching back); on a
+// computer, WhatsApp Web or Instagram in a new tab
+function appTarget(a) {
+  if (touch()) a.removeAttribute('target'); else a.target = '_blank';
+  a.rel = 'noopener';
 }
 
 async function copy(text) {
   try { await navigator.clipboard.writeText(text); return true; } catch (_) {
-    const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
+    // the stand-in goes inside the open dialog: a modal dialog makes the rest of the page inert, where nothing selects.
+    // Focus comes back to where it was (a copy button, for a keyboard)
+    const dlg = $('#claim'), was = document.activeElement;
+    const ta = document.createElement('textarea'); ta.value = text; ta.readOnly = true; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    (dlg.open ? dlg : document.body).appendChild(ta); ta.focus({ preventScroll: true }); ta.select();
     let ok = false; try { ok = document.execCommand('copy'); } catch (_) {}
-    ta.remove(); return ok;
+    ta.remove(); was?.focus?.({ preventScroll: true }); return ok;
   }
 }
+// the GoFundMe «Partilhar» copies its link and confirms with the same toast
+export { toast, copy };
 
 // ---------- tour ----------
 // each part has its own tour: it visits that part's free spots only, so the camera never leaves its model
@@ -922,7 +1059,8 @@ function bindSheet() {
   const sheet = $('#spot-card');
   $('#sheet-x').addEventListener('click', () => { select(null); if (kit) kit.home(); });
   let y0 = null, dy = 0;
-  sheet.addEventListener('pointerdown', (e) => { if (!mobile() || sheet.scrollTop > 0 || e.target.closest('button, input, label, a')) return; y0 = e.clientY; dy = 0; sheet.classList.add('dragging'); });
+  // the drag starts only on the grip strip (touch-action: none): anywhere else iOS scrolls and cancels the pointer
+  sheet.addEventListener('pointerdown', (e) => { if (!mobile() || !e.target.closest('.sheet-grip')) return; y0 = e.clientY; dy = 0; sheet.classList.add('dragging'); });
   sheet.addEventListener('pointermove', (e) => { if (y0 === null) return; dy = Math.max(0, e.clientY - y0); sheet.style.setProperty('--drag', `${dy}px`); });
   const end = () => { if (y0 === null) return; sheet.classList.remove('dragging'); y0 = null; if (dy > 90) { select(null); if (kit) kit.home(); } else sheet.style.removeProperty('--drag'); };
   sheet.addEventListener('pointerup', end); sheet.addEventListener('pointercancel', end);
@@ -976,8 +1114,9 @@ function bindUI() {
     const s = byId(selected); if (!s) return;
     const onHelmet = itemOf(s) === 'helmet';
     const url = `${location.origin}${location.pathname}#${onHelmet ? 'capacete' : 'fato'}/${s.id}`;
-    if (navigator.share) { try { await navigator.share({ title: t(onHelmet ? 'share.titleH' : 'share.title'), text: `${pick(s).name} · ${money(s.price)}`, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
-    if (await copy(url)) toast(t('toast.link'));
+    // gc:share tells analytics.js the share happened (a dismissed share sheet or a failed copy is not a share)
+    if (navigator.share) { try { await navigator.share({ title: t(onHelmet ? 'share.titleH' : 'share.title'), text: `${pick(s).name} · ${money(s.price)}`, url }); document.dispatchEvent(new CustomEvent('gc:share', { detail: { method: 'web_share' } })); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    if (await copy(url)) { toast(t('toast.link')); document.dispatchEvent(new CustomEvent('gc:share', { detail: { method: 'copy_link' } })); }
   });
   $('#logo-file').addEventListener('change', (e) => {
     const f = e.target.files && e.target.files[0];
@@ -997,36 +1136,56 @@ function bindUI() {
   $('#pk-clear').addEventListener('click', () => { forgetSent(); wantTitle = false; basket.clear(); saveBasket(); });
   $('#pk-go').addEventListener('click', () => openClaim());
   // each send action opens the app as before and moves the dialog on to the payment.
-  // WhatsApp is a real link, filled in at the tap. On a phone it opens in this same tab: the app takes over and the page
-  // stays underneath on step 2 (a new tab would be what the buyer finds when switching back). On a computer it opens
-  // WhatsApp Web in a new tab.
+  // WhatsApp is a real link, filled in at the tap (same tab on a phone, a new tab on a computer: see appTarget). If the app
+  // does not take over, step 2 offers email and Instagram at the top (see watchWa).
   $('#cl-wa').addEventListener('click', (e) => {
     if (!brandOk()) { e.preventDefault(); return; }
     const a = e.currentTarget;
     a.href = waUrl();
-    if (touch()) a.removeAttribute('target'); else a.target = '_blank';
-    noteSent(); sentBy = 'wa'; goStep(2);
+    appTarget(a);
+    sent('wa'); watchWa(); goStep(2);
   });
-  // a real mailto: link, filled in at the tap: the browser hands it to the default mail app once the click is done,
-  // then the dialog moves on (a step later, so the link is still on screen when the browser follows it)
-  $('#cl-mail').addEventListener('click', (e) => {
+  $('#cl-igfb-go').addEventListener('click', (e) => appTarget(e.currentTarget));
+  // email: a real mailto: link, filled in at the tap: the browser hands it to the default mail app once the click is
+  // done, then the dialog moves on (a step later, so the link is still on screen when the browser follows it).
+  // Instagram: the message goes to the clipboard, and step 2 says so and how to use it before the buyer leaves. Both live
+  // in step 1 and, after a WhatsApp link that did not open, at the top of step 2.
+  $$('#claim [data-send="mail"]').forEach((a) => a.addEventListener('click', (e) => {
     if (!brandOk()) { e.preventDefault(); return; }
     e.currentTarget.href = mailUrl();
-    noteSent(); sentBy = 'mail'; setTimeout(() => goStep(2), 0);
-  });
-  $('#cl-ig').addEventListener('click', async () => {
+    sent('mail'); setTimeout(() => goStep(2), 0);
+  }));
+  $$('#claim [data-send="ig"]').forEach((b) => b.addEventListener('click', async () => {
     if (!brandOk()) return;
-    noteSent(); sentBy = 'ig';
-    const ok = await copy(message());
-    if (ok) toast(t('toast.copied'));
-    window.open(`https://ig.me/m/${SITE.instagram}`, '_blank', 'noopener');
-    goStep(2);
-  });
+    const text = message();
+    sent('ig');
+    // the clipboard call starts inside the tap (Safari asks for that). Copied: step 2 starts with «Mensagem copiada. Cola-a
+    // na conversa do Instagram:» over «Abrir o Instagram», a real link the buyer taps (this same tab on a phone, so iOS
+    // hands ig.me to the app; a new tab on a computer; never a popup to block). Opening it now would take the buyer away
+    // before the line could say to paste
+    if (await copy(text)) {
+      igBox = 'open';
+      goStep(2);
+      say(shownText($('#cl-igfb-open')));
+      return;
+    }
+    // no clipboard: the message waits selected in the same box, over the same link
+    igBox = 'copy'; igText = text;
+    goStep(2, { focus: false });
+    const ta = $('#cl-igfb-txt');
+    ta.focus({ preventScroll: true }); ta.select();
+  }));
+  $$('#cl-pay input').forEach((r) => r.addEventListener('change', () => { if (r.checked) { payPick = r.value; renderClaim(); } }));
+  document.addEventListener('visibilitychange', () => waSeen(document.visibilityState === 'visible'));
+  addEventListener('blur', () => waSeen(false));
+  addEventListener('focus', () => waSeen(document.visibilityState === 'visible'));
+  addEventListener('pagehide', waGone);
+  addEventListener('pageshow', waBack);
   $('#cl-brand').addEventListener('input', (e) => { if (e.target.value.trim()) brandErr(false); });
   $('#cl-msg').addEventListener('input', mailCutHint);
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
-  $('#cl-sent').addEventListener('click', () => { noteSent(); goStep(2); });
+  $('#cl-sent').addEventListener('click', () => { sent(''); goStep(2); });
   $('#cl-back').addEventListener('click', () => goStep(1));
   // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it).
   // The bar's «Reservar» goes with it, so focus moves on to the rate card heading.
@@ -1037,14 +1196,14 @@ function bindUI() {
     if (document.activeElement?.closest('#package')) { const h = $(`.ratecard[data-item="${midPart() || 'suit'}"] h4`); h.tabIndex = -1; h.focus({ preventScroll: true }); }
     toast(t('toast.thanks'));
   });
-  $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
+  $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab, { user: true })));
   // arrow keys move along the tabs (the MB WAY tab is skipped while it is off)
   $('#pay-tabs').addEventListener('keydown', (e) => {
     const tabs = $$('#pay-tabs [role="tab"]').filter((b) => !b.disabled), i = tabs.indexOf(document.activeElement);
     const j = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
     if (i < 0 || j === undefined) return;
     e.preventDefault();
-    setTab(tabs[(j + tabs.length) % tabs.length].dataset.tab, { focus: true });
+    setTab(tabs[(j + tabs.length) % tabs.length].dataset.tab, { focus: true, user: true });
   });
   fillPayee();
   document.addEventListener('click', async (e) => {
@@ -1054,14 +1213,16 @@ function bindUI() {
     toast(t(b.dataset.toast || 'toast.copy'));
     b.classList.add('ok'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('ok'), 1600);
   });
-  $('#claim').addEventListener('close', () => { wantTitle = false; renderPackage(); for (const m of models()) m.hold(false); });
+  $('#claim').addEventListener('close', () => { stopWa(); waTap = null; wantTitle = false; renderPackage(); for (const m of models()) m.hold(false); });
   $('#claim .close').addEventListener('click', () => $('#claim').close());
   $('#claim-form').addEventListener('submit', (e) => e.preventDefault());
-  // Enter (the keyboard's «next» / «done») moves on to the next field, and leaves the last one
+  // Enter (the keyboard's «next» / «done») moves on to the next field, and leaves the last one (the «Pagar por» radios
+  // are not fields to type in: Enter there does nothing)
   $('#claim-form').addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
     e.preventDefault();
-    const fields = $$('#cl-s1 input, #cl-s1 textarea').filter((x) => x.offsetParent), next = fields[fields.indexOf(e.target) + 1];
+    if (e.target.type === 'radio') return;
+    const fields = $$('#cl-s1 input:not([type="radio"]), #cl-s1 textarea').filter((x) => x.offsetParent), next = fields[fields.indexOf(e.target) + 1];
     if (next) next.focus(); else e.target.blur();
   });
   // keyboard: arrows step through the spots of the part on screen in price order, Esc clears

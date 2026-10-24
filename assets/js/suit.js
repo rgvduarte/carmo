@@ -603,6 +603,12 @@ export class Kit {
     this.camera.aspect = w / h;
     this.fit = w / h < 0.85 ? 1 + (0.85 - w / h) * 1.05 : 1;   // keep the whole model framed on tall screens
     this.camera.updateProjectionMatrix();
+    // the resize cleared the buffer after this frame's rAF draw: redraw now, before paint
+    if (this.active && this.visible && !this.held && !document.hidden) {
+      this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
+      this.camera.lookAt(this.state.x, this.state.ty, 0);
+      this.renderer.render(this.scene, this.camera);
+    }
     this.kick();
   }
 
@@ -857,7 +863,7 @@ export class Suit extends Kit {
       this.stitch(R.x, top - 6, R.x + R.w, 'rgba(255,255,255,0.16)');
       this.stitch(R.x, top + 5, R.x + R.w, 'rgba(255,255,255,0.10)', 6);
       ctx.fillStyle = 'rgba(246,247,249,0.62)'; ctx.font = '600 12px "JetBrains Mono", ui-monospace, monospace';
-      ctx.fillText('GONÇALO CARMO · ROAD TO KONA', R.x + part.uAt(0, 0.03) * R.w, R.y + R.h * (1 - hemV * 0.5));
+      ctx.fillText('GONÇALO CARMO · GOCARMO.COM', R.x + part.uAt(0, 0.03) * R.w, R.y + R.h * (1 - hemV * 0.5));
     }
     // sleeves: a cuff band that hugs the arm, with a coverstitch
     for (const k of ['sleeveL', 'sleeveR']) {

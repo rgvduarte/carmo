@@ -1,10 +1,12 @@
 // Page bootstrap: language, nav, smooth scroll, scroll-driven scenes, data blocks and the sponsor studio.
 import { initLang, onLang, t, pick, money, numFmt, getLang, fmtDay } from './i18n.js';
-import { SITE, RESULTS, SEASON, BUDGET, IRONMAN_SPLITS, SOCIAL } from './data.js';
-import { weekMultiples, heatmap, splitBar } from './charts.js';
+import { SITE, RESULTS, SEASON, BUDGET, SOCIAL } from './data.js';
+import { weekMultiples, heatmap } from './charts.js';
+import { racesBlock } from './races.js';
 import { initMarks, refreshMarks } from './marks.js';
 import { flowSet, flowStatic } from './flow.js';
 import { initAdspace, userHasInteracted, landTarget } from './adspace.js';
+import { loadGofundme, renderGofundme } from './gofundme.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -46,29 +48,160 @@ const navObserver = new IntersectionObserver((entries) => {
 }, { rootMargin: '-45% 0px -50% 0px' });
 sections.forEach((s) => navObserver.observe(s));
 
-// ---------- results ----------
-function renderResults() {
-  const host = $('#sheet');
-  host.textContent = '';
-  for (const r of RESULTS.slice().sort((a, b) => b.date.localeCompare(a.date))) {
-    const row = document.createElement('div');
-    row.className = 'sheet-row rv in';
-    const yr = document.createElement('span'); yr.className = 'yr'; yr.textContent = String(r.year);
-    const h = document.createElement('h3'); h.textContent = pick(r);
-    const sm = document.createElement('small'); sm.textContent = pick(r.place); h.appendChild(sm);
-    const dist = document.createElement('span'); dist.className = 'dist'; dist.textContent = getLang() === 'en' ? r.dist.replace(/(\d),(\d)/g, '$1.$2') : r.dist;
-    const time = document.createElement('span'); time.className = 'time'; time.textContent = r.time;
-    const pos = document.createElement('div'); pos.className = 'pos';
-    for (const b of r.badges) { const s = document.createElement('span'); s.className = `badge${b.gold ? ' gold' : ''}${b.dim ? ' dim' : ''}`; s.textContent = pick(b); pos.appendChild(s); }
-    row.append(yr, h, dist, time, pos);
-    if (r.splits) {
-      const sp = document.createElement('div'); sp.className = 'splits';
-      for (const [k, v] of Object.entries(r.splits)) { const s = document.createElement('span'); s.textContent = k.toUpperCase(); const b = document.createElement('b'); b.textContent = v; s.appendChild(b); sp.appendChild(s); }
-      row.appendChild(sp);
-    }
-    host.appendChild(row);
+// ---------- every race: a row of posters, newest first ----------
+// races.js builds the cards from RESULTS; index.html carries the same markup in Portuguese (scripts/stamp.mjs) for the
+// page without JS, print and the first paint. Phones swipe one card at a time, wider screens page with the arrows, and
+// the ticks under the row (one per race) jump to a race.
+const pv = { box: $('#provas'), scroller: $('#pv-scroller'), track: $('#pv-track'), ticks: $('#pv-ticks'), filter: 'all', raf: 0, settle: null, target: null, anchor: 0, width: 0 };
+const pvCards = () => [...pv.track.children].filter((c) => !c.classList.contains('is-out'));
+function pvState() {
+  const s = pv.scroller, cards = pvCards();
+  const pad = parseFloat(getComputedStyle(pv.track).paddingLeft) || 0;
+  const x = s.scrollLeft, view = s.clientWidth - 2 * pad, max = s.scrollWidth - s.clientWidth;
+  const pos = cards.map((c) => c.offsetLeft - pad);
+  let first = pos.findIndex((p) => p >= x - 2);
+  if (first < 0) first = cards.length - 1;
+  let last = first;
+  while (last + 1 < cards.length && pos[last + 1] + cards[last + 1].offsetWidth <= x + view + 2) last++;
+  // a page is as many cards as fit
+  const cw = cards.length ? cards[0].offsetWidth : 1, gap = cards.length > 1 ? pos[1] - pos[0] - cw : 0;
+  return { cards, pos, first, last, max, x, per: Math.max(1, Math.floor((view + gap + 2) / (cw + gap))) };
+}
+function pvUpdate() {
+  if (!pv.track.children.length) return;
+  // a new width (a phone turned on its side, a sidebar, zoom) keeps the same race first in view; WebKit would jump to the end
+  const width = pv.scroller.clientWidth;
+  if (pv.width && width !== pv.width) {
+    const { pos, max } = pvState();
+    if (pos.length) pv.scroller.scrollLeft = clamp(pos[Math.min(pv.anchor, pos.length - 1)], 0, max);
   }
-  splitBar($('#chart-im'), IRONMAN_SPLITS.map((x) => ({ key: x.k, label: pick(x), s: x.s })));
+  pv.width = width;
+  const { cards, first, last, max, x } = pvState();
+  if (!cards.length) return;
+  pv.anchor = first;
+  const p2 = (k) => String(k).padStart(2, '0');
+  $('#pv-from').textContent = p2(first + 1);
+  $('#pv-to').textContent = last > first ? `-${p2(last + 1)}` : '';
+  $('#pv-total').textContent = p2(cards.length);
+  // aria-disabled, not disabled: a button that disables itself would drop the keyboard focus
+  $('#pv-prev').setAttribute('aria-disabled', String(x <= 2));
+  $('#pv-next').setAttribute('aria-disabled', String(x >= max - 2));
+  // the row takes the keyboard (arrow keys) only when there is something to scroll
+  if (max > 2) pv.scroller.tabIndex = 0; else pv.scroller.removeAttribute('tabindex');
+  // the ticks light the races in view; the roving tab stop follows the first one unless the visitor is on the ticks
+  const inView = new Set(cards.slice(first, last + 1)), ticks = [...pv.ticks.children], roving = !pv.ticks.contains(document.activeElement);
+  [...pv.track.children].forEach((c, i) => {
+    const tk = ticks[i];
+    if (!tk) return;
+    tk.hidden = c.classList.contains('is-out');
+    tk.classList.toggle('on', inView.has(c));
+    if (c === cards[first]) tk.setAttribute('aria-current', 'true'); else tk.removeAttribute('aria-current');
+    if (roving) tk.tabIndex = c === cards[first] ? 0 : -1;
+  });
+}
+// Safari has no scrollend and can fight a smooth scrollTo while mandatory snapping (touch screens) is on: snapping
+// pauses during the glide (the target is a snap point anyway) and comes back once the scroll has been still a moment
+function pvGlide(left) {
+  const s = pv.scroller;
+  if (reduce) { s.scrollLeft = left; pvUpdate(); return; }
+  if (pv.settle) s.removeEventListener('scroll', pv.settle);
+  pv.settle = () => {
+    clearTimeout(pvGlide.t);
+    pvGlide.t = setTimeout(() => { s.classList.remove('gliding'); s.removeEventListener('scroll', pv.settle); pv.settle = null; }, 160);
+  };
+  s.classList.add('gliding');
+  s.addEventListener('scroll', pv.settle, { passive: true });
+  s.scrollTo({ left, behavior: 'smooth' });
+  pv.settle();
+}
+// to the i-th race shown, said out loud (buttons, ticks and keys only, never while swiping)
+function pvGo(i) {
+  const { cards, pos, max } = pvState();
+  if (!cards.length) return;
+  i = clamp(i, 0, cards.length - 1);
+  pv.target = i;
+  pvGlide(clamp(pos[i], 0, max));
+  $('#pv-status').textContent = t('pv.status', i + 1, cards.length, cards[i].querySelector('.pv-name').textContent);
+}
+// a second press during a glide counts from where the first one is heading
+const pvFrom = (first) => (pv.settle && pv.target != null ? pv.target : first);
+// pages start at a multiple of the page size, so the counter reads 01-03, 04-06, 07-09 whatever was swiped in between
+function pvPage(dir) {
+  const { first, per } = pvState(), from = pvFrom(first);
+  pvGo(dir > 0 ? (Math.floor(from / per) + 1) * per : (Math.ceil(from / per) - 1) * per);
+}
+function pvApplyFilter() {
+  // a re-render can drop a kind (a language switch keeps the filter, an edit of RESULTS might not)
+  if (pv.filter !== 'all' && !pv.track.querySelector(`[data-kind="${pv.filter}"]`)) pv.filter = 'all';
+  // a filtered row keeps the full row's heights: the other cards stay in the grid, invisible, under the first card shown
+  let lead = pv.filter !== 'all';
+  for (const c of pv.track.children) {
+    const out = pv.filter !== 'all' && c.dataset.kind !== pv.filter;
+    c.classList.toggle('is-out', out);
+    c.classList.toggle('is-lead', lead && !out);
+    if (!out) lead = false;
+  }
+  $$('#pv-filter button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === pv.filter)));
+}
+function renderRaces() {
+  try {
+    const b = racesBlock(RESULTS, { t, pick, numFmt, fmtDay, lang: getLang() });
+    const keep = pv.scroller.scrollLeft;
+    $('#pv-kick').innerHTML = b.kick;
+    $('#pv-filter').innerHTML = b.filter.join('');
+    pv.track.innerHTML = b.cards.join('');
+    pv.ticks.innerHTML = b.ticks.join('');
+    pvApplyFilter();
+    pv.scroller.scrollLeft = keep;
+    pvUpdate();
+  } catch (e) {
+    // the cards stay as the page has them, laid out flat like the page without JS
+    pv.box.classList.add('flat');
+    throw e;
+  }
+}
+function initRaces() {
+  const s = pv.scroller;
+  $('#pv-prev').addEventListener('click', (e) => { if (e.currentTarget.getAttribute('aria-disabled') !== 'true') pvPage(-1); });
+  $('#pv-next').addEventListener('click', (e) => { if (e.currentTarget.getAttribute('aria-disabled') !== 'true') pvPage(1); });
+  $('#pv-filter').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-kind]');
+    if (!b || pv.filter === b.dataset.kind) return;
+    pv.filter = b.dataset.kind;
+    pvApplyFilter();
+    s.scrollLeft = 0;
+    pvUpdate();
+    $('#pv-status').textContent = t('pv.count', pvCards().length);
+  });
+  // a tick jumps to its race; on the ticks, the arrow keys move between them (one tab stop for the whole row)
+  pv.ticks.addEventListener('click', (e) => {
+    const b = e.target.closest('.pv-tick');
+    if (b) pvGo(pvCards().indexOf(pv.track.children[[...pv.ticks.children].indexOf(b)]));
+  });
+  pv.ticks.addEventListener('keydown', (e) => {
+    const list = [...pv.ticks.children].filter((b) => !b.hidden), k = list.indexOf(document.activeElement);
+    const to = { ArrowRight: k + 1, ArrowLeft: k - 1, Home: 0, End: list.length - 1 }[e.key];
+    if (to == null || k < 0) return;
+    e.preventDefault();
+    const b = list[clamp(to, 0, list.length - 1)];
+    list.forEach((x) => { x.tabIndex = x === b ? 0 : -1; });
+    b.focus();
+    b.click();
+  });
+  // on the row itself, the arrow keys go a race at a time, Home and End to the ends
+  s.addEventListener('keydown', (e) => {
+    if (e.target !== s || e.altKey || e.ctrlKey || e.metaKey) return;
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (step == null && e.key !== 'Home' && e.key !== 'End') return;
+    e.preventDefault();
+    const { first, cards } = pvState();
+    pvGo(e.key === 'Home' ? 0 : e.key === 'End' ? cards.length - 1 : pvFrom(first) + step);
+  });
+  s.addEventListener('scroll', () => { if (!pv.raf) pv.raf = requestAnimationFrame(() => { pv.raf = 0; pvUpdate(); }); }, { passive: true });
+  // a sideways trackpad swipe belongs to the row: Lenis would otherwise take it (any vertical jitter) and cancel it
+  s.addEventListener('wheel', (e) => { if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) e.lenisStopPropagation = true; }, { passive: true });
+  if ('ResizeObserver' in window) new ResizeObserver(() => pvUpdate()).observe(s);
+  else addEventListener('resize', () => pvUpdate());
 }
 
 // ---------- season ----------
@@ -128,19 +261,6 @@ function renderBudget() {
     host.appendChild(r);
   }
   $('#budget-total').textContent = money(BUDGET.reduce((a, b) => a + b.eur, 0));
-}
-
-function renderGofundme() {
-  const a = $('#gofundme');
-  const label = a.querySelector('span'), icon = a.querySelector('use');
-  const note = $('#gofundme-note');
-  if (SITE.gofundme) { a.href = SITE.gofundme; a.className = 'btn gold'; icon.setAttribute('href', '#i-heart'); if (note) note.hidden = true; return; }
-  // no campaign yet: a quiet WhatsApp button instead of a "coming soon" in gold
-  a.href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(getLang() === 'en' ? 'Hi Gonçalo, I would like to support your road to Kona.' : 'Olá Gonçalo, quero apoiar a tua preparação para Kona.')}`;
-  a.className = 'btn';
-  icon.setAttribute('href', '#i-wa');
-  label.textContent = t('gfm.help');
-  if (note) { note.hidden = false; note.textContent = t('gfm.soon'); }
 }
 
 // ---------- Strava ----------
@@ -348,20 +468,17 @@ function renderSocial() {
 }
 const safe = (f) => { try { f(); } catch (e) { console.error(e); } };
 function renderFooter() { $('#ft-date').textContent = fmtDay(SITE.updated); }
-function renderAll() { [renderSocial, renderResults, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter].forEach(safe); }
+function renderAll() { [renderSocial, renderRaces, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter].forEach(safe); }
 renderAll();
+safe(initRaces);
 onLang(() => { renderAll(); safe(refreshMarks); safe(flowStatic); });
 let lastW = innerWidth;
 addEventListener('resize', () => {
   clearTimeout(renderAll.t);
-  renderAll.t = setTimeout(() => { if (Math.abs(innerWidth - lastW) > 40) { lastW = innerWidth; renderResults(); renderStrava(); } }, 200);
+  renderAll.t = setTimeout(() => { if (Math.abs(innerWidth - lastW) > 40) { lastW = innerWidth; renderStrava(); } }, 200);
 });
 $('#route-km').textContent = `${numFmt(Math.round(greatCircleKm([38.7223, -9.1393], [19.6400, -155.9969]) / 10) * 10)} km`;
 $('#print-kit').addEventListener('click', () => window.print());
-// the printed media kit carries the full results list, even when it is folded on screen
-const folded = () => $$('details.all-results');
-addEventListener('beforeprint', () => folded().forEach((d) => { d.dataset.wasOpen = String(d.open); d.open = true; }));
-addEventListener('afterprint', () => folded().forEach((d) => { if (d.dataset.wasOpen === 'false') d.open = false; }));
 initReveal();
 document.documentElement.classList.add('ready');
 // booted: a later deploy may use the fresh reload again, and the address loses the cache-buster
@@ -369,6 +486,7 @@ try { sessionStorage.removeItem('gc.fresh'); } catch (_) {}
 if (/[?&]fresh=/.test(location.search)) history.replaceState(history.state, '', location.pathname + location.hash);
 flowStatic();
 loadStrava();
+loadGofundme();
 
 let suitRef = null;
 const startMotion = () => {

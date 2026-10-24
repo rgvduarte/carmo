@@ -21,7 +21,8 @@
   --display: "Anton", "Impact", "Arial Narrow Bold", sans-serif;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --gutter: clamp(16px, 4vw, 56px);
+  /* never less than the safe area: viewport-fit=cover puts a sideways iPhone's island over the page edge */
+  --gutter: max(clamp(16px, 4vw, 56px), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
   --max: 1320px;
   --nav-h: 64px;
   --r: 14px;
@@ -47,7 +48,7 @@ button { cursor: pointer; }
 ::selection { background: var(--gold); color: #111; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
 /* gold is too faint on paper: the ring turns ink there */
-.light :focus-visible, .package :focus-visible, .nav.solid.on-light :focus-visible { outline-color: var(--ink-dark); }
+.light :focus-visible, .package :focus-visible, .nav.solid.on-light:not(.open) :focus-visible { outline-color: var(--ink-dark); }
 /* sections and main take focus from in-page links; the ring would frame the whole section */
 [tabindex="-1"]:focus { outline: none; }
 
@@ -131,17 +132,18 @@ section { position: relative; }
 .nav {
   position: fixed; inset: 0 0 auto 0; z-index: 50; height: var(--nav-h);
   display: flex; align-items: center;
-  transition: background .4s, backdrop-filter .4s, border-color .4s;
+  transition: background .4s, -webkit-backdrop-filter .4s, backdrop-filter .4s, border-color .4s;
   border-bottom: 1px solid transparent;
 }
-.nav.solid.on-light { background: rgba(242,241,236,.88); border-color: var(--line-dark); color: var(--ink-dark); }
-.nav.solid.on-light ul a { color: var(--muted-dark); }
-.nav.solid.on-light ul a:hover, .nav.solid.on-light ul a.active { color: var(--ink-dark); background: rgba(0,0,0,.05); }
-.nav.solid.on-light .lang { background: rgba(255,255,255,.6); border-color: var(--line-dark); }
-.nav.solid.on-light .lang button { color: var(--muted-dark); }
-.nav.solid.on-light .lang button[aria-pressed="true"] { background: var(--ink-dark); color: var(--paper); }
-.nav.solid.on-light .menu-btn { border-color: var(--line-dark); }
-.nav.solid.on-light .menu-btn span, .nav.solid.on-light .menu-btn span::before { background: var(--ink-dark); }
+/* over a paper section the bar turns light; an open menu is always dark, so these stop while it is open */
+.nav.solid.on-light:not(.open) { background: rgba(242,241,236,.88); border-color: var(--line-dark); color: var(--ink-dark); }
+.nav.solid.on-light:not(.open) ul a { color: var(--muted-dark); }
+.nav.solid.on-light:not(.open) ul a:hover, .nav.solid.on-light:not(.open) ul a.active { color: var(--ink-dark); background: rgba(0,0,0,.05); }
+.nav.solid.on-light:not(.open) .lang { background: rgba(255,255,255,.6); border-color: var(--line-dark); }
+.nav.solid.on-light:not(.open) .lang button { color: var(--muted-dark); }
+.nav.solid.on-light:not(.open) .lang button[aria-pressed="true"] { background: var(--ink-dark); color: var(--paper); }
+.nav.solid.on-light:not(.open) .menu-btn { border-color: var(--line-dark); }
+.nav.solid.on-light:not(.open) .menu-btn span, .nav.solid.on-light:not(.open) .menu-btn span::before { background: var(--ink-dark); }
 .nav.solid { background: rgba(11, 11, 12, 0.9); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border-color: var(--line); }
 .nav .wrap { display: flex; align-items: center; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; font: 400 22px/1 var(--display); font-style: italic; text-transform: uppercase; letter-spacing: .01em; }
@@ -167,6 +169,8 @@ section { position: relative; }
   .nav.open ul {
     display: flex; flex-direction: column; position: fixed; inset: var(--nav-h) 0 auto 0;
     background: rgba(11,11,12,0.97); padding: 16px var(--gutter) 28px; gap: 2px; border-bottom: 1px solid var(--line);
+    /* a sideways phone is shorter than the list: it scrolls inside itself, the page behind stays put */
+    max-height: calc(100vh - var(--nav-h)); max-height: calc(100dvh - var(--nav-h)); overflow-y: auto; overscroll-behavior: contain;
   }
   .nav.open ul a { font-size: 22px; padding: 14px 0; border-radius: 0; background: none; border-bottom: 1px solid var(--line); color: var(--ink); }
 }
@@ -313,7 +317,7 @@ section { position: relative; }
 @media (max-width: 860px) {
   .flight-hud .wrap:first-child { grid-template-columns: 1fr; }
   .flight-km { text-align: left; order: -1; }
-  .flight-cap { min-height: 200px; }
+  .flight-cap { min-height: 232px; }
   .flight-scene::after { background: linear-gradient(180deg, rgba(0,0,0,.5) 0%, rgba(0,0,0,.05) 22%, rgba(0,0,0,.6) 40%, rgba(0,0,0,.88) 70%); }
   .flight-km { text-shadow: 0 1px 14px rgba(0,0,0,.55); }
   .flight-bar, .flight-bar + .legend { grid-template-columns: 10fr 70fr 20fr; }
@@ -321,30 +325,14 @@ section { position: relative; }
 
 /* ---------- results ---------- */
 .results-head, .tele-head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: clamp(24px, 5vw, 80px); }
-.sheet { margin-top: 56px; border-top: 1px solid var(--line-2); }
-.sheet-row { display: grid; grid-template-columns: 70px minmax(0, 2.2fr) minmax(0, 1.4fr) 110px minmax(0, 1.5fr); gap: 20px; align-items: baseline; padding: 22px 0; border-bottom: 1px solid var(--line); position: relative; }
-.sheet-row:hover { background: linear-gradient(90deg, rgba(255,255,255,0.025), transparent); }
-.sheet-row .yr { font: 500 12px/1 var(--mono); color: var(--muted); letter-spacing: .12em; }
-.sheet-row h3 { margin: 0; font: 650 clamp(18px, 1.6vw, 22px)/1.25 var(--sans); letter-spacing: -0.01em; }
-.sheet-row h3 small { display: block; margin-top: 4px; font: 400 14px/1.3 var(--sans); color: var(--muted); letter-spacing: 0; }
-.sheet-row .dist { font-size: 14px; color: var(--muted); }
-.sheet-row .time { font: 600 22px/1 var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.sheet-row .pos { display: flex; flex-wrap: wrap; gap: 6px; }
 .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); font: 500 12px/1.2 var(--sans); color: var(--ink); white-space: nowrap; }
 .badge.gold { border-color: rgba(230,180,80,0.5); color: var(--gold); }
 .badge.dim { color: var(--muted); border-color: var(--line); }
 .light .badge { border-color: var(--line-dark); color: var(--ink-dark); }
 .light .badge.gold { color: var(--gold-ink); border-color: rgba(138,99,18,0.4); }
 .light .badge.dim { color: var(--muted-dark); }
-.sheet-row .splits { grid-column: 2 / -1; display: flex; gap: 18px; flex-wrap: wrap; font: 500 12px/1 var(--mono); color: var(--muted); margin-top: -6px; }
-.sheet-row .splits b { color: var(--ink); font-weight: 600; margin-left: 4px; }
 @media (max-width: 860px) {
   .results-head, .tele-head { grid-template-columns: 1fr; }
-  .sheet-row { grid-template-columns: 56px 1fr auto; gap: 6px 14px; }
-  .sheet-row .dist { grid-column: 2; grid-row: 2; }
-  .sheet-row .time { grid-column: 3; grid-row: 1; }
-  .sheet-row .pos { grid-column: 2 / -1; grid-row: 3; margin-top: 6px; }
-  .sheet-row .splits { grid-column: 2 / -1; grid-row: 4; margin-top: 6px; }
 }
 .charts { margin-top: clamp(56px, 7vw, 96px); display: grid; grid-template-columns: 1.25fr 1fr; gap: 20px; }
 .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r); padding: clamp(20px, 2.4vw, 30px); position: relative; }
@@ -420,12 +408,116 @@ section { position: relative; }
 .mk-list .t { font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .mk-dots { display: none; }
 .marks-after { margin-top: clamp(48px, 6vw, 88px); display: grid; gap: 20px; }
-.all-results { border-top: 1px solid var(--line-2); padding-top: 18px; }
-.all-results summary { cursor: pointer; width: max-content; font: 600 15px/1 var(--sans); color: var(--ink); padding: 8px 0; list-style: none; display: flex; align-items: center; gap: 10px; }
-.all-results summary::-webkit-details-marker { display: none; }
-.all-results summary::before { content: "+"; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line-2); display: grid; place-items: center; font: 400 16px/1 var(--sans); }
-.all-results[open] summary::before { content: "−"; }
-.all-results .sheet { margin-top: 18px; }
+/* ---------- every race: one poster per race in a row that swipes (phones) or pages with the arrows ---------- */
+/* min-width: a grid item; without it the row of cards would widen the whole column (and the page on phones) */
+.pv { min-width: 0; }
+.pv-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px 40px; }
+.pv-kick { margin: 0 0 14px; font: 500 12px/1.2 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.pv-head .h3 { font-size: clamp(38px, 5vw, 64px); }
+.pv-sub { margin: 12px 0 0; color: var(--muted); font-size: 15px; max-width: 48ch; }
+.pv-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+.pv-filter button { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: transparent; color: var(--muted); font: 500 12px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; transition: background-color .25s, color .25s, border-color .25s; }
+.pv-filter button:hover { color: var(--ink); border-color: var(--muted); }
+.pv-filter button[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: #111; }
+.pv-filter .n { opacity: .6; }
+/* the mark of each sport, as on the ticks: filled for a triathlon, a ring for a run */
+.pv-dot { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pv-dot.run { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+/* The row runs edge to edge (into the gutters) and fades out over them: the next race peeks in, never cut by a hard
+   edge. Snapping is for fingers only: with a mouse or trackpad it would pull short nudges back (the arrows,
+   ticks and keys still land on a card). */
+.pv-scroller { container-type: inline-size; margin: 26px calc(var(--gutter) * -1) 0; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scroll-padding-inline: var(--gutter); scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent); }
+.pv-scroller::-webkit-scrollbar { display: none; }
+@media (pointer: coarse) { .pv-scroller { scroll-snap-type: x mandatory; } }
+.pv-scroller.gliding { scroll-snap-type: none; }
+/* the fade would eat a ring around the row: the cards themselves light up instead */
+.pv-scroller:focus-visible { outline: none; }
+.pv-scroller:focus-visible .pv-card { border-color: var(--gold); }
+/* One column per card (width from the scroller: 100cqi), six shared rows: every card is a subgrid, so the times,
+   age-group lines, splits and the overall bar sit at the same height on every card, also while swiping. The track is
+   as wide as its cards, so its own padding gives the space after the last one. Type scales with the column (--cw): a
+   card cannot be a size container, containment would stop it being a subgrid. */
+.pv-track { --gap: 12px; --pad: 22px; --cw: min(380px, calc(100cqi - 2 * var(--gutter) - 44px)); list-style: none; margin: 0; padding: 0 var(--gutter); width: max-content; position: relative;
+  display: grid; grid-auto-flow: column; grid-auto-columns: var(--cw); grid-template-rows: repeat(6, auto); column-gap: var(--gap); }
+/* row-gap 0: a subgrid would otherwise take the gap of a track laid out in rows (no JS, print) between its own rows */
+.pv-card { grid-row: span 6; display: grid; grid-template-rows: subgrid; grid-template-columns: minmax(0, 1fr); row-gap: 0; align-content: start; min-width: 0; scroll-snap-align: start; padding: var(--pad) var(--pad) calc(var(--pad) + 2px); background: var(--bg-2); border: 1px solid var(--line); border-radius: 22px; transition: border-color .3s; }
+@supports not (grid-template-rows: subgrid) { .pv-card { grid-template-rows: repeat(5, auto) 1fr; } }
+@media (hover: hover) { .pv-card:hover { border-color: var(--line-2); } }
+/* a filter hides the other kind but keeps every row's height: those cards stay in the grid, invisible, stacked under the
+   first card shown, so a tap moves nothing below */
+.pv-card.is-out, .pv-card.is-lead { grid-area: 1 / 1 / span 6 / span 1; }
+.pv-card.is-out { visibility: hidden; scroll-snap-align: none; }
+.pv-meta { grid-row: 1; margin: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; min-height: 24px; font: 500 11px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.pv-kind { color: var(--dim); }
+.pv-tag { padding: 4px 9px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 10px; letter-spacing: .1em; color: var(--ink); }
+/* the name and the place stay together; a one-line name leaves its air above the time, not between the two */
+.pv-hd { grid-row: 2; align-self: start; margin-top: 16px; }
+.pv-name { margin: 0; font: 400 26px/1.02 var(--display); font-size: clamp(22px, calc(var(--cw) * .075), 30px); font-style: italic; font-synthesis: style; text-transform: uppercase; letter-spacing: .01em; text-wrap: balance; }
+.pv-where { margin: 8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 14px; line-height: 1.35; color: var(--muted); }
+.pv-dist { font: 500 12px/1.3 var(--mono); letter-spacing: .02em; color: var(--dim); }
+/* a poster's time, a size below the stage's one big time above */
+.pv-time { grid-row: 3; align-self: end; margin: 20px 0 0; font: 400 72px/0.92 var(--display); font-size: clamp(44px, calc((var(--cw) - 2 * var(--pad)) / 3.8), 104px); font-style: italic; font-synthesis: style; letter-spacing: .01em; padding-right: .08em; white-space: nowrap; }
+.pv-card .k { font: 500 10.5px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.pv-key { grid-row: 4; margin: 16px 0 0; display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; }
+.pv-key b { font: 650 17px/1.2 var(--sans); letter-spacing: -0.01em; }
+.pv-key.ag b { color: var(--gold); }
+/* row 5: the legs of a triathlon (bike in gold, where most of the race goes), the line from the notes for a run */
+.pv-legs, .pv-note { grid-row: 5; margin-top: 22px; }
+.pv-strip { display: flex; gap: 2px; height: 6px; }
+.pv-strip i { flex: 1 1 0; min-width: 2px; background: var(--ink); opacity: .78; border-radius: 1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pv-strip i:first-child { border-radius: 3px 1px 1px 3px; }
+.pv-strip i:last-child { border-radius: 1px 3px 3px 1px; }
+.pv-strip .bike { background: var(--gold); opacity: 1; }
+.pv-strip .t1, .pv-strip .t2 { opacity: .24; }
+.pv-dl { margin: 12px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.pv-dl dt { font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.pv-dl dd { margin: 7px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font: 600 14px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.pv-dl small { font: 500 10.5px/1 var(--mono); letter-spacing: .04em; color: var(--dim); }
+.pv-tr { margin: 10px 0 0; font: 500 10.5px/1 var(--mono); letter-spacing: .08em; color: var(--dim); }
+.pv-note { margin-bottom: 0; padding-top: 14px; border-top: 1px solid var(--line); font: 500 16px/1.42 var(--sans); color: var(--ink); text-wrap: pretty; }
+.pv-field { grid-row: 6; align-self: end; padding-top: 24px; }
+.pv-overall { margin: 0; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.pv-overall b { font: 600 15px/1.2 var(--sans); }
+.pv-pct { margin-left: auto; font: 500 11px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
+/* the field, winner on the left: dim = ahead of him, gold = him, bright = finished behind */
+.pv-bar { display: flex; align-items: center; height: 14px; margin-top: 8px; }
+.pv-bar i { display: block; height: 4px; background: var(--ink); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.pv-bar .a { flex: 0 0 var(--at, 0%); opacity: .18; border-radius: 2px 0 0 2px; }
+.pv-bar .m { flex: 0 0 3px; height: 14px; margin: 0 2px; border-radius: 2px; background: var(--gold); }
+.pv-bar .b { flex: 1 1 auto; opacity: .7; border-radius: 0 2px 2px 0; }
+/* under the row: a tick per race (newest first, the ones in view in gold), the count and the arrows */
+.pv-nav { margin-top: 18px; display: flex; align-items: center; gap: 10px; }
+.pv-ticks { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; justify-content: space-between; margin-right: 6px; background: linear-gradient(var(--line), var(--line)) 12px 50% / calc(100% - 24px) 1px no-repeat; }
+.pv-tick { flex: 0 1 24px; min-width: 0; height: 36px; padding: 0; border: 0; background: transparent; color: var(--ink); display: grid; place-items: center; opacity: .5; transition: opacity .25s, color .25s; }
+.pv-tick i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; box-shadow: 0 0 0 3px var(--bg); }
+.pv-tick.run i { background: var(--bg); box-shadow: inset 0 0 0 1.5px currentColor, 0 0 0 3px var(--bg); }
+.pv-tick.on { opacity: 1; color: var(--gold); }
+@media (hover: hover) { .pv-tick:hover { opacity: 1; } }
+.pv-count { margin: 0 4px 0 0; font: 500 12px/1 var(--mono); letter-spacing: .12em; color: var(--dim); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pv-count b, .pv-count #pv-to { color: var(--gold); font-weight: 500; }
+.pv-btn { flex: 0 0 auto; width: 46px; height: 46px; padding: 0; border-radius: 50%; border: 1px solid var(--line-2); background: transparent; color: var(--ink); display: grid; place-items: center; transition: background-color .25s, color .25s, border-color .25s, opacity .25s; }
+.pv-btn svg { width: 18px; height: 18px; }
+.pv-btn.prev svg { transform: scaleX(-1); }
+.pv-btn:hover:not([aria-disabled="true"]) { background: var(--ink); border-color: var(--ink); color: #111; }
+.pv-btn[aria-disabled="true"] { opacity: .3; cursor: default; }
+.pv > .src { margin: 16px 0 0; font: 400 12px/1.4 var(--sans); color: var(--dim); }
+/* phones: the ticks already say where you are, so the count gives them its room */
+@media (max-width: 559px) {
+  .pv-count { display: none; }
+  .pv-btn { width: 44px; height: 44px; }
+}
+@media (max-width: 380px) {
+  .pv-filter button { padding: 0 9px; gap: 5px; font-size: 11px; letter-spacing: .06em; }
+  .pv-nav { gap: 8px; }
+}
+@media (min-width: 700px) {
+  .pv-track { --cw: calc((100cqi - 2 * var(--gutter) - var(--gap)) / 2 - 32px); }
+}
+@media (min-width: 1024px) {
+  .pv-track { --gap: 20px; --pad: 26px; --cw: calc((100cqi - 2 * var(--gutter) - 2 * var(--gap)) / 3); }
+}
 .marks.static .marks-track { height: auto; }
 .marks.static .marks-stage { position: relative; height: auto; padding: 40px 0; }
 @media (max-width: 960px) {
@@ -597,13 +689,13 @@ section { position: relative; }
 .stage.live .stage-poster, .stage.frozen .stage-poster { opacity: 0; }
 .stage-ui { position: absolute; inset: 14px 14px auto 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; flex-wrap: wrap; }
 .stage-ui > div { display: flex; gap: 6px; pointer-events: auto; flex-wrap: wrap; }
-.seg-tabs { display: inline-flex; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(11,11,12,0.5); backdrop-filter: blur(8px); }
+.seg-tabs { display: inline-flex; padding: 4px; border-radius: 999px; border: 1px solid var(--line); background: rgba(11,11,12,0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .seg-tabs button { border: 0; background: transparent; color: var(--muted); font: 500 13px/1 var(--sans); padding: 9px 13px; border-radius: 999px; min-height: 34px; }
 .seg-tabs button[aria-pressed="true"] { background: rgba(255,255,255,0.1); color: var(--ink); }
-.stage-ui .chip { background: rgba(11,11,12,0.5); backdrop-filter: blur(8px); }
+.stage-ui .chip { background: rgba(11,11,12,0.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .stage-foot { position: absolute; inset: auto 14px 14px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 2; pointer-events: none; }
 .stage-foot > * { pointer-events: auto; }
-.hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; backdrop-filter: blur(8px); }
+.hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .stage-foot .hint { margin-right: auto; }
 .zoom { display: flex; gap: 6px; }
 .zoom button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: rgba(11,11,12,0.5); color: var(--ink); font-size: 18px; line-height: 1; }
@@ -617,10 +709,10 @@ section { position: relative; }
 .callout.top .pill { background: var(--gold); }
 /* no 3D on this device: the picture of the model stays, with the reason on a line under it */
 .stage-fallback { position: absolute; inset: auto 14px 14px; z-index: 2; display: grid; place-items: center; text-align: center; }
-.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
+.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
 /* «A carregar o fato / o capacete» and «A recuperar a vista 3D»: a pill over the picture or the last frame */
 .loading { position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; pointer-events: none; font: 500 12px/1 var(--mono); letter-spacing: .18em; color: var(--muted); text-transform: uppercase; }
-.loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); color: var(--ink); }
+.loading > span { padding: 10px 14px; border-radius: 999px; background: rgba(11,11,12,0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: var(--ink); }
 
 .chapters { margin: 10px 0 0; display: flex; gap: 8px; flex-wrap: wrap; }
 .chapter { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; background: var(--bg-2); transition: border-color .3s, background .3s; cursor: pointer; display: inline-flex; gap: 8px; align-items: baseline; min-height: 40px; }
@@ -637,6 +729,7 @@ section { position: relative; }
 .spot-slot { display: grid; min-width: 0; }
 .spot-slot.held > .empty-card { display: none; }
 @media (min-width: 761px) { .spot-card:not(.has) { display: none; } }
+.sheet-grip { display: none; }
 .empty-card h4 { font: 700 24px/1.2 var(--sans); letter-spacing: -0.01em; text-wrap: balance; }
 .spot-card { min-height: auto; }
 .spot-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
@@ -821,6 +914,30 @@ section { position: relative; }
   .inkind { grid-template-columns: 1fr; }
   .inkind div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
 }
+/* the GoFundMe campaign (gofundme.js, data/gofundme.json): shown once there is a link; the bar only with numbers */
+.gfm { margin-top: 32px; max-width: 460px; padding: 16px 18px 18px; border: 1px solid var(--line-2); border-radius: var(--r); }
+.gfm:not([hidden]) + .cta { margin-top: 16px; }
+.gfm-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; }
+.gfm-k { margin: 0; font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.gfm-share { flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 36px; margin-right: -10px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 13px/1 var(--sans); transition: color .2s, background .2s; }
+.gfm-share:hover { color: var(--ink); background: var(--bg-3); }
+.gfm-share svg { width: 18px; height: 18px; }
+.gfm-t { margin: 6px 0 0; font: 650 17px/1.3 var(--sans); letter-spacing: -0.01em; overflow-wrap: anywhere; }
+.gfm-meter { margin-top: 18px; }
+/* the amount has its own line, so its digits can roll without moving anything around it */
+.gfm-row { margin: 0; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.gfm-v { font: 700 clamp(32px, 3.4vw, 42px)/1 var(--sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gfm-p { font: 600 13px/1 var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.gfm-bar { margin-top: 14px; height: 6px; border-radius: 6px; background: var(--line); overflow: hidden; }
+.gfm-bar i { display: block; width: 0; height: 100%; border-radius: 6px; background: var(--gold); transition: width 1.4s var(--ease) .25s; }
+.gfm.in .gfm-bar i { width: var(--w, 0%); }
+.gfm-sub { margin: 12px 0 0; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.gfm-sub b { color: var(--ink); font-weight: 600; }
+.gfm-upd { margin: 4px 0 0; font-size: 12px; color: var(--dim); }
+@media (prefers-reduced-motion: reduce) { .gfm-bar i { transition: none; } }
+@media (forced-colors: active) { .gfm-bar { border: 1px solid CanvasText; } .gfm-bar i { forced-color-adjust: none; background: Highlight; } }
+@media (max-width: 760px) { .gfm-share { min-height: 44px; } }
+@media print { .gfm { display: none !important; } }
 
 /* ---------- media ---------- */
 .media-grid { margin-top: clamp(40px, 5vw, 72px); display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: clamp(120px, 14vw, 210px); gap: 12px; }
@@ -878,7 +995,7 @@ footer a { color: var(--muted); }
    scrolls, and each step is one short screen: 1 Reservar, 2 Pagar. */
 dialog#claim { border: 0; padding: 0; margin: auto; background: transparent; color: var(--ink); width: min(460px, calc(100% - 32px)); max-width: none; max-height: min(800px, calc(100vh - 48px)); max-height: min(800px, calc(100dvh - 48px)); overflow: hidden; }
 dialog#claim[open] { display: flex; }
-dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
+dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
 .dlg { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 20px; overflow: hidden; }
 .dlg-head { flex: none; position: relative; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 14px 14px 24px; border-bottom: 1px solid var(--line); background: var(--bg-2); }
 .dlg-head h3 { margin: 0; padding-top: 3px; font: 700 22px/1.2 var(--sans); letter-spacing: -0.02em; }
@@ -920,14 +1037,44 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .field input[aria-invalid="true"]:focus-visible { outline-color: #f08a7e; }
 .field .err { margin: 0; font-size: 13px; color: #f08a7e; }
 .field .cl-hint { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
+/* «Pagar por» MB WAY | Transferência, right under the amount it depends on: real radios (a radio group for a screen
+   reader, arrows move the pick) inside two pills that look like the step 2 tabs. The MB WAY artwork stays in step 2: at
+   pill size it would sit far under the SIBS 20 mm minimum */
+.cl-pay { display: grid; gap: 6px; }
+.cl-pay-l { margin: 0; font-size: 13px; color: var(--muted); }
+.cl-pay-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); }
+.cl-pay-seg label { position: relative; display: grid; place-items: center; min-height: 44px; padding: 0 10px; border-radius: 999px; color: var(--muted); font: 600 15px/1.1 var(--sans); text-align: center; cursor: pointer; transition: background .25s, color .25s; }
+.cl-pay-seg input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: inherit; }
+.cl-pay-seg label:has(:checked) { background: var(--ink); color: var(--bg); }
+.cl-pay-seg label:has(:disabled) { opacity: .4; cursor: not-allowed; }
+.cl-pay-seg label:has(:focus-visible) { outline: 2px solid var(--gold); outline-offset: 2px; }
+.cl-pay .cl-hint { margin: 0; font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-acts { display: grid; gap: 10px; }
 .cl-acts .btn { width: 100%; min-height: 52px; padding: 0 16px; font-size: 16px; }
 .cl-acts .link { justify-self: center; }
+/* email and Instagram: two equal second choices under the gold WhatsApp button (and in the step 2 «não abriu?» box) */
+.cl-alt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cl-acts .cl-alt .btn, .cl-fb .btn { width: 100%; min-height: 48px; padding: 0 12px; gap: 8px; font-size: 15px; }
 .cl-foot { margin: -6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: center; }
 /* step 2 */
 /* after the email action only: the address to copy, for a computer with no mail app */
 .cl-mailfb { margin: -6px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 2px 14px; border-radius: 12px; background: var(--bg-3); font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-mailfb b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+/* WhatsApp did not open, or the clipboard was refused: one short line and the way out, first thing in step 2 */
+.cl-fb { margin: -6px 0 0; display: grid; gap: 12px; padding: 14px; border-radius: 14px; background: var(--bg-3); border: 1px solid var(--line-2); }
+.cl-fb-t { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
+.cl-fb-t b { color: var(--ink); font-weight: 600; }
+/* a computer (WhatsApp Web may well have worked in its new tab): «Sem WhatsApp?» and the two buttons on one quiet row;
+   «Envia por email ou Instagram» stays for a screen reader */
+.cl-fb.lite { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 8px 8px 14px; }
+.cl-fb.lite .cl-fb-t { flex: 1 1 auto; }
+.cl-fb.lite .cl-fb-t span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.cl-fb.lite .cl-alt { display: flex; gap: 8px; }
+.cl-fb.lite .btn { width: auto; min-height: 40px; padding: 0 12px; font-size: 14px; }
+/* 16 px, or iOS zooms the page when the field takes focus */
+.cl-fb textarea { width: 100%; min-height: 104px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--bg); color: var(--ink); font: 16px/1.4 var(--sans); resize: vertical; }
+/* after a switch of tab once the request went out: the one line that asks for something, in the accent colour */
+.pay-cap.pay-chg { color: var(--gold); }
 .pay-seg { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg); }
 .pay-seg [role="tab"] { min-height: 44px; padding: 0 10px; border: 0; border-radius: 999px; background: transparent; color: var(--muted); font: 600 15px/1 var(--sans); cursor: pointer; transition: background .25s, color .25s; }
 .pay-seg [aria-selected="true"] { background: var(--ink); color: var(--bg); }
@@ -1002,6 +1149,11 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .no-js .nojs-offer { display: block; max-width: 720px; margin: 40px auto 0; }
 .nojs-offer p { margin: 10px 0 0; color: var(--muted); }
 .no-js .marks-track, .no-js .part, .no-js .entry-cta, .no-js .package { display: none; }
+/* without JS, or if the race cards failed to render (.flat), every race card shows at once, in a grid */
+.no-js .pv-nav, .no-js .pv-filter, .pv.flat .pv-nav, .pv.flat .pv-filter { display: none; }
+.no-js .pv-scroller, .pv.flat .pv-scroller { overflow: visible; margin-inline: 0; -webkit-mask-image: none; mask-image: none; }
+.no-js .pv-track, .pv.flat .pv-track { width: auto; padding: 0; grid-auto-flow: row; grid-template-rows: none; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); row-gap: var(--gap); }
+.pv.flat .pv-card { grid-area: auto / auto / span 6 / auto; visibility: visible; }
 /* stacked, static race scenes when GSAP did not load or JS is off (same as reduced motion) */
 .static-flight .flight, .no-js .flight { height: auto; }
 .static-flight .flight-stage, .no-js .flight-stage { position: relative; height: auto; }
@@ -1025,8 +1177,16 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 
 /* Windows high contrast: system colours replace ours, so the picked payment tab keeps a highlight of its own */
 @media (forced-colors: active) {
-  .pay-seg [aria-selected="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
-  .pay-seg [role="tab"]:disabled { color: GrayText; }
+  .pay-seg [aria-selected="true"], .cl-pay-seg label:has(:checked) { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .pay-seg [role="tab"]:disabled, .cl-pay-seg label:has(:disabled) { color: GrayText; }
+  .pv-filter [aria-pressed="true"] { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .pv-bar i, .pv-strip i { forced-color-adjust: none; background: CanvasText; }
+  .pv-bar .m, .pv-strip .bike { background: Highlight; }
+  .pv-tick i { forced-color-adjust: none; background: CanvasText; box-shadow: none; }
+  .pv-tick.run i { background: Canvas; box-shadow: inset 0 0 0 1.5px CanvasText; }
+  .pv-tick.on i { background: Highlight; }
+  .pv-tick.run.on i { background: Canvas; box-shadow: inset 0 0 0 2px Highlight; }
+  .pv-scroller:focus-visible { outline: 2px solid Highlight; outline-offset: -2px; }
 }
 
 /* ---------- print: compact media kit ---------- */
@@ -1034,15 +1194,14 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   @page { size: A4; margin: 12mm; }
   :root { color-scheme: light; --ink: #111; --muted: #555; --dim: #666; --line: rgba(0,0,0,.14); --line-2: rgba(0,0,0,.25); --bg: #fff; --bg-2: #fff; --bg-3: #f4f4f4; --gold: var(--gold-ink); }
   body { background: #fff; color: #111; font-size: 10.5pt; }
-  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .all-results summary, .strava-card, .season-title .hib { display: none !important; }
+  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .pv-nav, .pv-filter, .strava-card, .season-title .hib { display: none !important; }
   .section, .marks { padding: 14pt 0; }
-  .card, .race, .sheet-row, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
+  .card, .race, .pv-card, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
   .entry-card { border-color: rgba(0,0,0,.2); background: #fff; }
   .entry-img { background: #ecebe6 !important; }
   h2, h3 { break-after: avoid; }
   /* GSAP leaves scrubbed inline styles on the hero */
   .hero-copy, .hero .split-line > span, .hero-tag, .hero-sub, .telemetry { opacity: 1 !important; transform: none !important; }
-  details.all-results::details-content { content-visibility: visible; display: contents; }
   .hero { min-height: 0; color: #111; }
   .hero-media { display: none; }
   .hero-inner { padding: 0; grid-template-columns: 1fr; }
@@ -1053,9 +1212,27 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .hero-sub { text-align: left; margin-left: 0; color: #444; max-width: none; }
   .light, .card { background: #fff !important; color: #111 !important; }
   .h2 { font-size: 30pt; }
-  .all-results { border: 0; padding: 0; }
-  .all-results:not([open]) > *:not(summary) { display: block !important; }
-  .all-results .sheet { margin-top: 0; }
+  /* every race card, whatever the filter on screen, three to a row and tight */
+  .marks-after { margin-top: 10pt; }
+  .pv-head .h3 { font-size: 22pt; }
+  .pv-sub { margin-top: 4pt; font-size: 9.5pt; }
+  .pv-kick { margin-bottom: 6pt; }
+  .pv-scroller { overflow: visible !important; margin: 10pt 0 0 !important; -webkit-mask-image: none !important; mask-image: none !important; }
+  .pv-track { width: auto !important; padding: 0 !important; grid-auto-flow: row; grid-template-rows: none; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8pt; }
+  .pv-card { grid-area: auto / auto / span 6 / auto !important; visibility: visible !important; padding: 9pt 10pt; border-radius: 10pt; background: #fff !important; border-color: rgba(0,0,0,.2) !important; }
+  .pv-hd { margin-top: 6pt; }
+  .pv-name { font-size: 12.5pt; }
+  .pv-where { margin-top: 3pt; font-size: 8.5pt; }
+  .pv-time { margin-top: 8pt; font-size: 26pt; }
+  .pv-key { margin-top: 6pt; }
+  .pv-key b { font-size: 10.5pt; }
+  .pv-legs, .pv-note { margin-top: 8pt; }
+  .pv-note { padding-top: 6pt; font-size: 9.5pt; }
+  .pv-dl { margin-top: 6pt; }
+  .pv-dl dd { font-size: 9.5pt; }
+  .pv-field { padding-top: 8pt; }
+  .pv-overall { padding-top: 6pt; }
+  .pv-overall b { font-size: 10pt; }
   .rv { opacity: 1 !important; transform: none !important; }
   .contact { min-height: 0; grid-template-columns: 1fr; }
   .contact-copy { padding: 0; }
@@ -1083,10 +1260,20 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .dlg-body { padding-top: 16px; }
   .cl-pane { gap: 18px; }
 }
-/* wide enough for two fields side by side: «Marca» and «O teu nome» share a row, so «Enviar pedido» shows without a scroll */
+/* wide enough for two things side by side: the summary and «Pagar por» share the first row, «Marca» and «O teu nome» the
+   next, so «Enviar pedido» shows without a scroll */
 @media (max-height: 500px) and (min-width: 600px) {
+  #cl-s1 { grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  #cl-s1 > * { grid-column: 1 / -1; }
+  #cl-s1 > .cl-sum { grid-column: 1; align-self: end; }
+  #cl-s1 > .cl-pay { grid-column: 2; align-self: start; gap: 4px; }
   .cl-fields { grid-template-columns: 1fr 1fr; column-gap: 12px; align-items: start; }
   .cl-add, .cl-extra { grid-column: 1 / -1; }
+}
+/* a full-width sheet (600-760 px): «Pagar por» fits on the line of its pills, level with the summary */
+@media (max-height: 500px) and (min-width: 600px) and (max-width: 760px) {
+  #cl-s1 > .cl-pay { grid-template-columns: auto 1fr; align-items: center; column-gap: 10px; }
+  .cl-pay .cl-hint { grid-column: 1 / -1; }
 }
 /* ... and on a wide one, one readable column down the middle, the full height of the screen (the notch stays outside it) */
 @media (max-height: 500px) and (min-width: 761px) {
@@ -1120,6 +1307,8 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .spot-card.open { transform: translateY(var(--drag, 0px)); visibility: visible; transition: transform .55s var(--ease); }
   .spot-card.dragging { transition: none; }
   .spot-card::before { content: ""; position: absolute; top: 9px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 4px; background: var(--line-2); }
+  /* the drag-to-close strip over the bar: no touch-action, or iOS takes the drag for scrolling and cancels it */
+  .sheet-grip { display: block; position: absolute; top: 0; left: 0; right: 0; height: 32px; touch-action: none; }
   .spot-slot > .empty-card { display: none; }
   .sheet-x { display: grid; place-items: center; position: absolute; top: 12px; right: 12px; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 18px; line-height: 1; }
   .spot-card .top { padding-right: 42px; }
@@ -1127,10 +1316,12 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .spot-card .price small .t2::before { content: none; }
   .spot-actions .btn { flex: 1 1 auto; }
   body.sheet-open .package { transform: translate(-50%, 140%); visibility: hidden; }
-  /* full-screen menu */
+  /* full-screen menu: opaque, or a paper section's text shows through the 97% panel */
   .nav.open { background: var(--bg); }
-  .nav.open ul { inset: var(--nav-h) 0 0 0 !important; height: calc(100svh - var(--nav-h)); padding: 28px var(--gutter) calc(40px + env(safe-area-inset-bottom)) !important; justify-content: flex-start; gap: 0 !important; border: 0 !important; }
-  .nav.open ul a { font: 400 clamp(40px, 12vw, 56px)/1.06 var(--display) !important; font-style: italic !important; text-transform: uppercase; letter-spacing: .01em; padding: 10px 0 !important; border-bottom: 0 !important; opacity: 0; transform: translateY(18px); animation: menuIn .6s var(--ease) forwards; }
+  .nav.open ul { inset: var(--nav-h) 0 0 0 !important; height: calc(100dvh - var(--nav-h)); background: var(--bg); padding: 28px var(--gutter) calc(40px + env(safe-area-inset-bottom)) !important; justify-content: flex-start; gap: 0 !important; border: 0 !important; }
+  /* seven links of 1.06em + 20px under the 64px bar, 68px of padding and the home bar: on a short screen (an iPhone SE
+     shows 548px) the type shrinks with the height so all seven fit, never under 32px; shorter still, the list scrolls */
+  .nav.open ul a { font: 400 clamp(40px, 12vw, 56px)/1.06 var(--display) !important; font-size: clamp(32px, min(12vw, (100dvh - 272px - env(safe-area-inset-bottom, 0px)) / 7.6), 56px) !important; font-style: italic !important; text-transform: uppercase; letter-spacing: .01em; padding: 10px 0 !important; border-bottom: 0 !important; opacity: 0; transform: translateY(18px); animation: menuIn .6s var(--ease) forwards; }
   .nav.open ul li:nth-child(2) a { animation-delay: .04s; } .nav.open ul li:nth-child(3) a { animation-delay: .08s; } .nav.open ul li:nth-child(4) a { animation-delay: .12s; }
   .nav.open ul li:nth-child(5) a { animation-delay: .16s; } .nav.open ul li:nth-child(6) a { animation-delay: .2s; } .nav.open ul li:nth-child(7) a { animation-delay: .24s; }
   .nav.open ul li:nth-child(5) a { color: var(--gold) !important; }
@@ -1171,3 +1362,53 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .give-iban { font-size: 12.5px; padding: 10px 10px 10px 12px; gap: 8px; }
 }
 @keyframes menuIn { to { opacity: 1; transform: none; } }
+
+/* ---------- cookie banner (analytics.js) ---------- */
+/* Only while SITE.ga is set. It floats over the page and never pushes it: a compact bar on a computer, a bottom sheet
+   on a phone. «Recusar» and «Aceitar» are the same button. The booking dialog sits in the top layer, above it. */
+.consent { position: fixed; z-index: 55; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); width: min(900px, calc(100% - 32px)); transform: translate(-50%, calc(100% + 40px)); visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
+.consent.on { transform: translate(-50%, 0); visibility: visible; transition: transform .5s var(--ease); }
+.consent-in { display: flex; align-items: center; gap: 16px 28px; padding: 16px 16px 16px 22px; border: 1px solid var(--line-2); border-radius: 18px; background: var(--bg-2); color: var(--ink); box-shadow: 0 20px 60px rgba(0,0,0,.55); }
+.consent-txt { flex: 1 1 auto; min-width: 0; }
+.consent-h { margin: 0 0 6px; font: 500 11px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.consent-p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.consent-p a { color: var(--ink); white-space: nowrap; display: inline-block; padding: 14px 0; margin: -14px 0; }
+.consent-note { margin: 8px 0 0; font-size: 13px; line-height: 1.45; color: var(--ink); }
+.consent-acts { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.consent-acts .btn { min-width: 128px; }
+/* reopened from the footer: the choice that is on carries a tick */
+.consent-acts .btn[aria-pressed="true"]::before { content: "✓"; content: "✓" / ""; }
+:root.consent-on footer { padding-bottom: calc(max(var(--consent-h, 120px) + 32px, 136px) + env(safe-area-inset-bottom)); }
+body.menu-open .consent { visibility: hidden; }
+/* with the package bar on, the banner sits above it (bar 65 px + 16 px off the bottom, then a 12 px gap), so «Reservar»
+   and «Limpar» stay in reach; the footer leaves room for both */
+body.pk-on .consent { bottom: calc(93px + env(safe-area-inset-bottom)); }
+:root.consent-on body.pk-on footer { padding-bottom: calc(var(--consent-h, 120px) + 132px + env(safe-area-inset-bottom)); }
+footer .ft-link { display: inline-block; padding: 12px 0; margin: -12px 0; border: 0; background: none; color: var(--muted); font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
+footer .ft-link:hover { color: var(--ink); }
+footer a[href="privacidade/"] { display: inline-block; padding: 14px 0; margin: -14px 0; }
+@media (max-width: 760px) {
+  .consent { left: 0; right: 0; bottom: 0; width: auto; transform: translateY(calc(100% + 8px)); }
+  .consent.on { transform: none; }
+  .consent-in { flex-direction: column; align-items: stretch; gap: 14px; padding: 18px var(--gutter) calc(16px + env(safe-area-inset-bottom)); border-width: 1px 0 0; border-radius: 20px 20px 0 0; box-shadow: 0 -10px 60px rgba(0,0,0,.6); }
+  .consent-acts .btn { min-width: 0; min-height: 50px; }
+  /* a spot's bottom sheet goes over it, like over the package bar; above the package bar it is a card, not a sheet */
+  body.sheet-open .consent { visibility: hidden; }
+  body.pk-on .consent { left: 12px; right: 12px; }
+  body.pk-on .consent-in { border-width: 1px; border-radius: 18px; padding-bottom: 16px; }
+}
+/* the phone bar is taller (100 px with its offset) */
+@media (max-width: 560px) { body.pk-on .consent { bottom: calc(112px + env(safe-area-inset-bottom)); } }
+/* a phone held sideways: text and buttons on one row, the label run into the text, so the banner takes under a third
+   of the screen */
+@media (max-width: 760px) and (max-height: 480px) {
+  .consent-in { flex-direction: row; align-items: center; gap: 16px; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+  .consent-h, .consent-p { display: inline; }
+  .consent-h { margin: 0 8px 0 0; }
+  /* inline text takes its line height from the block around it */
+  .consent-txt { font-size: 13px; line-height: 1.45; }
+  .consent-p { font-size: inherit; line-height: inherit; }
+  .consent-acts .btn { min-width: 104px; min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .consent, .consent.on { transition: none; } }
+@media print { .consent { display: none !important; } }

@@ -5,6 +5,7 @@
 // is in the authorize URL) sits in sessionStorage (this tab only), with a one-time state value for the trip to Strava
 // and back; the id stays until «Limpar» or «Acabei», so a reload can start again at step 2. The client secret and the
 // tokens live in memory only. «Limpar» wipes all of it.
+import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
 const STRAVA = 'https://www.strava.com';
 const REDIRECT = 'https://gocarmo.com/admin/strava/';

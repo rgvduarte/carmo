@@ -1,0 +1,180 @@
+name: Deploy pedidos
+
+# Publishes worker/ (the booking-request Worker) to Cloudflare, on its workers.dev address. Runs on a push to gh-pages
+# that touches worker/ or this file, and by hand: Actions > Deploy pedidos > Run workflow. The secrets are listed in
+# worker/README.md. The KV namespace «gocarmo-pedidos» is found (or created the first time) and its id goes into
+# worker/wrangler.toml for this run only. The run ends with the Worker's address in the job summary: it goes into
+# SITE.requestsApi in assets/js/data.js.
+on:
+  push:
+    branches: [gh-pages]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-pedidos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-pedidos
+  cancel-in-progress: false
+
+env:
+  WRANGLER_VERSION: '4.146.0'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # A value pasted into GitHub with a line break or a space is refused by wrangler ("Invalid account ID"):
+      # every later step uses these trimmed copies, masked in the logs like the secrets themselves.
+      - name: Trim the Cloudflare values
+        env:
+          RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RAW_SPOTS: ${{ secrets.SPOTS_GITHUB_TOKEN }}
+          RAW_ADMIN: ${{ secrets.ADMIN_KEY }}
+        run: |
+          token="$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')"
+          account="$(printf '%s' "$RAW_ACCOUNT" | tr -d '[:space:]')"
+          [ -n "$token" ] && echo "::add-mask::$token"
+          [ -n "$account" ] && echo "::add-mask::$account"
+          { echo "CF_API_TOKEN=$token"; echo "CF_ACCOUNT_ID=$account"; } >> "$GITHUB_ENV"
+          # the Worker's own secrets: only line breaks and spaces at the ends go (a key may hold inner spaces)
+          spots="$(printf '%s' "$RAW_SPOTS" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr -d '\r\n')"
+          admin="$(printf '%s' "$RAW_ADMIN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr -d '\r\n')"
+          [ -n "$spots" ] && echo "::add-mask::$spots"
+          [ -n "$admin" ] && echo "::add-mask::$admin"
+          { echo "W_SPOTS_GITHUB_TOKEN=$spots"; echo "W_ADMIN_KEY=$admin"; } >> "$GITHUB_ENV"
+
+      - name: Check the secrets
+        id: prep
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+          SPOTS_GITHUB_TOKEN: ${{ env.W_SPOTS_GITHUB_TOKEN }}
+          ADMIN_KEY: ${{ env.W_ADMIN_KEY }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+        run: |
+          missing=""
+          for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SPOTS_GITHUB_TOKEN ADMIN_KEY; do
+            [ -n "${!k}" ] || missing="$missing $k"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Faltam secrets::Faltam no GitHub (Settings > Secrets and variables > Actions):$missing. Ver worker/README.md."
+            exit 1
+          fi
+          if [ "${#ADMIN_KEY}" -lt 16 ]; then
+            echo "::error title=ADMIN_KEY curta::A ADMIN_KEY tem de ter pelo menos 16 caracteres. Gera uma com: openssl rand -hex 24"
+            exit 1
+          fi
+          # the secrets the Worker gets; TURNSTILE_SECRET only when it exists
+          {
+            echo "secrets<<END_OF_LIST"
+            echo "SPOTS_GITHUB_TOKEN"
+            echo "ADMIN_KEY"
+            if [ -n "$TURNSTILE_SECRET" ]; then echo "TURNSTILE_SECRET"; fi
+            echo "END_OF_LIST"
+            if [ -n "$TURNSTILE_SECRET" ]; then echo "turnstile=on"; else echo "turnstile=off"; fi
+          } >> "$GITHUB_OUTPUT"
+
+      # workers.dev needs a subdomain on the account, chosen once in the dashboard
+      - name: Find the workers.dev subdomain
+        id: sub
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+        run: |
+          body="$(curl -sS --max-time 20 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)"
+          sub="$(printf '%s' "$body" | jq -r '.result.subdomain // empty' 2>/dev/null || true)"
+          codes="$(printf '%s' "$body" | jq -r '[.errors[]?.code] | map(tostring) | join(",")' 2>/dev/null || true)"
+          if [ -z "$sub" ] && { [ "$(printf '%s' "$body" | jq -r '.success' 2>/dev/null)" = "true" ] || [[ ",$codes," == *",10007,"* ]]; }; then
+            # none yet: register one (the first free name of the list), so the first deploy needs no visit to the dashboard
+            for name in gocarmo gocarmo-site gocarmo-com; do
+              res="$(curl -sS --max-time 20 -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' \
+                --data "{\"subdomain\":\"$name\"}" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)"
+              sub="$(printf '%s' "$res" | jq -r 'select(.success == true) | .result.subdomain // empty' 2>/dev/null || true)"
+              [ -n "$sub" ] && { echo "::notice::Subdomínio workers.dev criado: $sub"; break; }
+            done
+          fi
+          if [ -z "$sub" ] && { [ "$(printf '%s' "$body" | jq -r '.success' 2>/dev/null)" = "true" ] || [[ ",$codes," == *",10007,"* ]]; }; then
+            echo "::error title=Falta o subdomínio workers.dev::A conta do Cloudflare ainda não tem subdomínio workers.dev e não o consegui criar. Abre uma vez https://dash.cloudflare.com/?to=/:account/workers-and-pages (Workers & Pages), escolhe o subdomínio quando o Cloudflare o pedir e volta a correr esta action (Actions > Deploy pedidos > Run workflow)."
+            exit 1
+          fi
+          if [ -z "$sub" ]; then
+            echo "::warning::Não consegui ler o subdomínio workers.dev (erros: ${codes:-sem resposta}). Sigo com o deploy; o endereço sai dele."
+          fi
+          echo "subdomain=$sub" >> "$GITHUB_OUTPUT"
+
+      - name: Install wrangler and find the KV namespace
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          npm install --no-save --no-audit --no-fund --loglevel=error "wrangler@$WRANGLER_VERSION"
+          node kv-namespace.mjs
+
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        env:
+          SPOTS_GITHUB_TOKEN: ${{ env.W_SPOTS_GITHUB_TOKEN }}
+          ADMIN_KEY: ${{ env.W_ADMIN_KEY }}
+          TURNSTILE_SECRET: ${{ secrets.TURNSTILE_SECRET }}
+          WRANGLER_SEND_METRICS: 'false'
+        with:
+          apiToken: ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: worker
+          secrets: ${{ steps.prep.outputs.secrets }}
+          command: deploy
+
+      # Turnstile off: a secret left from an earlier run would make the Worker refuse every request
+      - name: Turn Turnstile off
+        if: steps.prep.outputs.turnstile == 'off'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          if npx --no-install wrangler secret list 2>/dev/null | grep -q '"TURNSTILE_SECRET"'; then
+            echo '{"TURNSTILE_SECRET": null}' | npx --no-install wrangler secret bulk
+          fi
+
+      - name: The Worker's address
+        env:
+          DEPLOYED: ${{ steps.deploy.outputs.deployment-url }}
+          SUB: ${{ steps.sub.outputs.subdomain }}
+        run: |
+          url="${DEPLOYED%/}"
+          if [ -z "$url" ] && [ -n "$SUB" ]; then url="https://gocarmo-pedidos.$SUB.workers.dev"; fi
+          if [ -z "$url" ]; then
+            echo "::warning::O Cloudflare não devolveu o endereço. Vê-o em Workers & Pages > gocarmo-pedidos."
+            echo "## Pedidos publicados (sem endereço: vê-o em Workers & Pages > gocarmo-pedidos)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          state=""
+          for i in 1 2 3 4 5 6; do
+            state="$(curl -fsS --max-time 10 "$url/estado" || true)"
+            [ -n "$state" ] && break
+            sleep 5
+          done
+          echo "::notice title=Endereço dos pedidos::$url"
+          {
+            echo "## Pedidos publicados"
+            echo
+            echo "Endereço: \`$url\`"
+            echo
+            echo "Para ligar no site: em \`assets/js/data.js\` põe \`requestsApi: '$url'\`, corre \`node scripts/stamp.mjs\` e publica."
+            echo
+            echo "Estado: \`${state:-ainda sem resposta (um subdomínio novo pode levar alguns minutos)}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
