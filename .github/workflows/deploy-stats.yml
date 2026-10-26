@@ -1,8 +1,8 @@
 name: Deploy stats
 
 # Publishes stats-worker/ (gocarmo-api: the site's own visit counting, without cookies) to Cloudflare, on its
-# workers.dev address. Runs on a push to gh-pages that touches stats-worker/ or this file, and by hand: Actions >
-# Deploy stats > Run workflow. The secrets are listed in stats-worker/README.md. If the account has no workers.dev
+# workers.dev address. Runs on a push to gh-pages that touches stats-worker/, and by hand: Actions > Deploy stats >
+# Run workflow. The secrets are listed in stats-worker/README.md. If the account has no workers.dev
 # subdomain yet, this workflow creates one. It sets ADMIN_KEY (from GitHub) and, the first time only, a SALT_SECRET it
 # makes itself (never stored in GitHub). The run ends with the Worker's address in the job summary: it goes into
 # SITE.stats.url in assets/js/data.js.
@@ -11,7 +11,6 @@ on:
     branches: [gh-pages]
     paths:
       - 'stats-worker/**'
-      - '.github/workflows/deploy-stats.yml'
   workflow_dispatch:
 
 permissions:
@@ -35,11 +34,30 @@ jobs:
         with:
           node-version: '22'
 
+      # A value pasted into GitHub with a line break or a space is refused by wrangler ("Invalid account ID"):
+      # every later step uses these trimmed copies, masked in the logs like the secrets themselves (as in
+      # deploy-pedidos.yml; ADMIN_KEY is the same secret the Pedidos Worker gets).
+      - name: Trim the Cloudflare values
+        env:
+          RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RAW_ADMIN: ${{ secrets.ADMIN_KEY }}
+        run: |
+          token="$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')"
+          account="$(printf '%s' "$RAW_ACCOUNT" | tr -d '[:space:]')"
+          [ -n "$token" ] && echo "::add-mask::$token"
+          [ -n "$account" ] && echo "::add-mask::$account"
+          { echo "CF_API_TOKEN=$token"; echo "CF_ACCOUNT_ID=$account"; } >> "$GITHUB_ENV"
+          # the Worker's own secret: only line breaks and spaces at the ends go (a key may hold inner spaces)
+          admin="$(printf '%s' "$RAW_ADMIN" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr -d '\r\n')"
+          [ -n "$admin" ] && echo "::add-mask::$admin"
+          echo "W_ADMIN_KEY=$admin" >> "$GITHUB_ENV"
+
       - name: Check the secrets
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
+          ADMIN_KEY: ${{ env.W_ADMIN_KEY }}
         run: |
           missing=""
           for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID ADMIN_KEY; do
@@ -68,8 +86,8 @@ jobs:
       - name: Find or create the workers.dev subdomain
         id: sub
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
         run: |
           api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain"
           get() { curl -sS --max-time 20 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" || true; }
@@ -114,11 +132,11 @@ jobs:
         id: deploy
         uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
         env:
-          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          ADMIN_KEY: ${{ env.W_ADMIN_KEY }}
           WRANGLER_SEND_METRICS: 'false'
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ env.CF_API_TOKEN }}
+          accountId: ${{ env.CF_ACCOUNT_ID }}
           wranglerVersion: ${{ env.WRANGLER_VERSION }}
           workingDirectory: stats-worker
           secrets: |
@@ -131,8 +149,8 @@ jobs:
       - name: Make sure SALT_SECRET exists
         working-directory: stats-worker
         env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ env.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ env.CF_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: 'false'
         run: |
           if ! list="$(npx --no-install wrangler secret list 2>/dev/null)"; then

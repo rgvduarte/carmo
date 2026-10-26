@@ -49,25 +49,27 @@ Conta as visitas do gocarmo.com com uma ferramenta nossa, sem cookies e sem sabe
 
 ## Publicar
 
-Cada push para `gh-pages` que mude `stats-worker/` publica o Worker sozinho. À mão: **Actions > Deploy stats > Run
+Cada push para `gh-pages` que mude `stats-worker/` publica o Worker sozinho (mudar só a action não publica). À mão: **Actions > Deploy stats > Run
 workflow**. A action:
 
-1. confirma os secrets;
-2. cria o subdomínio workers.dev da conta se ainda não existir (`gocarmo`, ou `gocarmo-site` se esse estiver ocupado);
+1. limpa os espaços e quebras de linha que vierem colados nos secrets (como a dos Pedidos) e confirma-os;
+2. lê o subdomínio workers.dev da conta (hoje é `rgvduarte`) ou cria um se ainda não existir (`gocarmo`, ou
+   `gocarmo-site` se esse estiver ocupado);
 3. corre os testes (`npm test`) e só publica se passarem;
 4. publica e cria o `SALT_SECRET` se faltar;
 5. espera que o Worker responda e mostra no resumo da action o endereço, por exemplo
-   `https://gocarmo-api.gocarmo.workers.dev`, e o estado (`/health`).
+   `https://gocarmo-api.rgvduarte.workers.dev`, e o estado (`/health`).
 
 ## Ligar no site
 
 Em `assets/js/data.js`, em `SITE.stats`, põe o endereço do resumo da action:
 
 ```js
-stats: { url: 'https://gocarmo-api.gocarmo.workers.dev', mode: 'exempt', campaigns: [] },
+stats: { url: 'https://gocarmo-api.rgvduarte.workers.dev', mode: 'exempt', campaigns: [] },
 ```
 
-Depois corre `node scripts/stamp.mjs` (deixa a página `/admin/analytics/` falar com esse endereço) e publica. Com
+Depois corre `node scripts/stamp.mjs` (deixa as páginas `/admin/` e `/admin/analytics/` falarem com esse endereço) e
+publica. Com
 `url: ''` o site não mede nada.
 
 - `mode: 'exempt'`: conta sem perguntar, dentro das regras acima (sem cookies, só totais).
