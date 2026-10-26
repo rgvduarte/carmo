@@ -185,7 +185,7 @@ export function resumo(p, d, ctx) {
     yes: ['Percebem o patrocínio', 'responderam «Sim» à pergunta', true], missed: ['Toques no 3D que falham', 'dos toques no modelo não abrem um espaço', false],
     pinch: ['Tentam zoom com dois dedos', 'de quem mexeu no 3D', false], untouched: ['Veem o 3D e não lhe tocam', 'de quem viu o estúdio', false],
     dead: ['Cliques sem resposta', 'das visualizações têm um', false], rage: ['Cliques repetidos', 'das visualizações têm um', false],
-    brand: ['Pedidos travados pela marca', 'dos pedidos abertos', false], cta: ['Botão menos carregado', '', true],
+    brand: ['Pedidos travados pela marca ou pelo logótipo', 'dos pedidos abertos', false], cta: ['Botão menos carregado', '', true],
   };
   const tiles = H('div', 'ga-kpis cols4', null, sc);
   for (const x of o.d8 || []) {
@@ -463,7 +463,7 @@ export function reservas(p, d) {
   const small = card('Erros e regressos', null, chip);
   span(small, 4);
   kpiRow(small, [
-    statTile({ label: 'Erros no pedido', value: fmt.pct(rate(br.errors, br.opens)), sub: `${fmt.n(br.errors)} de ${fmt.n(br.opens)} pedidos abertos tentaram enviar sem a marca`, prevName: null,
+    statTile({ label: 'Erros no pedido', value: fmt.pct(rate(br.errors, br.opens)), sub: `${fmt.n(br.errors)} de ${fmt.n(br.opens)} pedidos abertos tentaram enviar sem a marca ou sem o logótipo`, prevName: null,
       status: d8Status('brand', rate(br.errors, br.opens)) }),
   ], 'cols3');
   H('h4', 'ga-fine', 'Voltaram da app', small);

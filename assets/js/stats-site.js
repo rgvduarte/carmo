@@ -261,6 +261,9 @@ export function init(api) {
     ['#cl-add', () => ev('claim_extra')],
     ['#cl-wa, #cl-mail, #cl-ig, #cl-sent', (el, e) => later(() => {
       if (el.id !== 'cl-sent' && $('#cl-brand[aria-invalid="true"]')) { ev('claim_error', { field: 'cl-brand', kind: 'empty' }); mark('brand'); return; }
+      // with the booking Worker on, a logo is needed before the request can go
+      if (el.id !== 'cl-sent' && $('#cl-logo[aria-invalid="true"]')) { ev('claim_error', { field: 'cl-logo', kind: 'empty' }); mark('logo'); return; }
+      // held back while the request goes to the booking Worker first: counted at its 'gc:lead' below
       if (e.defaultPrevented) return;
       sent = 1;
       ev('claim_send', { ch: { 'cl-wa': 'whatsapp', 'cl-mail': 'email', 'cl-ig': 'instagram', 'cl-sent': 'manual' }[el.id] });
@@ -372,6 +375,8 @@ export function init(api) {
     new MutationObserver(claimSeen).observe(dlg, { attributes: true, attributeFilter: ['open', 'data-step'] });
     on('cancel', () => { clHow = 'esc'; }, dlg);
     on('close', () => { ev('claim_close', { step: +dlg.dataset.step || 1, how: clHow || undefined }); clOpen = false; clHow = null; clStep = 0; }, dlg);
+    // the booking Worker held the request (adspace.js): that is the send, whatever happens to its message after
+    on('gc:lead', (e) => { const ch = e.detail && e.detail.method; if (!/^(whatsapp|email|instagram)$/.test(ch)) return; sent = 1; ev('claim_send', { ch }); A.flush(); });
   }
   const toast = $('#toast');
   if (toast) new MutationObserver(() => {

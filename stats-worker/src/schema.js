@@ -150,7 +150,7 @@ export const EVENTS = {
   claim_step: { p: { step: step12 }, cap: 10 },
   claim_items: { p: {}, cap: 5 },
   claim_extra: { p: {}, cap: 5 },
-  claim_error: { p: { field: oneOf('cl-brand'), kind: oneOf('empty') }, cap: 10 },
+  claim_error: { p: { field: oneOf('cl-brand', 'cl-logo'), kind: oneOf('empty') }, cap: 10 },
   claim_send: { p: { ch: oneOf('whatsapp', 'email', 'instagram', 'manual') }, cap: 10 },
   pay_tab: { p: { tab: oneOf('mb', 'tr'), auto: bool }, cap: 10 },
   pay_copy: { p: { what: oneOf('iban', 'mb', 'amt', 'ref', 'email') }, cap: 20 },
@@ -182,4 +182,4 @@ export const FEEDBACK = {
 };
 export const FEEDBACK_F = { patrocinio: 100, patrocinio_porque: 101 };   // bx flush number of an answer
 
-export const CLICK_ERRORS = new Set(['js', 'bad', 'big', 'sold', 'helmet', 'brand']);
+export const CLICK_ERRORS = new Set(['js', 'bad', 'big', 'sold', 'helmet', 'brand', 'logo']);
