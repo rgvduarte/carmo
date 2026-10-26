@@ -82,8 +82,9 @@ de uma mensagem que chega sem `Pedido:`:
    **Feito** fecha o pedido e esvazia o pacote. O email abre a app de email do aparelho com a mesma mensagem; se a
    marca escrever uma mensagem muito longa, o email leva só o início (há apps que não abrem links de email enormes)
    e o pedido avisa-a de que pelo WhatsApp vai inteira.
-2. Confirmas em 24 horas. Se a marca precisar de tempo, marcas o espaço como **Reservado**: fica guardado
-   três dias e depois volta a ficar disponível sozinho, sem teres de fazer nada.
+2. Confirmas em 24 horas. Para guardar os espaços enquanto esperas pelo comprovativo, cola a mensagem em **Colar
+   pedido ou referência** e usa **Reservar 48 h**, as 48 horas que o site promete. Depois desse dia o espaço volta
+   a ficar disponível sozinho, sem teres de fazer nada.
 3. Quando o pagamento entra, marcas como **Vendido**. O espaço fecha para toda a gente, sai do pacote
    e do tour, mostra «Vendido · Marca» na tabela, a marca entra na lista de marcas («Já no fato», «Já no capacete»
    ou os dois) e, se enviares o logótipo, ele aparece no fato ou no capacete 3D.

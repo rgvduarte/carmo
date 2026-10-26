@@ -194,7 +194,7 @@ const EN = {
   "sp.h1": "Pick",
   "sp.p1": "One spot or several, on the suit and the helmet. Three or more get 10%\u00a0off.",
   "sp.h2": "Book",
-  "sp.p2": "Send the request by WhatsApp, email or Instagram. I confirm within 24 hours and hold the spot for three\u00a0days.",
+  "sp.p2": "Send the request with your logo. The spot is held for 48 hours while I wait for the proof of\u00a0payment.",
   "sp.h3": "Payment",
   "sp.p3": "Bank transfer, or MB WAY up to €2,000, with the spot numbers as the reference. You get a donation\u00a0receipt.",
   "sp.h4": "It's yours",
