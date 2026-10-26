@@ -95,7 +95,7 @@ export function applyAction(raw, ids, action, f, { today, brandFiles = [], logoE
     const target = targetOf(data, id);
     if (!target) throw new RuleError(`O espaço "${id}" não existe em data/spots.json.`);
     const prevBrand = target.brand;
-    for (const k of ['brand', 'url', 'until']) delete target[k];
+    for (const k of ['brand', 'url', 'until', 'request']) delete target[k];   // request: a hold placed by the site
     target.status = action;
     // a logo belongs to the brand that bought the spot: it goes when the spot is freed, held or changes hands
     if (action !== 'sold' || f.brand !== prevBrand) { delete target.logo; delete target.logoMono; filesOf(id).forEach((p) => deletes.add(p)); }
@@ -263,6 +263,184 @@ export function totals(data, ids) {
   const gross = list.reduce((a, s) => a + s.price, 0);
   const disc = data.bundle && list.length >= data.bundle.min ? data.bundle.discount : 0;
   return { gross, net: Math.round(gross * (1 - disc)), disc };
+}
+
+// ---------- a pasted request: the site's message (WhatsApp, email, Instagram) or its gocarmo.com link ----------
+// adspace.js message() writes, in PT or EN (i18n.js msg.*):
+//   Olá Gonçalo, gostava de patrocinar o teu capacete na época 2027.
+//
+//   Espaços:                                     or   Fato completo (Title partner): 3 000 €
+//   • 21 Topo do capacete (6×13 cm) · 400 €           (the email may leave the sizes out)
+//   Total: 540 € (600 € −10%)
+//   Marca: … / Nome: … / NIF: …
+//   Referência: KONA 21 22
+//   Pagamento: transferência ou MB WAY                («MB WAY», «transferência bancária»; EN «Payment: …»)
+//
+//   the buyer's own message, then the link: https://gocarmo.com/#pacote=capacete-topo,… or …/#fato/title
+// The link names the spots by id, so it wins over the list (unless it was cut short); the list is read by name, then by
+// number; the KONA line comes last. A text with none of this is a bare payment reference: parseRef, as before.
+// parsePaste() returns { kind: 'ref' | 'link' | 'request', ids, from, unknown, notes, brand, name, nif, nifOk, pay, ref,
+// stated, lang, request }; for kind 'ref', parseRef's { ids, unknown, note }.
+const LINE = {
+  brand: /^(?:marca|brand)\s*:\s*(.*)$/i,
+  name: /^(?:nome|name)\s*:\s*(.*)$/i,
+  nif: /^(?:nif|nipc|vat(?:\s*(?:number|no\.?))?)\s*:\s*(.*)$/i,
+  ref: /^(?:refer[eê]ncia|reference)\s*:\s*(.*)$/i,
+  pay: /^(?:pagamento|payment)\s*:\s*(.*)$/i,
+  total: /^total\s*:\s*(.*)$/i,
+  title: /^(?:fato completo|whole suit)\b[^:]*:\s*(.*)$/i,
+  request: /^(?:pedido|request)\s*:\s*([0-9a-z]{10})\s*$/i,   // the Worker's id (worker/requests.js), once the site sends it
+  hi: /^(?:ol[aá]|hi|hello)\s+gon[cç]alo\b/i,
+  spots: /^(?:espa[cç]os|spots)\s*:\s*$/i,
+  bullet: /^[•·*\-–]\s*(\d{1,2})\s+(.+)$/,
+};
+const PT_KEYS = /^(?:ola|espacos|marca|nome|referencia|pagamento|fato)\b/;   // on fold()ed text
+// a copied WhatsApp chat starts each message with '[14:05, 23/10/2026] Nome: ' (or '23/10/26, 14:05 - Nome: ' in an
+// exported one); a reply by email quotes with '> '
+const QUOTE = /^(?:\s*>)+\s?/, WA_COPY = /^\[[^\]\n]{4,40}\]\s*[^:\n]{1,60}:\s+/, WA_EXPORT = /^\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(?:\s*[ap]\.?\s?m\.?)?\s+-\s+[^:\n]{1,60}:\s+/i;
+const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+// '1 080 €', '€1,080', '600,00 €', '1.080,00 €' -> the first whole amount in euros, or null
+export function parseMoney(s) {
+  const m = String(s || '').match(/\d{1,3}(?:[\s.,]\d{3})+(?!\d)|\d+/);
+  return m ? Number(m[0].replace(/\D/g, '')) : null;
+}
+// a Portuguese NIF (nine digits, the last one a check digit): true or false; null for anything else (a foreign VAT
+// number is only shown)
+export function nifOk(nif) {
+  const d = String(nif || '').replace(/^PT/i, '').replace(/[\s.-]/g, '');
+  if (!/^\d{9}$/.test(d)) return null;
+  const sum = [...d.slice(0, 8)].reduce((a, c, i) => a + Number(c) * (9 - i), 0);
+  const check = 11 - (sum % 11);
+  return (check >= 10 ? 0 : check) === Number(d[8]);
+}
+// how the buyer will pay: 'mb' (MB WAY), 'tr' (bank transfer), 'either' (the site offered both), '' (not said)
+export function payOf(text) {
+  const t = fold(text), mb = /\bmb ?way\b/.test(t), tr = /transfer|bank|banc/.test(t);
+  return mb && tr ? 'either' : mb ? 'mb' : tr ? 'tr' : '';
+}
+export const PAY_LABEL = { mb: 'MB WAY', tr: 'Transferência', either: 'Transferência ou MB WAY' };
+// the payment reference the site shows for these targets (adspace.js payRef)
+export const refOf = (data, ids) => (ids[0] === TITLE ? 'KONA FATO' : `KONA ${sortTargets(data, ids).map((id) => pad2(targetOf(data, id).n)).join(' ')}`);
+
+// one line of the list: by its name first (the numbers could have moved), else by its number
+function spotOfLine(data, n, label) {
+  const want = fold(label);
+  const names = (s) => [s.pt?.name, s.en?.name, s.pt?.short, s.en?.short].filter(Boolean).map(fold);
+  const byName = want ? data.spots.find((s) => names(s).includes(want)) : null;
+  if (byName) return { spot: byName, note: byName.n !== n ? `O pedido diz «${pad2(n)} ${label}»: esse espaço agora é o ${pad2(byName.n)}.` : '' };
+  const byN = data.spots.find((s) => s.n === n);
+  return { spot: byN || null, note: byN && want ? `O pedido diz «${pad2(n)} ${label}»; o ${pad2(n)} agora é ${byN.pt.name}.` : '' };
+}
+
+export function parsePaste(text, data) {
+  const src = String(text || '');
+  const lines = src.split(/\r?\n/).map((l) => l.replace(QUOTE, '').replace(WA_COPY, '').replace(WA_EXPORT, '').trim());
+  const out = { kind: 'request', ids: [], from: '', unknown: [], notes: [], brand: '', name: '', nif: '', nifOk: null, pay: '', ref: '', stated: null, lang: '', request: '' };
+  const linkTitle = /#fato\/title(?![\w-])/i.test(src);
+  const pk = src.match(/#pacote=([A-Za-z0-9%,_-]+)/i);
+  const one = pk || linkTitle ? null : src.match(/gocarmo\.com\/?#(?:fato|capacete)\/([a-z0-9-]+)/i);
+  let linkIds = null;
+  if (pk || one) {
+    let raw = pk ? pk[1] : one[1];
+    try { raw = decodeURIComponent(raw); } catch (_) {}
+    linkIds = [...new Set(raw.split(',').map((x) => x.trim().toLowerCase()).filter(Boolean))];
+  }
+  const listed = [], seen = new Set();
+  let titleLine = null, looks = false, inList = false;
+  const lang = (l) => { if (!out.lang) out.lang = PT_KEYS.test(fold(l)) ? 'pt' : 'en'; };
+  // the site's list always comes under «Espaços:»; without that line (a part of the text), any line with its bullet
+  const header = lines.some((l) => LINE.spots.test(l));
+  for (const l of lines) {
+    if (!l) continue;
+    let m;
+    if (LINE.hi.test(l) || LINE.spots.test(l)) { looks = true; inList = LINE.spots.test(l); lang(l); continue; }
+    // a spot: under «Espaços:» (the buyer's own '- 2 dias' or '• …' further down is not one)
+    if ((m = l.match(LINE.bullet)) && (inList || (!header && l.startsWith('•')))) {
+      looks = true;
+      const rest = m[2], cut = rest.lastIndexOf(' · ');
+      const label = (cut >= 0 ? rest.slice(0, cut) : rest).replace(/\s*\([^)]*\)\s*$/, '').trim();
+      listed.push({ n: Number(m[1]), label, price: cut >= 0 ? parseMoney(rest.slice(cut + 3)) : null });
+      continue;
+    }
+    inList = false;
+    if (!out.request && (m = l.match(LINE.request))) { out.request = m[1].toUpperCase(); looks = true; continue; }
+    for (const k of ['brand', 'name', 'nif', 'ref', 'pay', 'total', 'title']) {
+      if (seen.has(k) || !(m = l.match(LINE[k]))) continue;
+      seen.add(k); looks = true;
+      const v = m[1].trim();
+      if (k === 'brand') out.brand = normBrand(v);
+      else if (k === 'name') out.name = v.slice(0, 80);
+      else if (k === 'nif') out.nif = v.slice(0, 20);
+      else if (k === 'ref') out.ref = v.slice(0, 40);
+      else if (k === 'pay') out.pay = payOf(v);
+      else if (k === 'total') out.stated = parseMoney(v);
+      else titleLine = parseMoney(v);
+      if (k !== 'nif' && k !== 'total') lang(l);
+      break;
+    }
+  }
+  if (!looks && !linkIds && !linkTitle) return { ...parseRef(src, data), kind: 'ref' };
+  if (!looks) out.kind = 'link';
+  out.nifOk = out.nif ? nifOk(out.nif) : null;
+
+  // the spots: the link, else the whole suit, else the list, else the KONA line
+  const fromList = [], listNotes = [], listUnknown = [];
+  for (const it of listed) {
+    const { spot, note } = spotOfLine(data, it.n, it.label);
+    if (!spot) { listUnknown.push(`${pad2(it.n)} ${it.label}`.trim()); continue; }
+    if (fromList.includes(spot.id)) continue;
+    fromList.push(spot.id);
+    if (note) listNotes.push(note);
+    if (it.price != null && it.price !== spot.price) listNotes.push(`${labelOf(data, spot.id)}: o pedido diz ${money(it.price)}, agora custa ${money(spot.price)}.`);
+  }
+  const refIds = out.ref ? parseRef(out.ref, data).ids : [];
+  const same = (a, b) => { const x = sortTargets(data, a), y = sortTargets(data, b); return x.length === y.length && x.every((v, i) => v === y[i]); };
+  const useList = () => { out.ids = sortTargets(data, fromList); out.from = 'list'; out.unknown.push(...listUnknown); out.notes.push(...listNotes); };
+  if (linkTitle) { out.ids = [TITLE]; out.from = 'link'; }
+  else if (linkIds) {
+    const known = linkIds.filter((id) => data.spots.some((s) => s.id === id));
+    // a long link wrapped by the mail app loses its end (a trailing comma, or half an id): the list names every spot
+    const cut = /,$/.test(pk ? pk[1] : '') || !known.includes(linkIds[linkIds.length - 1]);
+    if (cut && fromList.length && known.length < fromList.length && known.every((id) => fromList.includes(id))) {
+      useList();
+      out.notes.push('O link do pedido vem cortado: fico com a lista de espaços.');
+    } else {
+      out.ids = sortTargets(data, known); out.from = 'link';
+      out.unknown.push(...linkIds.filter((id) => !known.includes(id)));
+      out.notes.push(...listNotes);
+      if (fromList.length && !same(fromList, known)) out.notes.push('A lista de espaços e o link do pedido não batem certo: fico com o link.');
+    }
+  }
+  else if (titleLine !== null) { out.ids = [TITLE]; out.from = 'title'; }
+  else if (fromList.length || listUnknown.length) useList();
+  if (!out.ids.length && refIds.length) { out.ids = sortTargets(data, refIds); out.from = 'ref'; }
+  if (out.ids[0] === TITLE && out.stated === null) out.stated = titleLine;
+
+  // what the pieces say against each other and against the prices of now
+  if (out.ids.length && refIds.length && !same(refIds, out.ids)) out.notes.push(`A referência ${out.ref} não bate com estes espaços (seria ${refOf(data, out.ids)}).`);
+  if (out.ids.length && out.stated !== null) {
+    const t = totals(data, out.ids);
+    if (t.net !== out.stated) out.notes.push(`O pedido diz ${money(out.stated)}; com os preços de agora são ${money(t.net)}.`);
+  }
+  if (out.nifOk === false) out.notes.push(`O NIF ${out.nif} não bate certo (o último algarismo não confere). Confirma com a marca antes do recibo.`);
+  return out;
+}
+
+// ---------- holds placed by the site (worker/requests.js) ----------
+export const HOLD_HOURS = 48;
+// the last day of a hold placed now: the UTC date 48 hours from now; the site frees it once that day is over
+export const holdUntil = (now = Date.now()) => new Date(now + HOLD_HOURS * 3600e3).toISOString().slice(0, 10);
+// the moment a hold lapses (lapsed(): after 23:59:59 UTC of its last day)
+export const holdEnd = (until) => Date.parse(`${until}T23:59:59Z`);
+// 'Reservado até 25 out. · faltam 58 h', or 'Expirou a 25 out.'
+export function holdLeft(until, now = Date.now()) {
+  const end = until ? holdEnd(until) : NaN;
+  if (Number.isNaN(end)) return { lapsed: false, hours: null, text: '' };
+  if (end < now) return { lapsed: true, hours: 0, text: `Expirou a ${fmtDay(until)}` };
+  const h = Math.floor((end - now) / 3600e3);
+  const left = h < 1 ? 'falta menos de 1 h' : h === 1 ? 'falta 1 h' : h < 72 ? `faltam ${h} h` : `faltam ${Math.floor(h / 24)} dias`;
+  return { lapsed: false, hours: h, text: `Reservado até ${fmtDay(until)} · ${left}` };
 }
 
 // ---------- commit message: 'Espaços 01 e 21 vendidos a Marca X (admin)' ----------

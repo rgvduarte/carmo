@@ -61,6 +61,7 @@ async function still(m, widths) {
 window.shoot = async () => {
   const suit = new Suit(box('suit', 900, 1300), { spots: spots.filter((s) => (s.item || 'suit') === 'suit'), labels: { sold: '', reserved: '', top: '' } });
   suit.reveal();
+  await suit.ready;
   const a = await still(suit, [600, 1200]);
   const helmet = new Helmet(box('helmet', 1300, 1000), { spots: spots.filter((s) => s.item === 'helmet'), labels: { sold: '', reserved: '', top: '' }, active: true });
   await helmet.prepare(); helmet.drawBase(); await helmet.ready();

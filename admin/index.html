@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-URmpp6ZhyWOFCcQrP1sOLvxn+T6YXkbTNkW/NmrwIio='; connect-src 'self' https://api.github.com https://gocarmo.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-pJv1KG0nBtYM+dAiYwqpGD2mSCollr2qYA5vEAtuFoI='; connect-src 'self' https://api.github.com https://gocarmo.com https://gocarmo-pedidos.rgvduarte.workers.dev; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -10,30 +10,36 @@
 <title>GOCARMO · Admin</title>
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300..800&family=JetBrains+Mono:wght@400..600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../assets/css/admin.css?v=381a3216">
+<link rel="stylesheet" href="../assets/css/fonts.css?v=38c3202f">
+<link rel="stylesheet" href="../assets/css/admin.css?v=15e0c6bf">
 <script type="importmap">
 { "imports": {
   "three": "../assets/vendor/three@0.170.0/build/three.module.min.js",
   "three/addons/": "../assets/vendor/three@0.170.0/examples/jsm/",
-  "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=6a7fc41e",
-  "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=5d3e5efe",
-  "../assets/js/admin.js": "../assets/js/admin.js?v=0936b993",
-  "../assets/js/adspace.js": "../assets/js/adspace.js?v=5a5c69f4",
-  "../assets/js/charts.js": "../assets/js/charts.js?v=c988425d",
-  "../assets/js/data.js": "../assets/js/data.js?v=132cc84e",
+  "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
+  "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=e8d3fb57",
+  "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
+  "../assets/js/admin.js": "../assets/js/admin.js?v=b5eff06f",
+  "../assets/js/adspace.js": "../assets/js/adspace.js?v=e798d1c8",
+  "../assets/js/analytics.js": "../assets/js/analytics.js?v=895f1e1c",
+  "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
+  "../assets/js/data.js": "../assets/js/data.js?v=22e018cb",
   "../assets/js/flow.js": "../assets/js/flow.js?v=c994a0dc",
+  "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=55483b20",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=c2849ba2",
-  "../assets/js/main.js": "../assets/js/main.js?v=b22d3396",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=8667ed1c",
+  "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
+  "../assets/js/main.js": "../assets/js/main.js?v=796026fd",
   "../assets/js/marks.js": "../assets/js/marks.js?v=42ebc301",
+  "../assets/js/privacy.js": "../assets/js/privacy.js?v=a5e77c39",
+  "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
   "../assets/js/suit-body.js": "../assets/js/suit-body.js?v=e86b9edf",
-  "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=56436646",
-  "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=d04ffa75",
-  "../assets/js/suit.js": "../assets/js/suit.js?v=61b820d3"
+  "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=b3644acd",
+  "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=41a4b375",
+  "../assets/js/suit.js": "../assets/js/suit.js?v=779ed742"
 } }
 </script>
-<script type="module" src="../assets/js/admin.js?v=0936b993"></script>
+<script type="module" src="../assets/js/admin.js?v=b5eff06f"></script>
 </head>
 <body>
 <div class="banner" id="offline" role="status" hidden>Sem ligação. Nada se guarda até voltar a rede.</div>
@@ -70,6 +76,7 @@
 
   <p class="fine">Se o GitHub não te deixar escolher rgvduarte/carmo (és colaborador e não dono), <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=gocarmo%20admin" target="_blank" rel="noopener">cria um token clássico</a> só com public_repo e 7 dias de validade. Atenção: esse token pode escrever em todos os repositórios públicos a que a tua conta tem acesso, não só neste. Apaga-o quando acabares.</p>
   <p class="fine">Sem token à mão? <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">Usa o formulário do GitHub</a>.</p>
+  <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a> (uma vez, sem token).</p>
 </main>
 
 <!-- 2. Lista -->
@@ -88,10 +95,37 @@
     <div class="pub" id="pub" role="status" aria-live="polite" hidden></div>
     <p class="summary" id="summary"></p>
 
+    <section class="card inbox" id="inbox" aria-labelledby="inbox-h" hidden>
+      <div class="inbox-head">
+        <h2 id="inbox-h">Pedidos <span class="c" id="inbox-n"></span></h2>
+        <button class="icon" type="button" id="inbox-reload" aria-label="Atualizar os pedidos" title="Atualizar" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+      <p class="hint" id="inbox-off" hidden></p>
+      <form id="inbox-login" novalidate hidden>
+        <p class="why" id="inbox-why" role="status" hidden></p>
+        <input type="text" name="username" autocomplete="username" value="pedidos gocarmo" hidden aria-hidden="true" tabindex="-1">
+        <div class="field">
+          <label for="inbox-key">Chave dos pedidos</label>
+          <input id="inbox-key" name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-describedby="inbox-key-hint">
+          <p class="hint" id="inbox-key-hint">A palavra-passe que guardaste como ADMIN_KEY. O GitHub não a mostra outra vez: guarda-a nas Palavras-passe do telemóvel. Fica só neste separador.</p>
+        </div>
+        <button class="btn wide" type="submit" id="inbox-go">Abrir pedidos</button>
+        <p class="err" id="inbox-err" role="alert"></p>
+      </form>
+      <div id="inbox-body" hidden>
+        <p class="meta mono" id="inbox-meta" aria-live="polite"></p>
+        <ul class="reqs" id="inbox-list"></ul>
+        <p class="inbox-empty" id="inbox-empty" hidden>Sem pedidos abertos.</p>
+        <details class="closed" id="inbox-closed" hidden><summary>Fechados <span class="c" id="inbox-closed-n"></span></summary><ul class="reqs" id="inbox-closed-list"></ul></details>
+        <p class="inbox-foot"><button type="button" class="link" id="inbox-forget">Esquecer a chave</button></p>
+      </div>
+    </section>
+
     <section class="card ref">
-      <label for="ref">Colar referência</label>
-      <input id="ref" type="text" placeholder="KONA 01 21 22" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done">
-      <p class="ref-out" id="ref-out" aria-live="polite">É o descritivo da transferência ou do MB WAY. Seleciona esses espaços.</p>
+      <label for="ref">Colar pedido ou referência</label>
+      <textarea id="ref" rows="1" placeholder="KONA 01 21 22, ou a mensagem do pedido" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></textarea>
+      <p class="ref-out" id="ref-out" aria-live="polite">É o descritivo da transferência ou do MB WAY, ou a mensagem do pedido (WhatsApp, email ou o link). Seleciona esses espaços.</p>
+      <div class="paste" id="paste" hidden></div>
     </section>
 
     <fieldset class="filters">
@@ -106,6 +140,7 @@
     <p class="empty" id="empty" hidden>Nenhum espaço neste filtro.</p>
 
     <p class="fine foot">Se esta página falhar, o <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">formulário do GitHub</a> faz o mesmo, um espaço de cada vez.</p>
+    <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a>.</p>
   </main>
 
   <div class="bar" id="bar" hidden>
@@ -128,6 +163,7 @@
   </div>
   <form id="sh-form" novalidate>
     <p class="sh-sum" id="sh-sum"></p>
+    <p class="sh-req" id="sh-req" hidden></p>
     <div class="field">
       <label for="f-brand">Marca</label>
       <input id="f-brand" type="text" maxlength="60" list="brands" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
@@ -166,6 +202,7 @@
   <div class="progress" id="sh-progress" hidden>
     <ol class="ticks">
       <li id="pr-save"><i aria-hidden="true"></i><span>A guardar no GitHub…</span></li>
+      <li id="pr-req" hidden><i aria-hidden="true"></i><span>Confirmar o pedido</span></li>
       <li id="pr-pub"><i aria-hidden="true"></i><span>A publicar…</span></li>
       <li id="pr-live"><i aria-hidden="true"></i><span>No ar</span></li>
     </ol>
@@ -184,6 +221,7 @@
   <div class="sh-head"><h2 id="cf-title"></h2></div>
   <ul class="cf-list" id="cf-list"></ul>
   <p class="cf-text" id="cf-text"></p>
+  <label class="check cf-opt" id="cf-opt" hidden><input type="checkbox" id="cf-opt-in"><span id="cf-opt-t"></span></label>
   <div class="sh-foot">
     <button type="button" class="btn ghost" id="cf-no">Cancelar</button>
     <button type="button" class="btn gold" id="cf-yes">Confirmar</button>
