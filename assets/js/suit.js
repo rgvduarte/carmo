@@ -4,9 +4,11 @@
 // Kit holds what every sponsor model shares (atlas, spot tiles, picking, poses, tour, logos, loop);
 // Suit and the lazily loaded Helmet (helmet.js) extend it and can share one renderer.
 // The suit's body is one continuous anatomical surface (suit-body.js), meshed in a worker (suit-mesh.js).
-import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+// three by its path, not the bare 'three': the same file the import map names, and it also loads without import maps
+import * as THREE from '../vendor/three@0.170.0/build/three.module.min.js';
+import { RoomEnvironment } from './room.js';
 import { BODY, Part, anchorsFor, neckY, hermite, TAU, DEG, lerp, clamp } from './suit-body.js';
+import { makeContext, release, GLFail, glSupport, note, startProfile } from './gl3d.js';
 
 const ATLAS = 2048;
 
@@ -101,7 +103,14 @@ const ENVS = new WeakMap();
 export function envFor(r) {
   let e = ENVS.get(r);
   if (!e) {
-    e = new THREE.PMREMGenerator(r).fromScene(new RoomEnvironment(), 0.04).texture; ENVS.set(r, e);
+    const pm = new THREE.PMREMGenerator(r), room = new RoomEnvironment(), size = (r.profile || Kit.profile).env || 256;
+    // r170 always renders the room into a 256 cube; the lite profile asks for a smaller one (the same room, blurrier)
+    if (size < 256 && typeof pm._setSize === 'function') { const set = pm._setSize; pm._setSize = (n) => set.call(pm, Math.min(n, size)); }
+    e = pm.fromScene(room, 0.04).texture;
+    pm.dispose(); room.dispose();   // the generator's ping-pong target and blur program are not needed again
+    // made on a context that is lost: not kept, so the call after the restore (or the rebuild) renders it again
+    if (r.getContext().isContextLost()) return e;
+    ENVS.set(r, e);
     // the room is rendered on the GPU, so a lost context takes it along: after a restore the next call renders it again
     r.domElement.addEventListener('webglcontextrestored', () => ENVS.delete(r), { once: true });
   }
@@ -124,16 +133,29 @@ export class Kit {
   static ENV = 0.75;               // room reflection strength
   static DIM_LIT = 0;              // > 0: the selection dim scales the lit colour to this (glossy models)
   static TILE = 1;                 // tile frame scale: lines, dashes and corners for a denser atlas
+  static profile = startProfile(); // gl3d.js: full, phone or lite; adspace picks it before a model is made
+  static useProfile(p) { Kit.profile = p; }
 
-  static makeRenderer() {
-    const r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  // The context is made and checked by gl3d.js (a context born lost never reaches three); no preserveDrawingBuffer:
+  // every read of the canvas (freeze, snapshot) renders first, in the same task.
+  static makeRenderer(p = Kit.profile) {
+    const { canvas, gl, loser } = makeContext({ antialias: p.antialias, power: p.power });
+    let r;
+    try { r = new THREE.WebGLRenderer({ canvas, context: gl, antialias: p.antialias, alpha: true, powerPreference: p.power }); }
+    catch (e) { const lost = gl.isContextLost(); release({ canvas, gl, loser }); throw new GLFail(lost ? 'ctx-dead' : 'ctx-create', 'renderer', e); }
+    r.loser = loser; r.profile = p;
+    r.setPixelRatio(Math.min(p.pr, window.devicePixelRatio || 1));
     r.outputColorSpace = THREE.SRGBColorSpace;
     r.toneMapping = THREE.NeutralToneMapping !== undefined ? THREE.NeutralToneMapping : THREE.ACESFilmicToneMapping;
+    r.debug.onShaderError = (g, prog, vs, fs) => {
+      const log = (g.getProgramInfoLog(prog) || '').trim() || (g.getShaderInfoLog(fs) || '').trim() || (g.getShaderInfoLog(vs) || '').trim();
+      note('shader-error', { log: log.slice(0, 200) }); console.error('THREE.WebGLProgram: shader error', log);
+    };
+    Kit.made = r;
     return r;
   }
 
-  constructor(container, { spots, onSelect, onHover, money, labels = {}, renderer = null, active = true }) {
+  constructor(container, { spots, onSelect, onHover, money, labels = {}, renderer = null, active = true, profile = null }) {
     const K = this.constructor;
     this.el = container;
     this.spots = spots;
@@ -144,7 +166,9 @@ export class Kit {
     this.selected = null; this.hovered = null; this.basket = new Set();
     this.logos = new Map();   // spot id -> canvas (prepared logo)
     this.reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.profile = profile || Kit.profile;
     this.size = K.ATLAS;
+    this.k = this.profile.atlas || 1;   // the atlas canvases are this fraction of the atlas; drawing stays in atlas px
     this.state = { ...K.HOME };
     this.goal = { ...K.HOME };
     this.vel = 0; this.auto = !this.reduce; this.autoSpeed = 0.0026;
@@ -157,7 +181,7 @@ export class Kit {
     this.spotsGoal = 1; this.revealGoal = -0.2; this.dimGoal = 0;
 
     this.ownsRenderer = !renderer;
-    this.renderer = renderer || Kit.makeRenderer();
+    this.renderer = renderer || Kit.makeRenderer(this.profile);
     this.canvas = this.renderer.domElement;
     // a model on a shared renderer starts idle and only takes the canvas when it becomes active (setActive)
     if (this.canvas.parentElement !== this.el && (this.ownsRenderer || active)) { this.canvas.setAttribute('aria-hidden', 'true'); this.el.appendChild(this.canvas); }
@@ -172,10 +196,13 @@ export class Kit {
     const rim2 = new THREE.DirectionalLight(0xfff1dc, 0.8); rim2.position.set(2.4, 0.6, -2.2);
     this.scene.add(key, rim, rim2, new THREE.HemisphereLight(0xffffff, 0x1a1a1a, 0.3));
 
-    this.base = document.createElement('canvas'); this.base.width = this.base.height = this.size;
-    this.over = document.createElement('canvas'); this.over.width = this.over.height = this.size;
+    this.base = document.createElement('canvas'); this.base.width = this.base.height = Math.round(this.size * this.k);
+    this.over = document.createElement('canvas'); this.over.width = this.over.height = Math.round(this.size * this.k);
     this.bctx = this.base.getContext('2d', { willReadFrequently: true });
     this.octx = this.over.getContext('2d');
+    // null once the page's canvases pass the browser's memory cap (iOS 16 and older)
+    if (!this.bctx || !this.octx) { this.base.width = this.base.height = this.over.width = this.over.height = 0; throw new GLFail('canvas2d', 'atlas', 'getContext(2d) returned null'); }
+    if (this.k !== 1) for (const g of [this.bctx, this.octx]) g.setTransform(this.k, 0, 0, this.k, 0, 0);
     this.maxAniso = Math.min(8, this.renderer.capabilities.getMaxAnisotropy());
     this.baseTex = new THREE.CanvasTexture(this.base); this.baseTex.colorSpace = THREE.SRGBColorSpace; this.baseTex.anisotropy = this.maxAniso;
     this.overTex = new THREE.CanvasTexture(this.over); this.overTex.colorSpace = THREE.SRGBColorSpace; this.overTex.anisotropy = this.maxAniso;
@@ -191,7 +218,7 @@ export class Kit {
     this.drawBase();
     this.drawOverlay();
     this.bind();
-    this.resize();
+    this.resize(true);
     this.visible = true; this.running = false;
     this.loop = this.loop.bind(this);
     this.kick();
@@ -279,12 +306,13 @@ export class Kit {
       if (!r) continue;
       r.light = this.isLightAt(r);
       const logo = this.logos.get(s.id) || (s.status === 'sold' && s._logo);
-      if (logo) this.drawLogo(logo, s, r);
+      // a logo that cannot be placed (a frame past the helmet's rim) is left out, never the rest of the print
+      if (logo) try { this.drawLogo(logo, s, r); } catch (e) { console.warn(`logo ${s.id}:`, e); }
     }
   }
 
   isLightAt(r) {
-    const d = this.bctx.getImageData(Math.round(r.x + r.w / 2), Math.round(r.y + r.h / 2), 1, 1).data;
+    const d = this.bctx.getImageData(Math.round((r.x + r.w / 2) * this.k), Math.round((r.y + r.h / 2) * this.k), 1, 1).data;
     return 0.2126 * d[0] + 0.7152 * d[1] + 0.0722 * d[2] > 140;
   }
 
@@ -383,23 +411,21 @@ export class Kit {
 
   // ---------- interaction ----------
   bind() {
-    const c = this.canvas;
-    c.style.touchAction = 'pan-y';   // vertical swipes keep scrolling the page
     this.ray = new THREE.Raycaster();
     this.ptr = new THREE.Vector2();
     let down = null, lastX = 0, lastT = 0;
-    c.addEventListener('pointerdown', (e) => {
+    this.onDown = (e) => {
       if (!this.active) return;
       down = { x: e.clientX, y: e.clientY, rot: this.goal.rot, moved: false, id: e.pointerId };
       lastX = e.clientX; lastT = performance.now(); this.vel = 0;
       this.el.dispatchEvent(new CustomEvent('suit:interact'));
-    });
+    };
     this.onMove = (e) => {
       if (!this.active) return;
       if (down && e.pointerId === down.id) {
         const dx = e.clientX - down.x, dy = e.clientY - down.y;
         if (!down.moved && Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
-          down.moved = true; this.auto = false; try { c.setPointerCapture(e.pointerId); } catch (_) {}
+          down.moved = true; this.auto = false; try { this.canvas.setPointerCapture(e.pointerId); } catch (_) {}
           // a focus pan leaves the turntable axis off-centre; recentre so the model turns in place
           if (this.goal.x) { this.goal.x = 0; this.goal.ty = this.constructor.HOME.ty; }
         }
@@ -411,23 +437,37 @@ export class Kit {
         }
         return;
       }
-      if (e.target === c && e.pointerType === 'mouse') { this.pendingHover = e; this.kick(); }
+      if (e.target === this.canvas && e.pointerType === 'mouse') { this.pendingHover = e; this.kick(); }
     };
     this.onUp = (e) => {
       if (!this.active) return;
       if (!down || e.pointerId !== down.id) return;
-      if (!down.moved && e.target === c) this.clickAt(e);
+      if (!down.moved && e.target === this.canvas) this.clickAt(e);
       down = null;
     };
+    this.onLeave = () => { if (!this.active) return; if (this.hovered) this.setHover(null); this.canvas.style.cursor = ''; };
+    this.bindCanvas();
     window.addEventListener('pointermove', this.onMove);
     window.addEventListener('pointerup', this.onUp);
     window.addEventListener('pointercancel', () => { down = null; });
-    c.addEventListener('pointerleave', () => { if (!this.active) return; if (this.hovered) this.setHover(null); c.style.cursor = ''; });
-    this.ro = new ResizeObserver(() => this.resize());
+    if (typeof ResizeObserver === 'function') this.ro = new ResizeObserver(() => this.resize());
+    else {   // Safari before 13.1: the window's size, and the end of the stage's own height transition
+      const f = () => this.resize();
+      addEventListener('resize', f); this.el.addEventListener('transitionend', f);
+      this.ro = { observe() {}, disconnect: () => { removeEventListener('resize', f); this.el.removeEventListener('transitionend', f); } };
+    }
     this.ro.observe(this.el);
-    this.io = new IntersectionObserver((en) => { this.visible = en[0].isIntersecting; this.kick(); });
+    // the newest entry: a fast jump can deliver two in one callback
+    this.io = new IntersectionObserver((en) => { this.visible = en[en.length - 1].isIntersecting; this.kick(); });
     this.io.observe(this.el);
     document.addEventListener('visibilitychange', () => this.kick());
+  }
+  // the canvas's own listeners (a rebuilt renderer brings a new canvas, see rebind)
+  bindCanvas() {
+    const c = this.canvas;
+    c.style.touchAction = 'pan-y';   // vertical swipes keep scrolling the page
+    c.addEventListener('pointerdown', this.onDown);
+    c.addEventListener('pointerleave', this.onLeave);
   }
 
   pick(e) {
@@ -556,7 +596,9 @@ export class Kit {
         }
         g.putImageData(d, 0, 0);
       }
-      return trim(c);
+      const out = trim(c);
+      if (out !== c) c.width = c.height = 0;   // its memory now, not at the next collection (iOS counts canvases until then)
+      return out;
     } finally { URL.revokeObjectURL(url); }
   }
 
@@ -566,48 +608,64 @@ export class Kit {
   }
 
   async snapshot({ title = '', subtitle = '', width = 1080, height = 1350 } = {}) {
+    if (this.lost()) return null;
     const u = this.uni, prev = [u.uSpots.value, u.uSelOn.value, u.uDim.value, u.uHovOn.value];
     u.uSpots.value = 0; u.uSelOn.value = 0; u.uDim.value = 0; u.uHovOn.value = 0;
     const size = new THREE.Vector2(); this.renderer.getSize(size);
     const pr = this.renderer.getPixelRatio();
     const H = Math.round(height * 0.84);
-    this.renderer.setPixelRatio(1); this.renderer.setSize(width, H, false);
-    this.camera.aspect = width / H; this.camera.updateProjectionMatrix();
-    this.renderer.render(this.scene, this.camera);
     const out = document.createElement('canvas'); out.width = width; out.height = height;
-    const g = out.getContext('2d');
-    g.fillStyle = '#0b0b0c'; g.fillRect(0, 0, width, height);
-    const grd = g.createRadialGradient(width / 2, H * 0.45, 0, width / 2, H * 0.45, width * 0.7);
-    grd.addColorStop(0, '#1d1d20'); grd.addColorStop(1, '#0b0b0c');
-    g.fillStyle = grd; g.fillRect(0, 0, width, H);
-    g.drawImage(this.canvas, 0, 0, width, H);
-    g.fillStyle = COLORS.gold; g.fillRect(64, H + 34, 48, 4);
-    g.fillStyle = '#f2f1ec'; g.font = '700 40px Inter, system-ui, sans-serif'; g.textBaseline = 'top';
-    g.fillText(title, 64, H + 56);
-    g.fillStyle = '#9a9a95'; g.font = '500 26px Inter, system-ui, sans-serif';
-    g.fillText(subtitle, 64, H + 110);
-    this.renderer.setPixelRatio(pr); this.renderer.setSize(size.x, size.y, false); this.resize();
-    [u.uSpots.value, u.uSelOn.value, u.uDim.value, u.uHovOn.value] = prev;
-    this.kick();
-    return await new Promise((res) => out.toBlob(res, 'image/png'));
+    try {
+      this.renderer.setPixelRatio(1); this.renderer.setSize(width, H, false);
+      this.camera.aspect = width / H; this.camera.updateProjectionMatrix();
+      this.renderer.render(this.scene, this.camera);
+      const g = out.getContext('2d');
+      g.fillStyle = '#0b0b0c'; g.fillRect(0, 0, width, height);
+      const grd = g.createRadialGradient(width / 2, H * 0.45, 0, width / 2, H * 0.45, width * 0.7);
+      grd.addColorStop(0, '#1d1d20'); grd.addColorStop(1, '#0b0b0c');
+      g.fillStyle = grd; g.fillRect(0, 0, width, H);
+      g.drawImage(this.canvas, 0, 0, width, H);
+      g.fillStyle = COLORS.gold; g.fillRect(64, H + 34, 48, 4);
+      g.fillStyle = '#f2f1ec'; g.font = '700 40px Inter, system-ui, sans-serif'; g.textBaseline = 'top';
+      g.fillText(title, 64, H + 56);
+      g.fillStyle = '#9a9a95'; g.font = '500 26px Inter, system-ui, sans-serif';
+      g.fillText(subtitle, 64, H + 110);
+    } finally {   // whatever happened, the stage gets its own size, pixel ratio and tiles back
+      this.renderer.setPixelRatio(pr); this.renderer.setSize(size.x, size.y, false); this.resize(true);
+      [u.uSpots.value, u.uSelOn.value, u.uDim.value, u.uHovOn.value] = prev;
+      this.kick();
+    }
+    const blob = await new Promise((res) => out.toBlob(res, 'image/png'));
+    out.width = out.height = 0;
+    return blob;
   }
 
   // ---------- loop ----------
-  // setSize clears the shared drawing buffer, so only the active model touches the renderer
-  resize() {
+  // setSize clears the shared drawing buffer, so only the active model touches the renderer.
+  // The buffer itself is reallocated once the size settles (now: at once): the compact stage animates its height, and
+  // one allocation per frame churns the GPU memory a phone is short of. Meanwhile CSS stretches the old buffer, and the
+  // camera already has the new aspect, so the picture keeps its proportions.
+  resize(now = false) {
     const w = this.el.clientWidth || 1, h = this.el.clientHeight || 1;
     if (this.active) {
-      this.renderer.setSize(w, h, false);
+      clearTimeout(this._rz);
+      const s = this.renderer.getSize(this._sz ||= new THREE.Vector2());
+      if (now) this.renderer.setSize(w, h, false);
+      else if (s.x !== w || s.y !== h) this._rz = setTimeout(() => { if (this.active) this.resize(true); }, 150);
       this.canvas.style.width = w + 'px'; this.canvas.style.height = h + 'px';
     }
     this.camera.aspect = w / h;
     this.fit = w / h < 0.85 ? 1 + (0.85 - w / h) * 1.05 : 1;   // keep the whole model framed on tall screens
     this.camera.updateProjectionMatrix();
-    // the resize cleared the buffer after this frame's rAF draw: redraw now, before paint
-    if (this.active && this.visible && !this.held && !document.hidden) {
-      this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
-      this.camera.lookAt(this.state.x, this.state.ty, 0);
-      this.renderer.render(this.scene, this.camera);
+    // a reallocated buffer is blank, and this can run after the frame's rAF draw (a ResizeObserver, the end of a
+    // snapshot): draw again now, before paint. Only a model that has drawn already: its first frame, and the shaders it
+    // compiles, stay in the loop, and a throw here goes the loop's way (suit:error)
+    if (now && this.active && this._drawn && this.visible && !this.held && !document.hidden && !this.lost()) {
+      try {
+        this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
+        this.camera.lookAt(this.state.x, this.state.ty, 0);
+        this.renderer.render(this.scene, this.camera);
+      } catch (e) { this.el.dispatchEvent(new CustomEvent('suit:error', { detail: e })); }
     }
     this.kick();
   }
@@ -615,26 +673,65 @@ export class Kit {
   // hand the shared canvas to this model (on), into its own container, or let it go idle (off)
   setActive(on) {
     this.active = on; this.pendingHover = null;
-    if (!on) { this.vel = 0; if (this.hovered) this.setHover(null); this.canvas.style.cursor = ''; return; }
+    clearTimeout(this._ev);
+    if (!on) {
+      this.vel = 0; if (this.hovered) this.setHover(null); this.canvas.style.cursor = '';
+      if (this.profile.evict) this._ev = setTimeout(() => this.evict(), 1500);
+      return;
+    }
     if (this.canvas.parentElement !== this.el) { this.canvas.setAttribute('aria-hidden', 'true'); this.el.prepend(this.canvas); }
-    this.resize(); this.kick();
+    this.resize(true); this.kick();
   }
+  // Phones keep one model's atlases on the GPU: an idle model gives its textures back, and three uploads them again
+  // from their canvases on its next frame (the part switch shows a still meanwhile).
+  evict() { if (!this.active) for (const t of this.gpuTextures()) t.dispose(); }
+  gpuTextures() { return [this.baseTex, this.overTex]; }
 
-  kick() { if (this.active && !this.held && !this.running && this.visible && !document.hidden) { this.running = true; requestAnimationFrame(this.loop); } }
+  lost() { return this.renderer.getContext().isContextLost(); }
+  kick() { if (this.active && !this.held && !this.running && this.visible && !document.hidden && !this.lost()) { this.running = true; this._rest = 0; requestAnimationFrame(this.loop); } }
   // the booking dialog holds the stage still behind it: nothing to see there, and the blurred backdrop stays cheap
   hold(on) { this.held = on; if (!on) this.kick(); }
 
   // The GL context came back after a loss. three.js has rebuilt its GL state and uploads the canvas atlases again on
   // the next frame; only the room reflection has to be rendered anew, and every material that holds it swapped over.
-  restoreGL() {
-    const old = this.scene.environment, env = envFor(this.renderer);
+  restoreGL() { this.swapEnv(this.scene.environment); this.running = false; this.kick(); }
+  swapEnv(old) {
+    const env = envFor(this.renderer);
     this.scene.environment = env;
     this.scene.traverse((o) => { const m = o.material; if (m && m.envMap && m.envMap === old) { m.envMap = env; m.needsUpdate = true; } });
-    this.kick();
+  }
+  // A fresh renderer (adspace rebuilds one when a lost context does not come back). Scenes, materials, geometries and
+  // canvas textures live on the CPU side, so three uploads them to the new context on the first frame; only the room
+  // reflection is a GPU render target, so it is made again.
+  rebind(r) {
+    if (this.renderer !== r) this.dropGPU();
+    this.renderer = r; this.canvas = r.domElement;
+    this.bindCanvas();
+    // lost again while the room renders (Safari up to 26 throws there): the restore or the next rebuild renders it
+    try { this.swapEnv(this.scene.environment); } catch (e) { if (!this.lost()) throw e; }
+    this.running = false; this._drawn = false;
+    if (this.active) this.setActive(true); else this.resize();
+  }
+  // The old renderer lets go of this model: its 'dispose' listeners on the textures, materials and geometries would
+  // keep it reachable, with its context, which WebKit goes on trying to restore. three uploads all of it again to the
+  // new renderer on the first frame (or in ready()).
+  dropGPU() {
+    try {
+      for (const t of this.gpuTextures()) if (t) t.dispose();
+      this.scene.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        for (const m of [].concat(o.material || [])) { if (m.normalMap) m.normalMap.dispose(); m.dispose(); }
+      });
+    } catch (_) {}
   }
 
+  // A throw inside a frame (three on a context lost before its event arrives) must not leave `running` set, or the
+  // model would never draw again; adspace hears about it (suit:error) and decides.
   loop(t) {
-    if (!this.active || this.held || !this.visible || document.hidden) { this.running = false; return; }
+    if (!this.active || this.held || !this.visible || document.hidden || this.lost()) { this.running = false; return; }
+    try { this.frame(t); } catch (e) { this.running = false; this.el.dispatchEvent(new CustomEvent('suit:error', { detail: e })); }
+  }
+  frame(t) {
     if (this.pendingHover) {
       const e = this.pendingHover; this.pendingHover = null;
       const id = this.pick(e);
@@ -661,14 +758,21 @@ export class Kit {
     this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
     this.camera.lookAt(this.state.x, this.state.ty, 0);
     this.renderer.render(this.scene, this.camera);
+    this._drawn = true;
     this.el.dispatchEvent(new CustomEvent('suit:frame'));
-    if (moving) requestAnimationFrame(this.loop); else this.running = false;
+    // once at rest, one frame more: the drawing buffer is not preserved, and a compositor that shows it a frame late
+    // (WebKit on Linux does) would otherwise keep the frame before the last one on screen
+    if (moving) { this._rest = 0; requestAnimationFrame(this.loop); } else if (!this._rest) { this._rest = 1; requestAnimationFrame(this.loop); } else this.running = false;
   }
 
   destroy() {
     this.visible = false; this.ro.disconnect(); this.io.disconnect();
+    clearTimeout(this._rz); clearTimeout(this._ev);
     window.removeEventListener('pointermove', this.onMove); window.removeEventListener('pointerup', this.onUp);
     if (this.ownsRenderer) this.renderer.dispose();
+    // a model on a shared renderer gives its own GPU memory back (the owner's goes with its context)
+    else { for (const t of this.gpuTextures()) t.dispose(); this.scene.traverse((o) => { if (o.isMesh) o.geometry.dispose(); }); }
+    for (const c of [this.base, this.over]) c.width = c.height = 0;   // the atlases' memory now (iOS counts canvases until GC)
   }
 }
 
@@ -733,10 +837,10 @@ export class Suit extends Kit {
     this.parts = {};   // the body's parts come with the mesh; until then there are no tiles to lay out
     const knit = new THREE.CanvasTexture(knitTile());
     knit.wrapS = knit.wrapT = THREE.RepeatWrapping; knit.channel = 1; knit.anisotropy = this.maxAniso; knit.colorSpace = THREE.NoColorSpace;
-    this.mat = this.patch(new THREE.MeshPhysicalMaterial({
-      map: this.baseTex, roughness: 0.6, metalness: 0, sheen: 0.8, sheenRoughness: 0.45, sheenColor: new THREE.Color(0x8a8a8a),
-      vertexColors: true, normalMap: knit, normalScale: new THREE.Vector2(0.22, 0.22),
-    }));
+    // lite: the same fabric without the sheen layer (a shorter shader to compile, a cheaper pixel)
+    const fabric = { map: this.baseTex, roughness: 0.6, metalness: 0, vertexColors: true, normalMap: knit, normalScale: new THREE.Vector2(0.22, 0.22) };
+    this.mat = this.patch(this.profile.physical === false ? new THREE.MeshStandardMaterial(fabric)
+      : new THREE.MeshPhysicalMaterial({ ...fabric, sheen: 0.8, sheenRoughness: 0.45, sheenColor: new THREE.Color(0x8a8a8a) }));
     this.inner = new THREE.MeshStandardMaterial({ color: 0x7d8085, roughness: 1, side: THREE.BackSide });
     this.model.visible = false;   // until the mesh arrives
     const t0 = performance.now();
@@ -748,6 +852,7 @@ export class Suit extends Kit {
         this.buildMs = Math.round(performance.now() - t0);
         return this;
       });
+    this.ready.catch(() => {});   // a suit whose constructor threw later is never awaited: no unhandled rejection
   }
 
   // the parts, as the worker built them; the Kit reads a spot's anchor as THREE vectors
@@ -768,7 +873,8 @@ export class Suit extends Kit {
       try { w = new Worker(import.meta.resolve ? import.meta.resolve('./suit-worker.js') : new URL('./suit-worker.js', import.meta.url), { type: 'module' }); } catch (e) { rej(e); return; }
       const done = (f) => { clearTimeout(timer); w.terminate(); f(); };
       const timer = setTimeout(() => done(() => rej(new Error('mesh worker timeout'))), 60000);
-      w.onmessage = (e) => done(() => (e.data.ok ? res(e.data) : rej(new Error(e.data.error))));
+      // a result of the wrong shape (an old suit-mesh.js from the cache, a worker cut short) is built again here
+      w.onmessage = (e) => done(() => (e.data && e.data.ok ? (meshOk(e.data) ? res(e.data) : rej(new Error('mesh worker: bad result'))) : rej(new Error(e.data && e.data.error))));
       w.onerror = (e) => { e.preventDefault && e.preventDefault(); done(() => rej(new Error('mesh worker failed'))); };
       w.postMessage(opts);
       this.meshWhere = 'worker';
@@ -919,14 +1025,18 @@ export class Suit extends Kit {
   }
 
   // copy each region's border rows outward, so filtering and mipmaps never pick up a neighbour (the yokes above
-  // the shoulder joints read the sleeves' top row)
+  // the shoulder joints read the sleeves' top row). In canvas px: a lite atlas is smaller than the atlas units.
   bleed(ctx, n) {
-    const c = ctx.canvas;
-    for (const R of Object.values(REGIONS)) {
+    const c = ctx.canvas, k = this.k;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    n = Math.max(1, Math.round(n * k));
+    for (const R0 of Object.values(REGIONS)) {
+      const R = { x: Math.round(R0.x * k), y: Math.round(R0.y * k), w: Math.round(R0.w * k), h: Math.round(R0.h * k) };
       if (R.y > 0) ctx.drawImage(c, R.x, R.y, R.w, 1, R.x, Math.max(0, R.y - n), R.w, Math.min(n, R.y));
       const yb = R.y + R.h - 1;
       if (yb + 1 < c.height) ctx.drawImage(c, R.x, yb, R.w, 1, R.x, yb + 1, R.w, Math.min(n, c.height - yb - 1));
     }
+    ctx.restore();
   }
 
   stitch(x0, y, x1, color, phase = 0) {
@@ -957,8 +1067,18 @@ function trim(c) {
   return o;
 }
 
-export function webglAvailable() {
-  try { const c = document.createElement('canvas'); return !!(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (_) { return false; }
+// the mesh worker's answer, checked before it is used: every part with its arrays, the body's parts, the print layout
+const MESH_PARTS = ['torso', 'sleeveL', 'sleeveR', 'legL', 'legR'];
+function meshOk(d) {
+  if (!d || !d.parts || !d.body || !d.layout || !d.layout.stripes) return false;
+  return MESH_PARTS.every((k) => {
+    const p = d.parts[k];
+    return !!p && !!d.body[k] && ['position', 'normal', 'uv', 'uv1', 'color', 'index'].every((a) => ArrayBuffer.isView(p[a]) && p[a].length > 0)
+      && p.index.length % 3 === 0 && p.normal.length === p.position.length;
+  });
 }
+
+// WebGL 2 is there to try (three r170 needs it). Makes no context: the renderer's own is made and checked in gl3d.js.
+export function webglAvailable() { return !glSupport(); }
 
 export { sgnPow, lerp, clamp, smooth, roundRect };

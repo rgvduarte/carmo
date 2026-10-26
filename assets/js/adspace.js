@@ -5,6 +5,7 @@
 import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
+import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, fixable, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE, isIOS, inApp, appName } from './gl3d.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -26,6 +27,10 @@ let DATA = null, SPOTS = [], suit = null, helmet = null, kit = null, SuitClass =
 let item = 'suit', want = 'suit', onScreen = null, landing = null, hashLand = null, nearHelmet = false, booted = false, scrollToEl = null, nudgeBy = null;
 let selected = null, basket = new Set(), sortMode = 'area', onlyAvail = false, wantTitle = false;
 let tourCtl = null, tourIt = null, logoFile = null, interacted = false;
+// the 3D view's GL state (gl3d.js): the profile in use, the renderer watched, a suit still being built, a pending loss,
+// the rebuilds used in this page view; lastFail and helmetFail are the reasons kept for «Tentar outra vez»
+let profile = null, current = null, pending = null, glBack = null, rebuilds = 0, rebuildTimer = 0, lostAt = 0, visSince = performance.now();
+let lastFail = null, helmetFail = null, onReady = null;
 
 const byId = (id) => SPOTS.find((s) => s.id === id);
 const itemOf = (s) => s.item || 'suit';   // a spot without "item" is on the suit
@@ -57,11 +62,16 @@ const toast = (msg) => { const el = $('#toast'); const dlg = $('#claim'); const 
 
 export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null } = {}) {
   scrollToEl = scrollTo; nudgeBy = nudge || ((dy) => scrollBy(0, dy));
+  onReady = onSuitReady || null;
+  wire3d();
   try {
     const res = await fetch('data/spots.json', { cache: 'no-cache' });
     DATA = await res.json();
   } catch (e) {
     $('#rc-body').textContent = 'Não consegui carregar a tabela. Escreve-me para allez@gocarmo.com.';
+    // no spots, no 3D: both stages keep their pictures, and «Tentar outra vez» loads the page again
+    lastFail = fail('data', 'spots.json', e); setNo3d(lastFail);
+    for (const it of ITEMS) stageStill(it, msgKey(lastFail), 'data');
     return;
   }
   overlayOwn(DATA);
@@ -88,11 +98,11 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
   });
   // the 3D view loads when the entry cards or either stage approach the viewport (so it is ready by the time the suit
   // part is reached, and a helmet deep link, which lands far below the suit, still gets it)
-  const io = new IntersectionObserver(async (en) => {
+  const io = new IntersectionObserver((en) => {
     if (!en.some((e) => e.isIntersecting)) return;
     io.disconnect();
-    await mountSuit();
-    if (suit && onSuitReady) onSuitReady(suit);
+    mark('io');
+    mountSuit();   // calls onSuitReady once the suit is up (again after «Tentar outra vez»)
   }, { rootMargin: '600px 0px' });
   [$('.entry'), ...ITEMS.map(stageOf)].forEach((el) => el && io.observe(el));
   // the helmet is built once its part comes near, so it is usually ready by the time it is on screen
@@ -192,45 +202,128 @@ function pruneBasket() {
   return { gone, title, mine, titleMine };
 }
 
+// the stages' own events, once: interaction, frames (and their errors), «Tentar outra vez»; and the ?debug3d state
+function wire3d() {
+  for (const st of $$('.stage')) {
+    st.addEventListener('suit:interact', () => { interacted = true; stopTour(); act(st.dataset.item, 'rotate')?.setAttribute('aria-pressed', 'false'); });
+    st.addEventListener('suit:frame', () => { frameErrs = 0; if (kit) { kit._drawn = true; mark(st.dataset.item === 'helmet' ? 'helmet-first-frame' : 'first-frame'); } placeCallout(); });
+    st.addEventListener('suit:error', (e) => onFrameError(e.detail));
+  }
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-act="retry3d"]')) retry3d(); else { const a = e.target.closest('[data-act="open-safari"]'); if (a) openSafari(a); } });
+  // the still's line and buttons, also when the page stopped before the rate card (spots.json did not load)
+  onLang(() => { for (const el of $$('.stage-fallback [data-i18n], #stage-loading [data-i18n]')) el.textContent = t(el.dataset.i18n, ...(el.dataset.i18nArgs ? JSON.parse(el.dataset.i18nArgs) : [])); });
+  D.state = () => ({
+    item, want, profile: profile && profile.name, rebuilds, ctx: current ? (isLost(current) ? 'LOST' : 'ok') : 'none',
+    lostMs: glBack ? Math.round(performance.now() - lostAt) : 0, pr: current ? current.getPixelRatio() : null,
+    buffer: current ? `${current.domElement.width}x${current.domElement.height}` : null, atlas: suit ? suit.base.width : null,
+    mesh: suit ? `${suit.meshWhere} ${suit.buildMs}ms` : null,
+    gpu: current ? { programs: (current.info.programs || []).length, textures: current.info.memory.textures, geometries: current.info.memory.geometries } : null,
+    helmet: helmet ? (helmet.profile || {}).name : helmetFail ? `failed ${helmetFail.code}` : helmetBuild ? 'building' : 'none',
+    no3d: document.documentElement.dataset.no3d || null,
+  });
+}
 function kitLabels() { return { sold: t('lbl.sold'), reserved: t('lbl.reserved'), top: t('lbl.top') }; }
 const onModelSelect = (id) => { stopTour(); select(id, { from3d: true }); };
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+const isLost = (r) => { try { return r.getContext().isContextLost(); } catch (_) { return true; } };
+// the page in the background: iOS takes its GPU away there, so a failure then says nothing about the device
+let hiddenAt = -1;
+const untilVisible = () => new Promise((res) => { if (!document.hidden) { res(); return; } const f = () => { if (!document.hidden) { document.removeEventListener('visibilitychange', f); res(); } }; document.addEventListener('visibilitychange', f); });
+// every model drawn with the current renderer, the suit even while it is still being built
+const glModels = () => [...new Set([suit || pending, helmet].filter(Boolean))];
 
-async function mountSuit() {
+// The studio's own modules are fetched first, with retries, and the import then reads them from the HTTP cache: a
+// browser keeps a module that failed to load failed until the page reloads, so one request dropped on mobile data
+// would otherwise cost the 3D for the whole visit.
+const own = (p) => (import.meta.resolve ? import.meta.resolve(p) : new URL(p, import.meta.url).href);
+const SUIT_DEPS = ['./suit-body.js', './room.js', '../vendor/three@0.170.0/build/three.module.min.js'];
+async function fetchRetry(url, tries = 3) {
+  for (let i = 1; ; i++) {
+    try { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); await r.arrayBuffer(); return; } catch (e) { if (i >= tries) throw e; await sleep(700 * i); }
+  }
+}
+// An import that fails although every file came in is a module that does not parse or run here ('module'), not the network.
+async function importStudio(path, deps = []) {
+  let fetched = true;
+  try { await Promise.all([path, ...deps].map((p) => fetchRetry(own(p)))); } catch (e) { fetched = false; note('prefetch-failed', { msg: String(e.message || e).slice(0, 120) }); }
+  try { return await import(path); } catch (e) { throw new GLFail(fetched ? 'module' : 'import', path, e); }
+}
+
+// Build the suit with profile p (gl3d.js). If that throws, once more in lite, then the still picture with the reason.
+async function mountSuit(p = startProfile(), again = false) {
+  profile = p; D.profile = p.name; mark(`mount-${p.name}`);
+  let s = null, mod = null;
+  const t0 = performance.now();
   try {
-    const mod = await import('./suit.js');
-    if (!mod.webglAvailable()) throw new Error('webgl');
-    SuitClass = mod.Suit;
+    const why = glSupport();
+    if (why) throw new GLFail(why, 'probe');
+    mod = await importStudio('./suit.js', SUIT_DEPS);
+    mark('suit-import');
+    SuitClass = mod.Suit; mod.Kit.useProfile(p); mod.Kit.made = null;
     // the helmet part is the one on screen (or a helmet deep link): the suit is built idle, so it never flashes up first
     const idle = want === 'helmet';
-    const s = new mod.Suit(stageOf('suit'), { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !idle });
+    try { s = new mod.Suit(stageOf('suit'), { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !idle }); } catch (e) { throw e instanceof GLFail ? e : new GLFail('build', 'suit-ctor', e); }
+    // watched from now on: a context lost while the body is meshed is seen, and restored or rebuilt
+    pending = s; guard(s.renderer); mark('renderer'); setUp(true);
     // the body is meshed in a worker: the stage keeps its loading label until the suit is ready
-    await s.ready;
+    try { await s.ready; } catch (e) { throw new GLFail('mesh', 'suit-ready', e); }
+    if (pending !== s) return;   // torn down meanwhile
+    mark('ready');
     const first = want === 'helmet';   // read again: the visitor may have scrolled to the other part meanwhile
     if (idle && !first) s.setActive(true);
-    suit = kit = s;
+    suit = kit = s; pending = null;
     item = 'suit';
     suit.setBasket([...basket]);
     // the booking dialog can be up before the stage is (a reload that brings the payment back): hold still behind it
     if ($('#claim').open) suit.hold(true);
     printSponsors(suit);
     if (buyerLogo) previewOnModels();
-    for (const st of $$('.stage')) {
-      st.addEventListener('suit:interact', () => { interacted = true; stopTour(); act(st.dataset.item, 'rotate')?.setAttribute('aria-pressed', 'false'); });
-      st.addEventListener('suit:frame', () => { if (kit) kit._drawn = true; placeCallout(); });
-    }
-    watchContext(suit.canvas);
     $('#stage-loading')?.remove();
+    if (p === LITE) rememberLite(true); else if (p.name.endsWith('-hp')) rememberHp(true);
+    note('mounted', { profile: p.name, mesh: s.meshWhere, ms: s.buildMs });
     if (!first) liveIn('suit');
     else {
-      await showItem('helmet');
+      try { await showItem('helmet'); } catch (e) { fail('build', 'show-helmet', e); }
       // the helmet could not be built, or the suit part came back on screen while it was: the suit takes the stage
       if (item !== 'helmet' && kit) { suit.setActive(true); liveIn('suit'); }
     }
+    showLost();
     if (kit && selected && itemOf(byId(selected)) === item) kit.select(selected, { focus: true });
+    if (onReady && suit) { try { onReady(suit); } catch (e) { console.error(e); } }
     if (nearHelmet && suit) ensureHelmet();
-  } catch (e) {
+  } catch (e0) {
+    const r0 = s ? s.renderer : mod && mod.Kit.made, lost = !!r0 && isLost(r0);
+    let code = e0 instanceof GLFail ? e0.code : 'build';
+    if (lost && ['build', 'mesh', 'canvas2d'].includes(code)) code = 'lost-build';
+    const rec = fail(code, (e0 && e0.where) || 'mount', (e0 && e0.cause) || e0);
+    if (pending === s) pending = null;
+    if (s && suit === s) suit = kit = null;
+    if (s) { previewed.delete(s); try { s.setActive(false); s.destroy(); } catch (_) {} }
+    if (r0) { if (r0 === current) current = null; if (lost) comeBack(r0); release(r0); }
+    if (!glModels().length) { settle(); setUp(false); }
+    const retryable = !['nowebgl', 'nowebgl2', 'import', 'module'].includes(code);
+    // it failed while the page was in the background: the same again once it is back in view
+    if (retryable && !again && (document.hidden || hiddenAt > t0)) {
+      note('retry-visible', { after: code });
+      await untilVisible(); await sleep(500);
+      return mountSuit(p, true);
+    }
+    // a GPU process that hangs on context creation (WebKit bug 303827, ~15 s on iOS 26.1): one stall is enough, not three
+    const lastCtx = D.ctx[D.ctx.length - 1];
+    if ((code === 'ctx-dead' || code === 'ctx-create') && lastCtx && lastCtx.ms > 3000) { note('ctx-slow', { ms: lastCtx.ms }); $('#stage-loading')?.remove(); no3d(rec); return; }
+    // no context, or one born lost: the same look on the other GPU display first
+    if ((code === 'ctx-dead' || code === 'ctx-create') && p !== LITE && p.power !== 'high-performance') {
+      note('retry-hp', { after: code });
+      return mountSuit(hp(p), again);
+    }
+    // lite: smaller atlases, simpler materials, another GPU path. Not when WebGL 2 is missing or a module did not load.
+    if (p !== LITE && retryable) {
+      if (code === 'ctx-dead' || code === 'lost-build') await sleep(1000);   // give the GPU process a moment first
+      note('retry-lite', { after: code });
+      return mountSuit(LITE);
+    }
     $('#stage-loading')?.remove();
-    no3d();
+    no3d(rec);
   }
 }
 
@@ -242,15 +335,18 @@ function liveIn(it) {
     st.classList.toggle('live', x === it);
     if (x === it) st.classList.remove('frozen');
   }
+  showLost();
 }
 function freeze(m) {
-  // a lost context has nothing to copy: the stage it leaves keeps the picture of its model instead of a blank frame
-  if (glBack) return;
   const st = m && m.canvas.parentElement;
   if (!st || !st.classList.contains('stage') || !m._drawn) return;
+  // a lost context has nothing to copy: the stage it leaves keeps the picture of its model instead of a blank frame
+  if (glBack || m.lost()) { st.classList.remove('frozen'); return; }
   let fz = $(':scope > .stage-freeze', st);
   if (!fz) { fz = document.createElement('canvas'); fz.className = 'stage-freeze'; fz.setAttribute('aria-hidden', 'true'); st.prepend(fz); }
   try {
+    // the drawing buffer is not preserved: draw the frame again and copy it in this same task
+    m.renderer.render(m.scene, m.camera);
     fz.width = m.canvas.width; fz.height = m.canvas.height;
     fz.getContext('2d').drawImage(m.canvas, 0, 0);
     st.classList.add('frozen');
@@ -258,91 +354,286 @@ function freeze(m) {
 }
 
 // Phones drop the GL context of a tab under memory pressure, often while it sits in the background (the booking
-// flow itself sends people out to WhatsApp or Mail). three.js keeps the scenes and rebuilds its GL state when the
-// context comes back, so the stage only waits under a label. If the context is still gone a few seconds after the
-// page is back in view, the rate card carries the sale on its own.
-let glBack = null;   // pending while the context is lost: resolves on restore or on the fallback
-function watchContext(canvas) {
-  let timer = 0, done = null;
-  const arm = () => { clearTimeout(timer); if (glBack && !document.hidden) timer = setTimeout(no3d, 6000); };
-  canvas.addEventListener('webglcontextlost', () => {
-    if (glBack) return;
-    glBack = new Promise((res) => { done = res; }); glBack.done = () => { clearTimeout(timer); glBack = null; done(); };
-    const lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = 'gl-lost';
+// flow itself sends people out to WhatsApp or Mail), and iOS does not always give it back. three.js keeps the scenes
+// and rebuilds its GL state when the context comes back, so the stage waits under a label. If it has not come back
+// after 1.5 s of the page being in view (time in the background does not count), a fresh canvas and context take
+// over and both models move onto it, with their selection, basket, part and camera as they were. Twice per page view
+// at most (the second time lighter); after that the rate card carries the sale, with «Tentar outra vez».
+const REBUILD_AFTER = 1500, MAX_REBUILDS = 2;
+function guard(r) {
+  current = r;
+  const c = r.domElement;
+  c.addEventListener('webglcontextlost', () => { if (r === current) onLost('event'); });
+  c.addEventListener('webglcontextrestored', () => { if (r === current) onRestored(); });
+  if (isLost(r)) onLost('attach');
+}
+function onLost(how) {
+  if (glBack) return;
+  lostAt = performance.now(); note('lost', { how, rebuilds });
+  let done = null;
+  glBack = new Promise((res) => { done = res; }); glBack.done = done;   // ensureHelmet waits on it
+  glBack.label = setTimeout(showLost, 400);   // a loss given back at once stays invisible
+  arm();
+}
+// the label sits in the stage on screen, and moves with the canvas; that stage shows its model's picture under the
+// label instead of a blank canvas (style.css, .stage.gl-lost)
+function showLost() {
+  if (!glBack || $('#stage-loading')) return;   // the loading label already says it is on its way
+  let lbl = $('#gl-lost');
+  if (!lbl) {
+    lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = 'gl-lost';
     const sp = document.createElement('span'); sp.textContent = t('stage.lost'); lbl.appendChild(sp);
-    const host = canvas.parentElement || stageOf('suit');
-    host.appendChild(lbl); markLost(host, true);
-    arm();
-  });
-  document.addEventListener('visibilitychange', arm);
-  canvas.addEventListener('webglcontextrestored', () => {
-    if (!glBack || !suit) return;
-    $('#gl-lost')?.remove();
-    $$('.stage.gl-lost').forEach((st) => markLost(st, false));
-    glBack.done();
-    for (const m of models()) m.restoreGL();
-  });
+  }
+  const st = stageOf(item);
+  if (lbl.parentElement !== st) st.appendChild(lbl);
+  for (const x of ITEMS) markLost(stageOf(x), stageOf(x) === st);
+}
+const markLost = (st, on) => st.classList.toggle('gl-lost', on);
+// counts visible time only: a page in the background is never rebuilt (or given up on), and a timer that fires far
+// too late has slept through a suspension (a locked screen, an app switch with no visibilitychange): it starts again
+function arm() {
+  clearTimeout(rebuildTimer);
+  if (!glBack || document.hidden) return;
+  const need = REBUILD_AFTER * (rebuilds + 1), left = Math.max(0, need - (performance.now() - Math.max(visSince, lostAt))), due = performance.now() + left;
+  rebuildTimer = setTimeout(() => {
+    if (!glBack) return;
+    if (performance.now() - due > 1000) visSince = performance.now();
+    if (document.hidden || performance.now() - Math.max(visSince, lostAt) < need - 20) { arm(); return; }
+    rebuild('lost');
+  }, left);
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) visSince = performance.now(); else hiddenAt = performance.now(); note('vis'); arm(); });
+addEventListener('pageshow', (e) => { visSince = performance.now(); note('pageshow', { persisted: e.persisted }); arm(); for (const m of models()) m.kick(); });
+addEventListener('pagehide', (e) => note('pagehide', { persisted: e.persisted }));
+function onRestored() {
+  clearTimeout(rebuildTimer);
+  note('restored', { afterMs: Math.round(performance.now() - lostAt) });
+  for (const m of glModels()) { try { m.restoreGL(); } catch (e) { fail('build', 'restore', e); rebuild('lost'); return; } }
+  settle();
+  readyAgain();
+}
+// a fresh canvas and context for every model, in one task
+function rebuild(why) {
+  clearTimeout(rebuildTimer);
+  const ms = glModels();
+  if (!ms.length || !SuitClass) return;
+  // never on a page in the background (iOS hands out no GPU there): the watch takes over once it is back in view
+  if (document.hidden) { if (!glBack) onLost(why); return; }
+  if (rebuilds >= MAX_REBUILDS) { no3d(fail(why, 'context', `${why === 'lost' ? 'not restored' : 'frames failing'} after ${rebuilds} rebuilds`)); return; }
+  rebuilds++;
+  // the second one: no MSAA, a lower pixel ratio and the other GPU path (iOS keys a dead display by power preference)
+  const p = rebuilds === MAX_REBUILDS ? { ...profile, pr: Math.min(profile.pr, 1.5), antialias: false, power: 'high-performance' } : profile;
+  let r;
+  try { r = SuitClass.makeRenderer(p); } catch (e) { fail(e.code || 'ctx-create', 'rebuild', e.cause || e); arm(); return; }
+  const old = current;
+  // whatever a model throws here (the new context lost while the room renders), the old context is released and the
+  // new one watched: guard() sees it lost and arms the next rebuild, or its restore brings it back
+  for (const m of ms) { try { m.rebind(r); } catch (e) { fail('build', 'rebind', e); } }
+  if (old) release(old);
+  note('rebuilt', { n: rebuilds, pr: p.pr, aa: p.antialias, power: p.power });
+  settle();
+  guard(r);
+  if (kit) { liveIn(item); kit.kick(); }
+  readyAgain();
+}
+function settle() { $('#gl-lost')?.remove(); $$('.stage.gl-lost').forEach((st) => markLost(st, false)); clearTimeout(rebuildTimer); const g = glBack; glBack = null; if (g) { clearTimeout(g.label); g.done(); } }
+// the helmet's programs on the context that is back (or new), before it next takes the stage
+function readyAgain() {
+  const h = helmet;
+  if (h && !h.active && helmetBuild) helmetBuild.then((ok) => { if (ok && h === helmet && !glBack) h.ready().catch(() => {}); });
+}
+// a frame threw: on a lost context that is the loss (its event is a task away); on a live one, try again, and after
+// three in a row move to a fresh context
+let frameErrs = 0;
+function onFrameError(e) {
+  if (current && isLost(current)) { onLost('frame'); return; }
+  frameErrs++;
+  fail('frame', 'loop', e);
+  if (frameErrs >= 3) { frameErrs = 0; rebuild('frame'); return; }
+  setTimeout(() => { if (kit) kit.kick(); }, 250);
 }
 
-// While the context is lost, the stage that holds the canvas shows its model's picture under the label (style.css,
-// .stage.gl-lost), and the mark moves with the canvas and the label.
-const markLost = (st, on) => st.classList.toggle('gl-lost', on);
-
-// no WebGL (or the context did not come back): the rate card carries the sale on its own
-function no3d() {
-  for (const m of models()) m.setActive(false);
-  suit = helmet = kit = null;
-  if (glBack) glBack.done();
+// The rate card carries the sale on its own: no WebGL 2 here, or nothing above worked. The reason is kept
+// (html[data-no3d], the console, ?debug3d) and the still says it in a line, with «Tentar outra vez».
+function no3d(r) {
+  lastFail = r || { code: 'build', where: 'unknown', msg: '' };
+  setNo3d(lastFail); note('no3d', { code: lastFail.code });
+  if (current && isLost(current)) comeBack(current);
+  teardown();
   stopTour();
   $('#callout').classList.remove('on');
-  for (const it of ITEMS) stageStill(it, 'suit.no3d');
-  ['#sd-try', '#tryon'].forEach((q) => { const n = $(q); if (n) n.hidden = true; });
+  // the same reason a second time after «Tentar outra vez»: the line says what to do, a button that cannot help goes
+  const key = msgKey(lastFail), again = retrying && retryCode === lastFail.code && key !== 'suit.no3dErr';
+  for (const it of ITEMS) stageStill(it, key, lastFail.code, fixable(lastFail) && !again);
+  ['#sd-try', '#tryon'].forEach((q) => { const n = $(q); if (n && !n.hidden) { n.hidden = true; n.dataset.no3d = '1'; } });
+  // after a tap, the focus goes back to the still that answered it (the button it was on is gone)
+  if (retrying && !retryAuto) { const fb = $('.stage-fallback', stageOf(retryIn)); if (fb) { fb.tabIndex = -1; ($('[data-act="retry3d"]', fb) || fb).focus({ preventScroll: true }); } }
 }
-// a stage without 3D: the picture of its model stays, with a line that says why, and its 3D controls go
-function stageStill(it, key) {
+// A context given up on that the browser gives back later: its GPU works again, so the 3D comes back by itself
+// (once per page view, so a GPU that keeps dropping contexts does not loop)
+let cameBack = 0;
+function comeBack(r) {
+  r.domElement.addEventListener('webglcontextrestored', () => {
+    if (cameBack || suit || pending || retrying || !lastFail || document.hidden) return;
+    cameBack++; note('restored-after-still', { code: lastFail.code });
+    retry3d({ auto: true });
+  }, { once: true });
+}
+// every model and the context go, their memory with them
+function teardown() {
+  for (const m of glModels()) { try { m.setActive(false); m.destroy(); } catch (_) {} }
+  if (current) { release(current); current = null; }
+  suit = helmet = kit = pending = null; helmetBuild = null; setUp(false);
+  previewed.clear();
+  settle();
+}
+// a stage without 3D: the picture of its model stays, with a line that says why, «Tentar outra vez» and the reason
+// code (small, for a screenshot); its 3D controls are hidden until the 3D comes back. In an in-app browser on an iPhone
+// the line names the app and a second button opens the page in Safari.
+function stageStill(it, key, code = '', retry = true) {
   const stage = stageOf(it);
-  $$(':scope > canvas, .loading', stage).forEach((n) => n.remove());
+  $$(':scope > canvas, .loading', stage).forEach((n) => { if (n.classList.contains('stage-freeze')) n.width = n.height = 0; n.remove(); });
   stage.classList.remove('live', 'frozen', 'gl-lost');
   if (!$('.stage-fallback', stage)) {
     const fb = document.createElement('div');
-    fb.className = 'stage-fallback';
-    const sp = document.createElement('span'); sp.dataset.i18n = key; sp.textContent = t(key); fb.appendChild(sp);
+    fb.className = 'stage-fallback'; fb.setAttribute('role', 'status');
+    const args = key === 'suit.no3dApp' ? [appName(), isIOS() ? 'Safari' : 'Chrome'] : [];
+    const sp = document.createElement('span'); sp.dataset.i18n = key; if (args.length) sp.dataset.i18nArgs = JSON.stringify(args); fb.appendChild(sp);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    if (retry) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.act = 'retry3d'; b.dataset.i18n = 'suit.retry'; b.textContent = t('suit.retry'); acts.appendChild(b); }
+    if (inApp() && isIOS()) {
+      // iOS 17 and later open an x-safari-https:// link in Safari; openSafari() also copies the address, in case not
+      const a = document.createElement('a'); a.className = 'chip'; a.dataset.act = 'open-safari'; a.dataset.i18n = 'suit.openSafari'; a.textContent = t('suit.openSafari');
+      a.href = `x-safari-${pageUrl(it)}`; acts.appendChild(a);
+    }
+    if (acts.childElementCount) fb.appendChild(acts);
+    if (code) { const c = document.createElement('small'); c.className = 'code'; c.textContent = code; fb.appendChild(c); }
     stage.appendChild(fb);
+    sp.textContent = t(key, ...args);   // set once the live region is in the page, so it is read out
   }
   stage.classList.add('no3d');
   // a still picture does not need to stay on screen while the rate card scrolls
   const studio = stage.closest('.studio'); studio.classList.add('no3d'); studio.classList.remove('compact');
-  $$('.stage-ui, .stage-foot', stage).forEach((n) => n.remove());
+  $$('.stage-ui, .stage-foot', stage).forEach((n) => { n.hidden = true; });
   const ch = $(`.chapters[data-item="${it}"]`); if (ch) ch.hidden = true;
+}
+function unStill(it) {
+  const stage = stageOf(it);
+  $('.stage-fallback', stage)?.remove();
+  stage.classList.remove('no3d'); stage.closest('.studio').classList.remove('no3d');
+  $$('.stage-ui, .stage-foot', stage).forEach((n) => { n.hidden = false; });
+  const ch = $(`.chapters[data-item="${it}"]`); if (ch) ch.hidden = false;
+}
+function loadingIn(it, id, key) {
+  if (document.getElementById(id)) return;
+  const lbl = document.createElement('div'); lbl.className = 'loading'; lbl.id = id;
+  const sp = document.createElement('span'); sp.dataset.i18n = key; sp.textContent = t(key); lbl.appendChild(sp);
+  stageOf(it).appendChild(lbl);
+}
+// «Tentar outra vez»: the whole studio again (rebuild counters reset), or only the helmet if the suit is up. A module
+// that did not load stays failed in this page, so that case reloads it (main.js drops the ?fresh= again).
+// After a dead GPU display it starts on the other one (high-performance) first.
+let retrying = false, retryAuto = false, retryCode = null, retryIn = 'suit';
+// this page, without the cache-buster, landing on the part `it` (both are deep links: hashLand)
+function pageUrl(it) { const u = new URL(location.href); u.searchParams.delete('fresh'); u.hash = it === 'helmet' ? 'o-capacete' : 'o-fato'; return u.href; }
+async function retry3d({ auto = false } = {}) {
+  if (retrying) return;
+  const f = suit ? helmetFail : lastFail;
+  retryIn = midPart() || item;
+  if (f && (f.code === 'import' || f.code === 'module' || f.code === 'data')) { const u = new URL(pageUrl(retryIn)); u.searchParams.set('fresh', Date.now()); location.replace(u.href); return; }
+  retrying = true; retryAuto = auto; retryCode = f && f.code;
+  note('retry', { code: f && f.code, auto });
+  // the button about to go had the focus: the stage keeps it, so it does not fall back to the top of the page
+  if (!auto) { const st = stageOf(retryIn); st.tabIndex = -1; st.focus({ preventScroll: true }); }
+  try {
+    if (suit) {
+      unStill('helmet'); loadingIn('helmet', 'item-loading', 'helmet.loading');
+      helmetBuild = null; helmetFail = null;
+      if ((await ensureHelmet()) && midPart() === 'helmet') showItem('helmet');
+      return;
+    }
+    for (const it of ITEMS) unStill(it);
+    loadingIn('suit', 'stage-loading', 'suit.loading');
+    if (nearHelmet) loadingIn('helmet', 'item-loading', 'helmet.loading');
+    lastFail = null; helmetFail = null; setNo3d(null); rebuilds = 0; frameErrs = 0;
+    $$('#sd-try, #tryon').forEach((n) => { if (n.dataset.no3d) { n.hidden = false; delete n.dataset.no3d; } });
+    want = midPart() || want;
+    const p = startProfile();
+    await mountSuit(f && (f.code === 'ctx-dead' || f.code === 'ctx-create') ? hp(p) : p);
+  } finally { retrying = false; retryAuto = false; }
+}
+// «Abrir no Safari» in an in-app browser: the link does it on iOS 17 and later; the address is copied as well, and if
+// the page is still in front a moment later, a toast says how to open it by hand
+function openSafari(a) {
+  const url = a.href.replace(/^x-safari-/, '');
+  let copied = false;
+  try { navigator.clipboard.writeText(url).then(() => { copied = true; }, () => {}); } catch (_) {}
+  setTimeout(() => { if (!document.hidden) toast(copied ? t('toast.safari') : t('toast.safariNo', location.host)); }, 1500);
+}
+// the helmet's atlases did not fit next to the full suit's (a browser short of canvas memory): the studio again, in lite
+async function studioLite() {
+  note('studio-lite');
+  teardown();
+  for (const it of ITEMS) stageOf(it).classList.remove('live', 'frozen');
+  loadingIn('suit', 'stage-loading', 'suit.loading');
+  if (nearHelmet) loadingIn('helmet', 'item-loading', 'helmet.loading');
+  want = midPart() || want;
+  await mountSuit(LITE);
 }
 
 // The helmet, built once on first view, on the suit's renderer (one canvas, one GL context).
 // The label «A carregar o capacete» sits in the helmet's stage from the start and goes once the build is over.
+// A build that fails with the context lost is built again once it is back; one that fails otherwise, once more in
+// lite; then the helmet's part keeps its picture (and «Tentar outra vez»), and the suit is not touched.
 function ensureHelmet() {
-  helmetBuild ||= (async () => {
-    try {
-      const { Helmet } = await import('./helmet.js');
-      // the build is synchronous: let the label paint first
-      await new Promise((res) => requestAnimationFrame(() => setTimeout(res, 0)));
-      if (glBack) await glBack;   // a lost context cannot compile or upload: wait for it to come back
-      if (!suit) return false;
-      helmet = new Helmet(stageOf('helmet'), { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: suit.renderer, active: false });
-      helmet.setBasket([...basket]);
-      if ($('#claim').open) helmet.hold(true);
-      await helmet.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
-      await printSponsors(helmet);
-      if (buyerLogo) previewOnModels();
-      await helmet.ready();
-      return true;
-    } catch (e) {
-      console.error(e);
-      helmet = null;
-      // the helmet's part keeps its picture and its rate card; only its 3D controls go
-      if (suit) { toast(t('toast.helmet')); stageStill('helmet', 'toast.helmet'); }
-      return false;
-    } finally { $('#item-loading')?.remove(); }
-  })();
+  helmetBuild ||= buildHelmet(suit);
   return helmetBuild;
+}
+async function buildHelmet(host) {
+  let lite = host.profile === LITE, h = null;
+  try {
+    mark('helmet-import');
+    const { Helmet } = await importStudio('./helmet.js');
+    // the build is synchronous: let the label paint first
+    await new Promise((res) => requestAnimationFrame(() => setTimeout(res, 0)));
+    for (let attempt = 1; ; attempt++) {
+      while (glBack) await glBack;   // a lost context cannot compile or upload: wait for it to come back (or be rebuilt)
+      if (suit !== host) return false;
+      try {
+        h = helmet = new Helmet(stageOf('helmet'), { spots: ofItem('helmet'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, renderer: host.renderer, active: false, profile: lite ? LITE : host.profile });
+        h.setBasket([...basket]);
+        if ($('#claim').open) h.hold(true);
+        await h.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
+        if (suit !== host || helmet !== h) return false;
+        await printSponsors(h);
+        if (buyerLogo) previewOnModels();
+        while (glBack) await glBack;
+        if (suit !== host || helmet !== h) return false;
+        await h.ready();
+        mark('helmet-ready');
+        return true;
+      } catch (e) {
+        const lost = isLost(host.renderer), code = lost ? 'lost-build' : (e && e.code) || 'build';
+        helmetFail = fail(code, (e && e.where) || 'helmet', (e && e.cause) || e);
+        if (helmet === h) helmet = null;
+        if (h) { previewed.delete(h); try { h.destroy(); } catch (_) {} h = null; }
+        if (suit !== host) return false;
+        if (attempt >= 3) throw e;
+        if (lost) { if (!glBack && host.renderer === current) onLost('helmet'); continue; }
+        if (document.hidden) await untilVisible();   // not judged on a page in the background
+        if (!lite) { lite = true; note('helmet-lite', { after: code }); continue; }
+        if (code === 'canvas2d' && host.profile !== LITE) { setTimeout(studioLite, 0); return false; }
+        throw e;
+      }
+    }
+  } catch (e) {
+    if (suit !== host) return false;
+    if (!helmetFail) helmetFail = fail((e && e.code) || 'build', (e && e.where) || 'helmet', (e && e.cause) || e);
+    helmet = null;
+    // the helmet's part keeps its picture and its rate card; only its 3D controls go
+    toast(t('toast.helmet')); stageStill('helmet', 'toast.helmet', helmetFail.code);
+    return false;
+  } finally { if (suit === host) $('#item-loading')?.remove(); }
 }
 
 // Put the suit or the helmet on stage: its model becomes active and the shared canvas moves into its part's stage.
@@ -357,6 +648,10 @@ async function showItem(it) {
   if (want !== it || item === it || !kit) return;
   stopTour();                              // and one started while the helmet was building
   const next = modelOf(it);
+  if (!next) return;
+  try { swapTo(it, next); } catch (e) { fail('build', 'switch', e); }
+}
+function swapTo(it, next) {
   freeze(kit);
   kit.setActive(false);
   kit = next; item = it;
@@ -366,10 +661,7 @@ async function showItem(it) {
   kit.setShowSpots(spotsOn);
   kit.setAuto(pressed(act(it, 'rotate')));
   kit.setActive(true);
-  liveIn(it);
-  // a lost context's label goes with the canvas (the stage that holds it shows its model's picture under the label)
-  const gl = $('#gl-lost');
-  if (gl) { $$('.stage.gl-lost').forEach((st) => markLost(st, false)); stageOf(it).appendChild(gl); markLost(stageOf(it), true); }
+  liveIn(it);   // a lost context's label and its gl-lost mark go with the canvas (showLost)
   if (!kit._revealed) { kit._revealed = true; kit.reveal(); }
   const s = selected && byId(selected);
   if (s && itemOf(s) === item) {
@@ -449,14 +741,16 @@ async function printSponsors(m) {
   const sold = m.spots.filter((s) => s.status === 'sold' && s.logo);
   if (!sold.length) return;
   await Promise.all(sold.map(async (s) => {
+    const ac = new AbortController(), timer = setTimeout(() => ac.abort(), 8000);   // a hung request skips that logo
     try {
-      const blob = await (await fetch(s.logo)).blob();
+      const blob = await (await fetch(s.logo, { signal: ac.signal })).blob();
       let c = await SuitClass.prepareLogo(blob, { removeWhite: true, mono: s.logoMono || null });
       if (!s.logoMono && m.rects.get(s.id)?.light === false && inkOf(c) < 110) c = await SuitClass.prepareLogo(blob, { removeWhite: true, mono: '#f6f7f9' });
       s._logo = c;
-    } catch (_) {}
+    } catch (_) {} finally { clearTimeout(timer); }
   }));
-  m.drawBase(); m.drawOverlay(); m.kick();
+  // a logo that cannot be printed leaves the model without it, never without the model
+  try { m.drawBase(); m.drawOverlay(); m.kick(); } catch (e) { fail('build', 'logos', e); }
 }
 function inkOf(c) {
   const p = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;

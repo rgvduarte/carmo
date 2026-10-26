@@ -7,6 +7,7 @@
 // 2. Gives every own module and stylesheet a content hash in its URL, so a browser never runs files from two deploys
 //    together (GitHub Pages lets browsers keep files for 10 minutes). The import map in each page sends
 //    './assets/js/x.js' to './assets/js/x.js?v=<hash>', which covers static imports, import() and import.meta.resolve().
+//    The mesh worker has no import map: its imports (suit-worker.js -> suit-mesh.js -> suit-body.js) carry the hash.
 // 3. A page with a Content-Security-Policy runs an inline script (the import map) only if script-src lists its sha256,
 //    so every rewrite also recomputes those hashes from the inline scripts the page now holds; the admin page's
 //    connect-src also gets the booking Worker's origin (SITE.requestsApi).
@@ -44,15 +45,22 @@ function bake(s) {
   return s;
 }
 
-// A worker has no import map, so the mesh worker's own imports carry their hash in the file. Leaf first, so a change to
-// suit-body.js changes suit-mesh.js, then suit-worker.js, then the worker's URL in the map.
-const DEPS = [['suit-mesh.js', 'suit-body.js'], ['suit-worker.js', 'suit-mesh.js']];
-for (const [f, dep] of DEPS) {
-  const p = `assets/js/${f}`, re = new RegExp(`(from '\\./${dep.replace('.', '\\.')})(?:\\?v=[0-9a-f]+)?'`);
-  const s = readFileSync(p, 'utf8');
-  if (!re.test(s)) throw new Error(`${p}: no import of ./${dep}`);
-  writeFileSync(p, s.replace(re, `$1?v=${hash(`assets/js/${dep}`)}'`));
+// A worker has no import map, so the mesh worker's static imports carry the content hash themselves: a phone never
+// pairs a worker with a suit-mesh.js (or a suit-body.js) cached from the deploy before. Deepest first, so a change to
+// suit-body.js changes the URLs of all three. On the main thread './suit-body.js?v=<hash>' is exactly where the import
+// map sends './suit-body.js', so it stays one module.
+// With --check a pin out of date is reported, not written.
+const stale = [];
+function pin(file, dep) {
+  const p = `assets/js/${file}`, s = readFileSync(p, 'utf8');
+  const out = s.replace(new RegExp(`(from\\s+'\\./${dep.replace(/\./g, '\\.')})(?:\\?v=[0-9a-f]+)?(')`, 'g'), `$1?v=${hash(`assets/js/${dep}`)}$2`);
+  if (!out.includes(`./${dep}?v=`)) throw new Error(`${file} no longer imports ./${dep}: update stamp.mjs`);
+  if (out === s) return;
+  stale.push(p);
+  if (!check) writeFileSync(p, out);
 }
+pin('suit-mesh.js', 'suit-body.js');
+pin('suit-worker.js', 'suit-mesh.js');
 
 // script types the browser runs (and CSP checks); a data block such as application/ld+json never runs
 const RUNS = /^(|module|importmap|text\/javascript|application\/javascript)$/i;
@@ -107,7 +115,6 @@ if (api.trim()) {
 }
 const connectWorker = (s) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${[...CONNECT, worker].filter(Boolean).join(' ')}`);
 
-const stale = [];
 for (const [page, base, withRaces, withWorker] of [['index.html', './', true, false], ['admin/index.html', '../', false, true], ['admin/strava/index.html', '../../', false, false], ['privacidade/index.html', '../', false, false]]) {
   const was = readFileSync(page, 'utf8');
   let now = stamp(withRaces ? bake(was) : was, base);

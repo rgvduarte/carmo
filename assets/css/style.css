@@ -725,11 +725,18 @@ section { position: relative; }
 .callout .pill b { font-size: 16px; }
 .callout::after { content: ""; position: absolute; left: 50%; bottom: -14px; width: 1px; height: 14px; background: var(--ink); }
 .callout.top .pill { background: var(--gold); }
-/* no 3D on this device: the picture of the model stays, with the reason on a line under it */
-.stage-fallback { position: absolute; inset: auto 14px 14px; z-index: 2; display: grid; place-items: center; text-align: center; }
-.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
+/* no 3D on this device: the picture of the model stays, with the reason on a line under it, «Tentar outra vez» and
+   the reason code (small, for a screenshot) */
+.stage-fallback { position: absolute; inset: auto 14px 14px; z-index: 2; display: grid; place-items: center; gap: 8px; text-align: center; }
+.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--ink); text-wrap: balance; }
+.stage-fallback .acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.stage-fallback .chip { min-height: 44px; padding: 0 18px; background: rgba(11,11,12,0.9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: var(--ink); text-decoration: none; }
+/* the picture sits above the line and the buttons, not under them */
+.stage.no3d .stage-poster { inset: 5% 8% 172px; }
+.stage-fallback .code { font: 500 10px/1 var(--mono); letter-spacing: .08em; color: var(--dim); }
+.stage-ui[hidden], .stage-foot[hidden] { display: none; }
 /* a lost GL context: the stage that holds the canvas shows its model's picture under «A recuperar a vista 3D» (adspace.js
-   moves the mark with the canvas and the label when the stage changes part) */
+   showLost moves the mark with the canvas and the label when the stage changes part) */
 .stage.gl-lost > canvas:not(.stage-freeze) { visibility: hidden; }
 .stage.gl-lost > .stage-poster { opacity: 1; }
 /* «A carregar o fato / o capacete» and «A recuperar a vista 3D»: a pill over the picture or the last frame */
