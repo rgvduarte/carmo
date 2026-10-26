@@ -315,6 +315,8 @@ const PT_JS = {
   'cs.more': 'Privacidade', 'cs.no': 'Recusar', 'cs.yes': 'Aceitar',
   'cs.signal': 'O teu browser pede aos sites que não sigam as tuas visitas, por isso as estatísticas estão desligadas. Só ligam se carregares em Aceitar.',
   'cs.owner': 'Este browser já abriu a página de admin, por isso aqui as estatísticas estão sempre desligadas e as tuas visitas não contam.',
+  // before cs.p while the site's own visit counting is on (SITE.stats): «Recusar» is about Google only
+  'cs.own': 'As visitas já são contadas por uma ferramenta minha, sem cookies e sem te identificar (podes desligá-la em Privacidade).',
   'z.front': 'Frente', 'z.back': 'Costas', 'z.sides': 'Laterais', 'z.legs': 'Pernas', 'z.shoulders': 'Ombros', 'z.helmet': 'Capacete', 'z.suit': 'Fato',
   'st.available': 'Disponível', 'st.reserved': 'Reservado', 'st.sold': 'Vendido',
   'lbl.sold': 'VENDIDO', 'lbl.reserved': 'RESERVADO', 'lbl.top': 'DESTAQUE',
@@ -415,6 +417,7 @@ const EN_JS = {
   'cs.more': 'Privacy', 'cs.no': 'Decline', 'cs.yes': 'Accept',
   'cs.signal': 'Your browser asks sites not to track your visits, so statistics are off. They only turn on if you choose Accept.',
   'cs.owner': 'This browser has opened the admin page, so statistics are always off here and your own visits are not counted.',
+  'cs.own': 'Visits are already counted by my own tool, without cookies and without identifying you (you can switch it off under Privacy).',
   'z.front': 'Front', 'z.back': 'Back', 'z.sides': 'Sides', 'z.legs': 'Legs', 'z.shoulders': 'Shoulders', 'z.helmet': 'Helmet', 'z.suit': 'Suit',
   'st.available': 'Available', 'st.reserved': 'Reserved', 'st.sold': 'Sold',
   'lbl.sold': 'SOLD', 'lbl.reserved': 'ON HOLD', 'lbl.top': 'TOP SPOT',
