@@ -291,6 +291,9 @@ function onClick(e) {
     // Google's own outbound-click listener (Enhanced measurement) runs after this one and reads the link: it gets the
     // bare wa.me address, and the message is back in the link before the browser follows it
     if (/^https:\/\/wa\.me\//.test(send.href || '')) { const full = send.href; send.href = `https://wa.me/${SITE.whatsapp}`; addEventListener('click', () => { send.href = full; }, { once: true }); }
+    // a package this tab's request already holds (#cl-held1): its hold was the lead ('gc:lead'), so its message is not
+    // one, after a reload or a reopen too, whether it goes by the step 1 buttons or by step 2's #cl-go
+    if (document.getElementById('cl-held1')?.hidden === false) return;
     lead(send.id === 'cl-go' ? (send.dataset.by === 'mail' ? 'email' : 'whatsapp') : SEND[send.id]);
     return;
   }
