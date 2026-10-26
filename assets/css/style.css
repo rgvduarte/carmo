@@ -1002,7 +1002,8 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .dlg-prog i { display: block; width: 50%; height: 100%; background: var(--gold); transition: width .5s var(--ease); }
 #claim[data-step="2"] .dlg-prog i { width: 100%; }
 .dlg-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px 24px 26px; }
-.cl-pane { display: grid; gap: 22px; animation: paneIn .35s var(--ease); }
+/* one column that never grows past the pane (an auto track takes the width of a nowrap label: 320 px scrolled sideways) */
+.cl-pane { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; animation: paneIn .35s var(--ease); }
 /* a step never starts invisible, even on a phone that drops frames */
 @keyframes paneIn { from { opacity: .5; transform: translateY(8px); } }
 .dlg .link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 2px; border: 0; background: none; color: var(--muted); font: 500 14px/1.3 var(--sans); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; cursor: pointer; }
@@ -1099,7 +1100,7 @@ dialog::backdrop { background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); }
 .cl-held-id { font-size: 13px; color: var(--muted); }
 .cl-held-id b { color: var(--ink); font-weight: 600; letter-spacing: .04em; }
 .cl-held-p { font-size: 14px; line-height: 1.5; color: var(--muted); }
-.cl-gobox .btn { width: 100%; min-height: 52px; font-size: 16px; }
+.cl-gobox .btn { width: 100%; min-height: 52px; font-size: 16px; white-space: normal; line-height: 1.25; padding-block: 10px; text-align: center; }
 /* after the email action only: the address to copy, for a computer with no mail app */
 .cl-mailfb { margin: -6px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 2px 2px 14px; border-radius: 12px; background: var(--bg-3); font-size: 13px; line-height: 1.4; color: var(--muted); }
 .cl-mailfb b { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }

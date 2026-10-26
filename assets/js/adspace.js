@@ -43,6 +43,8 @@ const sizeOf = (s, sep = ' × ') => `${cmOf(s.w)}${sep}${cmOf(s.h)} cm`;
 // a reservation lapses on its own once its `until` day is over, so a stale hold never blocks a sale
 const lapsed = (x) => x.status === 'reserved' && x.until && Date.parse(`${x.until}T23:59:59Z`) < Date.now();
 const ibanPretty = (s) => s.replace(/\s+/g, '').replace(/(.{4})/g, '$1 ').trim();
+// one brand however it is typed (case and spaces), as the Worker compares them
+const sameBrand = (a, b) => String(a || '').toLowerCase().replace(/\s+/g, ' ').trim() === String(b || '').toLowerCase().replace(/\s+/g, ' ').trim();
 // while the booking dialog is open the toast sits just under its sticky header, clear of «Feito» and «Voltar» below
 const toast = (msg) => { const el = $('#toast'); const dlg = $('#claim'); const host = dlg && dlg.open ? $('.dlg-head', dlg) : document.body; if (el.parentElement !== host) host.appendChild(el); el.textContent = msg; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 3200); };
 
@@ -58,10 +60,14 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
   overlayOwn(DATA);
   normalize(DATA);
   SPOTS = DATA.spots.filter((s) => ['available', 'reserved', 'sold'].includes(s.status));
-  // a spot this tab's own request holds stays in the package (its payment is still to come)
-  try { basket = new Set(JSON.parse(localStorage.getItem(STORE) || '[]').filter((id) => { const s = byId(id); return !!s && (s.status === 'available' || ownHold(s)); })); } catch (_) {}
-  readHash();
+  // the draft first: its brand tells a hold of this tab's unanswered request (see pruneBasket)
   restoreDraft();
+  // a spot this tab's own request holds stays in the package (its payment is still to come)
+  try {
+    const ids = JSON.parse(localStorage.getItem(STORE) || '[]'), mine = maybeOwnFor([...ids].sort().join(','));
+    basket = new Set(ids.filter((id) => { const s = byId(id); return !!s && (s.status === 'available' || ownHold(s) || mine(s)); }));
+  } catch (_) {}
+  readHash();
   renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
   bindUI();
   if (selected) select(selected);
@@ -128,13 +134,20 @@ async function refreshSpots() {
   const take = (to, from) => { for (const k of LIVE_KEYS) { if (from[k] === undefined) delete to[k]; else to[k] = from[k]; } };
   take(DATA.title, fresh.title);
   for (const s of DATA.spots) { const f = fresh.spots.find((x) => x && x.id === s.id); if (f) take(s, f); }
+  // what the Worker answered was taken («ocupado») stays taken over a file GitHub Pages has not republished yet
+  for (const [id, at] of takenAt) {
+    if (Date.now() - at > OWN_FRESH) { takenAt.delete(id); continue; }
+    const x = DATA.spots.find((s) => s.id === id);
+    if (x && (x.status || 'available') === 'available') x.status = 'reserved';
+  }
   overlayOwn(DATA);
   normalize(DATA);
   const lost = pruneBasket();
   refreshViews();
   if (SuitClass && SPOTS.some((s) => s.status === 'sold' && s.logo && !soldBefore.has(`${s.id} ${s.logo}`))) for (const m of models()) printSponsors(m);
   if ($('#claim').open) { goneNote(lost); renderClaim(); }
-  else if (lost.gone.length) toast(t('rq.ocupado', joinList(lost.gone.map((s) => `${pad2(s.n)} ${pick(s).name}`)), lost.gone.length));
+  else if (lost.gone.length) toast(t('rq.ocupado', joinList(lost.gone.map(qName)), lost.gone.length));
+  else if (lost.mine.length || lost.titleMine) toast(boughtText(lost));
 }
 // everything on the page that shows who holds what
 function refreshViews() {
@@ -143,15 +156,24 @@ function refreshViews() {
   placeCallout();
 }
 // spots of the package taken since it was put together (not by this tab's own request) leave it, and so does the whole
-// suit once it is no longer free
+// suit once it is no longer free. Two cases are not «another brand»: a hold of this brand while this package's request
+// is still unanswered (the page stopped waiting, the Worker may well have held it: it stays), and a spot this tab's
+// request held that Gonçalo has since sold to the same brand (it leaves the package as bought: mine, titleMine)
 function pruneBasket() {
-  const gone = [...basket].map(byId).filter((s) => s && s.status !== 'available' && !ownHold(s));
-  for (const s of gone) basket.delete(s.id);
-  let title = false;
-  if (wantTitle && !heldReq('title') && !(DATA.title.status === 'available' && titleOpen())) { wantTitle = false; title = true; }
-  if (gone.length) saveBasket();
-  else if (title) renderPackage();
-  return { gone, title };
+  const maybeOwn = maybeOwnFor(pkKey());
+  const bought = (s) => s.status === 'sold' && Object.values(reqs()).some((r) => r && (r.ids || []).includes(s.id) && sameBrand(r.brand, s.brand));
+  const out = [...basket].map(byId).filter((s) => s && s.status !== 'available' && !ownHold(s) && !maybeOwn(s));
+  const mine = out.filter(bought), gone = out.filter((s) => !bought(s));
+  for (const s of out) basket.delete(s.id);
+  let title = false, titleMine = false;
+  if (wantTitle && !heldReq('title') && !maybeOwn(DATA.title) && !(DATA.title.status === 'available' && titleOpen())) {
+    wantTitle = false;
+    const r = reqs().title;
+    if (DATA.title.status === 'sold' && r && r.title && sameBrand(r.brand, DATA.title.brand)) titleMine = true; else title = true;
+  }
+  if (out.length) saveBasket();
+  else if (title || titleMine) renderPackage();
+  return { gone, title, mine, titleMine };
 }
 
 function kitLabels() { return { sold: t('lbl.sold'), reserved: t('lbl.reserved'), top: t('lbl.top') }; }
@@ -688,7 +710,7 @@ function kindKey() {
   return kinds.has('helmet') ? (kinds.has('suit') ? 'B' : 'H') : '';
 }
 
-// one text for WhatsApp, email and Instagram: the spots with their sizes, the total, who is asking, the KONA code.
+// one text for WhatsApp, email and Instagram: the spots with their sizes, the total, who is asking, the CARMO code.
 // sizes / extra: only the email ever drops the sizes or passes a shortened message of the buyer's own (see mailFit)
 function message({ sizes = true, extra = null } = {}) {
   const { list, net, gross, disc } = totals();
@@ -708,10 +730,11 @@ function message({ sizes = true, extra = null } = {}) {
   // the way the buyer picked in step 1, so Gonçalo knows where to look for the money
   lines.push(t(payNow() === 'mb' ? 'msg.payMb' : 'msg.payTr'));
   // held by the Worker: its number (the admin page finds the request by the «Pedido:» line) and the 48 hours; not held
-  // (the Worker failed), a line that says so
+  // (the Worker failed), a line that says so; not held because the buyer has another request open, that request's
+  // number («Pedido aberto:», which the admin page does not take for this package's own)
   const r = heldReq();
   if (r) lines.push(`${t('msg.req')}: ${r.id}`, t('msg.hold', longDay(r.until)));
-  else if (API && rqMode === 'msg') lines.push(t('msg.nohold'));
+  else if (API && rqMode === 'msg') lines.push(openReq ? `${t('msg.open')}: ${openReq}` : t('msg.nohold'));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -799,7 +822,7 @@ function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
   stopWa();
   // each opening tries the Worker again; a held package says whether its message went out
   const held = heldReq();
-  if (!rqBusy) { rqMode = API ? 'api' : 'msg'; setNote(null); }
+  if (!rqBusy) { rqMode = API ? 'api' : 'msg'; openReq = ''; setNote(null); }
   msgOut = held ? !!held.out : true;
   $('#cl-logo-f').hidden = !API;
   logoErr('');
@@ -849,7 +872,11 @@ function renderClaim() {
   const r = heldReq(), k = kOf();
   const h1 = $('#cl-held1');
   h1.hidden = !r;
-  if (r) h1.textContent = t('cl.held1', longDay(r.until), r.id);
+  // whether its message went out: «enviam outra vez», or «falta enviares-me a mensagem»
+  if (r) h1.textContent = t('cl.held1', longDay(r.until), r.id, msgOut);
+  // «Já enviei o pedido» goes straight to the payment: with the Worker, only once the package is held (or the dialog is
+  // back to sending the message only), never around the hold and the logo
+  $('#cl-sent').closest('.cl-foot').hidden = !!API && rqMode === 'api' && !r;
   if (logoErrKey) $('#cl-logo-err').textContent = t(logoErrKey);
   renderLogo(); renderNeed(); renderNote();
   // «Pagar por» MB WAY | Transferência: MB WAY off above its limit, with the reason on one line under it (and no choice
@@ -872,12 +899,12 @@ function renderClaim() {
   $('#cl-go-ic').setAttribute('href', goBy === 'mail' ? '#i-mail' : '#i-wa');
   $('#cl-go-t').textContent = t(goBy === 'mail' ? 'cl.goMail' : 'cl.goWa');
   // the note under the payment: held (the purchase is confirmed once the money lands, a donation receipt), not held
-  // because the Worker failed, or, without the Worker, as before
-  const down = !r && !!API && rqMode === 'msg';
+  // because the Worker failed, or, without the Worker (and for a package sent beside an open request), as before
+  const down = !r && !!API && rqMode === 'msg' && !openReq;
   $('#pay-note').hidden = !!r || down;
   $('#pay-note2').hidden = !r && !down;
   $('#pay-note2').textContent = r ? t('cl.payHeld', k) : down ? t('cl.payDown', k) : '';
-  // the same amount (the one the Worker held it for) and KONA code under either tab
+  // the same amount (the one the Worker held it for) and CARMO code under either tab
   const amt = r && r.total > 0 ? r.total : net;
   $('#pay-amt').textContent = money(amt);
   $('#pay-amt-cp').dataset.copy = String(amt);
@@ -927,7 +954,7 @@ function setTab(tab, { focus = false, user = false } = {}) {
   const panel = $('#pay-panel'), mb = tab === 'mb';
   panel.setAttribute('aria-labelledby', mb ? 'pt-mb' : 'pt-tr');
   $$('[data-for]', panel).forEach((el) => { el.hidden = el.dataset.for !== tab; });
-  // the KONA code is the transfer's «descritivo» and MB WAY's «descrição»
+  // the CARMO code is the transfer's «descritivo» and MB WAY's «descrição»
   $('#pay-ref-k').textContent = t(mb ? 'pay.desc' : 'pay.ref');
   const cp = $('#pay-ref-cp');
   cp.dataset.toast = mb ? 'toast.desc' : 'toast.ref';
@@ -1021,10 +1048,11 @@ function brandOk() {
 }
 
 // The transfer description: the spot numbers, so a payment can be matched to its spots at a glance.
-// Helmet spots are numbered after the suit (21-24), so one reference covers both: KONA 01 21 22.
+// Helmet spots are numbered after the suit (21-24), so one reference covers both: CARMO 01 21 22. (The code used to
+// be KONA: the admin page still reads both.)
 function payRef() {
-  if (wantTitle) return 'KONA FATO';
-  return `KONA ${totals().list.map((s) => s.n).sort((a, b) => a - b).map(pad2).join(' ')}`.trim();
+  if (wantTitle) return 'CARMO FATO';
+  return `CARMO ${totals().list.map((s) => s.n).sort((a, b) => a - b).map(pad2).join(' ')}`.trim();
 }
 function fillPayee() {
   const iban = ibanPretty(SITE.iban || '');
@@ -1080,12 +1108,16 @@ export { toast, copy };
 // a second tap or «Voltar» never sends it again.
 const API = String(SITE.requestsApi || '').trim().replace(/\/+$/, '');
 const REQS = 'gc.claim.req', PENDING = 'gc.claim.pending', DRAFT = 'gc.claim.draft';
-const REQ_TIMEOUT = 12000, MAX_ITEMS = 6, OWN_FRESH = 15 * 60e3;
+// REQ_TIMEOUT counts from the tap, so it covers the upload of up to 600 KB on a slow phone line and the Worker's commit
+const REQ_TIMEOUT = 25000, MAX_ITEMS = 6, OWN_FRESH = 15 * 60e3, DRAFT_KEEP = 6 * 3600e3;
 const ID_RE = /^[0-9A-Z]{10}$/, DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const CHANNEL = { wa: 'whatsapp', mail: 'email', ig: 'instagram' };
 // rqMode: 'api' sends the request first; 'msg' sends the message only (no Worker, or the Worker failed). rqBusy: a
-// request on its way. msgOut: the held request's message has gone out (else step 2 offers to send it).
-let rqMode = API ? 'api' : 'msg', rqBusy = false, msgOut = true, clNote = null, logoErrKey = '';
+// request on its way. msgOut: the held request's message has gone out (else step 2 offers to send it). openReq: the
+// buyer's other open request («aberto»), named in the message of this package, which goes as a message only.
+let rqMode = API ? 'api' : 'msg', rqBusy = false, msgOut = true, clNote = null, logoErrKey = '', openReq = '';
+// spot id -> when the Worker said it is taken («ocupado»): it stays taken over the file for OWN_FRESH (refreshSpots)
+const takenAt = new Map();
 
 function reqs() { try { const v = JSON.parse(sessionStorage.getItem(REQS) || '{}'); return v && typeof v === 'object' ? v : {}; } catch (_) { return {}; } }
 const reqLive = (r) => !!r && ID_RE.test(r.id) && DAY_RE.test(r.until) && Date.parse(`${r.until}T23:59:59Z`) >= Date.now();
@@ -1110,6 +1142,12 @@ function keepReq(key, r) {
 // the held request's message went out (a reload then does not offer to send it again)
 function markOut() { try { const all = reqs(), r = all[pkKey()]; if (r && !r.out) { r.out = true; sessionStorage.setItem(REQS, JSON.stringify(all)); } } catch (_) {} }
 function pendingFor(key) { try { const p = JSON.parse(sessionStorage.getItem(PENDING) || 'null'); return !!p && p.key === key && Date.now() - p.at < 10 * 60e3; } catch (_) { return false; } }
+// while the package `key` has a request with no answer read (the page stopped waiting): a hold of the brand typed here
+// may be that request's own
+function maybeOwnFor(key) {
+  const waiting = pendingFor(key), brand = $('#cl-brand').value;
+  return (x) => waiting && !!x && x.status === 'reserved' && !!x.request && sameBrand(x.brand, brand);
+}
 
 // This tab's own holds over the file: GitHub Pages shows a new hold a minute or two after the Worker's commit, and a
 // reload in between would show those spots free (and take them out of the package). After 15 minutes the file wins.
@@ -1135,6 +1173,10 @@ function longDay(iso, weekday = false) {
   try { return new Intl.DateTimeFormat(getLang() === 'en' ? 'en-GB' : 'pt-PT', { day: 'numeric', month: 'long', ...(weekday ? { weekday: 'long' } : {}), timeZone: 'UTC' }).format(new Date(`${iso}T12:00:00Z`)); } catch (_) { return fmtDay(iso); }
 }
 const joinList = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} ${getLang() === 'en' ? 'and' : 'e'} ${xs[xs.length - 1]}`);
+// a spot named in a sentence: «22 Capacete, lado esquerdo» (“…” in English), so a name with a comma reads as one
+const qName = (s) => (getLang() === 'en' ? `“${pad2(s.n)} ${pick(s).name}”` : `«${pad2(s.n)} ${pick(s).name}»`);
+// a purchase of this tab's own request, confirmed by Gonçalo since: what the buyer is told
+const boughtText = ({ mine = [], titleMine = false }) => (titleMine ? t('rq.compraT') : t('rq.compra', joinList(mine.map(qName)), mine.length));
 // what the package is, for the plurals: 'title', or the number of spots
 const kOf = () => (wantTitle ? 'title' : totals().list.length);
 
@@ -1159,6 +1201,8 @@ async function makeLogo(file) {
     try { await img.decode(); } catch (_) { throw new Error('bad'); }
     const w0 = size ? size.w : img.naturalWidth, h0 = size ? size.h : img.naturalHeight;
     if (!(w0 > 0 && h0 > 0)) throw new Error('bad');
+    // a picture under 64 px on its long side (a favicon, an avatar) is too small to print: said so, not «could not open»
+    if (kind !== 'svg' && Math.max(w0, h0) < 64) throw new Error('small');
     let side = kind === 'svg' ? LOGO_SIDE : Math.min(LOGO_SIDE, Math.max(w0, h0));
     for (let i = 0; i < 8 && side >= 64; i++) {
       const { w, h } = C.rasterSize({ w: w0, h: h0 }, side);
@@ -1170,7 +1214,7 @@ async function makeLogo(file) {
       side = Math.floor(side * Math.max(0.25, Math.min(0.9, Math.sqrt(LOGO_MAX / blob.size) * 0.92)));
     }
     throw new Error('bad');
-  } catch (e) { throw new Error(['big', 'type'].includes(e.message) ? e.message : 'bad'); }
+  } catch (e) { throw new Error(['big', 'type', 'small'].includes(e.message) ? e.message : 'bad'); }
   finally { URL.revokeObjectURL(src); }
 }
 async function takeLogo(file) {
@@ -1184,7 +1228,7 @@ async function takeLogo(file) {
     say(t('cl.logoOk', L.name));
   } catch (e) {
     if (seq !== logoSeq) return;
-    const key = e.message === 'type' ? 'cl.logoType' : e.message === 'big' ? 'cl.logoBig' : 'cl.logoBad';
+    const key = { type: 'cl.logoType', big: 'cl.logoBig', small: 'cl.logoSmall' }[e.message] || 'cl.logoBad';
     logoErr(key);
     say(t(key));
   } finally {
@@ -1236,11 +1280,13 @@ async function previewOnModels() {
 }
 
 // ---------- the draft: what the buyer wrote and the logo, for this tab ----------
+// Kept only as long as it is needed: «Feito» clears it (forgetDraft), and a draft older than DRAFT_KEEP is not brought
+// back (a phone keeps a tab, and its sessionStorage, for weeks)
 let draftT = 0;
 function saveDraft() {
   clearTimeout(draftT);
   draftT = setTimeout(() => {
-    const d = { brand: $('#cl-brand').value, name: $('#cl-name').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
+    const d = { at: Date.now(), brand: $('#cl-brand').value, name: $('#cl-name').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
     const L = buyerLogo;
     try { sessionStorage.setItem(DRAFT, JSON.stringify(L ? { ...d, logo: { dataUrl: L.dataUrl, w: L.w, h: L.h, name: L.name, size: L.size } } : d)); } catch (_) {
       try { sessionStorage.setItem(DRAFT, JSON.stringify(d)); } catch (__) {}   // full: the words at least
@@ -1251,6 +1297,7 @@ async function restoreDraft() {
   let d = null;
   try { d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); } catch (_) {}
   if (!d || typeof d !== 'object') return;
+  if (!(Date.now() - Number(d.at) < DRAFT_KEEP)) { try { sessionStorage.removeItem(DRAFT); } catch (_) {} return; }
   for (const [k, q] of [['brand', '#cl-brand'], ['name', '#cl-name'], ['nif', '#cl-nif'], ['msg', '#cl-msg']]) if (typeof d[k] === 'string' && d[k] && !$(q).value) $(q).value = d[k];
   if ($('#cl-nif').value.trim() || $('#cl-msg').value.trim()) { $('#cl-extra').hidden = false; $('#cl-add').hidden = true; $('#cl-add').setAttribute('aria-expanded', 'true'); }
   const L = d.logo;
@@ -1258,6 +1305,14 @@ async function restoreDraft() {
     try { const blob = await (await fetch(L.dataUrl)).blob(); if (!buyerLogo) setLogo({ blob, dataUrl: L.dataUrl, w: Number(L.w) || 0, h: Number(L.h) || 0, size: blob.size, name: String(L.name || 'logo') }, { save: false }); } catch (_) {}
   }
   if ($('#claim').open) renderClaim();
+}
+// the request is over: the name, the NIF, the message and the logo go, from the fields and from the tab (the brand stays
+// in its field for another package, but is no longer stored)
+function forgetDraft() {
+  clearTimeout(draftT);   // a save still on its way would write it back
+  try { sessionStorage.removeItem(DRAFT); } catch (_) {}
+  for (const q of ['#cl-name', '#cl-nif', '#cl-msg']) $(q).value = '';
+  setLogo(null, { save: false });
 }
 
 // ---------- notes: what went wrong and what to do ----------
@@ -1281,7 +1336,7 @@ function renderNote() {
 function renderNeed() {
   const need = $('#cl-need'), acts = [$('#cl-wa'), $('#cl-mail'), $('#cl-ig')];
   let text = '';
-  if (rqBusy) text = t('cl.busy');
+  if (rqBusy) { text = t('cl.busy'); $$('#cl-s1 .cl-busy-t').forEach((x) => { x.textContent = text; }); }
   else if (API) {
     const b = !$('#cl-brand').value.trim(), l = !buyerLogo && !heldReq();
     text = b && l ? t('cl.needBL') : b ? t('cl.needB') : l ? t('cl.needL') : '';
@@ -1293,11 +1348,12 @@ function renderNeed() {
     if (text) a.setAttribute('aria-describedby', 'cl-need'); else a.removeAttribute('aria-describedby');
   }
 }
-// the spots that left the package since it was put together, said in the dialog
-function goneNote({ gone, title }) {
-  if (title) { setNote(() => t('rq.ocupadoT')); return; }
-  if (!gone.length) return;
-  setNote(() => t('rq.ocupado', joinList(gone.map((s) => `${pad2(s.n)} ${pick(s).name}`)), gone.length), () => t(basket.size ? 'rq.again' : 'rq.pick'));
+// the spots that left the package since it was put together, said in the dialog (false: nothing to say)
+function goneNote({ gone, title, mine = [], titleMine = false }) {
+  if (title) { setNote(() => t('rq.ocupadoT')); return true; }
+  if (gone.length) { setNote(() => t('rq.ocupado', joinList(gone.map(qName)), gone.length), () => t(basket.size ? 'rq.again' : 'rq.pick')); return true; }
+  if (mine.length || titleMine) { setNote(() => boughtText({ mine, titleMine })); return true; }
+  return false;
 }
 // the Worker cannot hold it now: the buttons send the message only, and the note says the spot is not held yet
 function toMsg(main) {
@@ -1318,10 +1374,24 @@ function openExtra() { const add = $('#cl-add'); $('#cl-extra').hidden = false; 
 // in Safari). Without it the app is opened by the buyer's own tap on step 2's button.
 const tapLive = () => { try { return !!(navigator.userActivation && navigator.userActivation.isActive); } catch (_) { return false; } };
 const needsPost = () => !!API && rqMode === 'api' && !heldReq();
+// The tapped button says «A reservar…» in place of its label while the request is on its way (the line under the
+// buttons can be below the screen on a phone, and with Reduce Motion nothing else moves): the label is hidden and a
+// second one shown (the label itself carries data-i18n, which a change of language must still find intact)
 function busy(by, on) {
   rqBusy = on;
-  const btn = { wa: '#cl-wa', mail: '#cl-mail', ig: '#cl-ig' }[by];
-  if (on) $(btn).setAttribute('aria-busy', 'true'); else $$('#cl-s1 [aria-busy]').forEach((n) => n.removeAttribute('aria-busy'));
+  const btn = $({ wa: '#cl-wa', mail: '#cl-mail', ig: '#cl-ig' }[by]);
+  if (on) {
+    btn.setAttribute('aria-busy', 'true');
+    const lab = $(':scope > span', btn), b = document.createElement('span');
+    b.className = 'cl-busy-t'; b.textContent = t('cl.busy');
+    lab.hidden = true; btn.appendChild(b);
+    if (btn.hasAttribute('aria-label')) { btn.dataset.label = btn.getAttribute('aria-label'); btn.setAttribute('aria-label', t('cl.busy')); }
+  } else for (const n of $$('#cl-s1 [aria-busy]')) {
+    n.removeAttribute('aria-busy');
+    $$(':scope > .cl-busy-t', n).forEach((x) => x.remove());
+    $$(':scope > span[hidden]', n).forEach((x) => { x.hidden = false; });
+    if (n.dataset.label) { n.setAttribute('aria-label', n.dataset.label); delete n.dataset.label; }
+  }
   renderNeed();
   if (on) say(t('cl.busy'));
 }
@@ -1347,21 +1417,26 @@ async function book(by) {
     brand: $('#cl-brand').value.trim(), name: $('#cl-name').value.trim(), nif: $('#cl-nif').value.trim(), message: $('#cl-msg').value.trim(),
     pay: payNow(), lang: getLang(), channel: CHANNEL[by], logo: buyerLogo.dataUrl, website: '',
   };
-  // a request of this package that left before a reload, its answer never read
-  const before = pendingFor(key);
+  // on its way until its answer is read: a reload meanwhile, or no answer at all, keeps its spots in the package
+  // (pruneBasket) while their hold may be this request's own
   try { sessionStorage.setItem(PENDING, JSON.stringify({ key, at: Date.now() })); } catch (_) {}
   busy(by, true);
-  let res = await postReq(body), again = false;
-  // a network error: once more, a moment later (the Worker never holds twice for one address: see «aberto» below)
-  if (res.net) { await new Promise((ok) => setTimeout(ok, 800)); res = await postReq(body); again = true; }
+  let res = await postReq(body);
+  // no answer (a network error, or none in REQ_TIMEOUT: a slow upload or a slow commit): once more, a moment later. The
+  // Worker never holds twice for one address: a first try that got through answers «aberto» with its number (below)
+  if (res.net || res.timeout) { await new Promise((ok) => setTimeout(ok, res.timeout ? 3000 : 800)); res = await postReq(body); }
   busy(by, false);
-  try { sessionStorage.removeItem(PENDING); } catch (_) {}
+  // still no answer: the request may have been held, so it stays «on its way» for the next tap (and for a reload)
+  if (!res.timeout) try { sessionStorage.removeItem(PENDING); } catch (_) {}
   const j = res.json && typeof res.json === 'object' ? res.json : {};
   const r = { ids: body.items || [], title: !!body.title, brand: body.brand, pay: body.pay, channel: body.channel, at: new Date().toISOString(), out: false };
   if (res.status === 201 && ID_RE.test(j.id) && DAY_RE.test(j.until)) return held(by, key, { ...r, id: j.id, until: j.until, total: typeof j.total === 'number' && j.total > 0 ? j.total : net });
-  // «aberto» with this brand's open request, right after a lost answer or a reload while it was on its way: it is this one
-  if (res.status === 429 && j.error === 'aberto' && ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') && (again || before)) return held(by, key, { ...r, id: j.id, until: j.until, total: net });
-  failed(res, j);
+  // «aberto» with this brand's open request is this package's own hold only when it holds exactly this package (a lost
+  // answer, a reload while it was on its way, the buyer's other tab): the same address and brand may have another
+  // request open, for other spots, and that one goes to failed()
+  const same = body.title ? j.title === true : Array.isArray(j.items) && j.items.length === body.items.length && body.items.every((id) => j.items.includes(id));
+  if (res.status === 429 && j.error === 'aberto' && ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') && same) return held(by, key, { ...r, id: j.id, until: j.until, total: net });
+  failed(res, j, by, r);
 }
 function held(by, key, r) {
   keepReq(key, r);
@@ -1376,14 +1451,28 @@ function held(by, key, r) {
   if (by === 'ig') { igSend(message()); return; }
   if (tapLive()) { const a = $('#cl-go'); a.dataset.by = by; a.click(); }
 }
-// what each answer of the Worker means for the buyer (worker/README.md lists them)
-function failed(res, j) {
+// what each answer of the Worker means for the buyer (worker/README.md lists them). r: the request as book() would keep
+// it, for an «aberto» that turns out to be this package's own
+function failed(res, j, by, r) {
+  // no answer in time, twice: it may well be held (a slow commit). Never «not held»: the buttons still send the request,
+  // and the Worker answers the next one with this request's number and spots («aberto», taken in book)
+  if (res.timeout) { setNote(() => t('rq.lento'), () => t('rq.lentoSub')); return; }
   const code = typeof j.error === 'string' ? j.error : '';
   if (!res.status || res.status >= 500 || !code) { toMsg(() => t('rq.net')); return; }
   switch (code) {
     case 'ocupado': taken(Array.isArray(j.ids) ? j.ids : []); return;
     case 'espacos': setNote(() => t('rq.espacos')); refreshSpots(); return;
-    case 'aberto': toMsg(ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') ? () => t('rq.aberto', j.id, longDay(j.until)) : () => t('rq.abertoX')); return;
+    case 'aberto': {
+      if (!(ID_RE.test(j.id || '') && DAY_RE.test(j.until || ''))) { toMsg(() => t('rq.abertoX')); return; }
+      // this package already shows held by that request (the buyer's other tab sent it, and Pages has the commit)
+      const xs = wantTitle ? [DATA.title] : totals().list;
+      if (xs.length && xs.every((x) => x.status === 'reserved' && x.request === j.id)) { held(by, pkKey(), { ...r, id: j.id, until: j.until, total: totals().net }); return; }
+      // another request of this buyer, for other spots: this package goes as a message only, and the message names it
+      rqMode = 'msg'; openReq = j.id;
+      setNote(() => t('rq.aberto', j.id, longDay(j.until)), () => t('rq.abertoSub'));
+      renderClaim();
+      return;
+    }
     case 'limite': toMsg(() => t('rq.limite')); return;
     case 'limite-site': toMsg(() => t('rq.limiteSite')); return;
     case 'muitos': toMsg(() => t('rq.muitos', Number(j.max) || MAX_ITEMS)); return;
@@ -1399,14 +1488,24 @@ function failed(res, j) {
     default: toMsg(() => t('rq.geral'));
   }
 }
-// «ocupado»: the Worker knows before GitHub Pages does. Those spots are taken whatever the page still shows; they leave
-// the package and the file is read again
+// «ocupado»: the Worker knows before GitHub Pages does. Those spots are taken whatever the page still shows (and stay so
+// over a file Pages has not republished yet: takenAt); they leave the package and the file is read again. A spot held by
+// this tab's own request (sent from another connection, so not «aberto») stays, and the note says to take it out.
 function taken(ids) {
+  const own = ids.map(byId).filter(ownHold);
+  // ('fato' says the whole suit cannot be had, not that it is held: one of its spots may be the reason)
+  for (const id of ids) if (id !== 'fato' && !own.some((s) => s.id === id)) takenAt.set(id, Date.now());
+  if (own.length) {
+    setNote(() => t('rq.mine', joinList(own.map(qName)), own.length, own[0].request), () => t('rq.mineSub', own.length));
+    renderClaim();
+    return;
+  }
   if (ids.includes('fato') || wantTitle) { wantTitle = false; renderPackage(); setNote(() => t('rq.ocupadoT')); renderClaim(); refreshSpots(); return; }
   for (const id of ids) { const s = byId(id); if (s && s.status === 'available') { s.status = 'reserved'; delete s.until; } }
   const lost = pruneBasket();
   refreshViews();
-  goneNote(lost);
+  // a 409 never ends in silence
+  if (!goneNote(lost)) setNote(() => t('rq.geral'));
   renderClaim();
   refreshSpots();
 }
@@ -1659,17 +1758,20 @@ function bindUI() {
   $('#cl-msg').addEventListener('input', mailCutHint);
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
-  $('#cl-sent').addEventListener('click', () => { sent(''); goStep(2); });
+  // (hidden while a request still has to hold the package: renderClaim)
+  $('#cl-sent').addEventListener('click', () => { if (API && rqMode === 'api' && !heldReq()) return; sent(''); goStep(2); });
   $('#cl-back').addEventListener('click', () => goStep(1));
-  // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it).
-  // The bar's «Reservar» goes with it, so focus moves on to the rate card heading.
+  // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it),
+  // and the draft goes (name, NIF, message, logo). The bar's «Reservar» goes with it, so focus moves on to the rate card
+  // heading. A held package whose message never went out says that it still has to.
   $('#cl-done').addEventListener('click', () => {
     const r = heldReq();
     forgetSent();
+    forgetDraft();
     wantTitle = false; basket.clear(); saveBasket();
     $('#claim').close();
     if (document.activeElement?.closest('#package')) { const h = $(`.ratecard[data-item="${midPart() || 'suit'}"] h4`); h.tabIndex = -1; h.focus({ preventScroll: true }); }
-    toast(r ? t('toast.held', longDay(r.until)) : t('toast.thanks'));
+    toast(r ? t(msgOut ? 'toast.held' : 'toast.heldNoMsg', longDay(r.until), r.id) : t('toast.thanks'));
   });
   $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab, { user: true })));
   // arrow keys move along the tabs (the MB WAY tab is skipped while it is off)
@@ -1688,7 +1790,9 @@ function bindUI() {
     toast(t(b.dataset.toast || 'toast.copy'));
     b.classList.add('ok'); clearTimeout(b._t); b._t = setTimeout(() => b.classList.remove('ok'), 1600);
   });
-  $('#claim').addEventListener('close', () => { stopWa(); waTap = null; wantTitle = false; renderPackage(); if (previewed.size) previewOnModels(); for (const m of models()) m.hold(false); });
+  // × and Esc: a held whole suit keeps its bar, so «Reservar» there brings back its number and payment (as a held
+  // package of spots does); «Feito» and «Limpar» let go of it themselves
+  $('#claim').addEventListener('close', () => { stopWa(); waTap = null; if (!heldReq('title')) wantTitle = false; renderPackage(); if (previewed.size) previewOnModels(); for (const m of models()) m.hold(false); });
   $('#claim .close').addEventListener('click', () => $('#claim').close());
   $('#claim-form').addEventListener('submit', (e) => e.preventDefault());
   // Enter (the keyboard's «next» / «done») moves on to the next field, and leaves the last one (the «Pagar por» radios

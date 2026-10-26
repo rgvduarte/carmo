@@ -46,10 +46,11 @@ PT e EN (botão no topo; a língua também segue o browser).
 MB WAY ao lado), ou MB WAY
 para o número do Gonçalo (916 395 103) até 2 000 € por envio, o máximo que o MB WAY deixa mandar de uma vez.
 Acima disso, como o fato completo (3 000 €), o pedido só mostra a transferência. O site mostra o montante já com
-desconto e um descritivo com os números dos espaços, por exemplo `KONA 01` ou `KONA 09 16 20`, para cada pagamento se
+desconto e um descritivo com os números dos espaços, por exemplo `CARMO 01` ou `CARMO 09 16 20`, para cada pagamento se
 ligar ao pedido sem dúvidas. Os espaços do capacete são
-os números 21 a 24, por isso um pacote com fato e capacete fica, por exemplo, `KONA 01 21 22`. O fato completo usa
-`KONA FATO` e os donativos `KONA APOIO`. IBAN, titular, número MB WAY e o limite por envio estão em
+os números 21 a 24, por isso um pacote com fato e capacete fica, por exemplo, `CARMO 01 21 22`. O fato completo usa
+`CARMO FATO` e os donativos `CARMO APOIO`. Antes o código era `KONA` (`KONA 01 21 22`, `KONA FATO`): a página de
+admin lê os dois, por isso um pagamento com uma referência antiga continua a bater certo. IBAN, titular, número MB WAY e o limite por envio estão em
 `assets/js/data.js` → `SITE` (`mbway: ''` esconde o MB WAY).
 Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. Num mês com vendas grandes, pede transferência.
 
@@ -59,7 +60,7 @@ de uma mensagem que chega sem `Pedido:`:
 1. A marca escolhe os espaços e carrega em **Reservar**. O pedido tem dois passos, um ecrã cada:
    **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem, e **Pagar por** MB WAY ou
    Transferência) e **Pagar** (MB WAY ou Transferência, cada um com três linhas para copiar: número ou IBAN, montante e
-   código `KONA`). A forma escolhida vai escrita na mensagem que recebes («Pagamento: MB WAY» ou «Pagamento:
+   código `CARMO`). A forma escolhida vai escrita na mensagem que recebes («Pagamento: MB WAY» ou «Pagamento:
    transferência bancária») e o passo Pagar abre nela. Acima de 2 000 € o MB WAY fica desligado, com a razão por baixo.
    Se a marca mudar de forma no passo Pagar depois de enviar, aparece «Mudaste a forma de pagamento? Diz-me na conversa.»
    Ao enviar o pedido por WhatsApp (o botão dourado) ou email (por baixo, ao lado do Instagram), a app abre com a
@@ -146,8 +147,8 @@ colaboradora apenas deste repositório.
 «Lembrar neste telemóvel» guarda o token nesse telemóvel, para todo o site gocarmo.com (fica desligado de
 origem). Sem isso, ao fechar o separador tens de colar o token outra vez. «Sair» pergunta antes de apagar.
 
-**Colar pedido ou referência.** Colas a referência do pagamento, por exemplo `KONA 01 21 22` ou `KONA FATO`, e a
-página seleciona esses espaços e mostra o total esperado. Também podes colar a mensagem inteira do pedido (do
+**Colar pedido ou referência.** Colas a referência do pagamento, por exemplo `CARMO 01 21 22` ou `CARMO FATO` (ou
+uma antiga, `KONA 01 21 22`), e a página seleciona esses espaços e mostra o total esperado. Também podes colar a mensagem inteira do pedido (do
 WhatsApp, do email, ou só o link `gocarmo.com/#pacote=…`): a página seleciona os espaços e mostra num resumo os
 espaços, a marca, o nome, o NIF (e se o último algarismo confere), a forma de pagamento, a referência e o total, com
 um aviso quando o total ou um preço já não batem com os de agora, ou quando um espaço já está reservado ou vendido.
@@ -157,9 +158,11 @@ No telemóvel, depois de colar, o teclado fecha e o resumo sobe com os dois bot�
 nos espaços do pedido, a barra de baixo esconde-se (os botões do resumo já fazem o mesmo, com a marca do pedido).
 Se os espaços já estiverem reservados por um pedido do site, o resumo diz qual, o primeiro botão passa a
 **Prolongar 48 h** (do próprio pedido) e **Marcar como vendido** é o **Confirmar compra** desse pedido, com o
-logótipo. O mesmo com a referência (`KONA 21`) e com **Vendido** na barra: um espaço de um pedido do site vende-se
+logótipo. O mesmo com a referência (`CARMO 21`) e com **Vendido** na barra: um espaço de um pedido do site vende-se
 sempre pelo pedido, para o logótipo ir para o site. Se a chave dos pedidos ainda não estiver neste separador, a
-página pede-a primeiro e depois continua.
+página pede-a primeiro e depois continua. Uma linha `Pedido: <número>` só conta quando esse pedido é dos mesmos
+espaços: se for de outros (a marca pode ter escrito o número de outro pedido na mensagem dela), o resumo diz «A
+mensagem fala do pedido …, que é de outros espaços: não o uso.» e os botões tratam estes espaços à parte.
 
 **Pedidos.** Aparece quando o site recebe as compras sozinho (ver **Compras automáticas**). Na primeira vez pede a
 chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. O
@@ -230,25 +233,38 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 2. Carrega em WhatsApp, Email ou Instagram. O site manda o pedido ao Worker («A reservar…») com os espaços, a marca,
    o nome, o NIF, a mensagem, a forma de pagar e o logótipo. O Worker reserva os espaços por 48 horas (um commit no
    `data/spots.json`) e responde com o número do pedido. O passo 2 diz **Reservado até domingo, 25 de outubro**, o
-   número do pedido e «Tens 48 horas: paga e envia-me o comprovativo por WhatsApp ou email para o patrocínio ficar
-   fechado», e por baixo os dados de MB WAY ou da transferência (o que escolheu), o montante e o descritivo `KONA`.
+   número do pedido e «Paga e envia-me o comprovativo por WhatsApp ou email até essa data (48 horas a contar do
+   pedido) para o patrocínio ficar fechado», e por baixo os dados de MB WAY ou da transferência (o que escolheu), o
+   montante e o descritivo `CARMO`. Enquanto o pedido segue, o botão tocado diz «A reservar…».
    A app escolhida abre sozinha com a mensagem, que agora leva `Pedido: <número>` e «Reservado durante 48 horas, até
    25 de outubro. Envio o comprovativo do pagamento até lá.» Se o browser não a deixar abrir sozinha (a resposta
-   chegou tarde), aparece «Falta um passo.» com um botão que a abre. No Instagram, a mensagem fica copiada para colar.
+   chegou tarde), aparece «Falta um passo.» com um botão que a abre; se fechar o pedido antes disso, ao voltar o passo
+   1 diz que ainda falta enviar a mensagem, e «Feito» lembra o número do pedido. No Instagram, a mensagem fica copiada
+   para colar. «Já enviei o pedido», que salta para o pagamento, só aparece depois de o pacote estar reservado (ou
+   quando o pedido voltou a ser só mensagem): nunca passa à frente da reserva nem do logótipo.
 3. Na página, os espaços passam logo a «Reservado até 25 out.»; para toda a gente, assim que o GitHub Pages publica o
    commit (1 a 2 minutos). Cada vez que o pedido abre, o site lê outra vez o `data/spots.json` sem cache: um espaço
    que outra marca reservou entretanto sai do pacote e o pedido diz qual foi.
 4. Se recarregar a página (ou voltar do WhatsApp com a página recarregada), o pedido volta ao passo 2, reservado. O
    número do pedido fica guardado nesse separador: o mesmo pacote nunca é enviado duas vezes, nem com dois toques
    seguidos, nem com «Voltar» (os botões só enviam outra vez a mensagem). O que escreveu e o logótipo também ficam
-   guardados no separador até o fechar.
-5. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: o espaço acabou de ser
-   reservado por outra marca (sai do pacote, escolhe outro), já tem um pedido aberto (o número e até quando),
-   mais de 6 espaços (escolhe o fato completo ou fala comigo), um campo a corrigir, um logótipo que não serve.
-6. Se o Worker não responder em 12 segundos (tenta uma segunda vez se a rede falhar), ou responder com erro do
-   servidor, nada se perde: os mesmos botões enviam só a mensagem, como antes, com a linha «Sem reserva no site:
-   confirmas se está livre? Envio o logótipo nesta conversa.», e o pedido diz «O espaço ainda não ficou reservado:
-   confirmo por mensagem.»
+   guardados no separador, no máximo 6 horas; «Feito» apaga o nome, o NIF, a mensagem e o logótipo.
+5. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: outra marca reservou
+   entretanto o espaço (sai do pacote, escolhe outro; o espaço fica reservado na página mesmo antes de o GitHub Pages
+   o mostrar), mais de 6 espaços (escolhe o fato completo ou fala comigo), um campo a corrigir, um logótipo que não
+   serve (ou pequeno demais, com menos de 64 px). Se já tem outro pedido aberto, o pedido diz o número e até quando;
+   este pacote segue só por mensagem, com a linha `Pedido aberto: <número>`, para o juntares a esse pedido. Só quando
+   o pedido aberto é exatamente este pacote (a resposta perdeu-se, ou outro separador da mesma marca já o enviou) é
+   que o pedido o toma como seu e mostra a reserva.
+6. Se o Worker não responder em 25 segundos (tempo que inclui enviar o logótipo numa rede lenta) ou a rede falhar,
+   o site tenta uma segunda vez: se o primeiro pedido tiver chegado, o Worker responde com esse pedido e o site
+   mostra-o reservado, sem segunda reserva. Se continuar sem resposta, o pedido diz «A reserva está a demorar mais do
+   que o costume. Pode já ter ficado feita. Espera um momento e toca outra vez», nunca que não ficou reservado. Se a
+   rede falhar duas vezes ou o Worker responder com erro do servidor, nada se perde: os mesmos botões enviam só a
+   mensagem, como antes, com a linha «Sem reserva no site: confirmas se está livre? Envio o logótipo nesta
+   conversa.», e o pedido diz «O espaço ainda não ficou reservado: confirmo por mensagem.»
+7. Depois de confirmares a compra, se a marca ainda tiver o separador aberto com o espaço no pacote, o site diz
+   «Compra confirmada: o espaço … já é teu.» e tira-o do pacote.
 
 **O que tu fazes.**
 1. A mensagem chega com `Pedido: <número>`. O pedido também aparece na página de admin, em **Pedidos**, com o
@@ -259,7 +275,9 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 3. Sem pagamento, a reserva acaba sozinha no fim do último dia. **Prolongar 48 h** dá mais dois dias; **Cancelar**
    liberta já (num pedido falso, com «bloquear»).
 4. Uma mensagem sem `Pedido:` (o Worker estava em baixo) não reservou nada: vê se o espaço está livre, cola a
-   mensagem em **Colar pedido ou referência** e reserva ou vende como antes. O logótipo vem na conversa.
+   mensagem em **Colar pedido ou referência** e reserva ou vende como antes. O logótipo vem na conversa. Uma mensagem
+   com `Pedido aberto: <número>` também não reservou nada: é um pacote a mais de uma marca que já tem esse pedido
+   (com o logótipo); combina com ela e reserva ou vende estes espaços à parte.
 
 **Contra abusos.** Até 6 espaços por pedido (mais, só o fato completo). No máximo 8 espaços presos ao mesmo tempo por
 pedidos do site por pagar, venha de onde vier (o fato completo conta como os 8). Por endereço de internet: 1 pedido

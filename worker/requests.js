@@ -425,8 +425,13 @@ async function create(request, env) {
   const recent = (await Promise.all(recentIds.map((rid) => env.PEDIDOS.get(`p:${rid}`, { type: 'json' }).catch(() => null)))).filter(Boolean);
   const open = recent.filter((r) => r.status === 'novo' && r.until && holdEnd(r.until) >= now);
   if (open.length >= (env.TURNSTILE_SECRET ? 2 : 1)) {
-    const own = open.find((r) => sameBrand(r.brand, brand));   // the same buyer again (a lost answer): its request
-    return fail(request, env, 'aberto', 429, own ? { id: own.id, until: own.until } : {});
+    // the same buyer again (a lost answer): its request (this very package's first, with Turnstile's two), with what it
+    // holds, so the site takes it for its own only when it is the same package (that address and brand may have another
+    // request open, for other spots)
+    const theirs = open.filter((r) => sameBrand(r.brand, brand));
+    const samePkg = (r) => (title ? r.title === true : !r.title && Array.isArray(r.items) && r.items.length === items.length && items.every((x) => r.items.includes(x)));
+    const own = theirs.find(samePkg) || theirs[0];
+    return fail(request, env, 'aberto', 429, own ? { id: own.id, until: own.until, ...(own.title ? { title: true } : { items: own.items || [] }) } : {});
   }
   const paused = recent.some((r) => (r.status === 'cancelado' && now - Date.parse(r.closed || r.updated || r.at) < COOL_S * 1000)
     || (r.status === 'novo' && r.until && holdEnd(r.until) < now && now - holdEnd(r.until) < COOL_S * 1000));

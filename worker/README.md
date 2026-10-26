@@ -104,7 +104,8 @@ qualquer ação seguinte do admin tira esse campo.
 O corpo de `POST /pedido` (JSON, `Content-Type: application/json`, do site `https://gocarmo.com`):
 `{ items: [ids de data.spots, 1 a 6] | title: true, brand, name?, nif?, message?, pay: "mb" | "tr", lang?: "pt" | "en",
 channel?: "whatsapp" | "email" | "instagram" | "site", logo: "data:image/png;base64,…", website: "", turnstile? }`.
-Os erros: `ocupado` (409, com `ids`), `aberto` (429; com `id` e `until` só se a marca for a mesma), `limite` (429),
+Os erros: `ocupado` (409, com `ids`), `aberto` (429; só se a marca for a mesma, com `id`, `until` e o que esse pedido
+reserva, `items` ou `title: true`: o site só o toma como seu quando é o mesmo pacote), `limite` (429),
 `limite-site` (429), `muitos` (400, com `max`), `espacos`, `marca`, `nome`, `nif`, `mensagem`, `pagamento`,
 `lingua`, `canal`, `logo`, `recusado` (400), `logo-grande` e `tamanho` (413), `json` (400 ou 415), `turnstile` e
 `origem` (403), `config` e `interno` (503), `github` e `conflito` (502).
