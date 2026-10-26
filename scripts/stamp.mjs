@@ -53,7 +53,33 @@ function stamp(page, base) {
   writeFileSync(page, s);
 }
 
+// /admin/analytics/ may talk to the analytics Worker only: its CSP connect-src gets the origin of SITE.stats.url
+// (assets/js/data.js), or just 'self' while that is empty. Run again after changing the url.
+function connectStats(page) {
+  const m = readFileSync('assets/js/data.js', 'utf8').match(/^\s*stats:\s*\{\s*url:\s*'([^']*)'/m);
+  if (!m) throw new Error("assets/js/data.js: no `stats: { url: '…'` line (keep url first, on one line)");
+  let origin = '';
+  if (m[1]) {
+    const u = new URL(m[1]);
+    if (u.protocol !== 'https:') throw new Error(`SITE.stats.url must start with https:// (got ${m[1]})`);
+    origin = u.origin;
+  }
+  const meta = /(<meta http-equiv="Content-Security-Policy" content=")([^"]*)(")/i;
+  let s = readFileSync(page, 'utf8');
+  if (!meta.test(s)) throw new Error(`${page}: no Content-Security-Policy meta`);
+  s = s.replace(meta, (all, a, policy, z) => {
+    const dirs = policy.split(';').map((d) => d.trim()).filter(Boolean).filter((d) => !/^connect-src(\s|$)/i.test(d));
+    const at = dirs.findIndex((d) => /^img-src(\s|$)/i.test(d));
+    dirs.splice(at < 0 ? dirs.length : at + 1, 0, `connect-src 'self'${origin ? ` ${origin}` : ''}`);
+    return `${a}${dirs.join('; ')}${z}`;
+  });
+  writeFileSync(page, s);
+  console.log(origin ? `the analytics page may reach ${origin}` : 'the analytics page reaches no Worker yet (SITE.stats.url is empty)');
+}
+
 stamp('index.html', './');
 stamp('admin/index.html', '../');
 stamp('admin/strava/index.html', '../../');
+stamp('admin/analytics/index.html', '../../');
+connectStats('admin/analytics/index.html');
 console.log(`stamped ${modules.length} modules`);

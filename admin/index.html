@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-DY83vJuUG+V3h54Q3Uio5e1uTg7rrX5WIcROCjyDAxY='; connect-src 'self' https://api.github.com https://gocarmo.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-HxzyLQmds3iwvkkV3EpFC7o5+jdsyUEHkZLylvg4eXU='; connect-src 'self' https://api.github.com https://gocarmo.com; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -17,17 +17,28 @@
   "three": "../assets/vendor/three@0.170.0/build/three.module.min.js",
   "three/addons/": "../assets/vendor/three@0.170.0/examples/jsm/",
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=6a7fc41e",
+  "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=35971a4d",
+  "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=6e7f48dd",
+  "../assets/js/admin-analytics-heat.js": "../assets/js/admin-analytics-heat.js?v=3682fca7",
+  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=00896775",
+  "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=f57a7277",
+  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=901d0aa8",
+  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=ac3d2bb4",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=5d3e5efe",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=7dee7a86",
   "../assets/js/admin.js": "../assets/js/admin.js?v=0936b993",
-  "../assets/js/adspace.js": "../assets/js/adspace.js?v=b29b3f6b",
+  "../assets/js/adspace.js": "../assets/js/adspace.js?v=6bd40982",
   "../assets/js/charts.js": "../assets/js/charts.js?v=c988425d",
-  "../assets/js/data.js": "../assets/js/data.js?v=132cc84e",
+  "../assets/js/data.js": "../assets/js/data.js?v=10af99ca",
   "../assets/js/flow.js": "../assets/js/flow.js?v=c994a0dc",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=55483b20",
   "../assets/js/i18n.js": "../assets/js/i18n.js?v=43b6daec",
   "../assets/js/main.js": "../assets/js/main.js?v=033e031d",
   "../assets/js/marks.js": "../assets/js/marks.js?v=42ebc301",
+  "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=13c2780d",
+  "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=bb606a03",
+  "../assets/js/stats-zones.js": "../assets/js/stats-zones.js?v=66b2b133",
+  "../assets/js/stats.js": "../assets/js/stats.js?v=ada682da",
   "../assets/js/suit-body.js": "../assets/js/suit-body.js?v=e86b9edf",
   "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=56436646",
   "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=d04ffa75",
@@ -72,6 +83,7 @@
   <p class="fine">Se o GitHub não te deixar escolher rgvduarte/carmo (és colaborador e não dono), <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=gocarmo%20admin" target="_blank" rel="noopener">cria um token clássico</a> só com public_repo e 7 dias de validade. Atenção: esse token pode escrever em todos os repositórios públicos a que a tua conta tem acesso, não só neste. Apaga-o quando acabares.</p>
   <p class="fine">Sem token à mão? <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">Usa o formulário do GitHub</a>.</p>
   <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a> (uma vez, sem token).</p>
+  <p class="fine">Visitas e mapas de calor: <a href="analytics/">Estatísticas do site</a>.</p>
 </main>
 
 <!-- 2. Lista -->
@@ -109,6 +121,7 @@
 
     <p class="fine foot">Se esta página falhar, o <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">formulário do GitHub</a> faz o mesmo, um espaço de cada vez.</p>
     <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a>.</p>
+    <p class="fine">Visitas e mapas de calor: <a href="analytics/">Estatísticas do site</a>.</p>
   </main>
 
   <div class="bar" id="bar" hidden>
