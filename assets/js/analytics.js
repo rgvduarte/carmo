@@ -17,7 +17,8 @@
 //   remove_from_cart  a spot comes out of it                                        currency, value, items
 //   begin_checkout    the booking dialog opens on step 1                            currency, value, items
 //   add_payment_info  a way to pay is picked, or one of its rows copied             + payment_type (mbway | transfer)
-//   generate_lead     the request goes out by WhatsApp, email or Instagram (once)   currency, value, method
+//   generate_lead     the request goes out: held by the booking Worker ('gc:lead'),  currency, value, method
+//                     or sent by WhatsApp, email or Instagram (once)
 //   outbound_click    a link out (not the booking ones)                             link_type, link_domain, link_location
 //   share             a spot's link shared or copied ('gc:share', once it worked)   method, content_type, item_id
 //   language_change   the PT / EN switch                                            new_language
@@ -232,7 +233,7 @@ function onSpot(e) {
 }
 
 let SPOTS = null;
-// the total as the dialog shows it (after the bundle discount) and its spots, read from the KONA code («KONA 01 21»)
+// the total as the dialog shows it (after the bundle discount) and its spots, read from the CARMO code («CARMO 01 21»)
 function order() {
   const value = Number(document.getElementById('pay-amt-cp')?.dataset.copy) || 0;
   const ref = document.getElementById('pay-ref-cp')?.dataset.copy || '';
@@ -248,6 +249,13 @@ function order() {
 }
 
 let paidBy = new Set(), sentBy = new Set();
+// one request, one lead: a second way to send it, or its message after the Worker held it, is the same lead
+function lead(method, value = null) {
+  if (sentBy.size) return;
+  sentBy.add(method);
+  const o = order();
+  track('generate_lead', { currency: o.currency, value: value ?? o.value, method });
+}
 function paid() {
   const tabs = document.getElementById('pay-tabs');
   const tab = tabs && !tabs.hidden ? tabs.querySelector('[aria-selected="true"]')?.dataset.tab : 'tr';
@@ -273,17 +281,17 @@ const where = (el) => (el.closest('footer') ? 'footer' : el.closest('#nav') ? 'n
 function onClick(e) {
   const el = e.target instanceof Element ? e.target : null;
   if (!el) return;
-  const send = el.closest('#cl-wa, #cl-mail, #cl-ig');
+  // #cl-go: step 2's «Enviar por WhatsApp / email» after the booking Worker held the spots (adspace.js clicks it itself
+  // when the browser still lets it open the app)
+  const send = el.closest('#cl-wa, #cl-mail, #cl-ig, #cl-go');
   if (send) {
+    // refused (no brand, or no logo with the Worker on), or held back while the request goes to the Worker first: not
+    // sent (a hold is counted by adspace.js's 'gc:lead')
     if (e.defaultPrevented || document.getElementById('cl-brand')?.getAttribute('aria-invalid') === 'true') return;
     // Google's own outbound-click listener (Enhanced measurement) runs after this one and reads the link: it gets the
     // bare wa.me address, and the message is back in the link before the browser follows it
-    if (send.id === 'cl-wa') { const full = send.href; send.href = `https://wa.me/${SITE.whatsapp}`; addEventListener('click', () => { send.href = full; }, { once: true }); }
-    const method = SEND[send.id];
-    if (sentBy.size) return;   // one request, one lead: a second way to send it is the same lead
-    sentBy.add(method);
-    const { currency, value } = order();
-    track('generate_lead', { currency, value, method });
+    if (/^https:\/\/wa\.me\//.test(send.href || '')) { const full = send.href; send.href = `https://wa.me/${SITE.whatsapp}`; addEventListener('click', () => { send.href = full; }, { once: true }); }
+    lead(send.id === 'cl-go' ? (send.dataset.by === 'mail' ? 'email' : 'whatsapp') : SEND[send.id]);
     return;
   }
   if (el.closest('#pay-tabs [role="tab"], #pay-panel .cp')) { paid(); return; }
@@ -348,6 +356,8 @@ function init() {
     show({ focus: true });
   });
   document.addEventListener('gc:spot', onSpot);
+  // the booking Worker held the request's spots: the request reached Gonçalo, whatever happens to its message
+  document.addEventListener('gc:lead', (e) => lead(e.detail.method, e.detail.value));
   // adspace.js says when a share really happened (the share sheet completed, or the link was copied)
   document.addEventListener('gc:share', (e) => { if (shown) track('share', { method: e.detail.method, content_type: `${shown.item}_spot`, item_id: shown.id }); });
   // and when a spot goes into the package or comes out

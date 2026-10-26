@@ -493,7 +493,7 @@ que espaço entrou ou saiu do pacote, `gc:basket`, e que um link foi partilhado,
 | `share` | partilhas o link de um espaço («Partilhar»): conta quando a partilha é feita ou o link fica copiado, não um ecrã de partilha fechado | `method` (`web_share` ou `copy_link`), `content_type`, `item_id` |
 | `begin_checkout` | o pedido abre no passo 1 | `currency` (EUR), `value` (o total, já com desconto), `items` (os espaços) |
 | `add_payment_info` | escolhes Transferência ou MB WAY, ou copias uma linha do pagamento (uma vez por forma, em cada pedido) | os de cima e `payment_type` (`transfer` ou `mbway`) |
-| `generate_lead` | o pedido sai por WhatsApp, email ou Instagram, uma vez por pedido (um envio recusado por faltar a marca não conta, e mandar o mesmo pedido por outra via também não) | `currency`, `value`, `method` (`whatsapp`, `email` ou `instagram`) |
+| `generate_lead` | o pedido sai, uma vez por pedido: o Worker reservou os espaços, ou, sem reserva (Worker desligado ou em baixo), a mensagem foi por WhatsApp, email ou Instagram. Um envio recusado por faltar a marca ou o logótipo não conta, nem mandar o mesmo pedido por outra via, nem a mensagem depois da reserva | `currency`, `value`, `method` (`whatsapp`, `email` ou `instagram`) |
 | `outbound_click` | um link para fora, exceto os do pedido | `link_type` (`whatsapp`, `email`, `instagram`, `strava`, `gofundme`, `spotify`, `tiktok` ou `other`), `link_domain`, `link_location` (a secção, `nav` ou `footer`) |
 | `donation_intent` | em Apoiar: copias o IBAN ou o número MB WAY, ou carregas no botão do GoFundMe | `method` (`transfer`, `mbway`, `gofundme`, ou `whatsapp` enquanto não houver campanha) |
 | `language_change` | PT / EN | `new_language` |

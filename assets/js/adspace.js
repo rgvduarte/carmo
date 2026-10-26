@@ -1509,6 +1509,8 @@ function held(by, key, r) {
   setNote(null);
   sentPay = r.pay; sentBy = ''; waFail = ''; igBox = ''; msgOut = false;
   noteSent();
+  // for analytics.js (generate_lead): the request reached Gonçalo, held, at the amount the Worker held it for
+  document.dispatchEvent(new CustomEvent('gc:lead', { detail: { method: CHANNEL[by], value: r.total } }));
   // closed meanwhile (× while it was on its way): the page shows the hold, and the bar's «Reservar» says it is held
   if (!$('#claim').open || key !== pkKey()) { toast(t('cl.heldH', longDay(r.until))); return; }
   goStep(2);
@@ -1774,9 +1776,11 @@ function bindUI() {
     e.currentTarget.href = mailUrl();
     sent('mail'); setTimeout(() => goStep(2), 0);
   }));
-  $$('#claim [data-send="ig"]').forEach((b) => b.addEventListener('click', async () => {
-    if (rqBusy || !brandOk()) return;
-    if (needsPost()) { book('ig'); return; }
+  $$('#claim [data-send="ig"]').forEach((b) => b.addEventListener('click', async (e) => {
+    // (refused, or held back for the Worker: like the two links, the tap is marked, so analytics.js does not count it
+    // as sent)
+    if (rqBusy || !brandOk()) { e.preventDefault(); return; }
+    if (needsPost()) { e.preventDefault(); book('ig'); return; }
     const text = message();
     sent('ig');
     // the clipboard call starts inside the tap (Safari asks for that). Copied: step 2 starts with «Mensagem copiada. Cola-a
