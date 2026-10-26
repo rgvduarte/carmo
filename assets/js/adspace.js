@@ -6,6 +6,9 @@ import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
 
+// for stats.js (and analytics.js later): a named event the page tracker may count; never personal data
+const emit = (name, params = {}) => dispatchEvent(new CustomEvent('gc:track', { detail: { name, params } }));
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const AREAS = ['front', 'sides', 'shoulders', 'legs', 'back'];
@@ -52,6 +55,7 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     const res = await fetch('data/spots.json', { cache: 'no-cache' });
     DATA = await res.json();
   } catch (e) {
+    emit('asset_fail', { what: 'spots' });
     $('#rc-body').textContent = 'Não consegui carregar a tabela. Escreve-me para allez@gocarmo.com.';
     return;
   }
@@ -116,6 +120,7 @@ async function mountSuit() {
     const s = new mod.Suit(stageOf('suit'), { spots: ofItem('suit'), money, labels: kitLabels(), onSelect: onModelSelect, onHover: () => {}, active: !idle });
     // the body is meshed in a worker: the stage keeps its loading label until the suit is ready
     await s.ready;
+    emit('3d_ready', { item: 'suit', mesh: s.meshWhere, ms: s.buildMs });
     const first = want === 'helmet';   // read again: the visitor may have scrolled to the other part meanwhile
     if (idle && !first) s.setActive(true);
     suit = kit = s;
@@ -139,6 +144,7 @@ async function mountSuit() {
     if (kit && selected && itemOf(byId(selected)) === item) kit.select(selected, { focus: true });
     if (nearHelmet && suit) ensureHelmet();
   } catch (e) {
+    emit('3d_fail', { item: 'suit', why: e && e.message === 'webgl' ? 'nogl' : 'load' });
     $('#stage-loading')?.remove();
     no3d();
   }
@@ -172,7 +178,7 @@ function freeze(m) {
 let glBack = null;   // pending while the context is lost: resolves on restore or on the fallback
 function watchContext(canvas) {
   let timer = 0, done = null;
-  const arm = () => { clearTimeout(timer); if (glBack && !document.hidden) timer = setTimeout(no3d, 6000); };
+  const arm = () => { clearTimeout(timer); if (glBack && !document.hidden) timer = setTimeout(() => { emit('3d_fail', { item, why: 'ctx' }); no3d(); }, 6000); };
   canvas.addEventListener('webglcontextlost', () => {
     if (glBack) return;
     glBack = new Promise((res) => { done = res; }); glBack.done = () => { clearTimeout(timer); glBack = null; done(); };
@@ -234,8 +240,10 @@ function ensureHelmet() {
       await helmet.prepare();   // the constant part of the bake, in short tasks, before any logo is printed
       await printSponsors(helmet);
       await helmet.ready();
+      emit('3d_ready', { item: 'helmet' });
       return true;
     } catch (e) {
+      emit('3d_fail', { item: 'helmet', why: 'load' });
       console.error(e);
       helmet = null;
       // the helmet's part keeps its picture and its rate card; only its 3D controls go
@@ -325,7 +333,7 @@ async function printSponsors(m) {
       let c = await SuitClass.prepareLogo(blob, { removeWhite: true, mono: s.logoMono || null });
       if (!s.logoMono && m.rects.get(s.id)?.light === false && inkOf(c) < 110) c = await SuitClass.prepareLogo(blob, { removeWhite: true, mono: '#f6f7f9' });
       s._logo = c;
-    } catch (_) {}
+    } catch (_) { emit('asset_fail', { what: 'logo', spot: s.id }); }
   }));
   m.drawBase(); m.drawOverlay(); m.kick();
 }
@@ -523,6 +531,8 @@ function select(id, { from3d = false, focus = true } = {}) {
   sheet.style.removeProperty('--drag');
   document.body.classList.toggle('sheet-open', open);
   if (open) { sheet.scrollTop = 0; if (from3d && navigator.vibrate) navigator.vibrate(8); }
+  // for analytics.js (select_content): which spot is on the card now, and whether the tour put it there
+  document.dispatchEvent(new CustomEvent('gc:spot', { detail: { id: selected, item: selected ? itemOf(byId(selected)) : null, tour: !!tourCtl } }));
 }
 
 // One spot card, in the panel of its spot's part; each part shows its own prompt while none of its spots is picked.
