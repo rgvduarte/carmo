@@ -1,7 +1,7 @@
 {
   "season": "2027",
   "currency": "EUR",
-  "updated": "2026-10-23",
+  "updated": "2026-10-26",
   "bundle": {
     "min": 3,
     "discount": 0.1
@@ -571,13 +571,13 @@
       "h": 13,
       "rot": -90,
       "area": "helmet",
-      "price": 400,
+      "price": 150,
       "status": "available",
       "vis": {
-        "bike": 3,
+        "bike": 2,
         "run": 0,
         "finish": 0,
-        "social": 2
+        "social": 1
       },
       "pt": {
         "name": "Topo do capacete",
@@ -601,13 +601,13 @@
       "h": 9,
       "rot": -90,
       "area": "helmet",
-      "price": 200,
+      "price": 300,
       "status": "available",
       "vis": {
         "bike": 3,
         "run": 0,
         "finish": 0,
-        "social": 2
+        "social": 3
       },
       "pt": {
         "name": "Capacete, lado esquerdo",
@@ -631,13 +631,13 @@
       "h": 9,
       "rot": 90,
       "area": "helmet",
-      "price": 200,
+      "price": 300,
       "status": "available",
       "vis": {
         "bike": 3,
         "run": 0,
         "finish": 0,
-        "social": 2
+        "social": 3
       },
       "pt": {
         "name": "Capacete, lado direito",

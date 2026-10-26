@@ -138,7 +138,7 @@ async function saveLogo() {
 
 // ---------- apply ----------
 const prevBrand = target.brand;
-for (const k of ['brand', 'url', 'until']) delete target[k];
+for (const k of ['brand', 'url', 'until', 'request']) delete target[k];   // request: a hold placed by the site (worker/)
 target.status = status;
 // a logo belongs to the brand that bought the spot: it goes when the spot is freed, held or changes hands
 if (status !== 'sold' || brand !== prevBrand) { delete target.logo; delete target.logoMono; await clearLogos(); }

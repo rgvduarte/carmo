@@ -30,9 +30,9 @@ body:
         - "18 · Meio das costas · 200 € (costas-centro)"
         - "19 · Lombar · 100 € (lombar)"
         - "20 · Glúteos · 300 € (gluteos)"
-        - "21 · Topo do capacete · 400 € (capacete-topo)"
-        - "22 · Capacete, lado esquerdo · 200 € (capacete-lateral-e)"
-        - "23 · Capacete, lado direito · 200 € (capacete-lateral-d)"
+        - "21 · Topo do capacete · 150 € (capacete-topo)"
+        - "22 · Capacete, lado esquerdo · 300 € (capacete-lateral-e)"
+        - "23 · Capacete, lado direito · 300 € (capacete-lateral-d)"
         - "24 · Traseira do capacete · 100 € (capacete-traseira)"
         - "Fato completo · 3000 € (fato)"
     validations:

@@ -3,6 +3,8 @@
 // browser only). The page then waits until gocarmo.com serves the new data/spots.json. The rules (what each action
 // writes, and when it is allowed) live in admin-core.js, which is tested against the issue-form bot.
 import * as C from './admin-core.js';
+import { SITE } from './data.js';
+import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
 const API = `https://api.github.com/repos/${C.REPO}`;
 const KEY = 'gc.admin.token', FILTER_KEY = 'gc.admin.filter';
@@ -103,6 +105,7 @@ function showLogin(msg = '') {
 
 function signOut(msg = '') {
   forgetToken(); token = null; base = null; sel.clear(); stopPublishing();
+  forgetReqKey(); pasted = null; $('#inbox').hidden = true;
   $('#tok').value = ''; $('#who').textContent = '';
   updateBar();
   showLogin(msg);
@@ -157,6 +160,7 @@ async function enterApp({ check = false } = {}) {
   }
   gh('GET', 'https://api.github.com/user').then((u) => { if (u && u.login) $('#who').textContent = `@${u.login}`; }).catch(() => {});
   await load();
+  inboxInit();
   restoreStash();
 }
 
@@ -216,6 +220,7 @@ function render() {
   $('#empty').hidden = rows > 0;
   renderPub();
   updateBar();
+  renderInbox();
 }
 
 function row(v, raw, id, today, suitCount = 0) {
@@ -226,7 +231,8 @@ function row(v, raw, id, today, suitCount = 0) {
   cb.type = 'checkbox'; cb.checked = sel.has(id); cb.value = id;
   cb.addEventListener('change', () => toggle(id, cb.checked));
   lab.append(cb, el('span', 'n', isTitle ? 'FATO' : C.pad2(x.n)), el('span', 'nm', C.nameOf(raw, id)), el('span', 'pr', C.money(x.price)));
-  const sub = isTitle && st.key === 'available' ? `Os ${suitCount} espaços do fato, de uma vez · KONA FATO` : st.sub;
+  let sub = isTitle && st.key === 'available' ? `Os ${suitCount} espaços do fato, de uma vez · CARMO FATO` : st.sub;
+  if (st.key === 'reserved' && !x.byTitle && C.targetOf(raw, id).request) sub = `${sub ? `${sub} · ` : ''}pedido do site`;   // worker/requests.js
   if (sub) lab.appendChild(el('span', 'sub', sub));
   const chip = el('span', `st ${st.key}`); chip.appendChild(el('span', null, st.chip));
   lab.appendChild(chip);
@@ -249,9 +255,12 @@ function syncRows() {
 
 function updateBar() {
   const bar = $('#bar'), ids = base ? C.sortTargets(base.data, [...sel]) : [];
-  bar.hidden = !ids.length;
-  document.documentElement.style.setProperty('--bar-h', ids.length ? `${bar.offsetHeight}px` : '0px');
-  if (!ids.length) return;
+  // a pasted request on its own spots: its summary has the two actions (with its brand, its 48 h, its request); the bar
+  // would only cover them. Another selection brings the bar back.
+  const viaPaste = ids.length > 0 && !!pasted && !$('#paste').hidden && sameIds(ids, pasted.ids);
+  bar.hidden = !ids.length || viaPaste;
+  document.documentElement.style.setProperty('--bar-h', bar.hidden ? '0px' : `${bar.offsetHeight}px`);
+  if (bar.hidden) return;
   $('#bar-n').textContent = ids[0] === C.TITLE ? 'Fato completo' : plural(ids.length, 'selecionado', 'selecionados');
   const t = C.totals(base.data, ids);
   $('#bar-total').textContent = t.disc ? `${C.money(t.net)} (${C.money(t.gross)} −${Math.round(t.disc * 100)}%)` : C.money(t.net);
@@ -259,15 +268,36 @@ function updateBar() {
   $$('[data-act]').forEach((b) => { const g = C.guard(base.data, now, ids, b.dataset.act); b.setAttribute('aria-disabled', String(g.blocked.length > 0)); });
 }
 
-// ---------- payment reference ----------
+// ---------- «Colar pedido ou referência» ----------
+// A bare payment reference (CARMO 01 21 22, or the older KONA 01 21 22) selects those spots, as before. A pasted
+// request (the site's message by WhatsApp or email, or its link) selects them too and shows what it asks for, checked
+// against the prices of now, with «Reservar 48 h» and «Marcar como vendido». Every piece of the text is shown with
+// textContent only.
+const REF_HINT = 'É o descritivo da transferência ou do MB WAY, ou a mensagem do pedido (WhatsApp, email ou o link). Seleciona esses espaços.';
+let pasted = null;   // the last parsePaste() result of a request, for its two buttons
+let refLen = 0;      // the field's length before this input: a jump is a paste
+
 function onRef() {
-  const out = $('#ref-out'), txt = $('#ref').value;
+  const out = $('#ref-out'), box = $('#paste'), ta = $('#ref'), txt = ta.value;
+  const jump = txt.length - refLen > 30;
+  refLen = txt.length;
   out.classList.remove('ok'); out.textContent = '';
-  if (!base) return;
-  if (!txt.trim()) { out.textContent = 'É o descritivo da transferência ou do MB WAY. Seleciona esses espaços.'; return; }
-  const r = C.parseRef(txt, base.data);
+  box.hidden = true; box.textContent = ''; pasted = null;
+  ta.classList.remove('msg');
+  if (!base || !txt.trim()) { fitRef(); if (base) { out.textContent = REF_HINT; updateBar(); } return; }
+  const r = C.parsePaste(txt, base.data);
   sel = new Set(r.ids);
   if (r.ids.length && filter !== 'all') { filter = 'all'; saveFilter(); render(); } else syncRows();
+  if (r.kind !== 'ref') {
+    ta.classList.add('msg');   // about four lines: the summary stays in view
+    fitRef();
+    showPaste(r);
+    updateBar();
+    // a pasted message on a phone: the keyboard goes, and the summary with its buttons comes up above the bar
+    if (jump) { ta.blur(); requestAnimationFrame(revealPaste); setTimeout(revealPaste, 350); }
+    return;
+  }
+  fitRef();
   if (r.ids.length) {
     out.classList.add('ok');
     const t = C.totals(base.data, r.ids);
@@ -277,8 +307,456 @@ function onRef() {
   const extra = [];
   if (r.unknown.length) extra.push(`Não conheço ${r.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(r.unknown.map(String))}.`);
   if (r.note) extra.push(r.note);
-  if (!r.ids.length && !extra.length) extra.push('Não encontrei números de espaços. Ex.: KONA 01 21 22.');
+  if (!r.ids.length && !extra.length) extra.push('Não encontrei números de espaços. Ex.: CARMO 01 21 22.');
   if (extra.length) { const b = el('span', r.unknown.length || !r.ids.length ? 'bad' : null, `${r.ids.length ? ' ' : ''}${extra.join(' ')}`); out.appendChild(b); }
+  refBox(r);
+}
+
+// the field grows with a pasted message (up to a point, see .msg) and shrinks back
+function fitRef() {
+  const ta = $('#ref');
+  ta.style.height = 'auto';
+  if (ta.value.includes('\n') || ta.scrollHeight > ta.clientHeight + 2) ta.style.height = `${Math.min(ta.scrollHeight + 2, Math.round(innerHeight * 0.4))}px`;
+  else ta.style.height = '';
+}
+// the summary and its buttons above the sticky bar, without pushing the summary's first line off the top
+function revealPaste() {
+  const box = $('#paste'), out = $('#ref-out');
+  if (box.hidden) return;
+  const bar = $('#bar'), room = innerHeight - (bar.hidden ? 0 : bar.offsetHeight) - 12;
+  const bottom = box.getBoundingClientRect().bottom, top = out.getBoundingClientRect().top;
+  if (bottom > room) scrollBy({ top: Math.max(0, Math.min(bottom - room, top - 12)), left: 0, behavior: 'instant' });
+}
+// a typed reference is one line: Enter closes the keyboard, as before; a pasted message keeps its lines
+function onRefKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !$('#ref').value.includes('\n')) { e.preventDefault(); $('#ref').blur(); }
+}
+// the summary again (the Pedidos list just opened, say), the selection left as it is
+function redrawRef() {
+  const txt = $('#ref').value;
+  if (!base || !txt.trim()) return;
+  const r = C.parsePaste(txt, base.data);
+  $('#paste').textContent = ''; $('#paste').hidden = true;
+  if (r.kind !== 'ref') showPaste(r); else refBox(r);
+  updateBar();
+}
+
+// a bare reference whose spots a request of the site holds: say so, and sell them through that request
+function refBox(r) {
+  const box = $('#paste'), raw = base.data, owner = r.ids.length ? heldBy(raw, r.ids) : '';
+  if (!owner) return;
+  const notes = el('ul', 'notes');
+  notes.appendChild(el('li', null, holdText(raw, r.ids, owner)));
+  if (inboxOn() && !inbox.list) notes.appendChild(el('li', null, KEY_FOR_LOGO));
+  box.appendChild(notes);
+  if (inboxOn()) {
+    const acts = el('div', 'paste-acts'), b = el('button', 'btn gold', 'Confirmar compra');
+    b.type = 'button';
+    b.addEventListener('click', () => act('sold'));
+    acts.appendChild(b); box.appendChild(acts);
+  }
+  box.hidden = false;
+}
+
+function showPaste(p) {
+  const out = $('#ref-out'), box = $('#paste'), raw = base.data, now = Date.now();
+  pasted = p;
+  const ids = p.ids, t = ids.length ? C.totals(raw, ids) : null;
+  out.classList.toggle('ok', ids.length > 0);
+  out.textContent = !ids.length ? (p.kind === 'link' ? 'Este link não tem espaços que eu conheça.' : 'Li o pedido, mas não encontrei os espaços.')
+    : `${p.kind === 'link' ? 'Link do pedido' : 'Pedido'}: ${ids[0] === C.TITLE ? 'fato completo' : plural(ids.length, 'espaço', 'espaços')} · Total ${C.money(t.net)}`;
+  const dl = el('dl', 'pv');
+  const row = (k, v, cls) => { if (!v) return; const d = el('div', cls ? `pv-r ${cls}` : 'pv-r'); d.append(el('dt', null, k), el('dd', null, v)); dl.appendChild(d); };
+  row('Espaços', ids.map((id) => shortName(raw, id)).join(', '));
+  row('Marca', p.brand);
+  row('Nome', p.name);
+  row('NIF', p.nif ? `${p.nif}${p.nifOk === true ? ' ✓' : p.nifOk === false ? ' · não confere' : ''}` : '', p.nifOk === false ? 'bad' : '');
+  row('Pagamento', C.PAY_LABEL[p.pay] || '');
+  row('Referência', p.ref);
+  if (t) {
+    const said = p.stated;
+    row('Total', said === null ? `${C.money(t.net)} (o pedido não diz)` : said === t.net ? `${C.money(t.net)} ✓ confere` : `${C.money(t.net)} · o pedido diz ${C.money(said)}`, said !== null && said !== t.net ? 'bad' : '');
+  }
+  if (p.lang === 'en') row('Língua', 'Inglês');
+  if (dl.children.length) box.appendChild(dl);
+
+  // the request of the site behind these spots (they carry its id), or the one the message names (only when that
+  // request covers these very spots: the buyer's own words could name any request, and their ids are public)
+  const owner = ids.length ? heldBy(raw, ids) : '', named = namedReq(p, ids), reqId = owner || named;
+  const req = inboxFind(reqId), keyMissing = !!reqId && inboxOn() && !inbox.list;
+
+  // what stands in the way now, and what the text itself says against itself
+  const notes = el('ul', 'notes');
+  if (owner) notes.appendChild(el('li', null, holdText(raw, ids, owner)));
+  if (!owner && p.request && !named) notes.appendChild(el('li', null, `A mensagem fala do pedido ${p.request}, que é de outros espaços: não o uso.`));
+  if (keyMissing) notes.appendChild(el('li', null, KEY_FOR_LOGO));
+  if (p.unknown.length) notes.appendChild(el('li', 'block', `Não conheço ${p.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(p.unknown)}.`));
+  for (const n of p.notes) notes.appendChild(el('li', null, n));
+  if (ids.length && !owner) {
+    const g = C.guard(raw, now, ids, 'reserved', p.brand || undefined, C.holdUntil(now));
+    for (const m of g.blocked) notes.appendChild(el('li', 'block', m));
+    for (const m of g.confirms) notes.appendChild(el('li', null, m));
+  }
+  if (!p.brand && ids.length && !req) notes.appendChild(el('li', null, 'O pedido não diz a marca: escreve-a ao reservar ou vender.'));
+  if (notes.children.length) box.appendChild(notes);
+
+  // held by its request: the first button gives it two more days (a new reservation would cut it loose)
+  const extend = !!owner && (req ? req.status === 'novo' : keyMissing);
+  const acts = el('div', 'paste-acts');
+  const b1 = el('button', 'btn', extend ? 'Prolongar 48 h' : 'Reservar 48 h'), b2 = el('button', 'btn gold', 'Marcar como vendido');
+  b1.type = b2.type = 'button';
+  b1.addEventListener('click', () => pasteAct('reserved'));
+  b2.addEventListener('click', () => pasteAct('sold'));
+  b1.disabled = !ids.length || (extend && keyMissing);
+  b2.disabled = !ids.length;
+  acts.append(b1, b2);
+  box.appendChild(acts);
+  box.hidden = false;
+}
+
+const KEY_FOR_LOGO = 'Este pedido é do site: escreve a chave dos pedidos (em Pedidos) para vender com o logótipo.';
+// the request of the site whose hold every one of these spots carries (lapsed or not), or ''
+function heldBy(raw, ids) {
+  const reqs = new Set(ids.map((id) => { const x = C.targetOf(raw, id); return x && x.status === 'reserved' && x.request ? x.request : ''; }));
+  return reqs.size === 1 && !reqs.has('') ? [...reqs][0] : '';
+}
+function holdText(raw, ids, id) {
+  const x = C.targetOf(raw, ids[0]);
+  return C.lapsed(x, Date.now()) ? `A reserva do pedido ${id} do site acabou a ${C.fmtDay(x.until)}: o espaço já está livre no site.` : `Já reservado pelo site até ${C.fmtDay(x.until)} (pedido ${id}).`;
+}
+const sameIds = (a, b) => { const x = C.sortTargets(base.data, a), y = C.sortTargets(base.data, b); return x.length === y.length && x.every((v, i) => v === y[i]); };
+// the request a pasted text names on a «Pedido:» line, while it may be the one for these spots: '' once the Pedidos
+// list shows it covers other spots (before the list is in, it is still asked for, and checked again once it is)
+function namedReq(p, ids) {
+  if (!p.request) return '';
+  const r = inboxFind(p.request);
+  return !r || !ids.length || sameIds(reqIds(r), ids) ? p.request : '';
+}
+
+// A sale of spots that a request of the site holds goes through that request: its logo goes to the site with the
+// sale, and the request closes. True when it took over (that request's sheet, or the ask for the key first).
+function saleOfRequest(ids, again, id = '') {
+  const rid = id || heldBy(base.data, ids);
+  if (!rid || !inboxOn()) return false;
+  if (!inbox.list) { needKey(rid, again); return true; }
+  const r = inboxFind(rid);
+  if (!r || r.status === 'cancelado') return false;
+  confirmPurchase(r);
+  return true;
+}
+
+// «Reservar 48 h»: the reserve sheet with the brand and the date of now + 48 h; on spots the site holds for the
+// request, «Prolongar 48 h» of that request. «Marcar como vendido»: the sell sheet with the brand; for a request of the
+// site, that request's sale with its logo (after the key, if it is not in yet).
+function pasteAct(action) {
+  const p = pasted;
+  if (!p || !base || !p.ids.length) return;
+  if (busy) { toast('Espera: ainda estou a guardar.'); return; }
+  const ids = C.sortTargets(base.data, p.ids.filter((id) => C.targetOf(base.data, id)));
+  // (with the list just brought in by needKey, this runs again: a named request of other spots is then let go)
+  const owner = heldBy(base.data, ids), reqId = owner || namedReq(p, ids);
+  if (reqId && inboxOn() && !inbox.list && (action === 'sold' || owner)) { needKey(reqId, () => pasteAct(action)); return; }
+  const req = inboxFind(reqId);
+  if (action === 'sold' && req && req.status !== 'cancelado') { confirmPurchase(req); return; }
+  if (action === 'reserved' && owner && req && req.status === 'novo') { extendReq(req); return; }
+  const g = C.guard(base.data, Date.now(), ids, action);
+  if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
+  sel = new Set(ids); syncRows();
+  openSheet(action, ids);
+  if (p.brand) $('#f-brand').value = p.brand;
+  if (action === 'reserved') { $('#f-until').value = C.holdUntil(); sheet.untilTouched = true; }
+  refreshSheet();
+}
+
+// ---------- «Pedidos»: the requests placed on the site (worker/requests.js), shown when SITE.requestsApi is set ----------
+// The Worker's key (ADMIN_KEY) is asked once and kept in this tab only (sessionStorage). «Confirmar compra» runs the
+// usual sale with the request's logo (this page's GitHub token commits it, as a manual sale) and then closes the
+// request on the Worker; «Cancelar» and «Prolongar 48 h» are the Worker's own (it frees or extends the hold).
+const REQ_KEY = 'gc.admin.pedidos';
+const CHANNEL = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', site: 'Site' };
+const inbox = { key: '', list: null, logos: new Map(), busy: new Set(), at: null, after: null };
+const reqApi = () => String(SITE.requestsApi || '').trim().replace(/\/+$/, '');
+const reqIds = (r) => (r.title ? [C.TITLE] : Array.isArray(r.items) ? r.items : []);
+const inboxFind = (id) => (id && inbox.list ? inbox.list.find((r) => r.id === id) || null : null);
+const inboxOn = () => !$('#inbox').hidden && $('#inbox-off').hidden;   // the Pedidos list works on this page
+class ReqError extends Error { constructor(status, code) { super(code || `pedidos ${status}`); this.status = status; this.code = code || ''; } }
+
+function readReqKey() { try { return sessionStorage.getItem(REQ_KEY) || ''; } catch (_) { return ''; } }
+function keepReqKey(k) { try { sessionStorage.setItem(REQ_KEY, k); } catch (_) {} }
+function dropLogos() { for (const x of inbox.logos.values()) if (x.url) URL.revokeObjectURL(x.url); inbox.logos.clear(); }
+function forgetReqKey() {
+  try { sessionStorage.removeItem(REQ_KEY); } catch (_) {}
+  inbox.key = ''; inbox.list = null; inbox.at = null; inbox.after = null; dropLogos();
+  $('#inbox-why').hidden = true;
+}
+
+// a sale of a request of the site needs its logo, and only the Pedidos list has it: ask for the key (or wait for the
+// list), then carry on with what was asked (`again`)
+function needKey(id, again) {
+  inbox.after = again ? { fn: again, at: Date.now() } : null;
+  const why = $('#inbox-why');
+  why.textContent = `Estes espaços são do pedido ${id} do site: escreve a chave dos pedidos para vender com o logótipo.`;
+  why.hidden = false;
+  if (inbox.key) { toast('A abrir os pedidos…'); loadInbox(); return; }
+  $('#inbox').scrollIntoView({ block: 'start', behavior: 'instant' });
+  $('#inbox-key').focus({ preventScroll: true });
+}
+function runAfter() {
+  const a = inbox.after;
+  inbox.after = null; $('#inbox-why').hidden = true;
+  if (a && base && !busy && Date.now() - a.at < 600000) a.fn();
+}
+
+// the page's CSP lets it reach the Worker only at the address stamp.mjs wrote into connect-src
+function cspAllows(url) {
+  const meta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+  const m = meta && meta.content.match(/connect-src([^;]*)/);
+  let origin;
+  try { origin = new URL(url).origin; } catch (_) { return false; }
+  return !meta || (!!m && m[1].trim().split(/\s+/).includes(origin));
+}
+
+async function reqCall(method, path, body, { blob = false } = {}) {
+  let res;
+  try {
+    res = await fetch(`${reqApi()}${path}`, {
+      method, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
+      headers: { Authorization: `Bearer ${inbox.key}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch (_) { throw new ReqError(0, 'rede'); }
+  if (!res.ok) { let j = null; try { j = await res.json(); } catch (_) {} throw new ReqError(res.status, j && typeof j.error === 'string' ? j.error : ''); }
+  return blob ? res.blob() : res.json();
+}
+function reqErrText(e) {
+  if (!(e instanceof ReqError)) return 'Algo correu mal nesta página. Recarrega-a e tenta outra vez.';
+  if (e.status === 0) return 'Sem ligação aos pedidos. Verifica a rede e tenta outra vez.';
+  if (e.status === 401) return 'A chave dos pedidos não está certa.';
+  if (e.status === 429) return 'Demasiadas tentativas com a chave errada. Espera 10 minutos.';
+  if (e.code === 'estado') return 'Este pedido já está fechado.';
+  if (e.code === 'ocupado') return 'Os espaços deste pedido já não estão reservados por ele.';
+  if (e.code === 'config') return 'Os pedidos ainda não estão prontos no Cloudflare (falta um secret). Vê worker/README.md.';
+  if (e.status === 502) return 'O GitHub falhou. Tenta outra vez daqui a pouco.';
+  if (e.status === 404) return 'Este pedido já não existe.';
+  return `Os pedidos responderam com um erro (código ${e.status}).`;
+}
+
+function inboxInit() {
+  const api = reqApi(), sec = $('#inbox');
+  sec.hidden = !api;
+  if (!api) return;
+  if (!/^https:\/\//.test(api) || !cspAllows(api)) {
+    const off = $('#inbox-off');
+    off.hidden = false;
+    off.textContent = 'O endereço dos pedidos (SITE.requestsApi) ainda não está autorizado nesta página: corre node scripts/stamp.mjs e publica.';
+    $('#inbox-login').hidden = true; $('#inbox-body').hidden = true; $('#inbox-reload').hidden = true;
+    return;
+  }
+  inbox.key = inbox.key || readReqKey();
+  renderInbox();
+  if (inbox.key) loadInbox();
+}
+
+async function inboxSignIn(e) {
+  e.preventDefault();
+  const input = $('#inbox-key'), err = $('#inbox-err'), btn = $('#inbox-go'), k = input.value.trim();
+  err.textContent = '';
+  if (k.length < 16) { err.textContent = 'A chave tem pelo menos 16 caracteres.'; input.focus(); return; }
+  btn.disabled = true; btn.textContent = 'A abrir…';
+  inbox.key = k;
+  try {
+    const j = await reqCall('GET', '/pedidos');
+    keepReqKey(k); input.value = '';
+    setInbox(j);
+  } catch (x) {
+    inbox.key = '';
+    err.textContent = reqErrText(x);
+  } finally { btn.disabled = false; btn.textContent = 'Abrir pedidos'; }
+  renderInbox();
+}
+
+async function loadInbox({ quiet = false } = {}) {
+  if (!inbox.key) return;
+  const meta = $('#inbox-meta'), btn = $('#inbox-reload');
+  btn.classList.add('busy'); btn.disabled = true;
+  if (!quiet && !inbox.list) meta.textContent = 'A ler os pedidos…';
+  try { setInbox(await reqCall('GET', '/pedidos')); } catch (e) {
+    if (e instanceof ReqError && e.status === 401) { forgetReqKey(); renderInbox(); $('#inbox-err').textContent = 'A chave dos pedidos mudou ou não está certa. Escreve-a outra vez.'; return; }
+    meta.textContent = reqErrText(e); meta.classList.add('bad');
+  } finally { btn.classList.remove('busy'); btn.disabled = false; }
+}
+function setInbox(j) {
+  inbox.list = Array.isArray(j && j.pedidos) ? j.pedidos.filter((r) => r && typeof r.id === 'string') : [];
+  inbox.list.sort((a, b) => (String(a.at) < String(b.at) ? 1 : String(a.at) > String(b.at) ? -1 : 0));   // newest first
+  inbox.at = new Date();
+  renderInbox();
+  // a pasted request may now match one of these: its summary again, the selection left as it is
+  redrawRef();
+  runAfter();
+}
+
+function renderInbox() {
+  if ($('#inbox').hidden) return;
+  const has = !!inbox.key;
+  $('#inbox-login').hidden = has; $('#inbox-body').hidden = !has; $('#inbox-reload').hidden = !has;
+  $('#inbox-off').hidden = true;
+  $('#inbox-n').textContent = '';
+  if (!has || !inbox.list) { if (has) { $('#inbox-list').textContent = ''; $('#inbox-empty').hidden = true; $('#inbox-closed').hidden = true; } return; }
+  const meta = $('#inbox-meta'); meta.classList.remove('bad');
+  const open = inbox.list.filter((r) => r.status === 'novo'), closed = inbox.list.filter((r) => r.status !== 'novo');
+  meta.textContent = `${plural(open.length, 'aberto', 'abertos')} · atualizado às ${hhmm(inbox.at)}`;
+  $('#inbox-n').textContent = open.length ? String(open.length) : '';
+  const ul = $('#inbox-list'); ul.textContent = '';
+  for (const r of open) ul.appendChild(reqCard(r));
+  $('#inbox-empty').hidden = open.length > 0;
+  const cl = $('#inbox-closed-list'); cl.textContent = '';
+  for (const r of closed.slice(0, 30)) cl.appendChild(reqCard(r));
+  $('#inbox-closed').hidden = !closed.length;
+  $('#inbox-closed-n').textContent = String(closed.length);
+}
+
+// '23 out., 14:05' in this phone's time
+function atText(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${C.fmtDay(`${d.getFullYear()}-${C.pad2(d.getMonth() + 1)}-${C.pad2(d.getDate())}`)}, ${hhmm(d)}`;
+}
+// the request's spots as the list has them now: sold to its brand already (a manual sale), or no longer its own
+function reqStanding(r) {
+  if (!base) return { soldToBrand: false, noLogo: false, lines: [] };
+  const raw = base.data, v = C.effective(raw, Date.now()), today = C.todayUTC(), ids = reqIds(r), lines = [];
+  let sold = ids.length > 0, noLogo = false;
+  for (const id of ids) {
+    const x = C.targetOf(raw, id), w = C.targetOf(v, id);
+    if (!x) { lines.push(`O espaço ${id} já não existe.`); sold = false; continue; }
+    if (!(x.status === 'sold' && x.brand === r.brand)) sold = false;
+    if (!x.logo) noLogo = true;
+    if (r.status === 'novo' && !(x.status === 'reserved' && x.request === r.id) && !(x.status === 'sold' && x.brand === r.brand)) lines.push(`${C.labelOf(raw, id)}: ${C.statusOf(v, w, today).chip}`);
+  }
+  return { soldToBrand: sold, noLogo: sold && noLogo, lines };
+}
+
+function reqCard(r) {
+  const raw = base ? base.data : null, ids = reqIds(r), open = r.status === 'novo';
+  const li = el('li', `req${open ? '' : ' done'}`);
+  li.dataset.id = r.id;
+  const head = el('div', 'req-head');
+  const fig = el('div', 'req-logo');
+  if (open) { const img = el('img'); img.alt = `Logótipo de ${r.brand || 'marca'}`; img.width = 72; img.height = 48; fig.appendChild(img); thumb(r.id, img); }
+  const main = el('div', 'req-main');
+  main.append(el('p', 'req-brand', r.brand || 'Sem marca'), el('p', 'req-spots', ids.map((id) => (raw && C.targetOf(raw, id) ? shortName(raw, id) : id)).join(', ')));
+  head.append(fig, main, el('p', 'req-total mono', typeof r.total === 'number' ? C.money(r.total) : ''));
+  li.appendChild(head);
+  li.appendChild(el('p', 'req-meta', [atText(r.at), CHANNEL[r.channel], C.PAY_LABEL[r.pay], r.lang === 'en' ? 'em inglês' : '', `pedido ${r.id}`].filter(Boolean).join(' · ')));
+  const who = [r.name ? `Nome: ${r.name}` : '', r.nif ? `NIF: ${r.nif}${C.nifOk(r.nif) === false ? ' (não confere)' : ''}` : ''].filter(Boolean).join(' · ');
+  if (who) li.appendChild(el('p', 'req-who', who));
+  if (r.message) li.appendChild(el('p', 'req-msg', r.message));
+  const st = el('span', 'st'), left = C.holdLeft(r.until);
+  if (r.status === 'confirmado') { st.classList.add('sold'); st.appendChild(el('span', null, 'Compra confirmada')); }
+  else if (r.status === 'cancelado') { st.classList.add('expired'); st.appendChild(el('span', null, 'Cancelado')); }
+  else { st.classList.add(left.lapsed ? 'expired' : 'reserved'); st.appendChild(el('span', null, left.lapsed ? `${left.text} · o espaço já está livre no site` : left.text)); }
+  li.appendChild(st);
+  const stand = reqStanding(r);
+  if (stand.lines.length) { const n = el('ul', 'notes'); for (const s of stand.lines) n.appendChild(el('li', null, s)); li.appendChild(n); }
+  if (open) {
+    const acts = el('div', 'req-acts'), busyNow = inbox.busy.has(r.id);
+    const add = (cls, label, fn) => { const b = el('button', cls, label); b.type = 'button'; b.disabled = busyNow; b.addEventListener('click', fn); acts.appendChild(b); };
+    // sold by hand already: put the request's logo on it (a sale again, to the same brand), or only close the request
+    if (stand.noLogo) { add('btn gold', 'Pôr o logótipo do pedido', () => confirmPurchase(r)); add('btn', 'Marcar como confirmado', () => closeReq(r)); }
+    else if (stand.soldToBrand) add('btn gold', 'Marcar como confirmado', () => closeReq(r));
+    else { add('btn gold', 'Confirmar compra', () => confirmPurchase(r)); add('btn', 'Prolongar 48 h', () => extendReq(r)); }
+    add('btn ghost', 'Cancelar', () => cancelReq(r));
+    li.appendChild(acts);
+  }
+  return li;
+}
+
+// the logo, fetched with the key (an <img> cannot send it) and shown from a blob: URL
+async function reqLogo(id) {
+  const have = inbox.logos.get(id);
+  if (have && have.blob) return have.blob;
+  const blob = await reqCall('GET', `/pedidos/${id}/logo`, null, { blob: true });
+  inbox.logos.set(id, { blob, url: URL.createObjectURL(blob) });
+  return blob;
+}
+async function thumb(id, img) {
+  try { await reqLogo(id); const x = inbox.logos.get(id); if (x && img.isConnected !== false) img.src = x.url; } catch (_) { img.replaceWith(el('span', 'req-nologo', 'sem logótipo')); }
+}
+
+function reqBusy(id, on) { if (on) inbox.busy.add(id); else inbox.busy.delete(id); renderInbox(); }
+function replaceReq(p) {
+  if (!inbox.list || !p || !p.id) return;
+  const i = inbox.list.findIndex((r) => r.id === p.id);
+  if (i >= 0) inbox.list[i] = p; else inbox.list.unshift(p);
+}
+
+async function confirmPurchase(r) {
+  if (!base) return;
+  if (busy) { toast('Espera: ainda estou a guardar.'); return; }
+  const ids = C.sortTargets(base.data, reqIds(r).filter((id) => C.targetOf(base.data, id)));
+  if (!ids.length) { toast('Os espaços deste pedido já não existem.'); return; }
+  const g = C.guard(base.data, Date.now(), ids, 'sold');
+  if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
+  reqBusy(r.id, true);
+  let logo;
+  try { logo = await readLogo(new File([await reqLogo(r.id)], `pedido-${r.id}.png`, { type: 'image/png' })); } catch (e) {
+    reqBusy(r.id, false);
+    toast(e instanceof ReqError ? reqErrText(e) : e instanceof C.RuleError ? e.message : 'Não consegui abrir o logótipo do pedido.');
+    return;
+  }
+  reqBusy(r.id, false);
+  if (busy) { URL.revokeObjectURL(logo.url); return; }
+  sel = new Set(ids); syncRows();
+  openSheet('sold', ids);
+  $('#f-brand').value = r.brand || '';
+  sheet.request = r.id;
+  const note = $('#sh-req');
+  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo e o pedido fica confirmado. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.`;
+  note.hidden = false;
+  showLogo(logo);
+}
+
+// after a sale saved from «Confirmar compra» (or one that was already there): close the request on the Worker
+async function confirmReq(id) {
+  step('req', 'on', 'A confirmar o pedido…');
+  try {
+    const j = await reqCall('POST', `/pedidos/${id}`, { action: 'confirmar' });
+    replaceReq(j.pedido); renderInbox();
+    step('req', 'done', 'Pedido confirmado ✓');
+  } catch (e) {
+    step('req', 'fail', `Pedido por confirmar: ${reqErrText(e)} Na lista de Pedidos, carrega em «Marcar como confirmado».`);
+    loadInbox({ quiet: true });
+  }
+}
+async function closeReq(r) {
+  reqBusy(r.id, true);
+  try { const j = await reqCall('POST', `/pedidos/${r.id}`, { action: 'confirmar' }); replaceReq(j.pedido); toast(`Pedido de ${r.brand} confirmado.`); } catch (e) { toast(reqErrText(e)); }
+  reqBusy(r.id, false);
+}
+async function extendReq(r) {
+  reqBusy(r.id, true);
+  try {
+    const j = await reqCall('POST', `/pedidos/${r.id}`, { action: 'prolongar' });
+    replaceReq(j.pedido);
+    // fmtDay ends in a full stop ('26 out.'), which ends the sentence too
+    toast(`Reserva prolongada até ${C.fmtDay(j.pedido.until)}${j.lost && j.lost.length ? ` (${plural(j.lost.length, 'espaço já não era', 'espaços já não eram')} deste pedido)` : ''}`);
+    if (!busy) load({ quiet: true });
+  } catch (e) { toast(reqErrText(e)); }
+  reqBusy(r.id, false);
+}
+async function cancelReq(r) {
+  const raw = base ? base.data : null, ids = reqIds(r);
+  const lines = ids.map((id) => (raw && C.targetOf(raw, id) ? C.labelOf(raw, id) : id));
+  if (!(await ask(`Cancelar o pedido de ${r.brand || 'sem marca'}?`, lines, 'Os espaços que ainda estão reservados por este pedido voltam a ficar livres no site. O pedido fica na lista como cancelado.', 'Cancelar pedido', 'Voltar', 'É um pedido falso: bloquear quem o fez durante 30 dias'))) return;
+  const bloquear = $('#cf-opt-in').checked;
+  reqBusy(r.id, true);
+  try {
+    const j = await reqCall('POST', `/pedidos/${r.id}`, bloquear ? { action: 'cancelar', bloquear: true } : { action: 'cancelar' });
+    replaceReq(j.pedido);
+    toast(`${j.freed && j.freed.length ? `Pedido cancelado. ${j.freed.length === 1 ? 'O espaço está' : 'Os espaços estão'} outra vez livre${j.freed.length === 1 ? '' : 's'}.` : 'Pedido cancelado.'}${j.blocked ? ' Bloqueado durante 30 dias.' : ''}`);
+    if (!busy) load({ quiet: true });
+  } catch (e) { toast(reqErrText(e)); }
+  reqBusy(r.id, false);
 }
 
 function saveFilter() { try { localStorage.setItem(FILTER_KEY, filter); } catch (_) {} }
@@ -306,6 +784,8 @@ async function act(action) {
   if (!ids.length) return;
   const now = Date.now(), g = C.guard(base.data, now, ids, action);
   if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
+  // «Vendido» on spots a request of the site holds: that request's sale, with its logo
+  if (action === 'sold' && saleOfRequest(ids, () => act('sold'))) return;
   if (action !== 'available') { openSheet(action, ids); return; }
   const raw = base.data, v = C.effective(raw, now), today = C.todayUTC(now);
   const lines = ids.map((id) => `${C.labelOf(raw, id)} · ${C.statusOf(v, C.targetOf(v, id), today).chip}`);
@@ -316,9 +796,19 @@ async function act(action) {
   run({ action, ids, f: { brand: '', url: '', until: '' }, logo: null, snap: C.snapshot(raw, ids) });
 }
 
+// spots held by a request of the site, in a sheet that is not that request's sale: what saving does to the request
+function reqNotes(raw, ids, action) {
+  if (!sheet || sheet.request || action === 'available') return [];
+  return ids.map((id) => [id, C.targetOf(raw, id)]).filter(([, x]) => x && x.status === 'reserved' && x.request)
+    .map(([id, x]) => (action === 'sold'
+      ? `${C.labelOf(raw, id)}: é do pedido ${x.request} do site. Vendido assim, fica sem o logótipo do pedido${inboxOn() ? ' (em Pedidos, «Confirmar compra» leva-o)' : ''}.`
+      : `${C.labelOf(raw, id)}: é do pedido ${x.request} do site; ao guardar, o pedido deixa de controlar esta reserva.`));
+}
+
 function openSheet(action, ids) {
   const raw = base.data, now = Date.now(), today = C.todayUTC(now), d = $('#sheet');
-  sheet = { action, ids, snap: C.snapshot(raw, ids), logo: null, untilTouched: false };
+  sheet = { action, ids, snap: C.snapshot(raw, ids), logo: null, untilTouched: false, request: null };
+  $('#sh-req').hidden = true; $('#sh-req').textContent = '';
   $('#sh-title').textContent = headFor(action, raw, ids);
   const t = C.totals(raw, ids), sum = $('#sh-sum'); sum.textContent = '';
   sum.append(ids.map((id) => C.labelOf(raw, id)).join(', '), ' · Total esperado ');
@@ -360,6 +850,7 @@ function refreshSheet() {
     for (const m of g.blocked) warn.appendChild(el('li', 'block', m));
     for (const m of g.confirms) warn.appendChild(el('li', null, m));
   }
+  for (const m of reqNotes(raw, ids, action)) warn.appendChild(el('li', null, m));
   if (action !== 'sold') return;
   const keeps = sheet.logo ? [] : ids.map((id) => C.targetOf(raw, id)).filter((x) => x.logo && x.brand === brand);
   const cur = $('#cur-logo');
@@ -469,7 +960,8 @@ async function submitSheet(e) {
   }
   const g = C.guard(base.data, Date.now(), ids, action, f.brand, f.until || undefined);
   if (g.blocked.length) { err.textContent = g.blocked.join(' '); return; }
-  if (g.confirms.length && !(await ask('Confirmas?', g.confirms, 'Fica como escreveste. Podes mudar outra vez depois.', 'Sim, guardar'))) return;
+  const confirms = [...g.confirms, ...reqNotes(base.data, ids, action)];
+  if (confirms.length && !(await ask('Confirmas?', confirms, 'Fica como escreveste. Podes mudar outra vez depois.', 'Sim, guardar'))) return;
   let logo = null;
   if (action === 'sold' && sheet && sheet.logo) {
     const L = sheet.logo;
@@ -478,7 +970,7 @@ async function submitSheet(e) {
     logo = { ext: L.ext, b64: C.bytesToB64(L.bytes), bytes: L.bytes, sha: await C.gitBlobSha(L.bytes) };
   }
   if (!sheet) return;
-  run({ action, ids, f, logo, snap: sheet.snap });
+  run({ action, ids, f, logo, snap: sheet.snap, request: action === 'sold' ? sheet.request : null });
 }
 
 // ---------- save: one commit on gh-pages ----------
@@ -568,12 +1060,13 @@ function step(id, state, text) {
 }
 function prMsg(text, bad = false) { const m = $('#pr-msg'); m.textContent = text; m.classList.toggle('bad', bad === true); m.classList.toggle('warn', bad === 'warn'); }
 
-function openProgress({ action, ids }) {
+function openProgress(intent) {
+  const { action, ids } = intent;
   const d = $('#sheet');
   shown = null;   // the progress view now belongs to this save
   $('#sh-title').textContent = headFor(action, base.data, ids);
   $('#sh-form').hidden = true; $('#sh-progress').hidden = false;
-  step('save', 'on', 'A guardar no GitHub…'); step('pub', '', 'A publicar…'); step('live', '', 'No ar');
+  step('save', 'on', 'A guardar no GitHub…'); step('req', '', intent.request ? 'Confirmar o pedido' : ''); step('pub', '', 'A publicar…'); step('live', '', 'No ar');
   prMsg(''); $('#pr-links').textContent = '';
   $('#pr-retry').hidden = true; $('#pr-check').hidden = true;
   $('#sh-x').hidden = true; $('#pr-close').disabled = true;
@@ -592,9 +1085,11 @@ async function run(intent) {
     if (r.nothing) {
       step('save', 'done', 'Nada mudou.'); step('pub', '', ''); step('live', '', '');
       prMsg('Os dados já estavam assim; não mudei nada.');
+      if (intent.request) confirmReq(intent.request);
       return;
     }
     step('save', 'done', 'Guardado ✓');
+    if (intent.request) confirmReq(intent.request);
     sel.clear(); $('#ref').value = ''; onRef(); render();
     shown = publish({ ids: intent.ids, data: r.data, commit: r.commit, files: r.writes, bytes: intent.logo ? intent.logo.bytes : null });
     showPublish(shown);
@@ -606,7 +1101,7 @@ async function run(intent) {
       signOut('O token expirou ou foi revogado. Entra com um token novo: o que escreveste fica à espera.');
       return;
     }
-    step('save', e.unknown ? 'unknown' : 'fail', e.unknown ? 'Sem resposta do GitHub' : 'Não guardei.'); step('pub', '', ''); step('live', '', '');
+    step('save', e.unknown ? 'unknown' : 'fail', e.unknown ? 'Sem resposta do GitHub' : 'Não guardei.'); step('req', '', ''); step('pub', '', ''); step('live', '', '');
     prMsg(errText(e, 'write'), e.unknown ? 'warn' : true);
     if (e.conflict) { if (e.reload) load({ quiet: true }); else render(); }
     else $('#pr-retry').hidden = false;
@@ -616,7 +1111,7 @@ async function run(intent) {
 // a token that stops working mid-save: what the admin typed and picked waits for the next sign-in
 function keepSheet(intent) {
   const s = sheet && sheet.action === intent.action ? sheet : null;
-  stash = { action: intent.action, ids: intent.ids, brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value, untilTouched: !!(s && s.untilTouched), logo: s ? s.logo : null };
+  stash = { action: intent.action, ids: intent.ids, brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value, untilTouched: !!(s && s.untilTouched), logo: s ? s.logo : null, request: intent.request || null, note: $('#sh-req').textContent };
   if (s) s.logo = null;   // its preview stays alive for the sheet that comes back
 }
 function restoreStash() {
@@ -630,6 +1125,7 @@ function restoreStash() {
   openSheet(s.action, ids);
   $('#f-brand').value = s.brand; $('#f-url').value = s.url;
   if (s.action === 'reserved' && s.untilTouched) { $('#f-until').value = s.until; sheet.untilTouched = true; }
+  if (s.request) { sheet.request = s.request; $('#sh-req').textContent = s.note; $('#sh-req').hidden = !s.note; }
   if (s.logo) showLogo(s.logo); else refreshSheet();
   toast('Entraste outra vez. O que escreveste ficou: revê e carrega em Guardar.');
 }
@@ -780,14 +1276,17 @@ function renderPub() {
 }
 
 // ---------- dialogs ----------
-function ask(title, items, text, yes = 'Confirmar') {
+// opt: the label of a checkbox under the text (its state stays in #cf-opt-in for the caller)
+function ask(title, items, text, yes = 'Confirmar', no = 'Cancelar', opt = '') {
   return new Promise((resolve) => {
     const d = $('#confirm');
+    $('#cf-opt').hidden = !opt; $('#cf-opt-in').checked = false; $('#cf-opt-t').textContent = opt;
     $('#cf-title').textContent = title;
     const ul = $('#cf-list'); ul.textContent = '';
     for (const it of items) ul.appendChild(el('li', null, it));
     $('#cf-text').textContent = text;
     $('#cf-yes').textContent = yes;
+    $('#cf-no').textContent = no;
     const done = (v) => { d.removeEventListener('close', onClose); $('#cf-yes').onclick = null; $('#cf-no').onclick = null; if (d.open) d.close(); resolve(v); };
     const onClose = () => { if (!d.open) done(false); };
     $('#cf-yes').onclick = () => done(true);
@@ -847,6 +1346,10 @@ function bind() {
   $('#logout').addEventListener('click', askSignOut);
   $('#reload').addEventListener('click', () => { if (!busy) load(); });
   $('#ref').addEventListener('input', onRef);
+  $('#ref').addEventListener('keydown', onRefKey);
+  $('#inbox-login').addEventListener('submit', inboxSignIn);
+  $('#inbox-reload').addEventListener('click', () => loadInbox());
+  $('#inbox-forget').addEventListener('click', () => { forgetReqKey(); renderInbox(); $('#inbox-err').textContent = ''; toast('Esqueci a chave dos pedidos neste separador.'); });
   $$('input[name="filter"]').forEach((r) => r.addEventListener('change', () => { if (r.checked) { filter = r.value; saveFilter(); render(); } }));
   $('#bar-clear').addEventListener('click', () => { sel.clear(); syncRows(); });
   $$('[data-act]').forEach((b) => b.addEventListener('click', () => act(b.dataset.act)));
@@ -887,7 +1390,7 @@ function bind() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hiddenAt = performance.now(); return; }
     if (queue.some((q) => !q.late)) pollIn(0);
-    if (token && base && !busy && hiddenAt && performance.now() - hiddenAt > 60000 && !$$('dialog').some((x) => x.open)) load({ quiet: true });
+    if (token && base && !busy && hiddenAt && performance.now() - hiddenAt > 60000 && !$$('dialog').some((x) => x.open)) { load({ quiet: true }); loadInbox({ quiet: true }); }
   });
   addEventListener('resize', () => { if (sel.size) document.documentElement.style.setProperty('--bar-h', `${$('#bar').offsetHeight}px`); });
 }
