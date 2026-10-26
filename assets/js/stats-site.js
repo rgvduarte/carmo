@@ -315,7 +315,7 @@ export function init(api) {
   const card = $('#spot-card');
   let y0 = null, dy = 0;
   if (card) {
-    on('pointerdown', (e) => { y0 = e.clientY; dy = 0; }, card);
+    on('pointerdown', (e) => { y0 = e.target.closest?.('.sheet-grip') ? e.clientY : null; dy = 0; }, card);   // only the grip drags it
     on('pointermove', (e) => { if (y0 !== null) dy = e.clientY - y0; }, card);
     const end = () => { if (y0 !== null && dy > 90) closeBy = ['arrasto', now()]; y0 = null; };
     on('pointerup', end, card); on('pointercancel', end, card);
