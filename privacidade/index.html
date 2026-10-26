@@ -93,9 +93,9 @@
     <div><dt>gc.consent</dt><dd>A tua escolha sobre as estatísticas. Passados seis meses, o site volta a perguntar.</dd></div>
     <div><dt>gc.lang</dt><dd>A língua que escolheste.</dd></div>
     <div><dt>gc.package.2027</dt><dd>Os espaços que juntaste ao pacote.</dd></div>
-    <div><dt>gc.claim.draft</dt><dd>O que escreveste no pedido (marca, nome, NIF, mensagem) e o logótipo, para não se perderem se a página recarregar. Apaga-se em «Feito» ou quando fechas o separador, e passadas seis horas já não é usado.</dd></div>
+    <div><dt>gc.claim.draft</dt><dd>O que escreveste no pedido (marca, nome, NIF, mensagem) e o logótipo, para não se perderem se a página recarregar. Apaga-se quando carregas em «Feito» ou fechas o separador, e passadas seis horas já não é usado.</dd></div>
     <div><dt>gc.claim.pending</dt><dd>Que um pedido vai a caminho e ainda não teve resposta. Conta durante 10 minutos, no máximo, e apaga-se quando fechas o separador.</dd></div>
-    <div><dt>gc.claim.req</dt><dd>O número, a marca, os espaços e o último dia de cada pedido que fizeste, para o mesmo pedido não ir duas vezes. Deixa de contar quando a reserva acaba e apaga-se quando fechas o separador.</dd></div>
+    <div><dt>gc.claim.req</dt><dd>O número, a marca, os espaços, a forma de pagar e o último dia de cada pedido que fizeste, para o mesmo pedido não ir duas vezes. Deixa de contar quando a reserva acaba e apaga-se quando fechas o separador.</dd></div>
     <div><dt>gc.claim.sent, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>Que já enviaste o pedido, a forma de pagar e se o WhatsApp abriu, para o passo do pagamento voltar se a página recarregar. Até fechares o separador.</dd></div>
   </dl>
   <p>Os sete últimos ficam só no teu browser. Servem coisas que tu pedes, por isso não precisam de autorização.</p>
@@ -109,11 +109,11 @@
 
   <h2>Pedidos de patrocínio e contactos</h2>
   <p>Quando envias um pedido, o site manda-o para o serviço de reservas, que corre no Cloudflare. Vão os espaços, a marca, o nome, o NIF, a mensagem, a forma de pagamento, a língua, a app que escolheste para a mensagem e o logótipo, em PNG.</p>
-  <p>O serviço reserva os espaços durante 48 horas. Enquanto dura a reserva, a marca e o número do pedido aparecem no ficheiro público dos espaços deste site. Esse ficheiro está no GitHub, que guarda o histórico de cada mudança. Se comprares, a marca e o logótipo passam a aparecer no site.</p>
-  <p>Depois, o site prepara a mensagem e abre o WhatsApp, o email ou o Instagram, à tua escolha, e és tu que a envias. A mensagem chega-me por esse serviço, que tem a sua própria política de privacidade. Se o serviço de reservas não responder, o pedido vai só nessa mensagem.</p>
-  <p>O serviço de reservas guarda o pedido e o logótipo durante 180 dias e depois apaga-os sozinho. Só eu os consigo ler. O nome e o NIF servem para o recibo de donativo. A mensagem, guardo-a enquanto for precisa para tratar do patrocínio e dos recibos.</p>
-  <p>A base legal do pedido é preparar o patrocínio, a teu pedido, antes de o fecharmos (artigo 6.º, n.º 1, alínea b), do RGPD). Nos recibos, é a lei fiscal, que obriga a passá-los e guardá-los (alínea c)).</p>
-  <p>O serviço não guarda o teu endereço IP, só um código feito a partir dele que não se consegue reverter. Serve para limitar os pedidos de cada endereço e para bloquear quem faz pedidos falsos. Fica no pedido até a compra ser confirmada, ou até o pedido se apagar, e nos contadores apaga-se ao fim de 30 dias, no máximo. A base legal é o interesse legítimo em proteger as reservas de abusos (artigo 6.º, n.º 1, alínea f), do RGPD).</p>
+  <p>O serviço reserva os espaços durante 48 horas. Ao reservar, escreve a marca, o último dia da reserva e o número do pedido no ficheiro público dos espaços deste site. Ficam lá até esse espaço mudar outra vez, mesmo depois de a reserva acabar. Esse ficheiro está no GitHub, que guarda o histórico de cada mudança. Se comprares, a marca e o logótipo passam a aparecer no site.</p>
+  <p>Depois, o site prepara a mensagem e abre o WhatsApp, o email ou o Instagram, à tua escolha, e és tu que a envias. A mensagem chega-me por esse serviço, que tem a sua própria política de privacidade. Se o serviço de reservas não responder ou não puder reservar, o pedido vai só nessa mensagem.</p>
+  <p>O serviço de reservas guarda o pedido e o logótipo durante 180 dias e depois apaga-os sozinho. Só eu os consigo ler. O nome e o NIF servem para o recibo de donativo. A mensagem que me envias pelo WhatsApp, email ou Instagram, guardo-a enquanto for precisa para tratar do patrocínio e dos recibos.</p>
+  <p>A base legal é preparar o patrocínio que me pedes, antes de o fecharmos (artigo 6.º, n.º 1, alínea b), do RGPD). Nos recibos, é a lei fiscal, que obriga a passá-los e guardá-los (alínea c)).</p>
+  <p>O serviço não guarda o teu endereço IP, só um código feito a partir dele com uma chave secreta. Serve para limitar os pedidos de cada endereço e para bloquear quem faz pedidos falsos. Fica no pedido até a compra ser confirmada, ou até o pedido se apagar, e nos contadores apaga-se ao fim de 30 dias, no máximo. A base legal é o interesse legítimo em proteger as reservas de abusos (artigo 6.º, n.º 1, alínea f), do RGPD).</p>
   <p>A Cloudflare, Inc. trata estes dados por minha conta, como subcontratante. Fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework.</p>
   <p>O logótipo que experimentas no fato ou no capacete só sai do teu aparelho quando o envias com o pedido.</p>
 
@@ -153,7 +153,7 @@
     <div><dt>gc.package.2027</dt><dd>The spots you added to your package.</dd></div>
     <div><dt>gc.claim.draft</dt><dd>What you typed in the request (brand, name, tax number, message) and the logo, so nothing is lost if the page reloads. It goes when you tap “Done” or close the tab, and after six hours it is no longer used.</dd></div>
     <div><dt>gc.claim.pending</dt><dd>That a request is on its way and has had no answer yet. It counts for 10 minutes at most and goes when you close the tab.</dd></div>
-    <div><dt>gc.claim.req</dt><dd>The number, brand, spots and last day of each request you made, so the same request is not sent twice. It stops counting when the hold ends and goes when you close the tab.</dd></div>
+    <div><dt>gc.claim.req</dt><dd>The number, brand, spots, how you will pay and last day of each request you made, so the same request is not sent twice. It stops counting when the hold ends and goes when you close the tab.</dd></div>
     <div><dt>gc.claim.sent, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>That you have sent your request, how you will pay and whether WhatsApp opened, so the payment step comes back if the page reloads. Until you close the tab.</dd></div>
   </dl>
   <p>The last seven stay in your browser only. They do things you ask for, so they need no permission.</p>
@@ -167,11 +167,11 @@
 
   <h2>Sponsorship requests and messages</h2>
   <p>When you send a request, the site sends it to the booking service, which runs on Cloudflare. It carries the spots, the brand, your name, your tax number, your message, how you will pay, the language, the app you picked for the message and the logo, as a PNG.</p>
-  <p>The service holds the spots for 48 hours. While the hold lasts, the brand and the request number appear in this site's public spots file. That file is on GitHub, which keeps the history of every change. If you buy, the brand and the logo appear on the site.</p>
-  <p>Then the site writes the message and opens WhatsApp, email or Instagram, whichever you choose, and you send it yourself. The message reaches me through that service, which has its own privacy policy. If the booking service does not answer, the request goes in that message only.</p>
-  <p>The booking service keeps the request and the logo for 180 days and then deletes them on its own. Only I can read them. The name and the tax number are for the donation receipt. I keep the message for as long as I need it to handle the sponsorship and the receipts.</p>
+  <p>The service holds the spots for 48 hours. When it does, it writes the brand, the last day of the hold and the request number in this site's public spots file. They stay there until the spot changes again, even after the hold ends. That file is on GitHub, which keeps the history of every change. If you buy, the brand and the logo appear on the site.</p>
+  <p>Then the site writes the message and opens WhatsApp, email or Instagram, whichever you choose, and you send it yourself. The message reaches me through that service, which has its own privacy policy. If the booking service does not answer or cannot hold the spots, the request goes in that message only.</p>
+  <p>The booking service keeps the request and the logo for 180 days and then deletes them on its own. Only I can read them. The name and the tax number are for the donation receipt. I keep the message you send me by WhatsApp, email or Instagram for as long as I need it to handle the sponsorship and the receipts.</p>
   <p>The legal basis for the request is preparing the sponsorship, at your request, before we agree on it (Article 6(1)(b) GDPR). For receipts, it is tax law, which requires me to issue and keep them (Article 6(1)(c)).</p>
-  <p>The service does not keep your IP address, only a code made from it that cannot be turned back into it. It is used to limit the requests from each address and to block people who send fake ones. It stays with the request until the purchase is confirmed, or until the request is deleted, and in the counters it is deleted after 30 days at most. The legal basis is the legitimate interest in protecting the bookings from abuse (Article 6(1)(f) GDPR).</p>
+  <p>The service does not keep your IP address, only a code made from it with a secret key. It is used to limit the requests from each address and to block people who send fake ones. It stays with the request until the purchase is confirmed, or until the request is deleted, and in the counters it is deleted after 30 days at most. The legal basis is the legitimate interest in protecting the bookings from abuse (Article 6(1)(f) GDPR).</p>
   <p>Cloudflare, Inc. processes this data on my behalf, as a processor. It is based in the United States and certified under the EU-US Data Privacy Framework.</p>
   <p>The logo you try on the suit or the helmet only leaves your device when you send it with your request.</p>
 

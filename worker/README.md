@@ -83,7 +83,7 @@ Hoje está ligado: o pedido de reserva manda cada compra para `POST /pedido`, co
 
 O nome e o NIF só servem para o recibo de donativo. Cada pedido e o seu logótipo ficam guardados 180 dias e depois
 apagam-se sozinhos. Só a página de admin, com a `ADMIN_KEY`, os consegue ler. O Worker não guarda o endereço de
-internet de quem pede: só um código que não se consegue reverter (do endereço, ou do seu /64 em IPv6), para os
+internet de quem pede: só um código feito com uma chave secreta (do endereço, ou do seu /64 em IPv6), para os
 limites e para «bloquear». Esse código sai do pedido quando a compra é confirmada; nos contadores apaga-se ao fim
 de 30 dias no máximo. O Worker não escreve registos. No `data/spots.json`, que é público, só aparecem a marca, o último dia da reserva e o número do pedido.
 
