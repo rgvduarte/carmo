@@ -18,7 +18,7 @@
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=1a6b1eda",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
   "../assets/js/admin.js": "../assets/js/admin.js?v=629edca2",
-  "../assets/js/adspace.js": "../assets/js/adspace.js?v=c9e6603b",
+  "../assets/js/adspace.js": "../assets/js/adspace.js?v=7a8c2190",
   "../assets/js/analytics.js": "../assets/js/analytics.js?v=253e66cc",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
   "../assets/js/data.js": "../assets/js/data.js?v=22e018cb",
@@ -26,7 +26,7 @@
   "../assets/js/gl3d.js": "../assets/js/gl3d.js?v=a7737baa",
   "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=df0a53e9",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=dfde580d",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=9aa91b7c",
   "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
   "../assets/js/main.js": "../assets/js/main.js?v=3843dd80",
   "../assets/js/marks.js": "../assets/js/marks.js?v=fdea7b6c",
@@ -72,9 +72,12 @@
     (gocarmo-pedidos), como diz a nota da página de privacidade. Os pedidos que aceitam esta página passam por ele.
   - Parceiro de prova: o acordo com essa empresa tem de deixar fazer a publicação da semana da prova e o aviso aos
     patrocinadores da época.
-  - Guarda a mensagem de cada pedido: é a prova da versão que a marca aceitou. O serviço de reservas apaga o pedido ao
-    fim de 180 dias.
-  - Se mudares o texto, muda a data «Atualizada a» nas duas línguas. As decisões D1 a D18 foram aceites a 26.10.2026.
+  - Guarda a mensagem de cada pedido: é a prova da versão que a marca aceitou. Leva a linha «Condições:
+    gocarmo.com/condicoes, atualizadas a …», e o passo 1 do pedido mostra a mesma data. O serviço de reservas apaga o
+    pedido ao fim de 180 dias.
+  - Se mudares o texto, muda a data «Atualizada a» nas duas línguas e, no mesmo dia, a data de cl.terms (index.html e,
+    em inglês, assets/js/i18n.js) e de msg.terms (assets/js/i18n.js, PT_JS e EN_JS). As decisões D1 a D18 foram aceites
+    a 26.10.2026.
 -->
 <main id="main" class="wrap legal" tabindex="-1">
 
@@ -139,7 +142,7 @@
   <ul>
     <li>No máximo duas provas por época: uma do calendário publicado no dia em que enviaste o pedido, e Kona, se ganhar a vaga. O capacete fica com os logótipos da época, a não ser que o acordo com o parceiro de prova peça outra coisa.</li>
     <li>O parceiro de prova não pode ser de um setor em que uma marca tenha exclusividade comigo (o do title partner, ou outro por acordo escrito), nem de álcool, apostas ou tabaco. Também não pode ser concorrente direto de uma marca Principal sem o acordo dela por escrito. Se houver title partner, o nosso acordo escrito diz o que acontece nessa prova.</li>
-    <li>Aviso todos os patrocinadores logo que o acordo fechar, sempre antes da prova.</li>
+    <li>Aviso cada patrocinador da época por mensagem logo que o acordo fechar, sempre antes da prova, e ponho o aviso no site, na secção do patrocínio.</li>
     <li>Quem patrocina a época fica com tudo o resto: treinos, outras provas, publicações e relatórios.</li>
     <li>Nas publicações dessa prova pode aparecer só o parceiro de prova. Em troca, na semana dessa prova, faço uma publicação com o fato da época e todas as marcas da época identificadas. Em vez dela, podes pedir um desconto na renovação para 2028 igual ao preço do teu espaço a dividir pelo número de triatlos da época.</li>
     <li>Antes de fechar com uma empresa de fora, ofereço a prova ao title partner e às marcas Principais, pelo mesmo valor e com os mesmos custos pagos, sem dizer quem é a outra empresa. Têm 5 dias úteis para responder. Se o title partner aceitar, fica com a prova; se não, fica a primeira marca Principal que aceitar.</li>
@@ -196,7 +199,7 @@
     <ul>
       <li>A spot covers the whole 2027 season, at every triathlon I race, except at races with a race partner or where I have to wear other kit (see below). I wear the suit in training too.</li>
       <li>You get what your level includes. I don't guarantee results or reach.</li>
-      <li>Category exclusivity only comes with the whole suit or a written agreement. So does using my image in your ads.</li>
+      <li>Category exclusivity only comes with the whole suit or a written agreement. Using my image in your ads needs a written agreement.</li>
       <li>At one calendar race a season at most, and at Kona if I qualify, a company can be the race partner. At those races I wear its suit, not the season suit, and I'll tell you beforehand.</li>
       <li>Bigger deals are made in writing, and the written agreement prevails over this page.</li>
       <li>Injury, illness or a cancelled race doesn't end the sponsorship.</li>
@@ -246,7 +249,7 @@
   <ul>
     <li>Two races a season at most: one from the calendar published on the day you sent your request, and Kona, if I qualify. The helmet keeps the season logos, unless the race partner's deal asks for something else.</li>
     <li>The race partner can't be in a category where a brand has exclusivity with me (the title partner's, or another by written agreement), or be an alcohol, betting or tobacco brand. Nor can it be a direct competitor of a Principal brand without that brand's written consent. If there is a title partner, our written agreement says what happens at that race.</li>
-    <li>I tell every sponsor as soon as the deal closes, always before the race.</li>
+    <li>I message every season sponsor as soon as the deal closes, always before the race, and post the notice in the sponsorship section of the site.</li>
     <li>Season sponsors keep everything else: training, the other races, posts and reports.</li>
     <li>The posts for that race may show only the race partner. In return, in the week of the race, I publish a post in the season suit with every season brand tagged. Instead, you can ask for a discount on your 2028 renewal equal to your spot's price divided by the number of triathlons in the season.</li>
     <li>Before I close with an outside company, I offer the race to the title partner and the Principal brands, for the same amount and with the same costs covered, without naming the other company. They have 5 working days to answer. If the title partner accepts, it gets the race; if not, the first Principal brand to accept does.</li>

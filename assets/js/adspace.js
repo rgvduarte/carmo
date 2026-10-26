@@ -1088,12 +1088,15 @@ function message({ sizes = true, extra = null } = {}) {
   lines.push(`${t('msg.ref')}: ${payRef()}`);
   // the way the buyer picked in step 1, so Gonçalo knows where to look for the money
   lines.push(t(payNow() === 'mb' ? 'msg.payMb' : 'msg.payTr'));
-  // held by the Worker: its number (the admin page finds the request by the «Pedido:» line) and the 48 hours; not held
-  // (the Worker failed), a line that says so; not held because the buyer has another request open, that request's
-  // number («Pedido aberto:», which the admin page does not take for this package's own)
+  // held by the Worker: its number (the admin page finds the request by the «Pedido:» line) and the 48 hours (the whole
+  // suit: until the written agreement); not held (the Worker failed), a line that says so; not held because the buyer
+  // has another request open, that request's number («Pedido aberto:», which the admin page does not take for this
+  // package's own)
   const r = heldReq();
-  if (r) lines.push(`${t('msg.req')}: ${r.id}`, t('msg.hold', longDay(r.until)));
+  if (r) lines.push(`${t('msg.req')}: ${r.id}`, t('msg.hold', longDay(r.until), kOf()));
   else if (API && rqMode === 'msg') lines.push(openReq ? `${t('msg.open')}: ${openReq}` : t('msg.nohold'));
+  // the terms the request accepts, with their date: the proof of which version the brand took (/condicoes/)
+  lines.push(t('msg.terms'));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -1251,7 +1254,7 @@ function renderClaim() {
   // step 2: held, until when, the request's number and the 48 hours; then, if the app did not open by itself, one tap
   // to send its message
   $('#cl-held').hidden = !r;
-  if (r) { $('#cl-held-h').textContent = t('cl.heldH', longDay(r.until, true)); $('#cl-held-id').textContent = r.id; $('#cl-held-p').textContent = t('cl.heldP'); }
+  if (r) { $('#cl-held-h').textContent = t('cl.heldH', longDay(r.until, true)); $('#cl-held-id').textContent = r.id; $('#cl-held-p').textContent = t('cl.heldP', k); }
   const go = $('#cl-go'), goBy = r && r.channel === 'email' ? 'mail' : 'wa';
   $('#cl-gobox').hidden = !r || msgOut || r.channel === 'instagram';
   if (go.dataset.by !== goBy) { go.dataset.by = goBy; go.href = goBy === 'mail' ? `mailto:${SITE.email}` : `https://wa.me/${SITE.whatsapp}`; }
@@ -1808,7 +1811,7 @@ function held(by, key, r) {
   // closed meanwhile (× while it was on its way): the page shows the hold, and the bar's «Reservar» says it is held
   if (!$('#claim').open || key !== pkKey()) { toast(t('cl.heldH', longDay(r.until))); return; }
   goStep(2);
-  say(`${t('cl.heldH', longDay(r.until, true))}. ${t('cl.heldP')}`);
+  say(`${t('cl.heldH', longDay(r.until, true))}. ${t('cl.heldP', kOf())}`);
   if (by === 'ig') { igSend(message()); return; }
   if (tapLive()) { const a = $('#cl-go'); a.dataset.by = by; a.click(); }
 }
@@ -2146,7 +2149,7 @@ function bindUI() {
     wantTitle = false; basket.clear(); saveBasket();
     $('#claim').close();
     if (document.activeElement?.closest('#package')) { const h = $(`.ratecard[data-item="${midPart() || 'suit'}"] h4`); h.tabIndex = -1; h.focus({ preventScroll: true }); }
-    toast(r ? t(msgOut ? 'toast.held' : 'toast.heldNoMsg', longDay(r.until), r.id) : t('toast.thanks'));
+    toast(r ? (msgOut ? t('toast.held', longDay(r.until), r.title ? 'title' : 0) : t('toast.heldNoMsg', longDay(r.until), r.id)) : t('toast.thanks'));
   });
   $$('#pay-tabs [role="tab"]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab, { user: true })));
   // arrow keys move along the tabs (the MB WAY tab is skipped while it is off)

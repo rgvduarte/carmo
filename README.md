@@ -31,8 +31,10 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
   pedido, «Ao enviar, aceitas as condições do patrocínio.»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, o parceiro de prova e o que se combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
-  sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. As notas para ti estão num comentário no
-  topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
+  sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. No mesmo dia muda também a data das
+  chaves `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `msg.terms` (a linha
+  «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`).
+  As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 
 PT e EN (botão no topo; a língua também segue o browser).
 
@@ -247,14 +249,17 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    o nome, o NIF, a mensagem, a forma de pagar e o logótipo. O Worker reserva os espaços por 48 horas (um commit no
    `data/spots.json`) e responde com o número do pedido. O passo 2 diz **Reservado até domingo, 25 de outubro**, o
    número do pedido e «Paga e envia-me o comprovativo por WhatsApp ou email até essa data (48 horas a contar do
-   pedido) para o patrocínio ficar fechado», e por baixo os dados de MB WAY ou da transferência (o que escolheu), o
-   montante e o descritivo `CARMO`. Enquanto o pedido segue, o botão tocado diz «A reservar…».
-   A app escolhida abre sozinha com a mensagem, que agora leva `Pedido: <número>` e «Reservado durante 48 horas, até
-   25 de outubro. Envio o comprovativo do pagamento até lá.» Se o browser não a deixar abrir sozinha (a resposta
-   chegou tarde), aparece «Falta um passo.» com um botão que a abre; se fechar o pedido antes disso, ao voltar o passo
-   1 diz que ainda falta enviar a mensagem, e «Feito» lembra o número do pedido. No Instagram, a mensagem fica copiada
-   para colar. «Já enviei o pedido», que salta para o pagamento, só aparece depois de o pacote estar reservado (ou
-   quando o pedido voltou a ser só mensagem): nunca passa à frente da reserva nem do logótipo.
+   pedido) para o patrocínio ficar fechado» (no fato completo: «Antes de pagares, envio-te o acordo escrito. A reserva
+   fica até essa data e prolongo-a se for preciso.»), e por baixo os dados de MB WAY ou da transferência (o que
+   escolheu), o montante e o descritivo `CARMO`. Enquanto o pedido segue, o botão tocado diz «A reservar…».
+   A app escolhida abre sozinha com a mensagem, que agora leva `Pedido: <número>`, «Reservado durante 48 horas, até
+   25 de outubro. Envio o comprovativo do pagamento até lá.» (no fato completo: «Reservado até 25 de outubro. Antes de
+   pagar, fico à espera do acordo escrito.») e a linha das condições, com a data delas. Se o browser não a deixar
+   abrir sozinha (a resposta chegou tarde), aparece «Falta um passo.» com um botão que a abre; se fechar o pedido antes
+   disso, ao voltar o passo 1 diz que ainda falta enviar a mensagem, e «Feito» lembra o número do pedido. No
+   Instagram, a mensagem fica copiada para colar. «Já enviei o pedido», que salta para o pagamento, só aparece depois
+   de o pacote estar reservado (ou quando o pedido voltou a ser só mensagem): nunca passa à frente da reserva nem do
+   logótipo.
 3. Na página, os espaços passam logo a «Reservado até 25 out.»; para toda a gente, assim que o GitHub Pages publica o
    commit (1 a 2 minutos). Cada vez que o pedido abre, o site lê outra vez o `data/spots.json` sem cache: um espaço
    que outra marca reservou entretanto sai do pacote e o pedido diz qual foi.
@@ -286,7 +291,8 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    **Guardar**: o espaço fica vendido no site com o logótipo da marca e o pedido fica confirmado. Passa o recibo de
    donativo (nunca uma fatura), com o NIF se o pedido o tiver.
 3. Sem pagamento, a reserva acaba sozinha no fim do último dia. **Prolongar 48 h** dá mais dois dias; **Cancelar**
-   liberta já (num pedido falso, com «bloquear»).
+   liberta já (num pedido falso, com «bloquear»). No fato completo, a marca espera pelo acordo escrito antes de
+   pagar: envia-lho e, enquanto não estiver fechado, prolonga a reserva.
 4. Uma mensagem sem `Pedido:` (o Worker estava em baixo) não reservou nada: vê se o espaço está livre, cola a
    mensagem em **Colar pedido ou referência** e reserva ou vende como antes. O logótipo vem na conversa. Uma mensagem
    com `Pedido aberto: <número>` também não reservou nada: é um pacote a mais de uma marca que já tem esse pedido
