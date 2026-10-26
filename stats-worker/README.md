@@ -49,8 +49,8 @@ Conta as visitas do gocarmo.com com uma ferramenta nossa, sem cookies e sem sabe
 
 ## Publicar
 
-Cada push para `gh-pages` que mude `stats-worker/` publica o Worker sozinho (mudar só a action não publica). À mão: **Actions > Deploy stats > Run
-workflow**. A action:
+Cada push para `gh-pages` que mude `stats-worker/` publica o Worker sozinho (mudar só a action não publica). À mão:
+**Actions > Deploy stats > Run workflow**. A action:
 
 1. limpa os espaços e quebras de linha que vierem colados nos secrets (como a dos Pedidos) e confirma-os;
 2. lê o subdomínio workers.dev da conta (hoje é `rgvduarte`) ou cria um se ainda não existir (`gocarmo`, ou
@@ -69,8 +69,7 @@ stats: { url: 'https://gocarmo-api.rgvduarte.workers.dev', mode: 'exempt', campa
 ```
 
 Depois corre `node scripts/stamp.mjs` (deixa as páginas `/admin/` e `/admin/analytics/` falarem com esse endereço) e
-publica. Com
-`url: ''` o site não mede nada.
+publica. Com `url: ''` o site não mede nada.
 
 - `mode: 'exempt'`: conta sem perguntar, dentro das regras acima (sem cookies, só totais).
 - `mode: 'consent'`: só começa depois de a pessoa aceitar no aviso de cookies (para o caso de a lei mudar).

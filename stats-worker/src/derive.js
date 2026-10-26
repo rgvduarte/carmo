@@ -158,7 +158,9 @@ export function derive(pv, batches, add) {
 
   // ---------- reading the page ----------
   if (pv.fin || eng !== null) add('h.eng', String(binEng(eng ?? 0)), 1, 0, eng ?? 0);
-  if (Number.isFinite(pv.scr)) { add('h.scr', String(pv.scr), 1, 0, 0); add(`sv.${vw}`, String(pv.scr), 1, 0, 0); }
+  // the tracker leaves `scr` out while it is 0 (the first screen is under 5 % of the page): such a page view stayed at 0 %
+  const scr = Number.isFinite(pv.scr) ? pv.scr : 0;
+  add('h.scr', String(scr), 1, 0, 0); add(`sv.${vw}`, String(scr), 1, 0, 0);
   if (Number.isFinite(pv.vh)) add(`vph.${vw}`, String(pv.vh), 1, 0, 0);
   for (const z of new Set([...rz, ...Object.keys(sec)])) {
     const r = rz.has(z) ? 1 : 0, s = Number(sec[z]) || 0;

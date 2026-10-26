@@ -248,7 +248,9 @@ export class Store extends DurableObject {
     if (this.alarmAt === null) this.alarmAt = (await this.ctx.storage.getAlarm()) || 0;
     const set = this.alarmAt > now ? this.alarmAt : 0;
     let want = set || nextLisbon(now, 0, 20);
-    if (this.pendingCounts()) want = Math.min(want, now + 60e3);
+    // an idle object is dropped from memory (after about 70 s on Cloudflare, about 10 s in local workerd): the
+    // waiting counts are written well before that
+    if (this.pendingCounts()) want = Math.min(want, now + (this.env.DEV_HOOKS === '1' ? 3e3 : 30e3));
     if (set && set <= want) return;
     this.count('rows');
     await this.ctx.storage.setAlarm(want);

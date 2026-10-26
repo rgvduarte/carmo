@@ -172,11 +172,16 @@ export function createHeat(ctx) {
   }
   const rgbOf = (L4, i) => `rgb(${L4[i * 4]}, ${L4[i * 4 + 1]}, ${L4[i * 4 + 2]})`;
   const ALIAS = { '#stage > canvas': '#stage', '#stage-h > canvas': '#stage-h' };
+  // an element made by a script after load (the animated number inside #hero-spots) may not be in the frame yet: its
+  // parent, when that one has an id of its own and the element filled it, stands in for it
+  const INSIDE = /^(#[a-z][a-z0-9-]*) > span\.nf-v(?: > number-flow)?$/;
   function query(doc, sel) {
     try {
       const n = doc.querySelector(sel);
-      if (n || !ALIAS[sel]) return n;
-      return doc.querySelector(ALIAS[sel]);
+      if (n) return n;
+      if (ALIAS[sel]) return doc.querySelector(ALIAS[sel]);
+      const m = INSIDE.exec(sel);
+      return m ? doc.querySelector(m[1]) : null;
     } catch (_) { return null; }
   }
   // where an element is drawn: 'doc' (in the page), 'nav' (the fixed top menu), or null (hidden / another fixed layer)
@@ -512,6 +517,9 @@ export function createHeat(ctx) {
   const KNOWN = { '#stage > canvas': 'O fato em 3D (toques no modelo)', '#stage-h > canvas': 'O capacete em 3D (toques no modelo)', '#hero-spots': 'Número de espaços livres (início)' };
   const labelOf = (e) => {
     if (KNOWN[e.sel]) return KNOWN[e.sel];
+    // a click inside one of them (the animated number inside #hero-spots)
+    const inside = Object.keys(KNOWN).find((k) => (e.sel || '').startsWith(`${k} `));
+    if (inside) return KNOWN[inside];
     const lab = e.lab || '';
     if (KEY_RE.test(lab)) return ctx.pageText(lab) || lab;
     if (lab) return lab;

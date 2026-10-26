@@ -1,4 +1,4 @@
-// Own visit counter (SPEC 4). No cookie, no form value; reads gc.optout, gc.internal only. stats-site.js enriches.
+// Own visit counter (SPEC 4): no cookie, no form value; reads only gc.optout and gc.internal.
 import { SITE } from './data.js';
 import { ZONES, zoneOf, zoneBox } from './stats-zones.js';
 
@@ -29,7 +29,7 @@ function step(e) {
     if ((v = e.getAttribute(a)) && /^[a-z0-9-]{1,30}$/.test(v) && !/\d{4}/.test(v)) return `${s}[${a}="${v}"]`;
   }
   const sib = [...e.parentElement.children].filter((x) => x.localName === e.localName);
-  return sib[1] ? `${s}:nth-of-type(${sib.indexOf(e) + 1})` : s;
+  return sib[1] && (!c || sib.filter((x) => x.classList.contains(c))[1]) ? `${s}:nth-of-type(${sib.indexOf(e) + 1})` : s;
 }
 function sel(el) {
   if (idOk(el)) return '#' + el.id;
