@@ -28,6 +28,11 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
 - **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com o Google Analytics ligado,
   aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
+- **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
+  pedido, «Ao enviar, aceitas as condições do patrocínio.»): o que inclui um espaço, o que fica de fora, como se reserva
+  e paga, o parceiro de prova e o que se combina num acordo escrito. Enquanto for rascunho, tem o bloco «Rascunho para
+  aprovação», as marcas a amarelo (`.ph-mark`: `[DECISÃO]`, `[CONFIRMAR]`, `[PREENCHER]`) e `noindex`; saem todos
+  antes de publicar, e a data «Atualizada a» muda sempre que o texto mudar.
 
 PT e EN (botão no topo; a língua também segue o browser).
 
@@ -40,6 +45,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
 | Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem estatísticas e sem aviso de cookies; ver «Google Analytics») |
 | Página de privacidade (PT e EN) | `privacidade/index.html` |
+| Condições do patrocínio (PT e EN) | `condicoes/index.html` (se mudares o que um espaço inclui no site, muda também aqui) |
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
@@ -530,7 +536,7 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html` e de `privacidade/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `privacidade/index.html` e de `condicoes/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
 Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo.
 

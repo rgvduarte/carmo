@@ -23,7 +23,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="assets/css/style.css?v=0de009c3">
+<link rel="stylesheet" href="assets/css/style.css?v=b8b8fec7">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -64,11 +64,11 @@
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=2d0fb70f",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=64997860",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=3843dd80",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
-  "./assets/js/privacy.js": "./assets/js/privacy.js?v=a5e77c39",
+  "./assets/js/privacy.js": "./assets/js/privacy.js?v=4d8d718a",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
   "./assets/js/suit-body.js": "./assets/js/suit-body.js?v=e86b9edf",
@@ -614,6 +614,7 @@
       <div class="rv"><b data-i18n="ru.h3">Produção incluída.</b><span data-i18n="ru.p3">Envias-me o logótipo em vetor e eu trato da produção.</span></div>
       <div class="rv"><b data-i18n="ru.h4">Setores excluídos.</b><span data-i18n="ru.p4">Não aceito marcas de álcool, apostas ou tabaco.</span></div>
     </div>
+    <p class="terms-line rv" data-i18n-html="ru.terms"><a href="condicoes/">Condições do patrocínio</a>. O que inclui um espaço, o que fica de fora e quando uma prova pode ter um parceiro de prova.</p>
   </div>
 </section>
 
@@ -728,7 +729,7 @@
   <div class="wrap">
     <span>© 2026 Gonçalo Carmo</span>
     <span><span data-i18n="ft.data">Dados atualizados a</span> <span id="ft-date">22 out. 2026</span> · <a href="#top" data-i18n="ft.top">Voltar ao topo</a></span>
-    <span><a href="privacidade/" data-i18n="ft.privacy">Privacidade</a><span data-consent-ui hidden> · <button type="button" class="ft-link" data-consent-open data-i18n="ft.cookies">Definições de cookies</button></span></span>
+    <span><a href="privacidade/" data-i18n="ft.privacy">Privacidade</a> · <a href="condicoes/" data-i18n="ft.terms">Condições</a><span data-consent-ui hidden> · <button type="button" class="ft-link" data-consent-open data-i18n="ft.cookies">Definições de cookies</button></span></span>
   </div>
 </footer>
 
@@ -789,6 +790,8 @@
         </div>
         <!-- what went wrong with the request, and what to do; announced as it shows -->
         <div class="cl-note" id="cl-note" role="alert" hidden></div>
+        <!-- what sending means: the request follows the sponsorship terms in force that day (/condicoes/) -->
+        <p class="cl-terms" data-i18n-html="cl.terms">Ao enviar, aceitas as <a href="condicoes/" target="_blank" rel="noopener">condições do patrocínio</a>.</p>
         <div class="cl-acts">
           <a class="btn gold" id="cl-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></a>
           <div class="cl-alt">

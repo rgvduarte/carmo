@@ -882,6 +882,9 @@ section { position: relative; }
 .rules { margin-top: 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .rules div { font-size: 14px; color: var(--muted); text-wrap: pretty; }
 .rules b { display: block; color: var(--ink); font: 650 16px/1.3 var(--sans); margin-bottom: 6px; }
+/* the link to /condicoes/ under the rules */
+.terms-line { margin: 32px 0 0; padding-top: 18px; border-top: 1px solid var(--line); max-width: 72ch; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+.terms-line a { display: inline-block; padding: 12px 0; margin: -12px 0; color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 @media (max-width: 1080px) {
   .studio { grid-template-columns: minmax(0, 1fr); }
   .stage-wrap { top: var(--nav-h); z-index: 4; background: var(--bg); padding: 6px 0 8px; margin: 0 calc(var(--gutter) * -1); padding-left: var(--gutter); padding-right: var(--gutter); }
@@ -1070,6 +1073,10 @@ dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4p
 /* email and Instagram: two equal second choices under the gold WhatsApp button (and in the step 2 «não abriu?» box) */
 .cl-alt { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .cl-acts .cl-alt .btn, .cl-fb .btn { width: 100%; min-height: 48px; padding: 0 12px; gap: 8px; font-size: 15px; }
+/* «Ao enviar, aceitas as condições do patrocínio.», right above the send buttons */
+.cl-terms { margin: -8px 0 -10px; font-size: 13px; line-height: 1.4; color: var(--muted); text-align: center; text-wrap: pretty; }
+.cl-terms a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 3px; }
+.cl-terms a:hover { text-decoration-color: currentColor; }
 .cl-foot { margin: -6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); display: flex; justify-content: center; }
 /* the logo (with SITE.requestsApi): the whole box is the file input, so a tap opens the photos on a phone and a file
    dropped on it on a computer is taken; once picked, the box shows it on a checkerboard (a transparent background
@@ -1257,7 +1264,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   @page { size: A4; margin: 12mm; }
   :root { color-scheme: light; --ink: #111; --muted: #555; --dim: #666; --line: rgba(0,0,0,.14); --line-2: rgba(0,0,0,.25); --bg: #fff; --bg-2: #fff; --bg-3: #f4f4f4; --gold: var(--gold-ink); }
   body { background: #fff; color: #111; font-size: 10.5pt; }
-  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .budget .track, .contact-media, #strava-live, .chapters, .pv-nav, .pv-filter, .strava-card, .season-title .hib { display: none !important; }
+  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .terms-line, .budget .track, .contact-media, #strava-live, .chapters, .pv-nav, .pv-filter, .strava-card, .season-title .hib { display: none !important; }
   .section, .marks { padding: 14pt 0; }
   .card, .race, .pv-card, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
   .entry-card { border-color: rgba(0,0,0,.2); background: #fff; }
@@ -1490,7 +1497,7 @@ body.pk-on .consent { bottom: calc(93px + env(safe-area-inset-bottom)); }
 :root.consent-on body.pk-on footer { padding-bottom: calc(var(--consent-h, 120px) + 132px + env(safe-area-inset-bottom)); }
 footer .ft-link { display: inline-block; padding: 12px 0; margin: -12px 0; border: 0; background: none; color: var(--muted); font: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; cursor: pointer; }
 footer .ft-link:hover { color: var(--ink); }
-footer a[href="privacidade/"] { display: inline-block; padding: 14px 0; margin: -14px 0; }
+footer a[href$="privacidade/"], footer a[href$="condicoes/"] { display: inline-block; padding: 14px 0; margin: -14px 0; }
 @media (max-width: 760px) {
   .consent { left: 0; right: 0; bottom: 0; width: auto; transform: translateY(calc(100% + 8px)); }
   .consent.on { transform: none; }
