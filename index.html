@@ -39,7 +39,14 @@
       try { if (!sessionStorage.getItem('gc.fresh')) { sessionStorage.setItem('gc.fresh', '1'); location.replace(location.pathname + '?fresh=' + Date.now() + location.hash); return; } } catch (e) {}
       d.classList.replace('js', 'no-js');
     };
-    addEventListener('error', function (e) { if (e.target && e.target.tagName === 'SCRIPT' && e.target.type === 'module') fail(); }, true);
+    // a module marked data-optional (the visit counter, stats.js) may fail to load (a filter, an extension) without harm.
+    // The failed address is kept for the visit counter, which loads async and may start after the failure.
+    addEventListener('error', function (e) {
+      var t = e.target;
+      if (!t || t.tagName !== 'SCRIPT' || t.type !== 'module') return;
+      (window.__gcBad = window.__gcBad || []).push(t.src);
+      if (!t.hasAttribute('data-optional')) fail();
+    }, true);
     addEventListener('load', function () { setTimeout(fail, 0); });
   })();
 </script>
@@ -53,24 +60,35 @@
   "three": "./assets/vendor/three@0.170.0/build/three.module.min.js",
   "three/addons/": "./assets/vendor/three@0.170.0/examples/jsm/",
   "./assets/js/admin-3d.js": "./assets/js/admin-3d.js?v=f6109481",
+  "./assets/js/admin-analytics-api.js": "./assets/js/admin-analytics-api.js?v=35971a4d",
+  "./assets/js/admin-analytics-charts.js": "./assets/js/admin-analytics-charts.js?v=3b35f743",
+  "./assets/js/admin-analytics-heat.js": "./assets/js/admin-analytics-heat.js?v=7321de53",
+  "./assets/js/admin-analytics-labels.js": "./assets/js/admin-analytics-labels.js?v=40073038",
+  "./assets/js/admin-analytics-map.js": "./assets/js/admin-analytics-map.js?v=a6e8f1b4",
+  "./assets/js/admin-analytics-panels.js": "./assets/js/admin-analytics-panels.js?v=d192f4a9",
+  "./assets/js/admin-analytics.js": "./assets/js/admin-analytics.js?v=1eb36543",
   "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=1a6b1eda",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
   "./assets/js/admin.js": "./assets/js/admin.js?v=629edca2",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=02442759",
-  "./assets/js/analytics.js": "./assets/js/analytics.js?v=253e66cc",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=53c2b54b",
+  "./assets/js/analytics.js": "./assets/js/analytics.js?v=33844efa",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
-  "./assets/js/data.js": "./assets/js/data.js?v=22e018cb",
+  "./assets/js/data.js": "./assets/js/data.js?v=b91ff7a1",
   "./assets/js/flow.js": "./assets/js/flow.js?v=c994a0dc",
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=02d6bffb",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=bf943fa8",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=3843dd80",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
-  "./assets/js/privacy.js": "./assets/js/privacy.js?v=4d8d718a",
+  "./assets/js/privacy.js": "./assets/js/privacy.js?v=95de7df4",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
+  "./assets/js/stats-fb.js": "./assets/js/stats-fb.js?v=87cd2e59",
+  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=0a0435b0",
+  "./assets/js/stats-zones.js": "./assets/js/stats-zones.js?v=66b2b133",
+  "./assets/js/stats.js": "./assets/js/stats.js?v=9d4500c4",
   "./assets/js/suit-body.js": "./assets/js/suit-body.js?v=e86b9edf",
   "./assets/js/suit-mesh.js": "./assets/js/suit-mesh.js?v=b3644acd",
   "./assets/js/suit-worker.js": "./assets/js/suit-worker.js?v=41a4b375",
@@ -871,7 +889,8 @@
 <script src="assets/vendor/gsap@3.13.0/ScrollTrigger.min.js" defer></script>
 <script src="assets/vendor/gsap@3.13.0/ScrambleTextPlugin.min.js" defer></script>
 <script src="assets/vendor/lenis@1.3.4/dist/lenis.min.js" defer></script>
+<script type="module" src="assets/js/stats.js?v=9d4500c4" async data-optional></script>
 <script type="module" src="assets/js/main.js?v=3843dd80"></script>
-<script type="module" src="assets/js/analytics.js?v=253e66cc"></script>
+<script type="module" src="assets/js/analytics.js?v=33844efa"></script>
 </body>
 </html>

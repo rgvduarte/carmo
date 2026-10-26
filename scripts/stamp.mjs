@@ -9,8 +9,8 @@
 //    './assets/js/x.js' to './assets/js/x.js?v=<hash>', which covers static imports, import() and import.meta.resolve().
 //    The mesh worker has no import map: its imports (suit-worker.js -> suit-mesh.js -> suit-body.js) carry the hash.
 // 3. A page with a Content-Security-Policy runs an inline script (the import map) only if script-src lists its sha256,
-//    so every rewrite also recomputes those hashes from the inline scripts the page now holds; the admin page's
-//    connect-src also gets the booking Worker's origin (SITE.requestsApi).
+//    so every rewrite also recomputes those hashes from the inline scripts the page now holds; the admin pages'
+//    connect-src also get the booking Worker's origin (SITE.requestsApi) and the statistics Worker's (SITE.stats.url).
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -103,22 +103,35 @@ function stamp(s, base) {
   return cspHashes(s);
 }
 
-// The admin page reaches the booking-request Worker (SITE.requestsApi in assets/js/data.js, worker/README.md) only if
-// its CSP lets it: that address goes into connect-src, after the fixed ones, and leaves it when the setting is emptied.
-const CONNECT = ["'self'", 'https://api.github.com', 'https://gocarmo.com'];
-const api = (readFileSync('assets/js/data.js', 'utf8').match(/^\s*requestsApi:\s*'([^']*)'/m) || [])[1] || '';
-let worker = '';
-if (api.trim()) {
-  const u = new URL(api.trim());
-  if (u.protocol !== 'https:') throw new Error(`SITE.requestsApi has to be an https:// address (${api})`);
-  worker = u.origin;
+// The admin pages reach the Workers only if their CSP lets them. Each address set in assets/js/data.js goes into
+// connect-src, after the fixed ones, and leaves it when the setting is emptied:
+// - SITE.requestsApi, the booking-request Worker (worker/README.md): /admin/;
+// - SITE.stats.url, the statistics Worker (stats-worker/README.md): /admin/ and /admin/analytics/.
+const DATA = readFileSync('assets/js/data.js', 'utf8');
+function origin(name, re) {
+  const m = DATA.match(re);
+  if (!m) throw new Error(`assets/js/data.js: no ${name} line (keep it on one line${name === 'SITE.stats' ? ', url first' : ''})`);
+  const v = m[1].trim();
+  if (!v) return '';
+  const u = new URL(v);
+  if (u.protocol !== 'https:') throw new Error(`${name} has to be an https:// address (${v})`);
+  return u.origin;
 }
-const connectWorker = (s) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${[...CONNECT, worker].filter(Boolean).join(' ')}`);
+const worker = origin('SITE.requestsApi', /^\s*requestsApi:\s*'([^']*)'/m);
+const stats = origin('SITE.stats', /^\s*stats:\s*\{\s*url:\s*'([^']*)'/m);
+const CONNECT = {
+  'admin/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker, stats],
+  'admin/analytics/index.html': ["'self'", stats],
+};
+const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
 
-for (const [page, base, withRaces, withWorker] of [['index.html', './', true, false], ['admin/index.html', '../', false, true], ['admin/strava/index.html', '../../', false, false], ['privacidade/index.html', '../', false, false], ['condicoes/index.html', '../', false, false]]) {
+for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false]]) {
   const was = readFileSync(page, 'utf8');
   let now = stamp(withRaces ? bake(was) : was, base);
-  if (withWorker) now = connectWorker(now);
+  if (CONNECT[page]) {
+    if (!/connect-src /.test(now)) throw new Error(`${page}: its Content-Security-Policy has no connect-src`);
+    now = connect(now, CONNECT[page]);
+  }
   if (now === was) continue;
   stale.push(page);
   if (!check) writeFileSync(page, now);
@@ -126,4 +139,7 @@ for (const [page, base, withRaces, withWorker] of [['index.html', './', true, fa
 if (check) {
   if (stale.length) { console.error(`out of date: ${stale.join(', ')}. Run node scripts/stamp.mjs`); process.exit(1); }
   console.log(`up to date: ${RESULTS.length} races, ${modules.length} modules`);
-} else console.log(`stamped ${modules.length} modules, baked ${races.cards.length} race cards${stale.length ? ` (${stale.join(', ')} updated)` : ''}${worker ? `; the admin page may reach ${worker}` : ''}`);
+} else {
+  const reach = [worker && `the admin page may reach ${worker}`, stats ? `the admin pages may reach ${stats}` : 'the statistics reach no Worker yet (SITE.stats.url is empty)'].filter(Boolean);
+  console.log(`stamped ${modules.length} modules, baked ${races.cards.length} race cards${stale.length ? ` (${stale.join(', ')} updated)` : ''}; ${reach.join('; ')}`);
+}

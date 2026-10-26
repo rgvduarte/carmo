@@ -1,0 +1,15 @@
+{
+  "name": "gocarmo-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Own cookieless visit counting for gocarmo.com: a Cloudflare Worker with one SQLite Durable Object.",
+  "scripts": {
+    "dev": "X_LOCAL_OBSERVABILITY=false wrangler dev --port 8787 --ip 127.0.0.1",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "seed": "node scripts/seed.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "4.146.0"
+  }
+}

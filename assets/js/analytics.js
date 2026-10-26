@@ -4,9 +4,9 @@
 // Consent comes first (ePrivacy, GDPR, Lei 41/2004). Google's script loads only after «Aceitar», in Consent Mode v2
 // basic mode: ad storage, ad user data and ad personalisation are always denied, and analytics storage is granted by
 // that click alone. The choice lasts six months in this browser, and the _ga cookies expire with it. «Recusar», a
-// Global Privacy Control or Do Not Track signal (also one switched on after «Aceitar»), and a browser that has opened
-// /admin/ (internal.js) all keep Google out. «Definições de cookies» (footer) reopens the banner; withdrawing deletes
-// the _ga cookies and stops sending at once.
+// Global Privacy Control or Do Not Track signal (also one switched on after «Aceitar»), a browser that has opened
+// /admin/ (internal.js) and a frame (the heatmaps of /admin/analytics/) all keep Google out. «Definições de cookies»
+// (footer) reopens the banner; withdrawing deletes the _ga cookies and stops sending at once.
 //
 // What is sent (no personal data: never a form field, an email, a phone number, a NIF or a brand name, never a link's
 // URL, since the WhatsApp and email links carry the booking message; of the landing address's query only utm_*):
@@ -177,7 +177,9 @@ function build() {
 function render() {
   if (!panel) return;
   panel.querySelector('.consent-h').textContent = t('cs.h');
-  panel.querySelector('.consent-p span').textContent = t('cs.p');
+  // the site's own cookieless counting (stats.js) runs without this banner: it says so, so «Recusar» misleads no one
+  const own = SITE.stats && SITE.stats.url && SITE.stats.mode === 'exempt';
+  panel.querySelector('.consent-p span').textContent = own ? `${t('cs.own')} ${t('cs.p')}` : t('cs.p');
   panel.querySelector('.consent-p a').textContent = t('cs.more');
   const why = owner() ? 'cs.owner' : signal() && choice !== 'granted' ? 'cs.signal' : '';
   const note = panel.querySelector('.consent-note');
@@ -374,5 +376,8 @@ function init() {
   if (!choice && !signal() && !owner()) later(() => { if (!choice) show(); });
 }
 
+// inside a frame (the heatmaps of /admin/analytics/ draw over the page in one), or the heatmap's address opened on its
+// own (?heatmap=1): no banner and no Google at all
+const framed = (() => { try { return window.top !== window.self || /heatmap=1/.test(location.search); } catch (_) { return true; } })();
 // switched off (SITE.ga emptied): GA cookies left from before go too
-if (VALID) init(); else clearCookies();
+if (!framed) { if (VALID) init(); else clearCookies(); }

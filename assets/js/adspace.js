@@ -7,6 +7,11 @@ import { SITE } from './data.js';
 import { flowSet } from './flow.js';
 import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, fixable, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE, isIOS, inApp, appName } from './gl3d.js';
 
+// for stats.js (and analytics.js later): a named event the page tracker may count; never personal data
+const emit = (name, params = {}) => dispatchEvent(new CustomEvent('gc:track', { detail: { name, params } }));
+// a 3D failure code (gl3d.js) as the tracker's reason: no WebGL 2 here, the GL context, or anything else on the way
+const why3d = (code) => (/^nowebgl/.test(code || '') ? 'nogl' : /^(ctx|lost)|^frame$/.test(code || '') ? 'ctx' : 'load');
+
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const AREAS = ['front', 'sides', 'shoulders', 'legs', 'back'];
@@ -68,6 +73,7 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     const res = await fetch('data/spots.json', { cache: 'no-cache' });
     DATA = await res.json();
   } catch (e) {
+    emit('asset_fail', { what: 'spots' });
     $('#rc-body').textContent = 'Não consegui carregar a tabela. Escreve-me para allez@gocarmo.com.';
     // no spots, no 3D: both stages keep their pictures, and «Tentar outra vez» loads the page again
     lastFail = fail('data', 'spots.json', e); setNo3d(lastFail);
@@ -269,6 +275,7 @@ async function mountSuit(p = startProfile(), again = false) {
     try { await s.ready; } catch (e) { throw new GLFail('mesh', 'suit-ready', e); }
     if (pending !== s) return;   // torn down meanwhile
     mark('ready');
+    emit('3d_ready', { item: 'suit', mesh: s.meshWhere, ms: s.buildMs });
     const first = want === 'helmet';   // read again: the visitor may have scrolled to the other part meanwhile
     if (idle && !first) s.setActive(true);
     suit = kit = s; pending = null;
@@ -458,6 +465,8 @@ function onFrameError(e) {
 function no3d(r) {
   lastFail = r || { code: 'build', where: 'unknown', msg: '' };
   setNo3d(lastFail); note('no3d', { code: lastFail.code });
+  // both stages go still; the tracker gives the other part the same reason
+  emit('3d_fail', { item, why: why3d(lastFail.code) });
   if (current && isLost(current)) comeBack(current);
   teardown();
   stopTour();
@@ -611,6 +620,7 @@ async function buildHelmet(host) {
         if (suit !== host || helmet !== h) return false;
         await h.ready();
         mark('helmet-ready');
+        emit('3d_ready', { item: 'helmet' });
         return true;
       } catch (e) {
         const lost = isLost(host.renderer), code = lost ? 'lost-build' : (e && e.code) || 'build';
@@ -629,6 +639,7 @@ async function buildHelmet(host) {
   } catch (e) {
     if (suit !== host) return false;
     if (!helmetFail) helmetFail = fail((e && e.code) || 'build', (e && e.where) || 'helmet', (e && e.cause) || e);
+    emit('3d_fail', { item: 'helmet', why: why3d(helmetFail.code) });
     helmet = null;
     // the helmet's part keeps its picture and its rate card; only its 3D controls go
     toast(t('toast.helmet')); stageStill('helmet', 'toast.helmet', helmetFail.code);
@@ -747,7 +758,7 @@ async function printSponsors(m) {
       let c = await SuitClass.prepareLogo(blob, { removeWhite: true, mono: s.logoMono || null });
       if (!s.logoMono && m.rects.get(s.id)?.light === false && inkOf(c) < 110) c = await SuitClass.prepareLogo(blob, { removeWhite: true, mono: '#f6f7f9' });
       s._logo = c;
-    } catch (_) {} finally { clearTimeout(timer); }
+    } catch (_) { emit('asset_fail', { what: 'logo', spot: s.id }); } finally { clearTimeout(timer); }
   }));
   // a logo that cannot be printed leaves the model without it, never without the model
   try { m.drawBase(); m.drawOverlay(); m.kick(); } catch (e) { fail('build', 'logos', e); }

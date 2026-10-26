@@ -8,6 +8,11 @@ export const SITE = {
   email: 'allez@gocarmo.com',
   strava: 'https://www.strava.com/athletes/50182673',
   // The GoFundMe link and its numbers live in data/gofundme.json (README → GoFundMe), not here.
+  // Own visit counting, no cookies (stats-worker/README.md). url: the Worker's address from the summary of the
+  // «Deploy stats» action, e.g. 'https://gocarmo-api.rgvduarte.workers.dev'. Empty = nothing is measured.
+  // mode: 'exempt' (counts without asking, within the privacy rules), 'consent' (waits for the banner's yes) or 'off'.
+  // After changing url, run node scripts/stamp.mjs: it lets the admin pages reach that address.
+  stats: { url: '', mode: 'exempt', campaigns: [] },
   // Bank transfer, shown in the booking dialog and in "Apoiar". Since October 2025 banks check the
   // payee name against the IBAN before sending, so `payee` must be the exact account holder name.
   iban: 'PT50003501250000532893068',

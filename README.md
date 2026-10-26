@@ -26,8 +26,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   número dos pedidos, com o código `CARMO APOIO`, escondidos enquanto houver campanha aberta), apoio em espécie e
   orçamento estimado da época.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
-- **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com o Google Analytics ligado,
-  aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
+- **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com as estatísticas do site
+  ligadas, explica a contagem de visitas sem cookies e tem o botão «Não contar as minhas visitas». Com o Google
+  Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
   pedido, «Ao enviar, aceitas as condições do patrocínio (atualizadas a 26 de outubro de 2026).»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, o parceiro de prova e o que se combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
@@ -45,7 +46,8 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
 | Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
-| Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem estatísticas e sem aviso de cookies; ver «Google Analytics») |
+| Estatísticas do site (o endereço do Worker `gocarmo-api` e o modo) | `assets/js/data.js` → `SITE.stats` (`url` vazio = não mede nada; depois de mudar, `node scripts/stamp.mjs`; ver «Estatísticas do site») |
+| Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem Google Analytics e sem aviso de cookies; ver «Google Analytics») |
 | Página de privacidade (PT e EN) | `privacidade/index.html` |
 | Condições do patrocínio (PT e EN) | `condicoes/index.html` (se mudares o que um espaço inclui no site, muda também aqui) |
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
@@ -412,6 +414,75 @@ Só são publicados agregados (horas por semana e por dia, totais de 12 meses). 
 Alternativa sem API: em Strava → Settings → My Account → *Download your data*, extrai `activities.csv` e corre
 `node scripts/strava-sync.mjs --csv caminho/para/activities.csv`, depois faz commit de `data/strava.json`.
 
+## Estatísticas do site
+
+Uma ferramenta nossa conta as visitas, sem cookies, e mostra-as em **https://gocarmo.com/admin/analytics/** (entra
+com a `ADMIN_KEY`, a mesma palavra-passe dos Pedidos; a página de admin tem a ligação «Estatísticas do site»). Não é o
+Google Analytics: não precisa de aviso de cookies nem de autorização, porque fica dentro de regras apertadas (mais
+abaixo). Enquanto `SITE.stats.url` estiver vazio, o site não mede nada e o painel diz que ainda não está ligado.
+
+**O que mede e onde se vê** (um separador por tema, no telemóvel ou no computador):
+
+| Separador | O que mostra |
+|---|---|
+| Resumo | visualizações, visitas, visitantes por dia, tempo ativo, saídas rápidas, quantos chegam ao patrocínio, pedidos enviados, páginas com erro; «Percebe-se?» (cliques sem resposta, cliques repetidos, toques no 3D que falham, pedidos travados pela marca ou pelo logótipo, o botão menos carregado); «Agora no site» (atualiza a cada 30 s) |
+| Público | onde estão (mapa de Portugal e do mundo, até à cidade), de onde vêm (canal, site, dentro de que app, ligações diretas como `/#fato/peito`), aparelho, largura do ecrã, toque ou rato, sistema, navegador, língua, quem muda de língua, hora e dia da semana |
+| Página | até que secção chegam, onde passam tempo, onde fecham a página, como chegam ao patrocínio e quanto tempo levam, até onde descem, os botões vistos e carregados, o menu |
+| Mapas de calor | a página verdadeira, à largura do telemóvel, do tablet, do computador ou de um ecrã largo, com os cliques por cima; também só os cliques sem resposta, os repetidos, os que deram erro, até onde descem e onde passam tempo. Só aparece com 5 ou mais visualizações nessa largura. Escolher uma linha da tabela marca o elemento na página |
+| Estúdio 3D | do estúdio ao pacote (chegaram perto, viram, o 3D abriu, mexeram, escolheram, juntaram), gestos, toques falhados, espera pelo 3D, visita guiada, interesse por espaço (com o preço) |
+| Reservas | o funil do pedido (viu o patrocínio → escolheu → juntou → abriu → enviou → copiou o pagamento → «Feito»), onde desistem, canal do pedido, forma de pagamento, pacotes, fato completo, experimentar o logótipo, partilhas |
+| Contactos | ligações para fora (WhatsApp, email, Instagram, Strava, GoFundMe…) e em que secção estavam, Apoiar, media kit |
+| Qualidade | velocidade (LCP, INP, CLS…), o que atrasa, arranque e falhas do 3D, ficheiros que não carregaram, erros de JavaScript |
+| Opinião | a pergunta rápida «Percebeste como funciona o patrocínio?» (Sim/Não e o que não ficou claro), por língua, largura e secção |
+| Dados | limites gratuitos do Cloudflare, pedidos recusados, resumos diários, anotações no gráfico (uma publicação, uma prova), CSV para o Excel |
+
+Períodos: 24 h (só no «Resumo», em totais), 7, 30 ou 90 dias (dias completos, até ontem) ou datas à escolha, com a
+comparação com o período anterior (só quando o contador já tinha dados nesse período) e um filtro por aparelho. As tuas visitas não contam: entrar no painel marca o browser como interno
+(`gc.internal`, também posto ao abrir `/admin/`); em janelas privadas ou noutros browsers, entra no painel uma vez.
+
+**Ligar (uma vez, uns 5 minutos).**
+1. GitHub → **Actions → Deploy stats → Run workflow**. Depois disso corre sozinha em cada push para `gh-pages` que
+   mude `stats-worker/`. Usa os secrets que já existem (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `ADMIN_KEY`)
+   e tira-lhes os espaços e as quebras de linha que tenham ficado colados. Cria sozinha, só no Cloudflare, a chave
+   `SALT_SECRET` (não vai para o GitHub). Tudo no plano gratuito, partilhado com o Worker dos Pedidos.
+2. No fim, o resumo da action mostra o endereço, `https://gocarmo-api.rgvduarte.workers.dev`, e o estado
+   (`/health`). Se o estado disser `store: false`, vê «Problemas» em `stats-worker/README.md` antes de haver dados.
+3. Cola esse endereço em `assets/js/data.js`:
+   `stats: { url: 'https://gocarmo-api.rgvduarte.workers.dev', mode: 'exempt', campaigns: [] },`
+   e corre `node scripts/stamp.mjs` (deixa `/admin/` e `/admin/analytics/` falarem com o Worker). Faz commit e push.
+4. Abre `/admin/analytics/` e entra com a `ADMIN_KEY`. As primeiras visitas aparecem logo em «Agora no site» e, no
+   «Resumo», no período «24 h» (só totais); os outros separadores mostram dias completos, a partir do dia seguinte.
+
+`mode: 'consent'` passa a contar só depois de «Aceitar» no aviso de cookies (fica pronto para o caso de a CNPD
+mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
+
+**Privacidade (o essencial; a página `/privacidade/` explica-o ao visitante).**
+- Sem cookies e sem identificador no aparelho. O endereço IP e o navegador completo nunca são guardados. Para contar
+  visitantes por dia, o Worker junta o IP (num IPv6, só a primeira metade), o navegador e uma chave que muda todos os
+  dias e fica só com um código; a chave e os códigos apagam-se à meia-noite de Lisboa. Não se seguem pessoas de um dia
+  para o outro.
+- Nunca lê o que se escreve nos campos do pedido nem o logótipo. De um clique guarda o elemento e o seu nome curto;
+  de uma ligação para fora, só o tipo ou o nome do site (a mensagem do pedido vai no endereço do WhatsApp). A hora fica
+  sem minutos. As mensagens de erro só ficam quando vêm de um ficheiro do site, sem endereços, números nem emails.
+- 30 dias de registos de cada visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
+- Quem tem Global Privacy Control ou Do Not Track ligado não é contado, nem quem carrega em «Não contar as minhas
+  visitas» na página de privacidade (`gc.optout`, só nesse browser). A pergunta rápida também não lhes aparece.
+- Cidades, regiões e sites com menos de 3 visitantes-dia aparecem juntos; o mapa de calor só com 5 visualizações; o
+  funil do pedido só em totais, nunca por origem, local ou aparelho. Um período com o dia de hoje (como «24 h») só
+  mostra totais no «Resumo»: de onde vêm, países e o funil só com dias completos, para que duas leituras com minutos
+  de diferença não liguem uma visita ao sítio de onde veio.
+- Os dados ficam no Cloudflare, na UE (`STORE_JURISDICTION = "eu"` em `stats-worker/wrangler.toml`), sem registos de
+  pedidos. Se algum dia esse valor tiver de ficar vazio, muda também a frase da página de privacidade (comentário
+  `[CONFIRMAR]` no início de `privacidade/index.html`).
+- **Regras para quem vê os números:** nunca os cruzar com os pedidos (nem com a lista «Pedidos» do admin), mensagens
+  ou emails, nem os usar para descobrir quem é alguém. Servem só para melhorar o site. Medir uma coisa nova (um campo,
+  um evento, um gráfico) obriga a rever a página de privacidade antes.
+- Com o Google Analytics ligado, as duas ferramentas não se misturam: o GA só depois de «Aceitar»; as estatísticas
+  próprias continuam sem cookies, e o aviso de cookies diz numa frase que já há uma contagem própria. Dentro do mapa de
+  calor (a página num iframe) não corre nenhuma das duas.
+
+Como funciona por dentro, os limites gratuitos, testar no computador e problemas: `stats-worker/README.md`.
+
 ## Google Analytics
 
 Com `SITE.ga` vazio (`assets/js/data.js`) o site não mede nada: não há aviso de cookies, nenhum cookie e nenhum
@@ -542,9 +613,9 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `privacidade/index.html` e de `condicoes/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `privacidade/index.html` e de `condicoes/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
-Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo.
+Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista.
 
 O mesmo script escreve em `index.html` os cartões de «Todas as provas» a partir de `RESULTS` (`assets/js/data.js`), com o mesmo código que os desenha na página (`assets/js/races.js`): são eles que aparecem sem JavaScript e no media kit impresso. Pára com uma lista do que falta se uma prova não tiver o que os cartões precisam (um triatlo sem `splits` ou `ag`, uma corrida sem `pace`). `node scripts/stamp.mjs --check` não muda nada e falha se alguma página estiver desatualizada.
 
