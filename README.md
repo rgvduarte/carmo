@@ -14,13 +14,14 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   de cartão em cartão; no computador avança-se com as setas. Sem JavaScript e no media kit impresso aparecem todos.
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
 - **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
-- **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir à introdução há dois cartões
-  grandes, «O fato» e «O capacete», cada um com a imagem do modelo, o número de espaços, o preço mais baixo e um botão
-  que leva à sua parte. Cada parte tem o seu modelo 3D, as vistas, a visita guiada e a tabela de preços (a do fato tem também
-  o fato completo). Há um só modelo 3D ativo de cada vez: o da parte que está no ecrã. O capacete só é preparado quando a
-  parte dele se aproxima e, enquanto isso, mostra a imagem do capacete e «A carregar o capacete». Dá para rodar, escolher,
-  experimentar o logótipo, descarregar o mockup, juntar espaços dos dois num pacote, reservar por WhatsApp, email ou
-  Instagram e pagar por transferência ou MB WAY.
+- **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir ao título e ao subtítulo há
+  dois cartões grandes, «O fato» e «O capacete», cada um com a imagem do modelo, o número de espaços, o preço mais baixo
+  e um botão que leva à sua parte. A introdução, os espaços livres e as marcas que já lá estão vêm depois dos cartões,
+  por isso um link para o capítulo mostra logo os dois cartões. Cada parte tem o seu modelo 3D, as vistas, a visita
+  guiada e a tabela de preços (a do fato tem também o fato completo). Há um só modelo 3D ativo de cada vez: o da parte
+  que está no ecrã. O capacete só é preparado quando a parte dele se aproxima e, enquanto isso, mostra a imagem do
+  capacete e «A carregar o capacete». Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar
+  espaços dos dois num pacote, reservar por WhatsApp, email ou Instagram e pagar por transferência ou MB WAY.
 - **Apoiar**: GoFundMe (com o valor angariado e a barra até à meta), transferência ou MB WAY (o mesmo IBAN e o mesmo
   número dos pedidos, com o código `KONA APOIO`, escondidos enquanto houver campanha aberta), apoio em espécie e
   orçamento estimado da época.

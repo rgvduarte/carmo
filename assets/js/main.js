@@ -318,6 +318,18 @@ function initReveal() {
   els.forEach((e) => io.observe(e));
 }
 
+// Chapter 05's title is hidden once it has slid wholly under the nav (a link to the chapter lands on the subtitle, just
+// below it, and the nav is translucent). It comes back as soon as any of it shows under the nav. The observed area runs
+// from the nav's bottom edge down past the end of the page, so a jump from below the screen to under the nav (a link
+// followed at once) also counts.
+function initTuck() {
+  const h = $('#fato .adspace-head .h2');
+  if (!h || !('IntersectionObserver' in window)) return;
+  // (one batch can hold several entries for the title: the last one is where it is now)
+  new IntersectionObserver((es) => { h.classList.toggle('tucked', !es[es.length - 1].isIntersecting); },
+    { rootMargin: `-${nav.offsetHeight}px 0px 1000000px 0px` }).observe(h);
+}
+
 // ---------- 226 km meter ----------
 const SEGS = [3.8, 180, 42.2];
 function meter(p) {
@@ -492,6 +504,7 @@ addEventListener('resize', () => {
 $('#route-km').textContent = `${numFmt(Math.round(greatCircleKm([38.7223, -9.1393], [19.6400, -155.9969]) / 10) * 10)} km`;
 $('#print-kit').addEventListener('click', () => window.print());
 initReveal();
+initTuck();
 document.documentElement.classList.add('ready');
 // booted: a later deploy may use the fresh reload again, and the address loses the cache-buster
 try { sessionStorage.removeItem('gc.fresh'); } catch (_) {}

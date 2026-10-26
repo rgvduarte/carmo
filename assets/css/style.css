@@ -614,14 +614,19 @@ section { position: relative; }
 }
 
 /* ---------- suit / ad space ---------- */
-/* wide enough for the title in two lines on a computer («A tua marca comigo / em 2027.»); the lead keeps its own
-   measure */
-.adspace-head { text-align: center; max-width: 1100px; margin: 0 auto; }
+/* wide enough for the title in two lines on a computer («A tua marca comigo / em 2027.»). The chapter reads, on every
+   screen: title, subtitle, the two cards, then the lead, the spots left and the brands already on (.adspace-more), so a
+   link to the chapter lands on the subtitle with both cards in view */
+.adspace-head, .adspace-more { text-align: center; max-width: 1100px; margin: 0 auto; }
 /* the title breaks into three short lines on upright phones only; wider screens set it in two */
 @media (min-width: 641px) { .adspace-head .h2 .br-m { display: none; } }
 /* no paragraph here ends on one word alone (browsers without text-wrap: pretty get a no-break space instead) */
-.adspace-head .lead { margin: 26px auto 0; color: var(--muted); text-wrap: pretty; }
-.avail { width: 100%; max-width: 460px; margin: 40px auto 0; }
+.adspace-more .lead { margin: clamp(44px, 5vw, 72px) auto 0; color: var(--muted); text-wrap: pretty; }
+.avail { width: 100%; max-width: 460px; margin: 36px auto 0; }
+/* a link to the chapter lands on the subtitle, just under the title: once the title has slid wholly under the nav it is
+   hidden (main.js sets .tucked), or the bottom of its letters would show through the translucent nav */
+.adspace-head .h2.tucked { opacity: 0; transition: opacity .2s; }
+.reduce .adspace-head .h2 { transition: none; }
 .avail .row { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
 .avail .row b { color: var(--ink); font-weight: 600; }
 .avail .bar { height: 4px; border-radius: 4px; background: var(--line); margin-top: 10px; overflow: hidden; }
@@ -656,15 +661,9 @@ section { position: relative; }
   /* phones: stacked, the name and the numbers beside the picture, the button across the card */
   .entry { grid-template-columns: minmax(0, 1fr); gap: 12px; }
 }
-/* phones (upright or sideways): the two cards come right after the subtitle, so a link to the chapter lands on the
-   subtitle with both cards on screen; the lead, the availability bar and the brands follow the cards */
-@media (max-width: 640px), (max-height: 500px) {
-  #fato > .wrap { display: flex; flex-direction: column; }
-  .adspace-head { display: contents; }
-  .adspace-head > .lead, .adspace-head > .avail, .adspace-head > .onsuit { order: 1; }
-  .adspace-head > .lead { margin-top: 36px; }
-  #fato > .wrap > :not(.adspace-head, .entry) { order: 2; }
-}
+/* computers with a short window: the cards' pictures give up height so the subtitle and both buttons fit on landing */
+@media (min-width: 641px) and (min-height: 501px) { .entry-img { max-height: max(200px, calc(100svh - 440px)); } }
+@media (max-width: 640px), (max-height: 500px) { .adspace-more .lead { margin-top: 36px; } }
 /* sideways, the subtitle and both cards fit the 375-430 px of the screen together */
 @media (max-height: 500px) { .entry { margin-top: 32px; } }
 /* phones (and phones held sideways, where the cards stay side by side): the compact card */
