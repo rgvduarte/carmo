@@ -1,7 +1,7 @@
 // «Onde estão» (SPEC 5.8): a self-hosted SVG map, Portugal (mainland with the Azores and Madeira insets) or the world,
 // with a dot per city the API returns (only cities with 3 or more visitor-days), and the country › region › city table
 // beside it. Paths and dots go through the same projection (the parameters live in geo-pt.json / geo-world.json).
-import { H, S, fmt, figure, interact, table, emptyState } from './admin-analytics-charts.js';
+import { H, S, fmt, figure, interact, table, emptyState, scrollEdge, colHead } from './admin-analytics-charts.js';
 import * as L from './admin-analytics-labels.js';
 
 const geoCache = new Map();
@@ -107,11 +107,11 @@ function mapFigure(g, geo, kind) {
 // country › region › city, expandable; «Outras localidades» per country (k-folded by the Worker)
 function placesTable(geo) {
   const total = geo.cc.total || 1;
-  const wrap = H('div', 'ga-tw');
+  const wrap = scrollEdge(H('div', 'ga-tw'));
   const t = H('table', 'ga-table', null, wrap);
   H('caption', null, 'País, região e cidade', t);
   const hr = H('tr', null, null, H('thead', null, null, t));
-  for (const [l, n] of [['Onde', false], ['Visualizações', true], ['Visitantes-dia', true], ['Parte', true]]) { const th = H('th', n ? 'n' : null, l, hr); th.scope = 'col'; }
+  for (const [l, n, sh] of [['Onde', false], ['Visualizações', true, 'Vis.'], ['Visitantes-dia', true, 'Pessoas-dia'], ['Parte', true]]) { const th = H('th', n ? 'n' : null, null, hr); th.scope = 'col'; colHead(th, { l, s: sh }); }
   const tb = H('tbody', null, null, t);
   const row = (lvl, label, n, u, opts = {}) => {
     const tr = H('tr', `lvl${lvl}`, null, tb);

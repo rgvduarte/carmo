@@ -2,7 +2,7 @@
 // the monthly archive and pruning (SPEC 2.6–2.9, 3.6).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, post, api, dump, visit, ev, click, strip, UA, PLACE, KEY, lisbonISO, lisbonToday, addDays } from './helpers.mjs';
+import { start, post, api, dump, visit, page, ev, click, strip, UA, PLACE, KEY, lisbonISO, lisbonToday, addDays } from './helpers.mjs';
 
 let mf;
 const TODAY = lisbonToday();
@@ -189,7 +189,9 @@ test('heatmap: nothing below 5 page views in the bucket', async () => {
 
 test('24 h: Lisbon hours from yesterday (hour + 1) to now, totals and an hour histogram only', async () => {
   const E = addDays(TODAY, -12), Y = addDays(E, -1);
-  for (const [day, hh] of [[Y, 14], [Y, 15], [E, 9], [E, 14]]) await visit(mf, { ip: `10.3.${hh}.1`, now: at(day, hh, 10), snap: { eng: 20, rz: ['top'] } });
+  for (const [day, hh] of [[addDays(Y, -1), 10], [Y, 14], [Y, 15], [E, 9], [E, 14]]) {
+    await visit(mf, { ip: `10.3.${hh}.1`, now: at(day, hh, 10), page: { ref: 'l.instagram.com' }, snap: { eng: 20, rz: ['top'] }, events: funnelA });
+  }
   const now = at(E, 14, 30);
   const o = await get('overview?p=24h', now);
   assert.equal(o.range.unit, 'hour');
@@ -201,8 +203,89 @@ test('24 h: Lisbon hours from yesterday (hour + 1) to now, totals and an hour hi
   assert.equal(o.series.x[23], '14');
   assert.equal(o.series.s.pv.reduce((a, b) => a + b, 0), 3);
   assert.equal(o.kpi.pv.spark.length, 30);
-  const b = await get('booking?p=24h', now);
-  assert.deepEqual(b.daily.x, [], 'never the funnel by hour');
+  // two reads minutes apart must not tie an arrival to its source, its country or a step of the funnel (privacy 2.7)
+  assert.equal(o.live, true);
+  assert.deepEqual([o.chan.rows, o.cc.rows, o.funnel, o.reach], [[], [], [], []]);
+  assert.deepEqual([o.kpi.sends.v, o.kpi.offer.v, o.kpi.sends.spark], [null, null, []]);
+  assert.equal(o.d8.find((x) => x.id === 'brand').v, null);
+  // the same for a custom period that ends today; a period of whole days keeps them
+  const c = await get(`overview?p=custom&from=${Y}&to=${E}`, now);
+  assert.deepEqual([c.live, c.chan.rows, c.funnel], [true, [], []]);
+  const w = await get(`overview?p=custom&from=${Y}&to=${Y}`, now);
+  assert.equal(w.live, false);
+  assert.ok(w.chan.rows.length && w.funnel.length);
+  // the other tabs take whole days only
+  for (const q of ['booking?p=24h', 'audience?p=24h', `contacts?p=custom&from=${Y}&to=${E}`, `heatmap?p=custom&from=${E}&to=${E}&vw=m`]) {
+    const r = await api(mf, q, { now });
+    assert.equal(r.status, 400, q); assert.deepEqual(r.json, { error: 'periodo' });
+  }
+});
+
+test('no comparison with days before the counter started', async () => {
+  // a fresh store: the first data is on F, so a period whose previous window starts before F has none
+  const m2 = await start();
+  const F = addDays(TODAY, -9);
+  for (let i = 0; i < 9; i++) await visit(m2, { ip: `10.4.${i}.1`, now: at(addDays(F, i), 12) });
+  const now = at(TODAY, 15);
+  const a = (await api(m2, `overview?p=custom&from=${addDays(F, 2)}&to=${addDays(F, 4)}`, { now })).json;
+  assert.equal(a.prev, null);
+  assert.equal(a.prevCut, true);
+  assert.equal(a.kpi.pv.prev, null);
+  const b = (await api(m2, `overview?p=custom&from=${addDays(F, 3)}&to=${addDays(F, 5)}`, { now })).json;
+  assert.deepEqual(b.prev, { from: F, to: addDays(F, 2) });
+  assert.equal(b.prevCut, false);
+  assert.equal(b.kpi.pv.prev, 3);
+  assert.equal((await api(m2, 'overview?p=7d', { now })).json.prevCut, true);
+  await m2.dispose();
+});
+
+test('a tab looked at again days later updates its page view instead of counting a new one', async () => {
+  const m2 = await start();
+  const A = addDays(TODAY, -6), B = addDays(TODAY, -4);
+  const pg = page({ vw: 'd', pc: 0 });
+  assert.equal((await post(m2, pg, { now: at(A, 10) })).status, 204);
+  assert.equal((await post(m2, { ...pg, f: 2, t: 'h', vis: 0, eng: 300 }, { now: at(A, 10, 5) })).status, 204);
+  await api(m2, 'dev/rollup', { method: 'POST', body: { day: A }, now: at(A, 23) });
+  assert.equal((await post(m2, { ...pg, f: 3, t: 'h', vis: 0, eng: 330 }, { now: at(B, 9) })).status, 204);
+  const o = (await api(m2, `overview?p=custom&from=${A}&to=${B}`, { now: at(TODAY, 12) })).json;
+  assert.deepEqual([o.kpi.pv.v, o.kpi.visits.v, o.kpi.uv.v], [1, 1, 1]);
+  assert.equal(o.kpi.engMean.v, 330);
+  assert.equal(o.series.s.pv[0], 1);
+  const d = await dump(m2);
+  assert.ok(d.flags[`late:${A}`], 'the rolled-up day is rolled again tonight');
+  await m2.dispose();
+});
+
+test('answers for whole past days are kept until the next rollup, a late write or a note', async () => {
+  const m2 = await start();
+  const A = addDays(TODAY, -3);
+  for (let i = 0; i < 3; i++) await visit(m2, { ip: `10.6.${i}.1`, now: at(A, 10 + i) });
+  // the nightly run: every day of the raw window rolled up (or marked empty)
+  for (let i = 0; i < 40; i++) {
+    await api(m2, 'dev/alarm', { method: 'POST', body: {} });
+    const d = await dump(m2);
+    if (!d.flags.cursor && d.flags[`rolled:${A}`]) break;
+  }
+  const q = `audience?p=custom&from=${A}&to=${A}`;
+  const a = (await api(m2, q, { now: at(TODAY, 12) })).json;
+  assert.equal(a.pv, 3);
+  assert.equal((await dump(m2)).tables.ans, 1);
+  // another hour of the same day: the same answer, from `ans`
+  const b = (await api(m2, q, { now: at(TODAY, 13) })).json;
+  assert.equal(b.generated, a.generated);
+  // a late write to that day drops it
+  const pg = page();
+  await post(m2, pg, { now: at(A, 23, 50) });
+  await post(m2, { ...pg, f: 2, t: 'h', vis: 0 }, { now: at(addDays(A, 1), 0, 5) });
+  assert.equal((await dump(m2)).tables.ans, 0);
+  const c = (await api(m2, q, { now: at(TODAY, 14) })).json;
+  assert.equal(c.pv, 4);
+  assert.equal((await dump(m2)).tables.ans, 0, 'a late day is never kept');
+  // the quota panel counts rows read as well
+  const s = (await api(m2, 'system?p=7d', { now: at(TODAY, 14) })).json;
+  assert.ok(s.quota.rr[s.quota.rr.length - 1] > 0);
+  assert.equal(s.quota.limits.rr, 5000000);
+  await m2.dispose();
 });
 
 test('rollup equals live, on every endpoint and filter', async () => {
@@ -285,8 +368,11 @@ test('CSV: BOM, «;», decimal comma, pt-PT header, file name, folded rows', asy
     assert.equal(x.status, 200, t);
     assert.match(x.headers.get('content-disposition'), new RegExp(`gocarmo-${t}-`), t);
   }
-  const h = await api(mf, 'export.csv?t=dias&p=24h', { now: NOW });
-  assert.match(h.headers.get('content-disposition'), new RegExp(`${addDays(TODAY, -1)}-${TODAY}`), 'nothing smaller than a day');
+  // whole days only: «24 h» and a period up to today are refused
+  for (const q of ['t=dias&p=24h', `t=paises&p=custom&from=${D}&to=${TODAY}`]) {
+    const h = await api(mf, `export.csv?${q}`, { now: NOW });
+    assert.equal(h.status, 400, q); assert.deepEqual(h.json, { error: 'periodo' });
+  }
 });
 
 test('notes: add (scrubbed), list, delete, refuse bad ones', async () => {

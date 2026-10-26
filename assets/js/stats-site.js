@@ -87,22 +87,28 @@ function click([r, t, T, x, y]) {
 }
 
 // ---- errors (SPEC 4.6.5)
-const errs = new Map();
+const errs = new Map(), mods = new Set();
 function error(e, t) {
   const g = e.target, rej = e.type === 'unhandledrejection';
   if (g && /^(IMG|SCRIPT)$/.test(g.tagName)) {
     const nm = base(g.currentSrc || g.src).toLowerCase();
+    if (g.tagName === 'SCRIPT') { if (mods.has(nm)) return; mods.add(nm); }
     return ev('asset_fail', { what: g.tagName === 'IMG' ? 'img' : 'module', name: /^[a-z0-9._-]{1,48}$/.test(nm) ? nm : undefined });
   }
   if (!rej && g !== W) return;
   mark('js', t);
-  const u = rej ? '' : String(e.filename || '').split(/[?#]/)[0], m = rej ? (e.reason && e.reason.message) || e.reason : e.message;
+  // a rejection has no file: its reason's stack names one (the first http(s) frame)
+  const st = rej && e.reason && typeof e.reason.stack === 'string' ? e.reason.stack : '';
+  const u = (rej ? (st.match(/https?:\/\/[^\s)]+?(?=:\d+:\d+)/) || [''])[0] : String(e.filename || '')).split(/[?#]/)[0];
+  const m = rej ? (e.reason && e.reason.message) || e.reason : e.message;
   const nm = rej ? 'rejection' : e.error && e.error.name;
   const r = { k: 'err', t: /^[A-Za-z]{1,30}$/.test(nm || '') ? nm : 'Error', l: Math.min(1e6, e.lineno | 0), c: Math.min(1e6, e.colno | 0), n: 1 };
   if (!/^(chrome|moz|safari-web|safari)-extension:/.test(u)) {
-    r.f = m === 'Script error.' ? 'opaque' : !u || u === location.origin + location.pathname ? 'inline'
-      : u.startsWith(location.origin + '/') && FIRST.test(base(u)) ? base(u) : 'ext';
-    r.m = /^(opaque|ext)$/.test(r.f) ? '' : A.scrub(m, 100);
+    r.f = m === 'Script error.' ? 'opaque' : u.startsWith(location.origin + '/') && FIRST.test(base(u)) ? base(u)
+      : !u || u === location.origin + location.pathname ? 'inline' : 'ext';
+    // the message only from one of our own files: inline code, a bare rejection or another script's may carry what a
+    // visitor typed (privacy 2.3)
+    r.m = FIRST.test(r.f) ? A.scrub(m, 100) : '';
   }
   const sig = [r.t, r.m, r.f, r.l, r.c].join('|'), old = errs.get(sig);
   if (old && !old.$) old.n = Math.min(99, old.n + 1);
@@ -165,6 +171,8 @@ export function init(api) {
   A.br = bridge; q.forEach(([d, t]) => isGA(d) || bridge(d, t));
   A.oc = click; A.cq.splice(0).forEach(click);
   A.er = error; A.eq.splice(0).forEach(([e, t]) => error(e, t));
+  // a module that failed before stats.js started (it loads async): index.html's watchdog kept its address
+  for (const src of W.__gcBad || []) error({ type: 'error', target: { tagName: 'SCRIPT', src } }, now());
   A.sp = spots; spots();
 
   // ---- offer_reach (core notes the moment), the widget, the studio's wait
@@ -182,7 +190,7 @@ export function init(api) {
     fbOut = s.mid && !FATO.includes(s.mid) ? fbOut + 1 : 0;
     if (fbOut < 2 || sent || $('#claim[open]') || (innerWidth <= 760 && $('#spot-card.open')) || $('.menu-btn[aria-expanded="true"]')) return;
     fbGo = 1;
-    import('./stats-fb.js').then((m) => m.show({ ev, post: A.post, flush: A.flush, page: A.page, st: A.st })).catch(() => {});
+    import('./stats-fb.js').then((m) => m.show({ ev, post: A.post, page: A.page, st: A.st })).catch(() => {});
   };
   const stages = $$('.stage[data-item]'), vis30 = new Map(), waits = {};
   const io30 = new IntersectionObserver((es) => es.forEach((e) => vis30.set(e.target, e.intersectionRatio >= 0.3)), { threshold: [0, 0.3] });

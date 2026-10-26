@@ -424,8 +424,8 @@ abaixo). Enquanto `SITE.stats.url` estiver vazio, o site não mede nada e o pain
 | Opinião | a pergunta rápida «Percebeste como funciona o patrocínio?» (Sim/Não e o que não ficou claro), por língua, largura e secção |
 | Dados | limites gratuitos do Cloudflare, pedidos recusados, resumos diários, anotações no gráfico (uma publicação, uma prova), CSV para o Excel |
 
-Períodos: 24 h, 7, 30 ou 90 dias (dias completos, até ontem) ou datas à escolha, com a comparação com o período
-anterior e um filtro por aparelho. As tuas visitas não contam: entrar no painel marca o browser como interno
+Períodos: 24 h (só no «Resumo», em totais), 7, 30 ou 90 dias (dias completos, até ontem) ou datas à escolha, com a
+comparação com o período anterior (só quando o contador já tinha dados nesse período) e um filtro por aparelho. As tuas visitas não contam: entrar no painel marca o browser como interno
 (`gc.internal`, também posto ao abrir `/admin/`); em janelas privadas ou noutros browsers, entra no painel uma vez.
 
 **Ligar (uma vez, uns 5 minutos).**
@@ -438,23 +438,27 @@ anterior e um filtro por aparelho. As tuas visitas não contam: entrar no painel
 3. Cola esse endereço em `assets/js/data.js`:
    `stats: { url: 'https://gocarmo-api.rgvduarte.workers.dev', mode: 'exempt', campaigns: [] },`
    e corre `node scripts/stamp.mjs` (deixa `/admin/` e `/admin/analytics/` falarem com o Worker). Faz commit e push.
-4. Abre `/admin/analytics/` e entra com a `ADMIN_KEY`. As primeiras visitas aparecem logo em «Agora no site» e no
-   período «24 h»; os dias completos, a partir do dia seguinte.
+4. Abre `/admin/analytics/` e entra com a `ADMIN_KEY`. As primeiras visitas aparecem logo em «Agora no site» e, no
+   «Resumo», no período «24 h» (só totais); os outros separadores mostram dias completos, a partir do dia seguinte.
 
 `mode: 'consent'` passa a contar só depois de «Aceitar» no aviso de cookies (fica pronto para o caso de a CNPD
 mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
 
 **Privacidade (o essencial; a página `/privacidade/` explica-o ao visitante).**
 - Sem cookies e sem identificador no aparelho. O endereço IP e o navegador completo nunca são guardados. Para contar
-  visitantes por dia, o Worker junta o IP encurtado, o navegador e uma chave que muda todos os dias e fica só com um
-  código; a chave e os códigos apagam-se à meia-noite de Lisboa. Não se seguem pessoas de um dia para o outro.
+  visitantes por dia, o Worker junta o IP (num IPv6, só a primeira metade), o navegador e uma chave que muda todos os
+  dias e fica só com um código; a chave e os códigos apagam-se à meia-noite de Lisboa. Não se seguem pessoas de um dia
+  para o outro.
 - Nunca lê o que se escreve nos campos do pedido nem o logótipo. De um clique guarda o elemento e o seu nome curto;
-  de uma ligação para fora, só o tipo (a mensagem do pedido vai no endereço do WhatsApp). A hora fica sem minutos.
+  de uma ligação para fora, só o tipo ou o nome do site (a mensagem do pedido vai no endereço do WhatsApp). A hora fica
+  sem minutos. As mensagens de erro só ficam quando vêm de um ficheiro do site, sem endereços, números nem emails.
 - 30 dias de registos de cada visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Quem tem Global Privacy Control ou Do Not Track ligado não é contado, nem quem carrega em «Não contar as minhas
   visitas» na página de privacidade (`gc.optout`, só nesse browser). A pergunta rápida também não lhes aparece.
 - Cidades, regiões e sites com menos de 3 visitantes-dia aparecem juntos; o mapa de calor só com 5 visualizações; o
-  funil do pedido só em totais, nunca por origem, local ou aparelho.
+  funil do pedido só em totais, nunca por origem, local ou aparelho. Um período com o dia de hoje (como «24 h») só
+  mostra totais no «Resumo»: de onde vêm, países e o funil só com dias completos, para que duas leituras com minutos
+  de diferença não liguem uma visita ao sítio de onde veio.
 - Os dados ficam no Cloudflare, na UE (`STORE_JURISDICTION = "eu"` em `stats-worker/wrangler.toml`), sem registos de
   pedidos. Se algum dia esse valor tiver de ficar vazio, muda também a frase da página de privacidade (comentário
   `[CONFIRMAR]` no início de `privacidade/index.html`).

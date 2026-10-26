@@ -119,7 +119,7 @@ export const tip = {
     tipEl.replaceChildren();
     if (content.h) H('span', 'h', content.h, tipEl);
     for (const r of content.rows || []) {
-      const row = H('div', 'r', null, tipEl);
+      const row = H('div', r.on ? 'r on' : 'r', null, tipEl);
       if (r.k) H('i', r.k, null, row);
       H('b', null, r.v, row);
       if (r.l) H('span', null, r.l, row);
@@ -178,6 +178,7 @@ export function interact(svg, marks, { onIndex } = {}) {
     else if (e.key === 'End') { e.preventDefault(); set(n - 1); }
     else if (e.key === 'Escape') set(-1);
   });
+  return { set, cur: () => cur };
 }
 // a touch outside any chart closes the tooltip
 addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' && !e.target.closest?.('.ga-svg')) tip.hide(); }, { passive: true });
@@ -232,7 +233,7 @@ export function figure(o) {
     r.svg.classList.add('ga-svg');
     r.svg.setAttribute('role', 'img');
     r.svg.setAttribute('aria-label', r.summary || o.title);
-    plot.replaceChildren(r.svg);
+    plot.replaceChildren(r.svg, ...(r.below ? [r.below] : []));
   };
   if (o.table) {
     const b = H('button', 'ga-tt', 'Ver tabela', foot);
@@ -260,9 +261,26 @@ export function forget(root) {
 }
 
 // ---------- table (the accessible twin, and the long tails) ----------
-// spec: { caption, cols: [{ l, k, num, fmt, get, node, sort }], rows, sort: true, initial: { k, dir } }
+// a wide table scrolls sideways inside its card: a fade on the right edge says there is more
+const edge = (w) => w.classList.toggle('more', w.scrollWidth - w.clientWidth - w.scrollLeft > 2);
+const tro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver((es) => { for (const e of es) edge(e.target); }) : null;
+export function scrollEdge(wrap) {
+  wrap.addEventListener('scroll', () => edge(wrap), { passive: true });
+  if (tro) tro.observe(wrap);
+  return wrap;
+}
+// a column header: its full name, and a short one (c.s) that phones show instead (CSS, max-width 520px)
+export function colHead(th, c, inButton) {
+  const host = inButton || th;
+  if (!c.s) { host.textContent = c.l; return; }
+  H('span', 'lg', c.l, host);
+  H('span', 'sh', c.s, host);
+  (inButton || th).setAttribute('aria-label', c.l);
+  host.title = c.l;
+}
+// spec: { caption, cols: [{ l, s, k, num, fmt, get, node, sort }], rows, sort: true, initial: { k, dir } }
 export function table(spec) {
-  const wrap = H('div', 'ga-tw');
+  const wrap = scrollEdge(H('div', 'ga-tw'));
   const t = H('table', 'ga-table', null, wrap);
   if (spec.caption) H('caption', null, spec.caption, t);
   const thead = H('thead', null, null, t), tr = H('tr', null, null, thead);
@@ -273,13 +291,14 @@ export function table(spec) {
     const th = H('th', c.num ? 'n' : null, null, tr);
     th.scope = 'col';
     if (spec.sort !== false && !c.nosort) {
-      const b = H('button', null, c.l, th);
+      const b = H('button', null, null, th);
+      colHead(th, c, b);
       b.type = 'button';
       b.addEventListener('click', () => {
         order = { k: c, dir: order && order.k === c && order.dir === 'descending' ? 'ascending' : 'descending' };
         paint();
       });
-    } else th.textContent = c.l;
+    } else colHead(th, c);
     return th;
   });
   function paint() {
@@ -321,30 +340,31 @@ const vbarPath = (x, y, w, h, r = 4) => {
 };
 
 // horizontal bars, top N + «Outros» (one slot-1 colour: nominal categories never take a value ramp)
-// rows: [{ label, v, text?, other?, cls?, tip? }]; o: { fmt, max, wide, valueW }
+// rows: [{ label, v, text?, other?, cls?, tip? }]; o: { fmt, max, wideAt, labelMax }. Without o.max the longest bar
+// fills the track (rates too); the value text never takes more than 45 % of the width (cut with «…»)
 export function hbars(rows, o = {}) {
   const f = o.fmt || fmt.n;
   return (width) => {
     const svg = S('svg');
     const wide = width >= (o.wideAt || 520);
-    const texts = rows.map((r) => r.text ?? f(r.v));
-    const valueW = Math.max(...texts.map((t) => textW(t, 13, 600)), 20) + 10;
+    const valueW = Math.min(width * 0.45, Math.max(...rows.map((r) => textW(r.text ?? f(r.v), 13, 600)), 20) + 10);
+    const texts = rows.map((r) => fit(r.text ?? f(r.v), valueW - 8, 13, 600));
     const labelW = wide ? Math.min(Math.max(...rows.map((r) => textW(r.label, 13))) + 12, width * 0.42, o.labelMax || 240) : 0;
     const x0 = wide ? labelW : 0, barMax = Math.max(10, width - x0 - valueW);
     const rowH = wide ? 30 : 42, barH = wide ? 14 : 12;
-    const max = o.max || Math.max(...rows.map((r) => r.v || 0), 1);
+    const max = o.max ?? (Math.max(...rows.map((r) => r.v || 0)) || 1);
     const marks = [];
     rows.forEach((r, i) => {
       const y = i * rowH;
       const g = S('g', null, svg);
       let by;
       if (wide) { by = y + (rowH - barH) / 2; T(g, 0, y + rowH / 2 + 4.5, fit(r.label, labelW - 12), 'ga-lb'); }
-      else { by = y + 20; T(g, 0, y + 14, fit(r.label, width - valueW - 4), 'ga-lb'); }
+      else { by = y + 20; T(g, 0, y + 14, fit(r.label, width), 'ga-lb'); }    // its own line, above the bar
       const w = r.v > 0 ? Math.max(2, (r.v / max) * barMax) : 0;
       const bar = S('path', { d: hbarPath(x0, by, w, barH), class: `ga-m ${r.other ? 'fo' : r.cls || 'f1'}` }, g);
       T(g, x0 + w + 6, by + barH / 2 + 4.5, texts[i], 'ga-vl');
       const hit = S('rect', { x: 0, y, width, height: rowH, class: 'ga-hit' }, g);
-      marks.push({ hit, els: [bar], anchor: bar.getTotalLength ? bar : hit, tip: () => (r.tip ? r.tip() : { h: r.label, rows: [{ v: texts[i], l: o.unit || '' }] }) });
+      marks.push({ hit, els: [bar], anchor: bar.getTotalLength ? bar : hit, tip: () => (r.tip ? r.tip() : { h: r.label, rows: [{ v: r.text ?? f(r.v), l: o.unit || '' }] }) });
     });
     svg.setAttribute('viewBox', `0 0 ${width} ${rows.length * rowH}`);
     svg.setAttribute('height', rows.length * rowH);
@@ -401,7 +421,7 @@ export function stack100(rows, segs, o = {}) {
     const valueW = o.absolute ? Math.max(...totals.map((t) => textW(fmt.n(t), 13, 600))) + 10 : 0;
     const x0 = labelW, W = width - x0 - valueW, barH = o.absolute ? 14 : 18;
     const rowH = wide ? (o.absolute ? 30 : 34) : (o.absolute ? 40 : 44);
-    const marks = [];
+    const marks = [], rowHits = [];
     rows.forEach((r, i) => {
       const y = i * rowH, g = S('g', null, svg);
       const by = wide ? y + (rowH - barH) / 2 : y + 20;
@@ -413,6 +433,9 @@ export function stack100(rows, segs, o = {}) {
       const span = o.absolute ? Math.max(present.length * 2, (W * tot) / maxTot) : W;
       if (o.absolute) T(g, x0 + span + 6, by + barH / 2 + 4.5, fmt.n(tot), 'ga-vl');
       let x = x0;
+      const segMarks = [];
+      // the tooltip of a segment lists the whole row, that segment highlighted
+      const rowTip = (cur) => ({ h: r.label, rows: present.map(([v, j]) => ({ v: `${fmt.pct(v / tot)} · ${fmt.n(v)}`, l: segs[j].label, k: segs[j].key, on: j === cur })) });
       present.forEach(([v, j], idx) => {
         const w = Math.max(1, ((span - gaps) * v) / tot);
         const last = idx === present.length - 1, first = idx === 0;
@@ -423,14 +446,28 @@ export function stack100(rows, segs, o = {}) {
         else el = S('rect', { x, y: by, width: w, height: barH, class: `ga-m ${cls}` }, g);
         const p = fmt.pct(v / tot);
         if (!o.absolute && textW(p, 12, 600) + 10 <= w) T(g, x + w / 2, by + barH / 2 + 4, p, `ga-in ${inkOn(cls)}`, 'middle');
-        const hit = S('rect', { x, y: by - 6, width: w + (last ? 0 : 2), height: barH + 12, class: 'ga-hit' }, g);
-        marks.push({ hit, els: [el], tip: () => ({ h: r.label, rows: [{ v: `${p} · ${fmt.n(v)}`, l: segs[j].label, k: segs[j].key }] }) });
+        const m = { hit: null, els: [el], anchor: el, mid: x + w / 2, tip: () => rowTip(j) };
+        segMarks.push(m); marks.push(m);
         x += w + 2;
       });
+      // one target per row, the full width of the bar and at least 24 px high: the segment nearest the pointer
+      const hit = S('rect', { x: x0, y: Math.min(by - 6, by + barH / 2 - 12), width: Math.max(span, 24), height: Math.max(24, barH + 12), class: 'ga-hit' }, g);
+      rowHits.push([hit, segMarks]);
     });
     svg.setAttribute('viewBox', `0 0 ${width} ${rows.length * rowH}`);
     svg.setAttribute('height', rows.length * rowH);
-    interact(svg, marks);
+    const ix = interact(svg, marks);
+    if (ix) for (const [hit, segMarks] of rowHits) {
+      const pick = (e) => {
+        const b = svg.getBoundingClientRect(), x = ((e.clientX - b.left) / b.width) * width;
+        let best = segMarks[0];
+        for (const m of segMarks) if (Math.abs(m.mid - x) < Math.abs(best.mid - x)) best = m;
+        ix.set(marks.indexOf(best), { x: e.clientX, y: e.clientY });
+      };
+      hit.addEventListener('pointermove', pick);
+      hit.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') pick(e); });
+      hit.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse' && segMarks.includes(marks[ix.cur()])) ix.set(-1); });
+    }
     return { svg, summary: `Partes de ${rows.length} ${rows.length === 1 ? 'total' : 'totais'}: ${segs.map((s) => s.label).join(', ')}.` };
   };
 }
@@ -473,7 +510,7 @@ export function columns(bins, o = {}) {
   return (width) => {
     const svg = S('svg');
     const H0 = o.height || 170, top = o.median ? 36 : 18, bottom = 22;
-    const max = Math.max(1, ...bins.map((b) => b.v || 0));
+    const max = Math.max(1, o.yMax || 0, ...bins.map((b) => b.v || 0));
     const tk = ticks(max, 3, o.integer !== false);
     const yMax = tk[tk.length - 1];
     const left = Math.max(...tk.map((t) => textW((o.yFmt || f)(t), 11))) + 8;
@@ -487,24 +524,30 @@ export function columns(bins, o = {}) {
     }
     const every = o.every || Math.max(1, Math.ceil((Math.max(...bins.map((b) => textW(b.label, 11))) + 10) / slot));
     const marks = [];
-    let iMax = 0;
+    let iMax = 0, maxLabel = null;
     bins.forEach((b, i) => { if ((b.v || 0) > (bins[iMax].v || 0)) iMax = i; });
     bins.forEach((b, i) => {
       const x = left + i * slot + (slot - colW) / 2;
       const h = b.v > 0 ? Math.max(1.5, H0 - y(b.v)) : 0;
       const col = S('path', { d: vbarPath(x, H0 - h, colW, h, Math.min(4, colW / 2)), class: `ga-m ${b.cls || 'f1'}` }, svg);
       if (i % every === 0 || (o.lastLabel && i === bins.length - 1)) T(svg, left + i * slot + slot / 2, H0 + 16, b.label, 'ga-tk', 'middle');
-      if (o.strong !== false && i === iMax && b.v > 0) T(svg, left + i * slot + slot / 2, H0 - h - 5, f(b.v), 'ga-vl m', 'middle');
+      if (o.strong !== false && i === iMax && b.v > 0) maxLabel = [left + i * slot + slot / 2, H0 - h - 5, f(b.v)];
       const hit = S('rect', { x: left + i * slot, y: top, width: slot, height: H0 - top + bottom, class: 'ga-hit' }, svg);
       marks.push({ hit, els: [col], tip: () => (b.tip ? b.tip() : { h: b.tipLabel || b.label, rows: [{ v: f(b.v), l: o.unit || '' }] }) });
     });
+    // the median hairline under the tallest column's number (whose halo then clears it), never through it
     if (o.median && o.median.at !== null && o.median.at !== undefined) {
       const mx = Math.round(left + o.median.at * slot) + 0.5;
       S('line', { x1: mx, x2: mx, y1: 16, y2: H0, class: 'ga-hair' }, svg);
       const lbl = o.median.label;
       const lw = textW(lbl, 11);
       T(svg, Math.max(lw / 2, Math.min(width - lw / 2, mx)), 11, lbl, 'ga-tk', 'middle');
+      if (maxLabel && Math.abs(maxLabel[0] - mx) < textW(maxLabel[2], 13, 500) / 2 + 4) {
+        T(svg, maxLabel[0] < mx ? mx - 4 : mx + 4, maxLabel[1], maxLabel[2], 'ga-vl m', maxLabel[0] < mx ? 'end' : 'start');
+        maxLabel = null;
+      }
     }
+    if (maxLabel) T(svg, maxLabel[0], maxLabel[1], maxLabel[2], 'ga-vl m', 'middle');
     svg.setAttribute('viewBox', `0 0 ${width} ${H0 + bottom}`);
     svg.setAttribute('height', H0 + bottom);
     interact(svg, marks);
@@ -565,11 +608,13 @@ export function line(x, series, o = {}) {
     // direct end labels when they fit and do not collide; the legend carries identity either way
     const lastOf = (s) => { for (let i = s.values.length - 1; i >= 0; i--) if (s.values[i] !== null && s.values[i] !== undefined) return [i, s.values[i]]; return null; };
     const endW = Math.max(...series.map((s) => textW(s.label, 12))) + 12;
-    let right = 10, direct = false;
-    if (series.length <= 4 && width >= 560) { right = endW; direct = true; }
+    const Y = (v) => top + (H0 - top) * (1 - v / yMax);
+    // Y does not depend on the width: test the 14 px collision first, and keep the gutter only for labels drawn
+    const ends = series.map((s) => { const l = lastOf(s); return l ? { s, y: Y(l[1]) } : null; }).filter(Boolean).sort((a, b) => a.y - b.y);
+    const direct = series.length <= 4 && width >= 560 && !ends.some((e, i) => i && e.y - ends[i - 1].y < 14);
+    const right = direct ? endW : 10;
     const plotW = width - left - right;
     const X = (i) => left + (x.length === 1 ? plotW / 2 : (i * plotW) / (x.length - 1));
-    const Y = (v) => top + (H0 - top) * (1 - v / yMax);
     for (const t of tk) { const yy = Math.round(Y(t)) + 0.5; S('line', { x1: left, x2: left + plotW, y1: yy, y2: yy, class: t ? 'ga-gl' : 'ga-ax' }, svg); T(svg, left - 6, yy + 4, yf(t), 'ga-tk', 'end'); }
     // x labels: as many as fit, always the first and the last
     const xl = (i) => (o.xFmt ? o.xFmt(x[i]) : fmt.day(x[i]));
@@ -577,20 +622,30 @@ export function line(x, series, o = {}) {
     const step = Math.max(1, Math.ceil((lw * (x.length - 1)) / Math.max(1, plotW)));
     for (let i = 0; i < x.length; i += step) if (i === 0 || x.length - 1 - i >= step * 0.6) T(svg, X(i), H0 + 16, xl(i), 'ga-tk', i === 0 && x.length > 1 ? 'start' : 'middle');
     if (x.length > 1) T(svg, X(x.length - 1), H0 + 16, xl(x.length - 1), 'ga-tk', 'end');
-    // notes: hairline rules with a short label
+    // notes: hairline rules with a short label; on a narrow plot a numbered marker, and the list under the chart
     const rows = [[], []];      // label extents per row
-    for (const n of notes.slice().sort((a, b) => (a.day < b.day ? -1 : 1))) {
+    const narrow = plotW < 520, NUM = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+    let below = null;
+    notes.slice().sort((a, b) => (a.day < b.day ? -1 : 1)).forEach((n, k) => {
       const nx = Math.round(X(x.indexOf(n.day))) + 0.5;
+      if (narrow) {
+        S('line', { x1: nx, x2: nx, y1: top - 8, y2: H0, class: 'ga-note-l' }, svg);
+        const mark = NUM[k] || String(k + 1);
+        T(svg, nx, top - 12, mark, 'ga-tk', 'middle');
+        below = below || H('ol', 'ga-fine ga-notelist');
+        H('li', null, `${mark} ${fmt.day(n.day)} · ${n.label}`, below);
+        return;
+      }
       const text = fit(n.label, Math.min(130, plotW * 0.45), 11);
       const w = textW(text, 11);
       const end = nx + 4 + w > left + plotW;
       const a = end ? nx - 4 - w : nx + 4, b = a + w;
       const row = rows.findIndex((r) => r.every(([p, q]) => b + 8 < p || a > q + 8));
       S('line', { x1: nx, x2: nx, y1: row === 1 ? top - 22 : top - 8, y2: H0, class: 'ga-note-l' }, svg);
-      if (row < 0 || !text) continue;
+      if (row < 0 || !text) return;
       rows[row].push([a, b]);
       T(svg, end ? nx - 4 : nx + 4, row === 1 ? top - 26 : top - 12, text, 'ga-tk', end ? 'end' : 'start');
-    }
+    });
     // series
     series.forEach((s) => {
       let d = '', pen = false;
@@ -603,11 +658,7 @@ export function line(x, series, o = {}) {
       const last = lastOf(s);
       if (last) S('circle', { cx: X(last[0]), cy: Y(last[1]), r: 4, class: `ga-ring ${s.cls.replace('l', 'f')}` }, svg);
     });
-    if (direct) {
-      const ends = series.map((s) => { const l = lastOf(s); return l ? { s, y: Y(l[1]) } : null; }).filter(Boolean).sort((a, b) => a.y - b.y);
-      const collide = ends.some((e, i) => i && e.y - ends[i - 1].y < 14);
-      if (!collide) for (const e of ends) T(svg, left + plotW + 8, e.y + 4, e.s.label, 'ga-lb');
-    }
+    if (direct) for (const e of ends) T(svg, left + plotW + 8, e.y + 4, e.s.label, 'ga-lb');
     // crosshair snapping to the day
     const cross = S('line', { x1: 0, x2: 0, y1: top, y2: H0, class: 'ga-cross', visibility: 'hidden' }, svg);
     const dots = series.map((s) => S('circle', { r: 4, class: `ga-ring ${s.cls.replace('l', 'f')}`, visibility: 'hidden' }, svg));
@@ -632,12 +683,19 @@ export function line(x, series, o = {}) {
     const s0 = series[0];
     const tot = s0 ? s0.values.reduce((a, b) => a + (b || 0), 0) : 0;
     let im = 0; if (s0) s0.values.forEach((v, i) => { if ((v || 0) > (s0.values[im] || 0)) im = i; });
-    return { svg, summary: s0 ? `${series.map((s) => s.label).join(', ')} por ${o.unitName || 'dia'}. ${s0.label}: ${yf(tot)} no total, máximo de ${yf(s0.values[im] || 0)} em ${xl(im)}.` : '' };
+    return { svg, below, summary: s0 ? `${series.map((s) => s.label).join(', ')} por ${o.unitName || 'dia'}. ${s0.label}: ${yf(tot)} no total, máximo de ${yf(s0.values[im] || 0)} em ${xl(im)}.` : '' };
   };
 }
 
-// scatter (slot 1 only, ≥ 24 px hit areas, the top 5 labelled): points [{ x, y, label }]
-export function scatter(points, o = {}) {
+// scatter (slot 1 only, ≥ 24 px hit areas, the top 5 labelled, never two labels on top of each other): points
+// [{ x, y, label, tip }]. Points at the same place become one mark with a joined label, and a tooltip with each.
+export function scatter(input, o = {}) {
+  const at = new Map();
+  for (const p of input) { const k = `${p.x}|${p.y}`; const l = at.get(k); if (l) l.push(p); else at.set(k, [p]); }
+  const points = [...at.values()].map((ps) => (ps.length === 1 ? ps[0] : {
+    x: ps[0].x, y: ps[0].y, label: ps.map((p) => p.label).join(' e '),
+    tip: () => { const ts = ps.map((p) => (p.tip ? p.tip() : { h: p.label, rows: [] })); return { h: ts.map((t) => t.h).join(' e '), rows: ts.flatMap((t) => t.rows.length ? [{ v: t.h, l: '' }, ...t.rows] : []) }; },
+  }));
   return (width) => {
     const svg = S('svg');
     const H0 = o.height || 240, top = o.yLabel ? 28 : 12, bottom = 34;
@@ -653,13 +711,18 @@ export function scatter(points, o = {}) {
     if (o.yLabel) T(svg, 0, 11, o.yLabel, 'ga-tk', 'start');
     const marks = [];
     const ranked = points.map((p, i) => [p.y, i]).sort((a, b) => b[0] - a[0]).slice(0, 5).map(([, i]) => i);
+    // label boxes already placed (and the dots themselves): right of the point, then left, then above
+    const placed = points.map((p) => [X(p.x) - 6, Y(p.y) - 6, X(p.x) + 6, Y(p.y) + 6]);
+    const free = (b) => b[0] >= 0 && b[2] <= width && b[1] >= 0 && !placed.some((q) => b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]);
     points.forEach((p, i) => {
       const g = S('g', null, svg);
       const c = S('circle', { cx: X(p.x), cy: Y(p.y), r: 5, class: 'ga-m ga-ring f1' }, g);
       if (ranked.includes(i) && p.y > 0) {
-        const text = fit(p.label, 120, 11), tw = textW(text, 11);
-        const right = X(p.x) + 8 + tw <= width;
-        T(g, right ? X(p.x) + 8 : X(p.x) - 8, Y(p.y) - 6, text, 'ga-lb ga-in', right ? 'start' : 'end');
+        const text = fit(p.label, 120, 11), tw = textW(text, 11), px = X(p.x), py = Y(p.y);
+        const tries = [[px + 8, py - 6, 'start', [px + 8, py - 17, px + 8 + tw, py - 3]], [px - 8, py - 6, 'end', [px - 8 - tw, py - 17, px - 8, py - 3]],
+          [px, py - 12, 'middle', [px - tw / 2, py - 23, px + tw / 2, py - 9]]];
+        const ok = tries.find((t) => free(t[3]));
+        if (ok) { placed.push(ok[3]); T(g, ok[0], ok[1], text, 'ga-lb ga-in', ok[2]); }
       }
       const hit = S('circle', { cx: X(p.x), cy: Y(p.y), r: 12, class: 'ga-hit' }, g);
       marks.push({ hit, els: [c], tip: () => (p.tip ? p.tip() : { h: p.label, rows: [{ v: String(p.y), l: '' }] }) });

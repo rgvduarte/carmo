@@ -218,13 +218,21 @@ figure.ga-card, .ga-card { margin: 0; min-width: 0; display: flex; flex-directio
 .ga-kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
 @media (min-width: 761px) { .ga-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
 .ga-kpis.cols3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ga-kpis.cols1 { grid-template-columns: minmax(0, 1fr); }
+/* two small multiples side by side (stacked on a phone) */
+.ga-two { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+@media (min-width: 761px) { .ga-two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ga-two h4 { margin: 0 0 6px; }
+/* the notes of a line chart on a phone: numbered under it */
+.ga-notelist { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 2px; }
 @media (min-width: 761px) { .ga-kpis.cols3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .ga-kpis.cols4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .ga-tile { position: relative; min-width: 0; display: flex; flex-direction: column; gap: 4px; padding: 14px 14px 12px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--border); }
 .ga-tile .lb { font: 500 13px/1.3 var(--sans); color: var(--text-2); min-height: 2.6em; }
 .ga-tile .v { font: 600 26px/1.1 var(--sans); letter-spacing: -.01em; color: var(--text); overflow-wrap: anywhere; }
 .ga-tile .v small { font-size: 15px; font-weight: 500; color: var(--text-2); margin-left: 2px; }
 .ga-tile .sb { font-size: 12.5px; color: var(--text-2); }
-.ga-tile .dl { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font: 600 12.5px/1.25 var(--sans); color: var(--text-2); min-height: 18px; }
+/* the delta, the status and the sparkline sit at the bottom of the tile, so they line up across a row of tiles */
+.ga-tile .dl { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font: 600 12.5px/1.25 var(--sans); color: var(--text-2); min-height: 18px; margin-top: auto; }
 .ga-tile .dl > span { white-space: nowrap; }
 .ga-tile .dl svg { width: 12px; height: 12px; flex: none; }
 .ga-tile .dl.good { color: var(--good-text); }
@@ -236,18 +244,14 @@ figure.ga-card, .ga-card { margin: 0; min-width: 0; display: flex; flex-directio
 @media (min-width: 761px) and (max-width: 1080px) { .ga-tile .v { font-size: 22px; } }
 
 /* «Agora no site» */
-.ga-now { display: grid; gap: 14px 22px; align-items: start; }
-@media (min-width: 761px) { .ga-now { grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); } }
+.ga-now { display: grid; gap: 14px 28px; align-items: start; }
+@media (min-width: 761px) { .ga-now { grid-template-columns: auto minmax(0, 1fr); } }
 .ga-hero { display: flex; flex-direction: column; gap: 2px; }
 .ga-hero .v { font: 600 56px/1 var(--sans); letter-spacing: -.02em; color: var(--text); }
 .ga-hero .lb { font-size: 14px; color: var(--text-2); }
 .ga-hero .est { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-ax); margin-top: 4px; }
-.ga-now .sp { width: 100%; height: 40px; }
 .ga-now h4 { margin: 0 0 6px; font: 600 13px/1.2 var(--sans); color: var(--text-2); }
-.ga-now ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
-.ga-now ol li { display: flex; justify-content: space-between; gap: 10px; }
-.ga-now ol li span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
-.ga-now .ga-gap { height: 12px; }
+.ga-now .ga-fine { margin: 8px 0 0; }
 .ga-live { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-2); }
 .ga-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--st-good); }
 .ga-live.off i { background: var(--other); }
@@ -286,6 +290,7 @@ figure.ga-card, .ga-card { margin: 0; min-width: 0; display: flex; flex-directio
 .ga-m { transition: filter .12s, opacity .12s; }
 .ga-m.on { filter: brightness(1.18) saturate(1.05); }
 :root[data-theme="light"] .ga-m.on { filter: brightness(.92); }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .ga-m.on { filter: brightness(.92); } }
 .ga-track { fill: var(--seq-lo); }
 .ga-band { fill: var(--grid); }
 .f1 { fill: var(--series-1); } .f2 { fill: var(--series-2); } .f3 { fill: var(--series-3); } .f4 { fill: var(--series-4); }
@@ -310,6 +315,9 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-legend i.ln { width: 14px; height: 2px; border-radius: 1px; }
 .ga-scale { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); min-width: 0; }
 .ga-scale .ga-ramp { flex: 1 1 auto; min-width: 80px; max-width: 220px; height: 10px; border-radius: 3px; }
+.hm-bar .ga-scale { flex-wrap: wrap; row-gap: 4px; }
+.hm-bar .ga-scale > span:not(.ga-ramp) { white-space: nowrap; }
+.hm-bar .ga-scale > .full { flex-basis: 100%; white-space: normal; margin: 0; }
 
 /* the one tooltip: values lead, labels follow */
 .ga-tip { position: fixed; z-index: 70; left: 0; top: 0; max-width: min(300px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 10px; background: var(--raised); border: 1px solid var(--border); box-shadow: var(--tip-shadow); color: var(--text); font: 400 13px/1.35 var(--sans); pointer-events: none; }
@@ -318,6 +326,7 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-tip .r + .r { margin-top: 2px; }
 .ga-tip .r i { flex: none; width: 12px; height: 2px; border-radius: 1px; }
 .ga-tip .r b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ga-tip .r.on b, .ga-tip .r.on span { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .ga-tip .r span { color: var(--text-2); }
 
 /* tables (the accessible twin, and the long tails) */
@@ -325,8 +334,13 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-table caption { text-align: left; font-size: 13px; color: var(--text-2); padding: 0 0 8px; caption-side: top; }
 .ga-table th, .ga-table td { padding: 8px 8px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
 .ga-table thead th { font: 600 12px/1.3 var(--sans); letter-spacing: .02em; text-transform: uppercase; color: var(--text-2); white-space: nowrap; }
-.ga-table tbody th { font-weight: 500; color: var(--text); overflow-wrap: anywhere; min-width: 7em; }
+.ga-table tbody th { font-weight: 500; color: var(--text); overflow-wrap: break-word; min-width: 8em; }
 @media (max-width: 520px) { .ga-table thead th { white-space: normal; } .ga-table { font-size: 13.5px; } .ga-table th, .ga-table td { padding: 8px 6px; } }
+/* column names: phones get the short one */
+.ga-table thead .sh { display: none; }
+@media (max-width: 520px) { .ga-table thead .lg { display: none; } .ga-table thead .sh { display: inline; } }
+/* more columns to the right: the edge fades */
+.ga-tw.more { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
 .ga-table th:first-child, .ga-table td:first-child { padding-left: 0; }
 .ga-table th:last-child, .ga-table td:last-child { padding-right: 0; }
 .ga-table .n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -336,12 +350,14 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-table th button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
 .ga-table th[aria-sort="ascending"] button::after { content: "↑"; }
 .ga-table th[aria-sort="descending"] button::after { content: "↓"; }
-.ga-table tr.sel td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.ga-table tr.sel > * { background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .ga-table .sub { display: block; font-size: 12.5px; color: var(--text-2); }
 .ga-table .mono, .ga-mono { font: 500 12.5px/1.35 var(--mono); overflow-wrap: anywhere; color: var(--text-2); }
 .ga-table .tag2 { display: inline-block; margin-top: 3px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
-.ga-table .lvl1 td:first-child { padding-left: 18px; }
-.ga-table .lvl2 td:first-child { padding-left: 36px; }
+/* «Onde estão»: country › region › city, indented and in a lighter ink below the country */
+.ga-table .lvl1 > :first-child { padding-left: 18px; }
+.ga-table .lvl2 > :first-child { padding-left: 36px; }
+.ga-table .lvl1 > th, .ga-table .lvl2 > th, .ga-table .lvl1 > th .ga-xp { color: var(--text-2); }
 .ga-xp { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font-weight: 600; color: var(--text); }
 .ga-xp::before { content: ""; width: 6px; height: 6px; border-right: 2px solid var(--text-2); border-bottom: 2px solid var(--text-2); transform: rotate(-45deg); transition: transform .15s; }
 .ga-xp[aria-expanded="true"]::before { transform: rotate(45deg); }
@@ -424,6 +440,10 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
   .f3, .f5, .f7, .fo { fill: url(#ga-tx135); }
   .ga-ln { stroke: CanvasText; }
   .ga-legend i, .ga-tip .r i { forced-color-adjust: none; background: CanvasText; }
+  /* the legend shows the same texture as the marks; the text inside a segment keeps a halo over it */
+  .ga-legend i.k2, .ga-legend i.k4, .ga-legend i.k6 { background: repeating-linear-gradient(45deg, CanvasText 0 1.5px, Canvas 1.5px 4px); }
+  .ga-legend i.k3, .ga-legend i.k5, .ga-legend i.k7, .ga-legend i.ko { background: repeating-linear-gradient(135deg, CanvasText 0 1.5px, Canvas 1.5px 4px); }
+  .ga-in, .ga-in.dk, .ga-in.lt { fill: CanvasText; paint-order: stroke; stroke: Canvas; stroke-width: 3px; stroke-linejoin: round; }
 }
 @media print {
   .ga-bar, .ga-top, .ga-device, .ga-cardfoot, .ga-foot, .hm-stage { display: none !important; }
@@ -431,6 +451,10 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
   body.ga { background: #fff; color: #000; }
   .f2, .f4, .f6 { fill: url(#ga-tx45); }
   .f3, .f5, .f7 { fill: url(#ga-tx135); }
+  .ga-legend i { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ga-legend i.k2, .ga-legend i.k4, .ga-legend i.k6 { background: repeating-linear-gradient(45deg, #000 0 1.5px, #fff 1.5px 4px); }
+  .ga-legend i.k3, .ga-legend i.k5, .ga-legend i.k7 { background: repeating-linear-gradient(135deg, #000 0 1.5px, #fff 1.5px 4px); }
+  .ga-in, .ga-in.dk, .ga-in.lt { fill: #000; paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round; }
 }
 
 /* the login hint sits under the key field (admin.css indents it for a checkbox) */

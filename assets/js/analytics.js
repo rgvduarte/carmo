@@ -376,7 +376,8 @@ function init() {
   if (!choice && !signal() && !owner()) later(() => { if (!choice) show(); });
 }
 
-// inside a frame (the heatmaps of /admin/analytics/ draw over the page in one): no banner and no Google at all
-const framed = (() => { try { return window.top !== window.self; } catch (_) { return true; } })();
+// inside a frame (the heatmaps of /admin/analytics/ draw over the page in one), or the heatmap's address opened on its
+// own (?heatmap=1): no banner and no Google at all
+const framed = (() => { try { return window.top !== window.self || /heatmap=1/.test(location.search); } catch (_) { return true; } })();
 // switched off (SITE.ga emptied): GA cookies left from before go too
 if (!framed) { if (VALID) init(); else clearCookies(); }

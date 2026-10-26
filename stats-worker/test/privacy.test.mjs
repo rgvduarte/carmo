@@ -12,6 +12,7 @@ const IP = '10.123.45.67';
 const DAY = addDays(lisbonToday(), -3);
 const at = (hh, mm = 0, day = DAY) => lisbonISO(day, hh, mm);
 const ov = async (from, to = from, now = at(15)) => (await api(mf, `overview?p=custom&from=${from}&to=${to}`, { now })).json;
+const LATER = lisbonISO(addDays(lisbonToday(), -1), 12);     // an admin clock after DAY: whole past days only
 
 test('the allowlist: unknown keys, names and params are dropped; emails and phones never reach storage', async () => {
   const pv = await visit(mf, {
@@ -35,23 +36,30 @@ test('the allowlist: unknown keys, names and params are dropped; emails and phon
       { i: 10, k: 'err', t: 'TypeError', m: 'boom for maria@example.com at https://gocarmo.com/x?id=55 call 912345678', f: 'main.js', l: 3, c: 4, stack: 'secret stack' },
       { i: 11, k: 'err', t: 'Error', m: 'from an extension joao@mail.pt', f: 'chrome-extension.js', l: 1, c: 1 },
       { i: 12, k: 'secret', v: 'joao@mail.pt' },
+      // a rejection or inline code (no file of ours): never a message; one of ours: hosts without a scheme and query
+      // strings masked
+      { i: 13, k: 'err', t: 'rejection', m: 'rejeitado para Maria Santos, pedidos.x.workers.dev/pedido?nome=Maria', f: 'inline', l: 0, c: 0 },
+      { i: 14, k: 'err', t: 'Error', m: 'falhou para Ana pedidos.x.workers.dev/pedido?nome=Ana&tel=912000111 /p?cor=azul', f: 'main.js', l: 9, c: 9 },
     ],
   });
   assert.ok(pv);
   const needles = ['joao@mail.pt', '912345678', '912 345 678', '123456789', 'Joao Silva', 'MarcaSecreta', 'maria@example.com',
-    'secret-value', 'secret stack', 'quarto-secreto', 'made_up_event', 'gocarmo.com/x', 'ola'];
+    'secret-value', 'secret stack', 'quarto-secreto', 'made_up_event', 'gocarmo.com/x', 'ola', 'Maria Santos', 'workers.dev',
+    'nome=', 'tel=', 'cor=azul', '912000111'];
   const d = await dump(mf, needles);
   for (const n of needles) assert.deepEqual(d.grep[n], [], n);
   // what is kept is the clean version
   const t = DAY;
-  const q = (await api(mf, `quality?p=custom&from=${t}&to=${t}`, { now: at(15) })).json;
-  assert.equal(q.errors.length, 2);
-  const e = q.errors.find((x) => x.f === 'main.js');
+  const q = (await api(mf, `quality?p=custom&from=${t}&to=${t}`, { now: LATER })).json;
+  assert.equal(q.errors.length, 4);
+  const e = q.errors.find((x) => x.f === 'main.js' && x.l === 3);
   assert.equal(e.m, 'boom for [email] at [url] call [n]');
+  assert.equal(q.errors.find((x) => x.f === 'main.js' && x.l === 9).m, 'falhou para Ana [url] [url]');
   assert.equal(q.errors.find((x) => x.f === 'ext').m, '', 'a message from a file that is not ours is never kept');
-  const h = (await api(mf, `heatmap?p=custom&from=${t}&to=${t}&vw=all`, { now: at(15) })).json;
+  assert.equal(q.errors.find((x) => x.f === 'inline').m, '', 'nor from a rejection or inline code');
+  const h = (await api(mf, `heatmap?p=custom&from=${t}&to=${t}&vw=all`, { now: LATER })).json;
   assert.equal(h.pvBucket, 1);
-  const c = (await api(mf, `contacts?p=custom&from=${t}&to=${t}`, { now: at(15) })).json;
+  const c = (await api(mf, `contacts?p=custom&from=${t}&to=${t}`, { now: LATER })).json;
   assert.deepEqual(c.out.rows.map((r) => r.k), ['tel']);
 });
 
@@ -73,8 +81,8 @@ test('a visitor-day: two page views of one visitor count once; across a Lisbon m
   const ip = '10.77.1.9', ua = UA.win;
   await visit(mf, { ip, ua, now: at(23, 50, day), page: { vw: 'd', pc: 0 } });
   await visit(mf, { ip, ua, now: at(23, 58, day), page: { vw: 'd', pc: 0, nav: 'reload' } });
-  // same address /24, same browser: the same visitor (the IP is cut to its /24 before hashing)
-  await visit(mf, { ip: '10.77.1.200', ua, now: at(23, 59, day), page: { vw: 'd', pc: 0, ref: 'interno' } });
+  // same address, same browser: the same visitor
+  await visit(mf, { ip, ua, now: at(23, 59, day), page: { vw: 'd', pc: 0, ref: 'interno' } });
   // a different browser on the same network is another visitor
   await visit(mf, { ip, ua: UA.mac, now: at(23, 59, day), page: { vw: 'd', pc: 0 } });
   // after midnight in Lisbon (00:01, while UTC is still on the previous day in winter or 23:01 in summer)
@@ -89,6 +97,15 @@ test('a visitor-day: two page views of one visitor count once; across a Lisbon m
   const d = await dump(mf);
   assert.equal(d.tables.salt, 1);
   assert.equal(d.tables.seen, 1);
+  // two phones behind one mobile carrier (same /24, the same reduced UA) are two visitors; one phone whose IPv6
+  // address changes inside its /64 is one
+  const far = addDays(DAY, 3), qf = at(15, 0, addDays(far, 1));
+  await visit(mf, { ip: '85.240.12.17', ua: UA.pixel, now: at(10, 0, far) });
+  await visit(mf, { ip: '85.240.12.201', ua: UA.pixel, now: at(10, 5, far) });
+  await visit(mf, { ip: '2001:db8:aa:bb:1::5', ua: UA.iphone, now: at(11, 0, far) });
+  await visit(mf, { ip: '2001:db8:aa:bb:9::77', ua: UA.iphone, now: at(11, 5, far) });
+  const nat = await ov(far, far, qf);
+  assert.deepEqual([nat.kpi.pv.v, nat.kpi.uv.v], [4, 3]);
 });
 
 test('stored per page view: day and hour only, place rounded to about 10 km, coarse UA', async () => {
@@ -96,7 +113,7 @@ test('stored per page view: day and hour only, place rounded to about 10 km, coa
   await visit(mf, { ip: '10.88.1.1', ua: UA.insta, cf: { country: 'PT', region: 'Lisbon', city: 'Lisbon', latitude: '38.72236', longitude: '-9.13936', postalCode: '1000-001', asOrganization: 'Empresa SA' }, now: at(14, 37, day) });
   const d = await dump(mf, ['1000-001', 'Empresa', '38.722', '-9.139', ':37']);
   for (const k of Object.keys(d.grep)) assert.deepEqual(d.grep[k], [], k);
-  const au = (await api(mf, `audience?p=custom&from=${day}&to=${day}`, { now: at(15) })).json;
+  const au = (await api(mf, `audience?p=custom&from=${day}&to=${day}`, { now: LATER })).json;
   assert.deepEqual(au.br.rows.map((r) => r.k), ['Instagram 300']);
   assert.deepEqual(au.os.rows.map((r) => r.k), ['iOS 18']);
   assert.deepEqual(au.app.rows.map((r) => r.k), ['instagram']);

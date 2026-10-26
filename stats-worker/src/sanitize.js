@@ -21,23 +21,29 @@ const CONTROL = new RegExp(`[${[[0x00, 0x1f], [0x7f, 0x9f], [0xad, 0xad], [0x61c
 const EMAIL = /[^\s@<>()[\]'"`,;:]+@[^\s@<>()[\]'"`,;:]+\.[^\s@<>()[\]'"`,;:]+/g;
 const HAS_EMAIL = new RegExp(EMAIL.source);
 const URL_RE = /\b(?:[a-z][a-z0-9+.-]{1,20}:\/\/|www\.)[^\s'"<>`]+|\b(?:data|blob|javascript|mailto|tel|file):[^\s'"<>`]+/gi;
+// an address without a scheme (host.tld/path) and anything with a query string (?a=b, &a=b)
+const BARE_URL = /\b[a-z0-9-]+(?:\.[a-z0-9-]+)+(?::\d+)?\/\S*/gi;
+const QUERY = /\S*[?&][^\s=&]+=\S*/g;
 const DIGITS = /\d(?:[\s.\-]?\d){3,}/g;
+const urls = (s) => s.replace(URL_RE, '[url]').replace(BARE_URL, '[url]').replace(QUERY, '[url]');
 const cut = (s, max) => { const a = Array.from(s); return a.length > max ? a.slice(0, max).join('') : s; };
 const tidy = (s) => s.normalize('NFC').replace(CONTROL, ' ').replace(/\s+/g, ' ').trim();
 
-// a click label: an email anywhere drops the whole label; URLs and digit runs are masked
+// a click label: an email anywhere drops the whole label; URLs (with or without a scheme), query strings and digit runs
+// are masked
 export function scrubLabel(v, max = 40) {
   if (typeof v !== 'string') return undefined;
   let s = tidy(v);
   if (HAS_EMAIL.test(s)) return undefined;
-  s = tidy(s.replace(URL_RE, '[url]').replace(DIGITS, '[n]'));
+  s = tidy(urls(s).replace(DIGITS, '[n]'));
   s = cut(s, max);
   return s ? s : undefined;
 }
-// an error message or a note label: emails and URLs become placeholders, digit runs [n]
+// an error message or a note label: emails and URLs (with or without a scheme, and query strings) become placeholders,
+// digit runs [n]
 export function scrubText(v, max) {
   if (typeof v !== 'string') return undefined;
-  const s = tidy(tidy(v).replace(EMAIL, '[email]').replace(URL_RE, '[url]').replace(DIGITS, '[n]'));
+  const s = tidy(urls(tidy(v).replace(EMAIL, '[email]')).replace(DIGITS, '[n]'));
   return cut(s, max);
 }
 
@@ -151,8 +157,8 @@ function errOf(e) {
   let f = 'ext';
   if (e.f === 'inline' || e.f === 'opaque' || e.f === 'ext') f = e.f;
   else if (typeof e.f === 'string' && ERROR_FILES.has(e.f)) f = e.f;
-  const firstParty = f === 'inline' || ERROR_FILES.has(f);
-  const m = firstParty ? (scrubText(e.m, 100) || '') : '';
+  // a message only from one of our own files: inline code, rejections and anything else may carry what a visitor typed
+  const m = ERROR_FILES.has(f) ? (scrubText(e.m, 100) || '') : '';
   const r = { k: 'err', t, m, f, l: intIn(e.l, 0, 1e6) ?? 0, c: intIn(e.c, 0, 1e6) ?? 0, n: intIn(e.n, 1, 99) ?? 1 };
   return r;
 }

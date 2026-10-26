@@ -3,8 +3,8 @@
 // selector and its place inside the element (5 % cells), so the map follows the page as it is today. The density is
 // built on a coarse grid (one cell per 4 CSS px) and painted into one small canvas per page zone, which the browser
 // scales up: no giant canvas (Safari caps canvas area), and no seams between zones.
-// The framed page never counts as a visit: stats.js stops when window.top !== window.self (SPEC 4.3), and the URL
-// carries ?heatmap=1 for any other script on the page (the GA module) to stay quiet too.
+// The framed page never counts as a visit: stats.js and the GA module stop when window.top !== window.self (SPEC 4.3),
+// and both also stop on the ?heatmap=1 the URL carries, should that address be opened on its own.
 import { ZONES, FIXED, SCRUBBED, zoneOf, zoneBox } from './stats-zones.js';
 import { H, fmt, table, emptyState, token, hexRgb } from './admin-analytics-charts.js';
 import * as L from './admin-analytics-labels.js';
@@ -378,17 +378,17 @@ export function createHeat(ctx) {
   function drawDensity(doc, root, pts, navPts, navBox, zones, docW, docH, LUT, st) {
     const F = field(pts, docW, docH);
     const N = navBox && navPts.length ? field(navPts.map(([x, y, w]) => [x - navBox.left, y - navBox.top, w]), navBox.width, navBox.height) : null;
-    let max = 0;
-    for (const v of F.f) if (v > max) max = v;
-    if (N) for (const v of N.f) if (v > max) max = v;
+    // one indexed pass into a typed array (a phone page is ~770 000 cells): the maximum and the cells that count
+    const nz = new Float32Array(F.f.length + (N ? N.f.length : 0));
+    let max = 0, nn = 0;
+    for (const a of N ? [F.f, N.f] : [F.f]) for (let i = 0; i < a.length; i++) { const v = a[i]; if (v > max) max = v; if (v > 0.05) nz[nn++] = v; }
     st.max = max;
     if (!max) return;
     // the alpha per click adapts to the amount of data: the busiest tenth of the page reaches 80 %. With a few clicks
-    // one click alone shows clearly; with thousands, busy places do not all saturate (0.18 is what p90 ≈ 8 gives)
-    const nz = []; for (const v of F.f) if (v > 0.05) nz.push(v);
-    if (N) for (const v of N.f) if (v > 0.05) nz.push(v);
-    nz.sort((p, q) => p - q);
-    const p90 = nz.length ? nz[Math.floor(nz.length * 0.9)] : 1;
+    // one click alone shows clearly; with thousands, busy places do not all saturate (0.18 is what p90 ≈ 8 gives).
+    // A typed array sorts by number, without a comparator.
+    const srt = nz.subarray(0, nn).sort();
+    const p90 = nn ? srt[Math.floor(nn * 0.9)] : 1;
     const a = 1 - Math.pow(0.2, 1 / Math.max(1, p90));
     st.alpha = a;
     // one canvas per zone, plus the gaps between zones, so the whole page is covered without seams
@@ -421,9 +421,10 @@ export function createHeat(ctx) {
       Object.assign(seg.style, { top: `${(i * docH) / 20}px`, height: `${docH / 20 + 1}px`, background: rgbOf(LUT, Math.round(r * 255)) });
       root.append(seg);
     }
+    // each line at the deepest step that at least T of the views reached
     for (const T of [0.75, 0.5, 0.25]) {
       let d = null;
-      for (let k = 0; k <= 100; k += 5) if (reach(k) < T) { d = k; break; }
+      for (let k = 5; k <= 100; k += 5) { if (reach(k) >= T) d = k; else break; }
       if (d === null) continue;
       const hl = doc.createElement('div');
       hl.className = 'hl';
@@ -497,7 +498,7 @@ export function createHeat(ctx) {
       parts.push(`${fmt.n(st.drawn)} ${hm.layer === 'clicks' ? 'cliques' : 'cliques marcados'} no mapa`);
       if (st.hidden) parts.push(`${fmt.n(st.hidden)} noutros sítios (camadas fixas, partes animadas ou não visíveis nesta largura: estão na tabela)`);
       const what = hm.layer === 'clicks' ? 'cliques' : 'cliques marcados';
-      leg = [`menos ${what}`, st.max ? `mais (até ${fmt.n(Math.max(1, Math.round(st.max)))} no mesmo sítio)` : 'mais'];
+      leg = [`menos ${what}`, `mais ${what}`, st.max ? `No máximo ${fmt.n(Math.max(1, Math.round(st.max)))} no mesmo sítio.` : ''];
     }
     el.status.replaceChildren();
     H('b', null, parts[0], el.status);
@@ -510,6 +511,7 @@ export function createHeat(ctx) {
       const stops = [0, 64, 128, 192, 255].map((i) => `${rgbOf(L4, i)} ${Math.round((i / 255) * 100)}%`);
       bar.style.background = `linear-gradient(90deg, ${stops.join(', ')})`;
       H('span', null, leg[1], el.legend);
+      if (leg[2]) H('span', 'ga-fine full', leg[2], el.legend);
     }
   }
 
@@ -582,8 +584,8 @@ export function createHeat(ctx) {
         const rows = all ? els : els.slice(0, LIMIT);
         const t = table({ cols: [
           { l: 'Elemento', k: 'lab', cls: 'wrap', node: elementCell, sort: (e) => labelOf(e) },
-          { l: 'Cliques', k: 'n', num: true, fmt: fmt.n }, { l: '% das visualizações', get: (e) => e.u / pv, num: true, fmt: fmt.pct },
-          { l: 'Sem resposta', k: 'dead', num: true, fmt: fmt.n }, { l: 'Repetidos', k: 'rage', num: true, fmt: fmt.n }], rows: rows.map((e) => ({ ...e, _cls: e.sel === selected ? 'sel' : '' })) });
+          { l: 'Cliques', k: 'n', num: true, fmt: fmt.n }, { l: '% das visualizações', s: '% vis.', get: (e) => e.u / pv, num: true, fmt: fmt.pct },
+          { l: 'Sem resposta', s: 'Sem resp.', k: 'dead', num: true, fmt: fmt.n }, { l: 'Repetidos', s: 'Repet.', k: 'rage', num: true, fmt: fmt.n }], rows: rows.map((e) => ({ ...e, _cls: e.sel === selected ? 'sel' : '' })) });
         [...t.querySelectorAll('tbody tr')].forEach((tr, i) => { tr.dataset.row = rows[i].sel; });
         holder.replaceChildren(t);
         if (!all && els.length > LIMIT) { const m = H('button', 'btn sm ghost ga-more', `Ver todos (${els.length})`, holder); m.type = 'button'; m.addEventListener('click', () => paintT(true)); }
@@ -596,14 +598,14 @@ export function createHeat(ctx) {
       if (!rows.length) { emptyState(c, 'Nenhum neste período.'); return; }
       c.append(table({ initial: { k: 'n', dir: 'descending' }, cols: [
         { l: 'Elemento', cls: 'wrap', node: (r) => elementCell(bySel.get(r.k) || { sel: r.k, lab: '', sec: '' }), sort: (r) => labelOf(bySel.get(r.k) || { sel: r.k }) },
-        ...extra, { l: 'Cliques', k: 'n', num: true, fmt: fmt.n }, { l: 'Visualizações', k: 'u', num: true, fmt: fmt.n }], rows }));
+        ...extra, { l: 'Cliques', k: 'n', num: true, fmt: fmt.n }, { l: 'Visualizações', s: 'Vis.', k: 'u', num: true, fmt: fmt.n }], rows }));
     };
     flagT('Cliques sem resposta', 'Cliques em algo que não é botão nem ligação e onde nada aconteceu em 1 segundo: as pessoas acharam que dava.', flagged.dead);
     flagT('Cliques repetidos', '3 cliques seguidos no mesmo sítio em menos de 1 segundo: sinal de frustração.', flagged.rage);
     flagT('Cliques com erro', 'Cliques logo seguidos de um erro, ou de um aviso de erro na página.', flagged.err, [{ l: 'Erro', get: (r) => L.CLICKERR[r.code] || r.code }]);
     const fx = data.fixed || [];
     const c5 = tcard('Camadas fixas', 'Menu do topo, barra do pacote, ficha do espaço no telemóvel, janela de reserva e pergunta rápida. Por cima da página só se desenha o menu do topo.');
-    if (fx.length) c5.append(table({ initial: { k: 'n', dir: 'descending' }, cols: [{ l: 'Camada', get: (r) => L.zone(r.layer) }, { l: 'Elemento', cls: 'wrap', get: (r) => labelOf(r) }, { l: 'Cliques', k: 'n', num: true, fmt: fmt.n }, { l: 'Sem resposta', k: 'dead', num: true, fmt: fmt.n }, { l: 'Repetidos', k: 'rage', num: true, fmt: fmt.n }], rows: fx }));
+    if (fx.length) c5.append(table({ initial: { k: 'n', dir: 'descending' }, cols: [{ l: 'Camada', get: (r) => L.zone(r.layer) }, { l: 'Elemento', cls: 'wrap', get: (r) => labelOf(r) }, { l: 'Cliques', k: 'n', num: true, fmt: fmt.n }, { l: 'Sem resposta', s: 'Sem resp.', k: 'dead', num: true, fmt: fmt.n }, { l: 'Repetidos', s: 'Repet.', k: 'rage', num: true, fmt: fmt.n }], rows: fx }));
     else emptyState(c5, 'Nenhum clique nas camadas fixas.');
   }
 
@@ -625,6 +627,8 @@ export function createHeat(ctx) {
       else paint();
     },
     refresh() { dataKey = ''; if (panel && !panel.hidden) { counts(); load(); } },
+    // the panel is given to something else (a period this tab does not take): stop watching it
+    close() { if (ro) ro.disconnect(); if (roFrame) roFrame.disconnect(); panel = null; frame = null; },
     repaint() { if (panel && !panel.hidden && data) { tables(); paint(); } },
   };
 }

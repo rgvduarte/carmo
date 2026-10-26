@@ -1,4 +1,4 @@
-// Own visit counter (SPEC 4): no cookie, no form value; reads only gc.optout and gc.internal.
+// Own visit counter (SPEC 4): no cookie, no form value.
 import { SITE } from './data.js';
 import { ZONES, zoneOf, zoneBox } from './stats-zones.js';
 
@@ -13,7 +13,7 @@ const SPOT = /^(peito|clavicula-[ed]|abdomen|cintura|lateral-[ed]|ombro-[ed]|cox
 const ANCH = ZONES.filter(([i, s]) => s === '#' + i).map((z) => z[0]).concat('fato'), HOST = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 const INTER = 'a[href],button,input,select,textarea,label,summary,[role=button],[role=tab],[role=switch],' +
   '[tabindex]:not([tabindex="-1"]),[data-copy],[data-copy-iban],[contenteditable],canvas,li.rc-row';
-const scrub = (s, n) => String(s || '').replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|(?:blob|data):|www\.)\S+/gi, '[url]')
+const scrub = (s, n) => String(s || '').replace(/\b(?:[a-z][a-z0-9+.-]*:\/\/|(?:blob|data):|www\.)\S+|\S*(\w\.\w\S*\/|[?&]\S*=)\S*/gi, '[url]')
   .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]').replace(/\d(?:[\s.-]?\d){3,}/g, '[n]').replace(/(["'`]).*?\1/g, "'…'")
   .replace(/\s+/g, ' ').trim().slice(0, n);
 
@@ -44,7 +44,7 @@ function sel(el) {
   return s.length <= 80 ? s : s2.length <= 80 ? s2 : root + ' ' + st.pop();
 }
 const lab = (el, d = el.dataset || {}) => scrub(d.trackLabel || d.i18n || el.querySelector('[data-i18n]')?.dataset.i18n || /aria-label:([\w.-]+)/.exec(d.i18nAttr)?.[1] || el.getAttribute('aria-label') ||
-  (el.closest('form,dialog,[data-private],#claim') || el.matches('input,textarea,select,[contenteditable]') ? el.id : el.textContent), 40);
+  (el.closest('form,dialog,[data-private],#claim') || el.matches('input,textarea,select,[contenteditable]') ? el.id : el.innerText || el.textContent), 40);
 function landOf(h) {
   try { h = decodeURIComponent(h.slice(1)); } catch (_) { return; }
   const m = /^(fato|capacete)\/(.+)$/.exec(h), n = h.startsWith('pacote=') && h.slice(7).split(',').filter((x) => SPOT.test(x)).length;
@@ -61,7 +61,7 @@ function refOf() {
 
 // SPEC 4.3
 if (!(!C.url || !/^(exempt|consent)$/.test(C.mode) || N.globalPrivacyControl === true || yes(N.doNotTrack) || yes(W.doNotTrack) ||
-  yes(N.msDoNotTrack) || get('gc.optout') === '1' || L.pathname.startsWith('/admin/') || N.webdriver === true || W.top !== W.self)) {
+  yes(N.msDoNotTrack) || get('gc.optout') === '1' || L.pathname.startsWith('/admin/') || N.webdriver || W.top !== W || /heatmap=1/.test(L.search))) {
   if (C.mode === 'consent') on('gc:consent', function go(e) { if (e.detail?.analytics === true) { W.removeEventListener('gc:consent', go); start(); } }, false);
   else start();
 }
@@ -83,7 +83,7 @@ function start() {
   const push = (r) => nev < 200 && ((r.i = ++seq), ++nev, r);
   const more = () => { if (P && (buf[49] || JSON.stringify(buf).length > 12288)) send('m'); };
   const add = (r) => { if (push(r)) { buf.push(r); more(); } return r; };
-  function ev(n, p, c = [1]) {   // c: [cap, counted per param]
+  function ev(n, p, c = [1]) {   // c: [cap, param counted]
     const k = n + (c[1] ? p[c[1]] : '');
     if ((cnt[k] = -~cnt[k]) > c[0]) return 0;
     nat[n] = now();
@@ -118,7 +118,7 @@ function start() {
       vh: cl(R(innerHeight / 100) * 100, 3000) || 100, nav, pc: +matchMedia('(pointer: coarse)').matches };
     if (land) P.land = land;
     if (b) P.b = b[1];
-    if (get('gc.internal') === '1') P.int = 1;
+    if (yes(get('gc.internal'))) P.int = 1;
     if (C.mode === 'consent' && camp && C.campaigns?.includes(camp)) P.cmp = camp;
     rz.add('top'); send('s'); after(depth);
     tickT = setInterval(tick, 1000);
@@ -133,7 +133,7 @@ function start() {
       visAt = 0; clearTimeout(stubT); clearInterval(tickT); tickT = 0;
     }
   }
-  // late vitals: one beacon after our pagehide flush
+  // late vitals: one beacon after pagehide
   const lp = () => { if (pl && !late) late = send('p'); pl = 0; };
   function hide(e) {
     onVis();
@@ -170,13 +170,13 @@ function start() {
     }
     ticks.forEach((fn) => fn(t));
   }
-  // layout is read after the frame is drawn, never forced
+  // layout read after paint, never forced
   const after = (fn) => requestAnimationFrame(() => setTimeout(fn)), depth = (y = scrollY, ih = innerHeight) => { scr = Math.max(scr, cl(Math.floor((20 * (y + ih)) / H.scrollHeight) * 5, 100)); if (y > ih) scr1 = 1; };
   on('scroll', () => { act = now(); if (P && !sT) sT = setTimeout(() => after(() => { sT = 0; depth(); }), 250); });
   on('pointerdown', (e) => { act = now(); pt = e.pointerType; if (e.target.matches?.('.stage > canvas')) lastI = ['3d', act]; }, cap);
   on('keydown', (e) => { act = now(); if (/^Arrow(Left|Right)$/.test(e.key)) lastI = ['teclas', act]; }, cap);
 
-  // SPEC 4.6.4; stats-site.js adds dead, rage, err, cta
+  // SPEC 4.6.4 (marks: stats-site.js)
   on('click', api.ck = (e) => {
     let t = e.target;
     if (t && t.nodeType !== 1) t = t.parentElement;
@@ -211,7 +211,7 @@ function start() {
     if (r.out) send('x');
   }, cap, D);
 
-  // raw until stats-site.js checks them
+  // queued for stats-site.js
   const raw = (e) => (api.er ? api.er(e, now()) : EQ.length < 20 && EQ.push([e, now()]));
   on('error', raw, cap);
   on('unhandledrejection', raw);

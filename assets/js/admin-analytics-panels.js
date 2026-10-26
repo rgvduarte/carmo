@@ -1,13 +1,15 @@
 // One render function per tab of /admin/analytics/ (SPEC 5.4, 5.5): API shapes (SPEC 3.6) → cards. Form per card
 // follows the dataviz method: ranked lists as one-colour bars, parts of a whole as 100 % stacks, time as lines on one
 // axis, the funnel on the ordinal ramp, headline numbers as tiles. Every chart has its «Ver tabela» twin.
-import { H, fmt, figure, table, emptyState, hbars, grouped, stack100, funnel, columns, stackCols, line, scatter, statTile, status, meter, sparkline, legend, textW } from './admin-analytics-charts.js';
+import { H, fmt, figure, table, emptyState, hbars, grouped, stack100, funnel, columns, stackCols, line, scatter, statTile, status, meter, legend, textW } from './admin-analytics-charts.js';
 import * as L from './admin-analytics-labels.js';
 import { drawMap } from './admin-analytics-map.js';
 
 const ZONES = ['top', 'tese', 'historia', 'prova', 'resultados', 'dados', 'epoca', 'fato-topo', 'o-fato', 'o-capacete', 'fato-termos', 'media', 'apoiar', 'contacto', 'footer'];
 const ALL_DEV = 'Todos os aparelhos';
 const NODATA = 'Ainda sem dados neste período.';
+// privacy 2.7: with today in the period, «Resumo» shows totals only
+const LIVE_CUT = 'Com o dia de hoje no período, não mostramos isto: duas leituras com minutos de diferença ligavam uma visita ao sítio de onde veio ou ao que fez. Escolhe 7 dias ou mais.';
 
 // ---------- small helpers ----------
 const grid = (p) => H('div', 'ga-grid', null, p);
@@ -26,10 +28,12 @@ function rowsOf(r, label, { share = false, otherLabel = 'Outros', fmtv } = {}) {
   for (const row of rows) row.tip = () => ({ h: row.label, rows: [{ v: fmt.n(row.x.n), l: 'visualizações' }, ...(row.x.u !== undefined ? [{ v: fmt.n(row.x.u), l: 'visitantes-dia' }] : []), { v: fmt.pct(rate(row.x.n, tot)), l: 'do total' }] });
   return rows;
 }
+// the short column names phones show (admin-analytics-charts.js colHead)
+const SHORT = { 'Visitantes-dia': 'Pessoas-dia', 'Visualizações': 'Vis.', 'Visualizações únicas': 'Vis. únicas', 'Com envolvimento': 'Envolv.', 'Saída rápida': 'Saída ráp.', 'Chegam ao patrocínio': 'Patrocínio' };
 function rankedTable(r, label, caption, { uLabel = 'Visitantes-dia', extra = [] } = {}) {
   const tot = r.total || 1;
   const rows = [...r.rows.map((x) => ({ ...x, lab: label(x.k, x) })), ...(r.other && r.other.n ? [{ ...r.other, lab: 'Outros' }] : [])];
-  return { caption, cols: [{ l: 'Nome', k: 'lab' }, { l: 'Visualizações', k: 'n', num: true, fmt: fmt.n }, { l: uLabel, k: 'u', num: true, fmt: fmt.n },
+  return { caption, cols: [{ l: 'Nome', k: 'lab' }, { l: 'Visualizações', s: 'Vis.', k: 'n', num: true, fmt: fmt.n }, { l: uLabel, s: SHORT[uLabel], k: 'u', num: true, fmt: fmt.n },
     { l: 'Parte', get: (x) => x.n / tot, num: true, fmt: fmt.pct }, ...extra], rows };
 }
 function rankFig(o) {
@@ -49,9 +53,24 @@ function at(h, v) {
   }
   return e.length;
 }
-const durEdge = (e) => (e < 60 ? `${e}s` : `${e / 60}min`);
-const durBins = (h) => histBins(h, (e, i) => (i === h.edges.length - 1 ? `${durEdge(e)}+` : `${durEdge(e)}–${durEdge(h.edges[i + 1])}`),
+// pt-PT units with a space, written once at the end of a range: «0–15 s», «30 s–1 min», «2–5 min», «10 min+»
+const durEdge = (e) => (e < 60 ? `${e} s` : `${e / 60} min`);
+const durRange = (a, b) => (b <= 60 ? `${a}–${b} s` : a >= 60 ? `${a / 60}–${b / 60} min` : `${durEdge(a)}–${durEdge(b)}`);
+const durBins = (h) => histBins(h, (e, i) => (i === h.edges.length - 1 ? `${durEdge(e)}+` : durRange(e, h.edges[i + 1])),
   (e, i) => (i === h.edges.length - 1 ? `${fmt.dur(e)} ou mais` : `de ${fmt.dur(e)} a ${fmt.dur(h.edges[i + 1])}`));
+const secBins = (h) => histBins(h, (e, i) => (i === h.edges.length - 1 ? `${e} s+` : `${e}–${h.edges[i + 1]} s`), (e, i) => (i === h.edges.length - 1 ? `${e} s ou mais` : `de ${e} a ${h.edges[i + 1]} s`));
+// a few ranked parts of one whole: the 3 largest in slots 1–3 and the rest in «Outros» (gray). Only parts above zero are
+// drawn, so the neighbours are always the same: gold · magenta · blue · gray, each pair checked for colour blindness in
+// both themes (the gray sits next to the blue: next to the magenta it fails the protan check)
+const TOP3 = [['f1', 'k1'], ['f3', 'k3'], ['f2', 'k2']];
+function top3(parts, label) {
+  const sorted = parts.filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+  const head = sorted.slice(0, 3), rest = sorted.slice(3).reduce((t, x) => t + x.n, 0);
+  const segs = head.map((x, i) => ({ label: label(x.k), cls: TOP3[i][0], key: TOP3[i][1] }));
+  const vals = head.map((x) => x.n);
+  if (rest) { segs.push({ label: 'Outros', cls: 'fo', key: 'ko' }); vals.push(rest); }
+  return { segs, vals };
+}
 function histTable(h, bins, caption) {
   return { caption, cols: [{ l: 'Intervalo', k: 'tipLabel' }, { l: 'Visualizações', k: 'v', num: true, fmt: fmt.n }], rows: bins, sort: false };
 }
@@ -83,6 +102,9 @@ function vitalStatus(v, val) {
   return val <= t[0] ? status('good', 'Bom') : val <= t[1] ? status('warn', 'A melhorar') : status('bad', 'Mau');
 }
 const vfmt = (v) => (v === 'cls' ? fmt.cls : fmt.ms);
+// one unit on a whole axis: seconds when the scale reaches 1 s, else milliseconds
+const NF2 = new Intl.NumberFormat('pt-PT', { maximumFractionDigits: 2 });
+const vAxis = (v, values) => (v === 'cls' ? fmt.cls : Math.max(0, ...values.filter((x) => x !== null)) >= 800 ? (t) => `${NF2.format(t / 1000)} s` : (t) => `${fmt.n(t)} ms`);
 
 // ---------- Resumo ----------
 export function renderNow(box, now, ctx) {
@@ -93,23 +115,11 @@ export function renderNow(box, now, ctx) {
   H('span', 'v', fmt.n(now.now), hero);
   H('span', 'lb', now.now === 1 ? 'pessoa com o site aberto agora' : 'pessoas com o site aberto agora', hero);
   H('span', 'est', `estimativa · às ${now.at}`, hero);
+  // today's totals only: by minute, place or source, a poll every 30 s would tie one arrival to where it came from
   const mid = H('div', null, null, wrap);
-  H('h4', null, 'Novas visualizações nos últimos 30 minutos', mid);
-  const sp = sparkline(now.spark || []);
-  sp.setAttribute('role', 'img');
-  sp.setAttribute('aria-label', `${fmt.n(sum(now.spark || []))} novas visualizações nos últimos 30 minutos`);
-  mid.append(sp);
-  kv(mid, [['Hoje: visualizações', fmt.n(now.today.pv)], ['Visitas', fmt.n(now.today.visits)], ['Visitantes', fmt.n(now.today.uv)]]);
-  const right = H('div', null, null, wrap);
-  const list = (title, r, label) => {
-    H('h4', null, title, right);
-    const ol = H('ol', null, null, right);
-    if (!r || !r.rows.length) { H('li', null, 'Ainda ninguém hoje.', ol); return; }
-    for (const x of r.rows.slice(0, 3)) { const li = H('li', null, null, ol); H('span', null, label(x.k), li); H('span', null, fmt.n(x.n), li); }
-  };
-  list('Hoje, de onde vêm', now.top && now.top.chan, L.chan);
-  H('div', null, null, right).className = 'ga-gap';
-  list('Hoje, países', now.top && now.top.cc, L.country);
+  H('h4', null, 'Hoje, até agora', mid);
+  kv(mid, [['Visualizações', fmt.n(now.today.pv)], ['Visitas', fmt.n(now.today.visits)], ['Visitantes', fmt.n(now.today.uv)]]);
+  H('p', 'ga-fine', 'De onde vêm e onde estão aparecem com dias completos, em baixo e nos outros separadores.', mid);
   const live = H('p', `ga-live ${ctx.polling ? '' : 'off'}`, null, box);
   H('i', null, null, live);
   H('span', null, ctx.polling ? 'Atualiza a cada 30 segundos enquanto este separador está aberto.' : 'Atualização parada (30 minutos sem mexer). ', live);
@@ -135,8 +145,8 @@ export function resumo(p, d, ctx) {
     tile({ label: 'Tempo ativo (mediana)', value: fmt.dur(k.engMedian.v), v: k.engMedian.v, prev: k.engMedian.prev, kind: 'dur', spark: k.engMedian.spark, prevName: pn, sub: `média ${fmt.dur(k.engMean.v)}` }),
     tile({ label: 'Com envolvimento', value: fmt.pct(k.engaged.v), v: k.engaged.v, prev: k.engaged.prev, kind: 'rate', spark: k.engaged.spark, prevName: pn }),
     tile({ label: 'Saídas rápidas', value: fmt.pct(k.quick.v), v: k.quick.v, prev: k.quick.prev, kind: 'rate', upIsGood: false, spark: k.quick.spark, prevName: pn }),
-    tile({ label: 'Chegam ao patrocínio', value: fmt.pct(k.offer.v), v: k.offer.v, prev: k.offer.prev, kind: 'rate', spark: k.offer.spark, prevName: pn }),
-    tile({ label: 'Pedidos enviados', value: fmt.n(k.sends.v), v: k.sends.v, prev: k.sends.prev, spark: k.sends.spark, prevName: pn, chip: devChip }),
+    tile({ label: 'Chegam ao patrocínio', value: o.live ? '—' : fmt.pct(k.offer.v), v: k.offer.v, prev: k.offer.prev, kind: 'rate', spark: k.offer.spark, prevName: pn, sub: o.live ? 'só com dias completos' : null }),
+    tile({ label: 'Pedidos enviados', value: o.live ? '—' : fmt.n(k.sends.v), v: k.sends.v, prev: k.sends.prev, spark: k.sends.spark, prevName: pn, chip: devChip, sub: o.live ? 'só com dias completos' : null }),
     tile({ label: 'Páginas com erro', value: fmt.pct(k.errPv.v), v: k.errPv.v, prev: k.errPv.prev, kind: 'rate', upIsGood: false, spark: k.errPv.spark, prevName: pn }),
     tile({ label: 'Resposta «Sim»', value: fmt.pct(k.yes.v), v: k.yes.v, prev: k.yes.prev, kind: 'rate', spark: k.yes.spark, prevName: pn, sub: `de ${fmt.n(yes ? yes.base : 0)} respostas` }),
   ]);
@@ -160,15 +170,18 @@ export function resumo(p, d, ctx) {
       rows: s.x.map((x, i) => ({ x, pv: s.s.pv[i], visits: s.s.visits[i], uv: s.s.uv[i] })) }),
   }) : figure({ title: 'Visitas por dia', empty: NODATA }), 12));
 
-  g.append(rankFig({ title: 'De onde vêm', note: 'Os 5 canais com mais visualizações.', ranked: o.chan, label: L.chan, cls: 's6', otherLabel: 'Outros canais' }));
-  g.append(rankFig({ title: 'Países', note: 'Os 5 países com mais visualizações. A cidade está em Público.', ranked: o.cc, label: L.country, cls: 's6', otherLabel: 'Outros países' }));
+  if (o.live) for (const title of ['De onde vêm', 'Países']) g.append(span(figure({ title, empty: LIVE_CUT }), 6));
+  else {
+    g.append(rankFig({ title: 'De onde vêm', note: 'Os 5 canais com mais visualizações.', ranked: o.chan, label: L.chan, cls: 's6', otherLabel: 'Outros canais' }));
+    g.append(rankFig({ title: 'Países', note: 'Os 5 países com mais visualizações. A cidade está em Público.', ranked: o.cc, label: L.country, cls: 's6', otherLabel: 'Outros países' }));
+  }
 
   const reach = o.reach || [];
   g.append(span(reach.some((z) => z.r > 0) ? figure({
     title: 'Até onde chegam', note: 'Parte das visualizações que chegou a cada secção, pela ordem da página.',
     draw: hbars(reach.map((z) => ({ label: L.zone(z.z), v: z.r, text: fmt.pct(z.r) })), { max: 1, fmt: fmt.pct }),
     table: () => ({ caption: 'Até onde chegam', sort: false, cols: [{ l: 'Secção', get: (z) => L.zone(z.z) }, { l: 'Chegaram', k: 'r', num: true, fmt: fmt.pct }], rows: reach }),
-  }) : figure({ title: 'Até onde chegam', empty: NODATA }), 6));
+  }) : figure({ title: 'Até onde chegam', empty: o.live ? LIVE_CUT : NODATA }), 6));
 
   const steps = (o.funnel || []).map((x) => ({ label: L.STEP[x.step], n: x.n, prev: x.prev }));
   g.append(span(steps.some((x) => x.n) ? figure({
@@ -176,7 +189,7 @@ export function resumo(p, d, ctx) {
     note: 'Cada passo conta à parte: quem chega por uma ligação partilhada pode saltar passos.',
     draw: funnel(steps, { compact: true }),
     table: () => funnelTable(steps),
-  }) : figure({ title: 'Funil de reserva', chip: ALL_DEV, empty: NODATA }), 6));
+  }) : figure({ title: 'Funil de reserva', chip: ALL_DEV, empty: o.live ? LIVE_CUT : NODATA }), 6));
 
   // «Percebe-se?» (D8)
   const sc = card('Percebe-se?', 'Sinais de que a página se entende, ou não. Os limites são um ponto de partida: afina-os ao fim de 4 semanas.');
@@ -227,10 +240,12 @@ export function publico(p, d, ctx) {
   const g2 = grid(p);
   g2.append(rankFig({ title: 'Aparelho', ranked: a.dev, label: L.dev, cls: 's4' }));
   g2.append(rankFig({ title: 'Largura do ecrã', note: 'As larguras são as do site: é a largura que decide o mapa de calor.', ranked: a.vw, label: (k) => L.VWSHORT[k] || k, cls: 's4' }));
-  const pc = a.pc || { coarse: 0, fine: 0 };
-  g2.append(span(pc.coarse + pc.fine ? figure({ title: 'Toque ou rato', note: 'Ecrã de toque contra rato ou trackpad.', legend: [{ label: 'Toque', key: 'k1' }, { label: 'Rato', key: 'k2' }],
-    draw: stack100([{ label: 'Todas', parts: [pc.coarse, pc.fine] }], [{ label: 'Toque', cls: 'f1', key: 'k1' }, { label: 'Rato', cls: 'f2', key: 'k2' }], { narrow: true }),
-    table: () => ({ caption: 'Toque ou rato', sort: false, cols: [{ l: 'Tipo', k: 'l' }, { l: 'Visualizações', k: 'n', num: true, fmt: fmt.n }], rows: [{ l: 'Toque', n: pc.coarse }, { l: 'Rato', n: pc.fine }] }) }) : figure({ title: 'Toque ou rato', empty: NODATA }), 4));
+  const pc = a.pc || { coarse: 0, fine: 0 }, pcn = pc.coarse + pc.fine;
+  const pcC = card('Toque ou rato', 'Ecrã de toque contra rato ou trackpad.');
+  span(pcC, 4);
+  if (pcn) kpiRow(pcC, [statTile({ label: 'Toque', value: fmt.pct(pc.coarse / pcn), prevName: null, sub: `${fmt.pct(pc.fine / pcn)} com rato · ${fmt.n(pc.coarse)} de ${fmt.n(pcn)} visualizações` })], 'cols1');
+  else emptyState(pcC, NODATA);
+  g2.append(pcC);
   g2.append(rankFig({ title: 'Sistema', ranked: a.os, label: (k) => k, otherLabel: 'Outros sistemas' }));
   g2.append(rankFig({ title: 'Navegador', note: 'O navegador das apps aparece com o nome da app.', ranked: a.br, label: (k) => k, otherLabel: 'Outros navegadores' }));
 
@@ -242,8 +257,8 @@ export function publico(p, d, ctx) {
   const swBox = card('Mudaram de língua', `${fmt.n(sw.pv)} visualizações (${fmt.pct(sw.rate)}) mudaram de língua.`);
   span(swBox, 4);
   if (sw.pv) {
-    const bins = histBins(sw.timing, (e, i) => (i === sw.timing.edges.length - 1 ? `${e}s+` : `${e}–${sw.timing.edges[i + 1]}s`));
-    swBox.append(figure({ title: 'Quando mudam', note: 'Segundos de tempo ativo antes de mudar.', cls: 'ga-sub', draw: columns(bins, { height: 110, unit: 'visualizações' }), table: () => histTable(sw.timing, bins, 'Quando mudam') }));
+    const bins = secBins(sw.timing);
+    swBox.append(figure({ title: 'Quando mudam', note: 'Segundos de tempo ativo antes de mudar.', cls: 'ga-sub', draw: columns(bins, { height: 110, cap: 24, unit: 'visualizações' }), table: () => histTable(sw.timing, bins, 'Quando mudam') }));
     kv(swBox, sw.byLand.map((x) => [`Abriram em ${L.lang(x.k).toLowerCase()}`, `${fmt.n(x.sw)} de ${fmt.n(x.n)}`]));
   } else emptyState(swBox, 'Ninguém mudou de língua neste período.');
   g3.append(swBox);
@@ -289,30 +304,29 @@ export function pagina(p, d) {
   sec(p, 'O patrocínio');
   const g2 = grid(p);
   const routes = c.routes || [];
-  const RS = [['scroll', 'f1', 'k1'], ['hero', 'f2', 'k2'], ['nav', 'f3', 'k3'], ['menu', 'f4', 'k4'], ['link', 'f5', 'k5'], ['outro', 'f6', 'k6']];
-  const rv = (k) => (routes.find((r) => r.k === k) || { n: 0 }).n;
   const rc = card('Como chegam ao patrocínio', `${fmt.pct(c.offer.reach)} das visualizações chegaram à secção 05. ${fmt.pct(c.offer.before)} saíram antes de lá chegar.`);
   span(rc, 6);
   if (sum(routes.map((r) => r.n))) {
-    rc.append(figure({ title: 'Por onde', cls: 'ga-sub', legend: RS.map(([k, , key]) => ({ label: L.ROUTE[k], key })),
-      draw: stack100([{ label: 'Chegadas', parts: RS.map(([k]) => rv(k)) }], RS.map(([k, cls, key]) => ({ label: L.ROUTE[k], cls, key })), { narrow: true }),
+    const t3 = top3(routes, (k) => L.ROUTE[k] || k);
+    rc.append(figure({ title: 'Por onde', cls: 'ga-sub', note: 'Os 3 caminhos mais usados; os outros juntos em «Outros» (na tabela, todos).', legend: t3.segs.map((x) => ({ label: x.label, key: x.key })),
+      draw: stack100([{ label: 'Chegadas', parts: t3.vals }], t3.segs, { narrow: true }),
       table: () => ({ caption: 'Como chegam ao patrocínio', cols: [{ l: 'Caminho', get: (r) => L.ROUTE[r.k] }, { l: 'Visualizações', k: 'n', num: true, fmt: fmt.n }], rows: routes }) }));
   } else emptyState(rc, NODATA);
   g2.append(rc);
   const arr = c.arrival;
   g2.append(span(arr && sum(arr.n) ? figure({ title: 'Tempo até ao patrocínio', note: 'Segundos de tempo ativo desde que a página abriu até chegar à secção 05.',
-    draw: columns(durBins(arr), { median: arr.median !== null ? { at: at(arr, arr.median), label: `mediana ${fmt.dur(arr.median)}` } : null, unit: 'visualizações' }),
+    draw: columns(durBins(arr), { cap: 24, median: arr.median !== null ? { at: at(arr, arr.median), label: `mediana ${fmt.dur(arr.median)}` } : null, unit: 'visualizações' }),
     table: () => histTable(arr, durBins(arr), 'Tempo até ao patrocínio') }) : figure({ title: 'Tempo até ao patrocínio', empty: NODATA }), 6));
 
   sec(p, 'Descer e ficar');
   const g3 = grid(p);
   const sn = (c.scroll && c.scroll.n) || [];
   g3.append(span(sum(sn) ? figure({ title: 'Até onde descem', note: `Até onde cada visualização desceu, em % da página. ${fmt.pct(c.scroll.beyondFirst)} desceram além do primeiro ecrã.`,
-    draw: columns(sn.map((v, i) => ({ label: `${i * 5}%`, tipLabel: `desceram até ${i * 5} % da página`, v })), { every: 5, unit: 'visualizações' }),
+    draw: columns(sn.map((v, i) => ({ label: `${i * 5} %`, tipLabel: `desceram até ${i * 5} % da página`, v })), { every: 5, unit: 'visualizações' }),
     table: () => ({ caption: 'Até onde descem', sort: false, cols: [{ l: 'Profundidade máxima', k: 'l' }, { l: 'Visualizações', k: 'v', num: true, fmt: fmt.n }], rows: sn.map((v, i) => ({ l: `${i * 5} %`, v })) }) }) : figure({ title: 'Até onde descem', empty: NODATA }), 6));
   const eng = c.eng;
   g3.append(span(eng && sum(eng.n) ? figure({ title: 'Tempo ativo', note: `Mediana ${fmt.dur(eng.median)}, média ${fmt.dur(eng.mean)}. Só conta com a página à vista e alguém a mexer.`,
-    draw: columns(durBins(eng), { median: eng.median !== null ? { at: at(eng, eng.median), label: `mediana ${fmt.dur(eng.median)}` } : null, unit: 'visualizações' }),
+    draw: columns(durBins(eng), { cap: 24, median: eng.median !== null ? { at: at(eng, eng.median), label: `mediana ${fmt.dur(eng.median)}` } : null, unit: 'visualizações' }),
     table: () => histTable(eng, durBins(eng), 'Tempo ativo') }) : figure({ title: 'Tempo ativo', empty: NODATA }), 6));
 
   sec(p, 'Botões');
@@ -321,9 +335,11 @@ export function pagina(p, d) {
   const ctrs = ctas.filter((x) => x.seen >= 20 && x.ctr !== null).map((x) => x.ctr).sort((a, b) => a - b);
   const q1 = ctrs.length >= 4 ? ctrs[Math.floor((ctrs.length - 1) * 0.25)] : null;
   const low = (x) => q1 !== null && x.seen >= 20 && x.ctr !== null && x.ctr <= q1;
-  g4.append(span(ctas.length ? figure({ title: 'Botões vistos e carregados', note: 'Quantos viram cada botão (metade à vista durante 1 s) e quantos carregaram. «Visto por muitos, carregado por poucos»: 20 ou mais vistas e entre os 25 % que menos convencem.',
-    draw: hbars(ctas.map((x) => ({ label: L.cta(x.id), v: x.ctr || 0, text: `${fmt.pct(x.ctr)} · vistos por ${fmt.n(x.seen)}${low(x) ? ' · visto por muitos, carregado por poucos' : ''}`,
-      tip: () => ({ h: L.cta(x.id), rows: [{ v: fmt.pct(x.ctr), l: 'carregaram' }, { v: fmt.n(x.seen), l: 'viram' }, { v: fmt.n(x.clicked), l: 'carregaram (visualizações)' }] }) })), { fmt: fmt.pct, wideAt: 640 }),
+  const lows = ctas.filter(low).map((x) => L.cta(x.id));
+  g4.append(span(ctas.length ? figure({ title: 'Botões vistos e carregados', note: 'Quantos viram cada botão (metade à vista durante 1 s) e quantos carregaram. «Visto por muitos, carregado por poucos»: 20 ou mais vistas e entre os 25 % que menos convencem (coluna «Nota» da tabela).',
+    foot: lows.length ? `Visto por muitos, carregado por poucos: ${lows.join(', ')}.` : null,
+    draw: hbars(ctas.map((x) => ({ label: L.cta(x.id), v: x.ctr || 0, text: `${fmt.pct(x.ctr)} · ${fmt.n(x.seen)} vistos`,
+      tip: () => ({ h: L.cta(x.id), rows: [{ v: fmt.pct(x.ctr), l: 'carregaram' }, { v: fmt.n(x.seen), l: 'viram' }, { v: fmt.n(x.clicked), l: 'carregaram (visualizações)' }, ...(low(x) ? [{ v: 'Atenção', l: 'visto por muitos, carregado por poucos' }] : [])] }) })), { fmt: fmt.pct, wideAt: 640 }),
     table: () => ({ caption: 'Botões vistos e carregados', cols: [{ l: 'Botão', get: (x) => L.cta(x.id) }, { l: 'Vistos', k: 'seen', num: true, fmt: fmt.n }, { l: 'Carregados', k: 'clicked', num: true, fmt: fmt.n }, { l: 'Taxa', k: 'ctr', num: true, fmt: fmt.pct }, { l: 'Nota', get: (x) => (low(x) ? 'visto por muitos, carregado por poucos' : '') }], rows: ctas }),
   }) : figure({ title: 'Botões vistos e carregados', empty: NODATA }), 8));
   const m = c.menu || { opened: 0, base: 0, targets: { rows: [] }, backTop: 0 };
@@ -362,30 +378,19 @@ export function estudio(p, d, ctx) {
     table: () => ({ caption: 'Toques falhados por largura', cols: [{ l: 'Largura', get: (x) => L.VWSHORT[x.vw] }, { l: 'Toques', k: 'taps', num: true, fmt: fmt.n }, { l: 'Falhados', k: 'missed', num: true, fmt: fmt.n }], rows: bv }) }));
   g.append(tc);
 
-  // the wait: one item at a time
-  const wc = card('Espera pelo 3D', 'Segundos que viram «A carregar» com o estúdio à vista.');
+  // the wait: the suit and the helmet side by side, on the same bins and the same scale
+  const wc = card('Espera pelo 3D', 'Segundos que viram «A carregar» com o estúdio à vista. Os dois na mesma escala.');
   span(wc, 6);
-  const sw = H('div', 'ga-inline', null, wc);
-  const seg = H('fieldset', 'ga-seg', null, sw);
-  H('legend', 'sr-only', 'Objeto', seg);
-  const holder = H('div', null, null, wc);
-  const showWait = (item) => {
-    holder.replaceChildren();
-    const x = it[item] || {};
-    const h = x.wait;
-    if (h && sum(h.n)) {
-      const bins = histBins(h, (e, i) => (i === h.edges.length - 1 ? `${e}s+` : `${e}–${h.edges[i + 1]}s`), (e, i) => (i === h.edges.length - 1 ? `${e} s ou mais` : `de ${e} a ${h.edges[i + 1]} s`));
-      holder.append(figure({ title: L.ITEM[item], cls: 'ga-sub', draw: columns(bins, { median: h.median !== null ? { at: at(h, h.median), label: `mediana ${fmt.dur(h.median)}` } : null, unit: 'visualizações' }), table: () => histTable(h, bins, `Espera: ${L.ITEM[item]}`) }));
-    } else emptyState(holder, 'Ninguém esperou pelo 3D neste período.');
-    H('p', 'ga-fine', `Saíram antes de o 3D abrir: ${fmt.n(x.leftBeforeReady || 0)}.`, holder);
-  };
+  const two = H('div', 'ga-two', null, wc);
+  const yMax = Math.max(1, ...['suit', 'helmet'].flatMap((item) => ((it[item] || {}).wait || { n: [] }).n));
   for (const item of ['suit', 'helmet']) {
-    const lab = H('label', null, null, seg);
-    const r = H('input', null, null, lab); r.type = 'radio'; r.name = 'wait-item'; r.value = item; r.checked = item === 'suit';
-    H('span', null, L.ITEM[item], lab);
-    r.addEventListener('change', () => showWait(item));
+    const x = it[item] || {}, h = x.wait, box = H('div', null, null, two);
+    if (h && sum(h.n)) {
+      const bins = secBins(h);
+      box.append(figure({ title: L.ITEM[item], cls: 'ga-sub', draw: columns(bins, { height: 130, cap: 24, yMax, median: h.median !== null ? { at: at(h, h.median), label: `mediana ${fmt.dur(h.median)}` } : null, unit: 'visualizações' }), table: () => histTable(h, bins, `Espera: ${L.ITEM[item]}`) }));
+    } else { H('h4', 'ga-fine', L.ITEM[item], box); emptyState(box, 'Ninguém esperou por este 3D neste período.'); }
+    H('p', 'ga-fine', `Saíram antes de o 3D abrir: ${fmt.n(x.leftBeforeReady || 0)}.`, box);
   }
-  showWait('suit');
   g.append(wc);
 
   const tour = s.tour || {};
@@ -400,10 +405,9 @@ export function estudio(p, d, ctx) {
   g.append(tourC);
 
   const fr = s.from || [];
-  const FS = [['3d', 'f1', 'k1'], ['tabela', 'f2', 'k2'], ['capitulo', 'f3', 'k3'], ['teclas', 'f4', 'k4'], ['link', 'f5', 'k5']];
-  const fv = (k) => (fr.find((x) => x.k === k) || { n: 0 }).n;
-  g.append(span(sum(fr.map((x) => x.n)) ? figure({ title: 'De onde abrem os espaços', note: 'Como abriram a ficha de um espaço.', legend: FS.map(([k, , key]) => ({ label: L.FROM[k], key })),
-    draw: stack100([{ label: 'Aberturas', parts: FS.map(([k]) => fv(k)) }], FS.map(([k, cls, key]) => ({ label: L.FROM[k], cls, key })), { narrow: true }),
+  const f3 = top3(fr, (k) => L.FROM[k] || k);
+  g.append(span(sum(fr.map((x) => x.n)) ? figure({ title: 'De onde abrem os espaços', note: 'Como abriram a ficha de um espaço: as 3 formas mais usadas, as outras em «Outros» (na tabela, todas).', legend: f3.segs.map((x) => ({ label: x.label, key: x.key })),
+    draw: stack100([{ label: 'Aberturas', parts: f3.vals }], f3.segs, { narrow: true }),
     table: () => ({ caption: 'De onde abrem os espaços', cols: [{ l: 'Como', get: (x) => L.FROM[x.k] }, { l: 'Aberturas', k: 'n', num: true, fmt: fmt.n }], rows: fr }) }) : figure({ title: 'De onde abrem os espaços', empty: NODATA }), 6));
 
   // «Interesse por espaço»: table + scatter (price × opens per 100 studio viewers)
@@ -440,10 +444,12 @@ export function reservas(p, d) {
   g.append(span(steps.some((x) => x.n) ? figure({ title: 'Funil de reserva', chip, note: 'Cada passo conta à parte (sem ordem obrigatória): uma partilha pode abrir o pedido sem passar pela escolha.',
     draw: funnel(steps), table: () => funnelTable(steps) }) : figure({ title: 'Funil de reserva', chip, empty: NODATA }), 6));
   const ends = b.ends || [];
-  const ES = ['feito', 'copiou_saiu', 'fechou_passo2', 'saiu_passo2', 'fechou_passo1', 'aberta_saiu'];
   const ev = (k) => (ends.find((x) => x.k === k) || { n: 0 }).n;
-  g.append(span(sum(ends.map((x) => x.n)) ? figure({ title: 'Onde desistem', chip, note: 'Como acabou cada pedido aberto.', legend: ES.map((k, i) => ({ label: L.END[k], key: `k${i + 1}` })),
-    draw: stack100([{ label: 'Pedidos abertos', parts: ES.map(ev) }], ES.map((k, i) => ({ label: L.END[k], cls: `f${i + 1}`, key: `k${i + 1}` })), { narrow: true }),
+  // three parts (the table under it has every ending)
+  const E3 = [{ label: 'Concluíram', cls: 'f1', key: 'k1' }, { label: 'Copiaram os dados e saíram', cls: 'f3', key: 'k3' }, { label: 'Desistiram', cls: 'f2', key: 'k2' }];
+  const e3 = [ev('feito'), ev('copiou_saiu'), ev('fechou_passo2') + ev('saiu_passo2') + ev('fechou_passo1') + ev('aberta_saiu')];
+  g.append(span(sum(ends.map((x) => x.n)) ? figure({ title: 'Onde desistem', chip, note: 'Como acabou cada pedido aberto. «Desistiram»: fecharam ou saíram no passo 1 ou 2.', legend: E3.map((x) => ({ label: x.label, key: x.key })),
+    draw: stack100([{ label: 'Pedidos abertos', parts: e3 }], E3, { narrow: true }),
     after: (() => { const box = H('div'); box.append(table({ caption: 'Como acabou', sort: false, cols: [{ l: 'Fim', get: (x) => L.END[x.k] }, { l: 'Pedidos', k: 'n', num: true, fmt: fmt.n }], rows: ends })); return box; })() }) : figure({ title: 'Onde desistem', chip, empty: NODATA }), 6));
   g.append(rankFig({ title: 'Canal do pedido', chip, note: 'Por onde enviaram o pedido.', ranked: b.channels, label: (k) => L.SEND[k] || k, cls: 's4', uLabel: 'Visualizações', fmtv: (x) => fmt.n(x.n) }));
   const pay = b.pay || { tabs: [], done: [], copies: [] };
@@ -465,7 +471,7 @@ export function reservas(p, d) {
   kpiRow(small, [
     statTile({ label: 'Erros no pedido', value: fmt.pct(rate(br.errors, br.opens)), sub: `${fmt.n(br.errors)} de ${fmt.n(br.opens)} pedidos abertos tentaram enviar sem a marca ou sem o logótipo`, prevName: null,
       status: d8Status('brand', rate(br.errors, br.opens)) }),
-  ], 'cols3');
+  ], 'cols1');
   H('h4', 'ga-fine', 'Voltaram da app', small);
   kv(small, [['Voltaram de outra app (WhatsApp, banco…)', fmt.n(ret.bf)], ['Com o pedido aberto no passo 2', fmt.n(ret.bfDialog)], ['Retomaram o pedido', fmt.n(ret.resume)]]);
   g.append(small);
@@ -527,7 +533,7 @@ export function contactos(p, d) {
 }
 
 // ---------- Qualidade ----------
-export function qualidade(p, d) {
+export function qualidade(p, d, ctx) {
   const q = d.quality;
   sec(p, 'Velocidade');
   const V = ['lcp', 'inp', 'cls', 'fcp', 'ttfb'];
@@ -552,7 +558,12 @@ export function qualidade(p, d) {
     if (!list || !list.length) continue;
     anyT = true;
     tc.append(table({ caption: `${L.VITAL[v][0]} · ${L.VITAL[v][1]}`, initial: { k: 'n', dir: 'descending' }, cols: [
-      { l: 'Elemento', k: 'sel', cls: 'wrap', node: (x) => { const s = H('span', 'mono', x.sel); return s; } },
+      { l: 'Elemento', k: 'sel', cls: 'wrap', sort: (x) => ctx.selName(x.sel), node: (x) => {
+        const f = document.createDocumentFragment(), z = L.selZone(x.sel);
+        H('span', null, ctx.selName(x.sel), f);
+        H('span', 'sub mono', `${z ? `${L.zone(z)} · ` : ''}${x.sel}`, f);
+        return f;
+      } },
       ...(v === 'inp' ? [{ l: 'Gesto', k: 'kind', fmt: (k) => ({ pointer: 'toque/clique', keyboard: 'teclado' }[k] || '—') }] : []),
       { l: 'Medições', k: 'n', num: true, fmt: fmt.n }, ...(v !== 'cls' ? [{ l: 'Média', k: 'mean', num: true, fmt: vfmt(v) }] : [])], rows: list.slice(0, 10) }));
   }
@@ -603,7 +614,7 @@ export function qualidade(p, d) {
     sec(p, 'Velocidade por dia');
     const g3 = grid(p);
     for (const v of ['lcp', 'inp', 'cls']) {
-      g3.append(span(figure({ title: `${L.VITAL[v][1]} (${L.VITAL[v][0]})`, note: 'p75 de cada dia, com pelo menos 5 medições.', draw: line(vd.x, [{ label: L.VITAL[v][0], cls: 'l1', key: 'k1', values: vd.s[v] }], { yFmt: vfmt(v), integer: v !== 'cls', min: v === 'cls' ? 0.05 : 100, height: 150 }),
+      g3.append(span(figure({ title: `${L.VITAL[v][1]} (${L.VITAL[v][0]})`, note: 'p75 de cada dia, com pelo menos 5 medições.', draw: line(vd.x, [{ label: L.VITAL[v][0], cls: 'l1', key: 'k1', values: vd.s[v] }], { yFmt: vAxis(v, vd.s[v]), integer: v !== 'cls', min: v === 'cls' ? 0.05 : 100, height: 150 }),
         table: () => ({ caption: L.VITAL[v][1], sort: false, cols: [{ l: 'Dia', k: 'x', fmt: (x) => fmt.day(x, true) }, { l: 'p75', k: 'v', num: true, fmt: vfmt(v) }], rows: vd.x.map((x, i) => ({ x, v: vd.s[v][i] })) }) }), 4));
     }
   }
@@ -657,12 +668,13 @@ export function dados(p, d, ctx) {
   const qt = s.quota || { x: [], req: [], dor: [], rows: [], dbBytes: 0, limits: {} };
   const last = (a) => (a && a.length ? a[a.length - 1] : 0);
   const lim = qt.limits || { req: 100000, dor: 100000, rows: 100000, db: 1e9 };
-  const qc = card('Limites gratuitos', 'O plano gratuito do Cloudflare conta por dia (até à 01:00 de Lisboa, 00:00 UTC). No limite, as visitas deixam de ser contadas até ao dia seguinte; o site continua a funcionar.');
+  const qc = card('Limites gratuitos', 'O plano gratuito do Cloudflare conta por dia (até à 01:00 de Lisboa, 00:00 UTC). No limite, as visitas deixam de ser contadas até ao dia seguinte. O limite de pedidos é da conta toda: passado esse, também o Worker dos Pedidos para (os pedidos de patrocínio seguem só como mensagem).');
   span(qc, 12);
   const ms = H('div', 'ga-meters', null, qc);
   ms.append(meter({ label: 'Pedidos ao contador (hoje)', value: last(qt.req), max: lim.req, text: `${fmt.n(last(qt.req))} de ${fmt.n(lim.req)}`, sub: 'partilhado com os Pedidos' }));
   ms.append(meter({ label: 'Pedidos ao armazém (hoje)', value: last(qt.dor), max: lim.dor, text: `${fmt.n(last(qt.dor))} de ${fmt.n(lim.dor)}` }));
-  ms.append(meter({ label: 'Linhas escritas (hoje)', value: last(qt.rows), max: lim.rows, text: `${fmt.n(last(qt.rows))} de ${fmt.n(lim.rows)}` }));
+  ms.append(meter({ label: 'Linhas escritas (hoje)', value: last(qt.rows), max: lim.rows, text: `${fmt.n(last(qt.rows))} de ${fmt.n(lim.rows)}`, sub: 'às 80 000 deixa de registar visitas novas' }));
+  if (qt.rr) ms.append(meter({ label: 'Linhas lidas (hoje)', value: last(qt.rr), max: lim.rr || 5e6, text: `${fmt.n(last(qt.rr))} de ${fmt.n(lim.rr || 5e6)}` }));
   ms.append(meter({ label: 'Espaço ocupado', value: qt.dbBytes, max: lim.db, text: `${fmt.bytes(qt.dbBytes)} de ${fmt.bytes(lim.db)}` }));
   if (qt.x && qt.x.length && sum(qt.req) + sum(qt.rows)) {
     qc.append(figure({ title: 'Últimos 30 dias', cls: 'ga-sub', note: 'Dias UTC (como o Cloudflare conta).', legend: [{ label: 'Pedidos ao contador', key: 'k1', line: true }, { label: 'Pedidos ao armazém', key: 'k2', line: true }, { label: 'Linhas escritas', key: 'k3', line: true }],
@@ -674,10 +686,15 @@ export function dados(p, d, ctx) {
   const rj = s.rejected || { x: [], s: {} };
   const R = rj.s || {};
   const fold = (rj.x || []).map((_, i) => (R.json?.[i] || 0) + (R.versao?.[i] || 0) + (R.esquema?.[i] || 0));
-  const RS = [['origem', R.origem || []], ['tamanho', R.tamanho || []], ['formato', fold], ['limite', R.limite || []], ['robo', R.robo || []]];
+  const RS = [['origem', R.origem || []], ['tamanho', R.tamanho || []], ['formato', fold], ['limite', R.limite || []], ['robo', R.robo || []], ['cheio', R.cheio || []]];
   const rjTot = sum(RS.flatMap(([, v]) => v));
-  g.append(span(rjTot ? figure({ title: 'Pedidos recusados', note: 'Sinais que o contador recusou sem guardar nada: de outros sites, grandes demais, mal formados, em rajada ou de robôs. Quem pede para não ser seguido (GPC/DNT) não conta em lado nenhum.',
-    legend: RS.map(([k], i) => ({ label: L.REJ[k], key: `k${i + 1}` })), draw: stackCols(rj.x, RS.map(([k, v], i) => ({ label: L.REJ[k], cls: `f${i + 1}`, key: `k${i + 1}`, values: v }))),
+  // one total per day (one colour), and the reasons ranked under it: five series stacked would let colours touch that
+  // were never checked side by side
+  const perDay = (rj.x || []).map((_, i) => sum(RS.map(([, v]) => v[i] || 0)));
+  const reasons = RS.map(([k, v]) => ({ label: L.REJ[k], v: sum(v) })).filter((x) => x.v).sort((a, b) => b.v - a.v);
+  g.append(span(rjTot ? figure({ title: 'Pedidos recusados', note: 'Sinais que o contador recusou sem guardar nada: de outros sites, grandes demais, mal formados, em rajada, de robôs, ou depois do limite do dia. Quem pede para não ser seguido (GPC/DNT) não conta em lado nenhum.',
+    draw: stackCols(rj.x, [{ label: 'Recusados', cls: 'f1', key: 'k1', values: perDay }]),
+    after: (() => { const box = H('div'); box.append(figure({ title: 'Porquê, nos 30 dias', cls: 'ga-sub', draw: hbars(reasons, { unit: 'pedidos' }) })); return box; })(),
     table: () => ({ caption: 'Pedidos recusados', sort: false, cols: [{ l: 'Dia (UTC)', k: 'x', fmt: (v) => fmt.day(v, true) }, ...RS.map(([k], j) => ({ l: L.REJ[k], get: (r) => r.v[j], num: true, fmt: fmt.n }))], rows: rj.x.map((x, i) => ({ x, v: RS.map(([, v]) => v[i] || 0) })) }) })
     : figure({ title: 'Pedidos recusados', empty: 'Nada recusado nos últimos 30 dias.' }), 6));
   const ver = s.versions || { tv: { rows: [] }, b: { rows: [] } };
@@ -774,6 +791,7 @@ function csvCard(ctx) {
   msg.setAttribute('aria-live', 'polite');
   f.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (ctx.withToday()) { msg.textContent = 'O CSV só junta dias completos: escolhe 7, 30 ou 90 dias, ou um período que acabe ontem.'; return; }
     b.disabled = true; msg.textContent = 'A preparar…';
     try { const name = await ctx.api.csv({ ...ctx.params(), t: s.value }); msg.textContent = `Descarregado: ${name}`; }
     catch (x) { msg.textContent = x.text || 'Não consegui descarregar.'; }

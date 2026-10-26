@@ -51,8 +51,9 @@ export function show(api, tries = 0) {
   };
   const esc = (e) => { if (e.key === 'Escape' && !$('#claim[open]') && (box.contains(D.activeElement) || !$('.menu-btn[aria-expanded="true"]'))) close('esc'); };
   const answer = (ans) => {
+    // the answer is its own record (/v1/f); the fb_* events go out with the next flush
     api.post('/v1/f', Object.assign({ v: 1, q, a: ans, lang: P.lang, pv: P.pv, vw: P.vw }, api.st().mid && { ex: api.st().mid }, P.int && { int: 1 }));
-    api.flush(); remember();
+    remember();
     if (q === 'patrocinio' && ans === 'nao') return ask('patrocinio_porque', c.q2, c.chips.map((t, i) => [t, WHY[i]]));
     a.textContent = ''; note.remove(); p.textContent = c.thanks; x.remove();
     setTimeout(() => close(), 2000);

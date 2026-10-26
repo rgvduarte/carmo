@@ -19,7 +19,7 @@ Conta as visitas do gocarmo.com com uma ferramenta nossa, sem cookies e sem sabe
 
 - **Sem cookies** e nada guardado no telemóvel de quem visita (só a escolha de não ser contado, se a pessoa a fizer).
 - **Nunca guarda o endereço de internet (IP) nem o navegador completo.** Para contar visitantes únicos por dia, o Worker
-  junta o endereço (cortado: só os primeiros 3 números num IPv4) e o navegador a uma chave aleatória do dia e guarda
+  junta o endereço (num IPv6, só a primeira metade, a de cada casa ou telemóvel) e o navegador a uma chave aleatória do dia e guarda
   apenas o resultado. A chave do dia é apagada à meia-noite de Lisboa, por isso não dá para ligar dias diferentes nem
   saber quem é quem.
 - **Onde estão**: país, região e cidade aproximada (a partir do IP, que não fica guardado); os pontos do mapa ficam
@@ -93,12 +93,22 @@ Worker dos Pedidos.
 | Pedidos ao Worker | 100 000 | ~500 | ~6 000 |
 | Pedidos à base de dados | 100 000 | ~500 | ~8 000 |
 | Linhas escritas | 100 000 | ~3 000 | ~45 000 |
-| Linhas lidas | 5 000 000 | ~50 000 | ~1 000 000 |
+| Linhas lidas | 5 000 000 | ~50 000, mais 25 000 a 40 000 por separador aberto com 90 dias | ~1 000 000 |
 | Espaço | 1 GB | < 20 MB | ~300 MB |
 
-O separador «Dados» do painel mostra estes números dia a dia. **Se um limite for passado**, o Cloudflare deixa de aceitar
-esse tipo de operação até à meia-noite UTC (01:00 em Lisboa no verão, 00:00 no inverno): perdem-se as visitas desse
-bocado, mas **o site continua a funcionar normalmente**.
+O separador «Dados» do painel mostra estes números dia a dia. Uma resposta do painel para dias já fechados (7, 30 e 90
+dias acabam sempre ontem) fica guardada até ao resumo da noite seguinte: voltar a abrir o mesmo separador lê uma linha só.
+
+**Se um limite for passado**, o Cloudflare deixa de aceitar esse tipo de operação até à meia-noite UTC (01:00 em Lisboa
+no verão, 00:00 no inverno). O limite de pedidos por dia é da conta toda: passado esse, também o Worker dos Pedidos deixa
+de responder até à meia-noite UTC (os pedidos de patrocínio seguem só como mensagem). Para não chegar lá por causa de
+alguém que mande sinais falsos, o contador:
+
+- aceita no máximo 30 sinais por minuto de cada endereço (os 256 endereços de um bloco /24 contam como um);
+- conta no máximo 300 visualizações novas por dia de cada um desses blocos;
+- deixa de registar visualizações novas quando o dia chega às 80 000 linhas escritas (as visitas desse resto do dia
+  perdem-se; o «Dados» mostra-as como «Limite do dia»);
+- responde ao `/health` com o que viu há menos de um minuto, sem perguntar outra vez à base de dados.
 
 ## Testar no computador
 
@@ -151,10 +161,11 @@ caber nas regras de «O que conta e o que nunca guarda»: entra primeiro na list
 | `POST /v1/e` | `204`. Corpo JSON em `text/plain`, até 16 KB, do site (`Origin`) |
 | `POST /v1/f` | `204`. A resposta à pergunta rápida, até 1 KB |
 | `GET /health` | `{ ok, v, schema, store, eu, salt, admin, limits, dev }`, só verdadeiro ou falso |
-| `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `quality` · `feedback` · `system` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap` |
+| `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `quality` · `feedback` · `system` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap`. Um período com o dia de hoje (`24h`, ou `custom` até hoje) só no `overview` (só totais) e no `system`: os outros respondem `400 periodo` |
 | `POST /admin/v1/notes`, `DELETE /admin/v1/notes/<id>` | (admin) anotações no gráfico das visitas |
 | `GET /admin/v1/export.csv?t=<tabela>` | (admin) CSV para o Excel |
 
-Os pedidos de admin levam `Authorization: Bearer <ADMIN_KEY>`. Os erros são `{ "error": "<código>" }`: `origem` (403),
+Os pedidos de admin levam `Authorization: Bearer <ADMIN_KEY>`, com um limite de 120 por minuto por endereço (contado
+antes de a chave ser vista). Os erros são `{ "error": "<código>" }`: `origem` (403),
 `metodo` (405), `nada` (404), `tamanho` (413), `json`, `versao`, `esquema`, `periodo`, `filtro` (400), `limite` (429),
 `chave` (401), `interno` (500).

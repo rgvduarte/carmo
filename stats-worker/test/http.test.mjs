@@ -1,7 +1,7 @@
 // Every refusal path and status, CORS and OPTIONS, the response headers, /health, admin auth (SPEC 3).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, post, api, page, dump, UA, SITE, KEY, lisbonToday } from './helpers.mjs';
+import { start, post, api, page, dump, UA, SITE, KEY, lisbonToday, lisbonISO, addDays } from './helpers.mjs';
 
 let mf, prod;
 before(async () => {
@@ -39,6 +39,17 @@ test('/health says which pieces are set up, true or false only', async () => {
   const s = await post(bare, page());
   assert.equal(s.status, 204);
   await bare.dispose();
+});
+
+test('/health: limited per address, and the store asked at most once a minute', async () => {
+  const dor = async () => { const q = (await api(mf, 'system?p=7d')).json.quota; return q.dor[q.dor.length - 1]; };
+  const d0 = await dor();
+  const codes = [];
+  for (let i = 0; i < 100; i++) codes.push((await raw(mf, '/health', { headers: { 'X-Dev-Ip': '198.51.100.20' } })).status);
+  assert.equal(codes.filter((c) => c === 200).length, 30);
+  assert.equal(codes.filter((c) => c === 429).length, 70);
+  // the second system call itself is one; the pings at most one more
+  assert.ok((await dor()) - d0 <= 2, 'at most one Durable Object request for 100 GETs');
 });
 
 test('unknown paths and wrong methods', async () => {
@@ -135,6 +146,33 @@ test('rate limit: 30 beacons a minute per address, then 429', async () => {
   assert.ok(sumLast(s, 'limite') >= 11);
 });
 
+test('write limits: new page views per address per day, and the day\'s row budget', async () => {
+  // at most ADDR_PVS (300 in production) new page views a day from one /24; page views already stored still update
+  const m1 = await start({ ADDR_PVS: '3' });
+  const pvs = [];
+  for (let i = 0; i < 5; i++) { const pg = page(); pvs.push(pg); assert.equal((await post(m1, pg, { ip: `10.9.9.${i + 1}` })).status, 204); }
+  assert.equal((await dump(m1)).tables.pv, 3);
+  assert.equal((await post(m1, { ...pvs[0], f: 2, t: 'h', vis: 0, eng: 30 }, { ip: '10.9.9.1' })).status, 204);
+  assert.equal((await post(m1, page(), { ip: '10.9.10.1' })).status, 204);
+  assert.equal((await dump(m1)).tables.pv, 4);
+  await m1.dispose();
+  // past the day's budget (80 000 rows in production) the store takes no new page view, and the Worker stops calling
+  // it until 00:00 UTC (counted as «cheio»)
+  const m2 = await start({ DAY_ROWS: '12' });
+  for (let i = 0; i < 12; i++) assert.equal((await post(m2, page(), { ip: `10.8.${i}.1` })).status, 204);
+  const t = await dump(m2);
+  assert.ok(t.tables.pv >= 2 && t.tables.pv <= 6, `pv ${t.tables.pv}`);
+  const s = (await api(m2, 'system?p=7d')).json.rejected.s;
+  assert.ok(s.cheio[s.cheio.length - 1] >= 5, JSON.stringify(s.cheio.slice(-1)));
+  await m2.dispose();
+});
+
+test('«Agora no site»: the live count and today\'s totals, nothing by minute, place or source', async () => {
+  const n = (await api(mf, 'now')).json;
+  assert.deepEqual(Object.keys(n).sort(), ['at', 'now', 'ok', 'today', 'v']);
+  assert.deepEqual(Object.keys(n.today).sort(), ['pv', 'uv', 'visits']);
+});
+
 test('GPC requests are not even counted as requests', async () => {
   const q0 = (await api(mf, 'system?p=7d')).json.quota;
   for (let i = 0; i < 3; i++) await post(mf, page(), { headers: { 'Sec-GPC': '1' }, ip: '10.0.9.7' });
@@ -161,8 +199,10 @@ test('feedback: 1 KB limit, enums, 204', async () => {
   assert.equal((await post(mf, { ...fb, pad: 'x'.repeat(1100) }, { path: '/v1/f', ip: '10.1.0.7' })).status, 413);
   assert.equal((await post(mf, fb, { path: '/v1/f', origin: 'https://evil.example' })).status, 403);
   assert.equal((await post(mf, fb, { path: '/v1/f', headers: { DNT: '1' } })).status, 204);
-  const t = lisbonToday();
-  const f = (await api(mf, `feedback?p=custom&from=${t}&to=${t}`)).json;
+  // answered yesterday (a period with today in it is refused on this tab)
+  const y = addDays(lisbonToday(), -1), now = lisbonISO(y, 12);
+  assert.equal((await post(mf, fb, { path: '/v1/f', ip: '10.1.0.8', now })).status, 204);
+  const f = (await api(mf, `feedback?p=custom&from=${y}&to=${y}`)).json;
   assert.equal(f.standalone, 1);
   assert.equal(f.sim, 1);
 });
@@ -205,10 +245,25 @@ test('admin parameters: 400 periodo / filtro, 404, 405', async () => {
   for (const e of ['ping', 'now', 'overview', 'audience', 'content', 'heatmap', 'studio', 'booking', 'contacts', 'quality', 'feedback', 'system']) {
     for (const p of ['24h', '7d', '30d', '90d']) {
       const r = await api(mf, `${e}?p=${p}`);
-      assert.equal(r.status, 200, `${e} ${p}`);
-      assert.equal(r.json.ok, true);
+      // privacy 2.7: only Resumo's totals, the live count and the quota panel take a period with today in it
+      const ok = p !== '24h' || ['ping', 'now', 'overview', 'system'].includes(e);
+      assert.equal(r.status, ok ? 200 : 400, `${e} ${p}`);
+      assert.equal(ok ? r.json.ok : r.json.error, ok ? true : 'periodo');
     }
+    if (!['ping', 'now', 'overview', 'system'].includes(e)) assert.equal((await api(mf, `${e}?p=custom&from=${addDays(t, -3)}&to=${t}`)).status, 400, `${e} up to today`);
   }
+});
+
+test('the admin limit is per address: a stranger cannot lock the owner out', async () => {
+  const codes = [];
+  for (let i = 0; i < 125; i++) {
+    const r = await prod.dispatchFetch('http://api.test/admin/v1/ping', { headers: { 'CF-Connecting-IP': '203.0.113.1' } });
+    codes.push(r.status);
+  }
+  assert.equal(codes.filter((c) => c === 401).length, 120);
+  assert.equal(codes.filter((c) => c === 429).length, 5, 'guesses without a key are limited too');
+  const own = await prod.dispatchFetch('http://api.test/admin/v1/ping', { headers: { Authorization: `Bearer ${KEY}`, 'CF-Connecting-IP': '198.51.100.1' } });
+  assert.equal(own.status, 200);
 });
 
 test('without DEV_HOOKS: no dev routes, no X-Dev-* headers, localhost pages count as internal', async () => {

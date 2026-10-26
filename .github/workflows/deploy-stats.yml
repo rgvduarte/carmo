@@ -34,6 +34,17 @@ jobs:
         with:
           node-version: '22'
 
+      # the Worker is published only when its tests pass. This runs first, before any secret is in the environment:
+      # npm ci runs the install scripts of wrangler's dependencies, and none of that code needs the Cloudflare token or
+      # the admin key (the later steps use this same node_modules through npx --no-install)
+      - name: Install and test
+        working-directory: stats-worker
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
       # A value pasted into GitHub with a line break or a space is refused by wrangler ("Invalid account ID"):
       # every later step uses these trimmed copies, masked in the logs like the secrets themselves (as in
       # deploy-pedidos.yml; ADMIN_KEY is the same secret the Pedidos Worker gets).
@@ -118,15 +129,6 @@ jobs:
             echo "::notice::Criei o subdomínio $sub.workers.dev (o endereço pode levar alguns minutos a responder)."
           fi
           echo "subdomain=$sub" >> "$GITHUB_OUTPUT"
-
-      # the Worker is published only when its tests pass
-      - name: Install and test
-        working-directory: stats-worker
-        env:
-          WRANGLER_SEND_METRICS: 'false'
-        run: |
-          npm ci --no-audit --no-fund
-          npm test
 
       - name: Deploy
         id: deploy

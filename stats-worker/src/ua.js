@@ -103,15 +103,28 @@ export function outType(out, osp) {
 }
 
 // ---------- the address (privacy 2.5) ----------
-// IPv4 → its /24 with the last octet zeroed; IPv6 → its /48; an IPv4-mapped IPv6 address counts as IPv4
-export function truncIp(ip) {
+// IPv4 → its 4 numbers; IPv6 → its 8 groups (an IPv4-mapped IPv6 address counts as IPv4); or a marker
+function ipParts(ip) {
   const a = String(ip || '').trim().toLowerCase().split('%')[0];
   if (!a) return 'sem-ip';
   const v4 = a.match(/^(?:(?:0{0,4}:){0,5}ffff:)?(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
-  if (v4) return `${Number(v4[1])}.${Number(v4[2])}.${Number(v4[3])}.0`;
+  if (v4) return { v4: v4.slice(1, 5).map(Number) };
   if (!a.includes(':')) return 'outro';
   const [head, tail] = a.split('::');
   const h = head ? head.split(':') : [], t = tail === undefined ? null : tail ? tail.split(':') : [];
   const all = t === null ? h : [...h, ...Array(Math.max(0, 8 - h.length - t.length)).fill('0'), ...t];
-  return `${all.slice(0, 3).map((x) => (/^[0-9a-f]{1,4}$/.test(x) ? parseInt(x, 16).toString(16) : '0')).join(':')}::/48`;
+  return { v6: all.slice(0, 8).map((x) => (/^[0-9a-f]{1,4}$/.test(x) ? parseInt(x, 16).toString(16) : '0')) };
+}
+// for the rate limits: IPv4 → its /24 with the last octet zeroed; IPv6 → its /48
+export function truncIp(ip) {
+  const p = ipParts(ip);
+  if (typeof p === 'string') return p;
+  return p.v4 ? `${p.v4.slice(0, 3).join('.')}.0` : `${p.v6.slice(0, 3).join(':')}::/48`;
+}
+// for the day's visitor hash only (never stored): IPv4 whole; IPv6 → its /64, one home or one phone (the rest of the
+// address rotates during the day). A /24 or /48 would make the phones behind one mobile carrier a single visitor.
+export function hashIp(ip) {
+  const p = ipParts(ip);
+  if (typeof p === 'string') return p;
+  return p.v4 ? p.v4.join('.') : `${p.v6.slice(0, 4).join(':')}::/64`;
 }

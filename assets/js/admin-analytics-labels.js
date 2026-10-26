@@ -90,7 +90,7 @@ export const NOTEKIND = { post: 'Publicação', prova: 'Prova', imprensa: 'Impre
 export const CLICKERR = { js: 'erro de JavaScript', bad: 'logótipo não abriu', big: 'ficheiro grande demais', sold: 'espaço já vendido', helmet: 'capacete falhou', brand: 'faltou a marca', logo: 'faltou o logótipo' };
 export const FAIL3D = { nogl: 'O aparelho não tem 3D (WebGL)', load: 'O modelo não carregou', ctx: 'O 3D foi desligado pelo aparelho', unknown: 'Outro motivo' };
 export const ASSET = { spots: 'Lista de espaços', logo: 'Logótipo de patrocinador', img: 'Imagem', module: 'Ficheiro de código', gsap: 'Animações (GSAP)', lenis: 'Deslizar suave (Lenis)' };
-export const REJ = { origem: 'Origem errada', tamanho: 'Grande demais', formato: 'Formato inválido', limite: 'Demasiados pedidos', robo: 'Robôs' };
+export const REJ = { origem: 'Origem errada', tamanho: 'Grande demais', formato: 'Formato inválido', limite: 'Demasiados pedidos', robo: 'Robôs', cheio: 'Limite do dia' };
 export const VITAL = {
   lcp: ['LCP', 'Maior elemento visível'], inp: ['INP', 'Resposta a um toque'], cls: ['CLS', 'Saltos na página'],
   fcp: ['FCP', 'Primeiro conteúdo'], ttfb: ['TTFB', 'Resposta do servidor'],
@@ -113,6 +113,45 @@ export const land = (k) => {
   if (k === 'title') return 'Partilha do fato completo';
   return k;
 };
+// a selector of the page (a Web Vitals target) as a name the owner knows: a spot by its name, a known element, else
+// the element's own text in the page (doc: the parsed home page; text(key): the Portuguese text of an i18n key), else
+// what kind of thing it is (SPEC 5.7, as the heatmap tables do it)
+const SELKNOWN = { '#stage > canvas': 'O fato em 3D', '#stage-h > canvas': 'O capacete em 3D', '#hero-spots': 'Número de espaços livres (início)',
+  '#rc-body': 'Tabela de espaços e preços' };
+const KIND = { img: 'Imagem', picture: 'Imagem', figure: 'Fotografia', video: 'Vídeo', canvas: 'Desenho', svg: 'Gráfico', g: 'Gráfico', h1: 'Título', h2: 'Título',
+  h3: 'Título', p: 'Texto', li: 'Linha de uma lista', dl: 'Números', dt: 'Números', dd: 'Números', a: 'Ligação', button: 'Botão', span: 'Texto',
+  table: 'Tabela', tbody: 'Tabela', ul: 'Lista', ol: 'Lista', section: 'Secção', div: 'Bloco' };
+// the text of an element as it reads: its text pieces joined by spaces («Gonçalo» «Carmo», not «GonçaloCarmo»)
+function words(el) {
+  const out = [], w = el.ownerDocument.createTreeWalker(el, 4);
+  for (let n = w.nextNode(); n && out.length < 40; n = w.nextNode()) out.push(n.nodeValue);
+  return out.join(' ');
+}
+export const selZone = (sel) => { const m = /^#([a-z][a-z0-9-]*)/.exec(sel || ''); return m && ZONE[m[1]] ? m[1] : ''; };
+export function selName(sel, doc, text = () => '') {
+  if (!sel) return '—';
+  for (const k of Object.keys(SELKNOWN)) if (sel === k || sel.startsWith(`${k} `)) return SELKNOWN[k];
+  const id = /\[data-id="([a-z0-9-]+)"\]/.exec(sel);
+  if (id) return spot(id[1]);
+  const cut = (t) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > 60 ? `${t.slice(0, 59)}…` : t; };
+  let el = null;
+  try { el = doc ? doc.querySelector(sel) : null; } catch (_) { el = null; }
+  if (el) {
+    const tag = el.localName;
+    if (tag === 'img' && el.getAttribute('alt')) return `Imagem: ${cut(el.getAttribute('alt'))}`;
+    const k = el.getAttribute('data-i18n') || (el.querySelector('[data-i18n]') || { getAttribute: () => '' }).getAttribute('data-i18n');
+    const aria = (/aria-label:([\w.-]+)/.exec(el.getAttribute('data-i18n-attr') || '') || [])[1];
+    const t = cut((aria && text(aria)) || el.getAttribute('aria-label') || (k && text(k)) || words(el));
+    const z = selZone(sel);
+    if (t) return t;
+    if (KIND[tag]) return `${KIND[tag]}${z ? ` (${zone(z)})` : ''}`;
+  }
+  const tail = sel.split(/\s*>\s*|\s+/).pop() || '';
+  const tag = (tail.match(/^[a-z0-9]+/) || [''])[0], nth = (tail.match(/:nth-of-type\((\d+)\)/) || [])[1];
+  const kind = KIND[tag] || (tag ? 'Bloco' : '');
+  const z = selZone(sel);
+  return kind ? `${kind}${nth ? ` n.º ${nth}` : ''}${z ? ` (${zone(z)})` : ''}` : sel;
+}
 export const CSV = [
   ['dias', 'Totais por dia'], ['paginas', 'Páginas'], ['origens', 'Origens'], ['sites', 'Sites que trazem visitas'],
   ['paises', 'Países'], ['localidades', 'Localidades'], ['aparelhos', 'Aparelhos'], ['sistemas', 'Sistemas'],

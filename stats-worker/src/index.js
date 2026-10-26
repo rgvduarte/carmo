@@ -7,14 +7,14 @@
 //   GET  /admin/v1/<endpoint>    (Bearer ADMIN_KEY) aggregates for /admin/analytics/ (3.6)
 //   POST /admin/v1/notes, DELETE /admin/v1/notes/<id>, GET /admin/v1/export.csv
 //
-// Privacy (privacy.md 2.5): the IP address and the User-Agent are read in memory only. The IP is cut to its /24 (IPv6:
-// /48) and goes, with the UA, into a hash with a salt that changes every Lisbon day and is then deleted. Nothing is
-// logged: no console output except an error code, and observability is off in wrangler.toml. Errors never carry
-// request data.
+// Privacy (privacy.md 2.5): the IP address and the User-Agent are read in memory only. The address (IPv6: its /64) goes,
+// with the UA, into a hash with a salt that changes every Lisbon day and is then deleted; the rate limits use its /24
+// (IPv6: /48) through a keyed hash. Nothing is logged: no console output except an error code, and observability is off
+// in wrangler.toml. Errors never carry request data.
 
 import { Store } from './store.js';
 import { sanitizeBeacon, sanitizeFeedback } from './sanitize.js';
-import { isBot, parseUA, channelOf, truncIp } from './ua.js';
+import { isBot, parseUA, channelOf, truncIp, hashIp } from './ua.js';
 import { clock, period } from './time.js';
 import { CSV_TABLES } from './csv.js';
 import { ENDPOINT_NAMES } from './query.js';
@@ -33,6 +33,12 @@ const bump = (k) => tally.set(k, (tally.get(k) || 0) + 1);
 const takeTally = () => { const o = Object.fromEntries(tally); tally.clear(); return o; };
 // in-memory sliding window per address key
 const windows = new Map();
+// the day's write budget is spent (Store.ingest said so): until the next 00:00 UTC, beacons are answered without a call
+// to the store, so neither its requests nor its rows run out for the rest of the day
+let fullUntil = 0;
+// /health asks the store at most once a minute per isolate
+let storeOk = { t: 0, v: false };
+const nextUtcMidnight = (t) => { const d = new Date(t); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1); };
 
 const enc = new TextEncoder();
 const devOn = (env) => env.DEV_HOOKS === '1';
@@ -171,11 +177,12 @@ async function beacon(request, env, quiet, max, kind) {
   if (quiet || !saltOk(env)) return empty(request, env);       // GPC / DNT: nothing stored, nothing counted
   const ua = request.headers.get('User-Agent') || '';
   if (isBot(ua)) { count('rej.robo'); return empty(request, env); }
-  const ipT = truncIp(ipOf(request, env));
+  const ip = ipOf(request, env), ipT = truncIp(ip);
   const key = await rlKey(env, ipT);
   const now = nowOf(request, env);
   // the limit runs on the real clock, even when a dev clock moves the data
   if (overWindow(key, Date.now()) || !(await limiterOk(env.RL_BEACON, key))) { count('rej.limite'); return reply(request, env, { error: 'limite' }, 429); }
+  if (Date.now() < fullUntil) { count('rej.cheio'); return empty(request, env); }
   const buf = await readCapped(request, max);
   if (!buf) { count('rej.tamanho'); return reply(request, env, { error: 'tamanho' }, 413); }
   const parsed = parseJson(buf);
@@ -197,21 +204,30 @@ async function beacon(request, env, quiet, max, kind) {
   }
   const u = parseUA(ua, clean.page.pc);
   const place = placeOf(request, env);
-  await store(env).ingest({
+  // ipH and ua go into the day's visitor hash, ak (the limiter's keyed /24) into a per-day cap held in memory: none is stored
+  const r = await store(env).ingest({
     day: c.day, yday: c.yday, hr: c.hr, now, pv: clean.pv, f: clean.f, t: clean.t, vis: clean.vis,
     page: clean.page, snap: clean.snap, events: clean.events,
     meta: { dev: u.dev, os: u.os, br: u.br, app: u.app, chan: channelOf(clean.page.ref, u.app), ...place, int },
-    ipT, ua, rej: takeTally(),
+    ipH: hashIp(ip), ua, ak: key, rej: takeTally(),
   });
+  if (r && r.full) fullUntil = nextUtcMidnight(Date.now());
   return empty(request, env);
 }
 
 // ---------- GET /health (3.5) ----------
+// public, so limited like the beacons, and the store is asked at most once a minute (each ask is a Durable Object
+// request, of the 100 000 a day the free plan gives)
 async function health(request, env) {
-  let ok = false;
-  try { const r = await store(env).ping(); ok = !!(r && r.ok); } catch (_) { ok = false; }
+  const ipT = truncIp(ipOf(request, env));
+  const key = `h:${saltOk(env) ? await rlKey(env, ipT) : ipT}`;
+  if (overWindow(key, Date.now()) || !(await limiterOk(env.RL_BEACON, key))) return reply(request, env, { error: 'limite' }, 429);
+  if (Date.now() - storeOk.t > 60e3) {
+    storeOk.t = Date.now();
+    try { const r = await store(env).ping(); storeOk.v = !!(r && r.ok); } catch (_) { storeOk.v = false; }
+  }
   return reply(request, env, {
-    ok: true, v: VERSION, schema: 1, store: ok, eu: env.STORE_JURISDICTION === 'eu', salt: saltOk(env), admin: keyOk(env),
+    ok: true, v: VERSION, schema: 1, store: storeOk.v, eu: env.STORE_JURISDICTION === 'eu', salt: saltOk(env), admin: keyOk(env),
     limits: !!env.RL_BEACON && !!env.RL_ADMIN, dev: devOn(env),
   });
 }
@@ -228,8 +244,13 @@ const ADMIN_GET = new Set(ENDPOINT_NAMES);
 
 async function admin(request, env, url) {
   if (request.headers.get('Origin') && !originOf(request, env)) return reply(request, env, { error: 'origem' }, 403);
-  // bursts (Cloudflare's binding); the local sim reads in bursts, so dev skips it
-  if (!devOn(env) && !(await limiterOk(env.RL_ADMIN, 'admin'))) return reply(request, env, { error: 'limite' }, 429);
+  // bursts (Cloudflare's binding), per address, before the key is checked (so guesses are limited too, and a stranger
+  // cannot use up the owner's allowance); the local sim reads in bursts, so dev skips it
+  if (!devOn(env)) {
+    const ipT = truncIp(ipOf(request, env));
+    const who = saltOk(env) ? await rlKey(env, ipT) : ipT;
+    if (!(await limiterOk(env.RL_ADMIN, who))) return reply(request, env, { error: 'limite' }, 429);
+  }
   const auth = request.headers.get('Authorization') || '';
   const m = auth.match(/^Bearer (.+)$/);
   if (!keyOk(env) || !m || !(await sameSecret(m[1], env.ADMIN_KEY))) return reply(request, env, { error: 'chave' }, 401);
@@ -243,6 +264,10 @@ async function admin(request, env, url) {
   if (filters.error) return reply(request, env, { error: filters.error }, 400);
   if (!devOn(env)) delete filters.src;
   const P = { clock: c, ...filters };
+  // privacy 2.7: the smallest unit is the day. A period with today in it changes from one read to the next, so two reads
+  // minutes apart would tie one arrival to its place, its source or its step in the funnel: only the totals of «Resumo»
+  // (overview), the live count and the quota panel take one.
+  const withToday = P.p === '24h' || (P.p === 'custom' && typeof P.to === 'string' && P.to >= c.day);
   // the isolate's counts ride on the call to the store (taken only when the call is made)
   const S = store(env);
   const call = (method, ...args) => { args[args.length - 1].rej = takeTally(); return S[method](...args); };
@@ -268,8 +293,8 @@ async function admin(request, env, url) {
   if (path === 'export.csv') {
     if (method !== 'GET') return reply(request, env, { error: 'metodo' }, 405);
     if (!CSV_TABLES.includes(q.t)) return reply(request, env, { error: 'filtro' }, 400);
-    const pq = P.p === '24h' ? { ...P, p: 'custom', from: c.yday, to: c.day } : P;   // nothing smaller than a day
-    const r = await call('query', 'export', { ...pq, t: q.t });
+    if (withToday) return reply(request, env, { error: 'periodo' }, 400);        // whole days only
+    const r = await call('query', 'export', { ...P, t: q.t });
     if (r.error) return reply(request, env, r, 400);
     return new Response(r.csv, { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${r.filename}"`, ...BASE, ...cors(request, env) } });
@@ -288,6 +313,7 @@ async function admin(request, env, url) {
   if (ADMIN_GET.has(path)) {
     if (method !== 'GET') return reply(request, env, { error: 'metodo' }, 405);
     if (period(P, c).error) return reply(request, env, { error: 'periodo' }, 400);
+    if (withToday && path !== 'overview' && path !== 'system') return reply(request, env, { error: 'periodo' }, 400);
     const r = await call('query', path, P);
     if (r.error) return reply(request, env, r, r.error === 'nada' ? 404 : 400);
     return reply(request, env, r);

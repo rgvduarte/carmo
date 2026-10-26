@@ -7,7 +7,7 @@ import { createApi, MSG } from './admin-analytics-api.js';
 import { H, fmt, redrawAll, resetTokens, forget, emptyState, tip } from './admin-analytics-charts.js';
 import { TABS, renderNow } from './admin-analytics-panels.js';
 import { createHeat } from './admin-analytics-heat.js';
-import { setSpots } from './admin-analytics-labels.js';
+import { setSpots, selName } from './admin-analytics-labels.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -62,6 +62,9 @@ function saveHash() {
 }
 const params = () => ({ p: state.p || '7d', ...(state.p === 'custom' ? { from: state.from, to: state.to } : {}), dev: state.dev, int: state.int, cmp: state.cmp });
 const paramsKey = () => JSON.stringify(params());
+// privacy 2.7: a period with today in it («24 h», or a custom one up to today) only on «Resumo» (totals) and «Dados»
+const TODAY_OK = new Set(['resumo', 'dados']);
+const withToday = () => state.p === '24h' || (state.p === 'custom' && !!ctx.today && state.to >= ctx.today);
 
 // ---------- session ----------
 const base = (local && state.api) || (SITE.stats && SITE.stats.url) || '';
@@ -120,6 +123,8 @@ const ctx = {
   toast, invalidate: () => { if (api) api.clear(); for (const k of Object.keys(loaded)) delete loaded[k]; },
   retryNow: () => pollNow(true), resumePolling: () => { lastInput = Date.now(); startPolling(); },
   pageText: (k) => pageText(k),
+  selName: (sel) => selName(sel, pageDoc, pageText),
+  withToday: () => withToday(),
 };
 
 function startApp() {
@@ -150,6 +155,7 @@ function selectTab(name, focus) {
     if (on) b.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
   for (const p of $$('.ga-panel')) p.hidden = p.id !== `p-${name}`;
+  paintPeriod();
   tip.hide();
   if (name === 'resumo') startPolling(); else stopPolling();
   loadTab(name);
@@ -177,6 +183,7 @@ function rangeText(env) {
     bits.push(`Últimas 24 h, até às ${at}`);
   } else bits.push(`${fmt.range(r.from, r.to)}${r.partial ? ' (hoje ainda a contar)' : ''}`);
   if (env.prev) bits.push(`comparado com ${r.unit === 'hour' ? 'as 24 h antes' : fmt.range(env.prev.from, env.prev.to, env.prev.to.slice(0, 4) !== r.to.slice(0, 4))}`);
+  else if (env.prevCut) bits.push('sem comparação: o contador ainda não tinha dados de todo o período anterior');
   if (state.dev !== 'all') bits.push({ mobile: 'só telemóveis', tablet: 'só tablets', desktop: 'só computadores' }[state.dev]);
   if (state.int) bits.push('com as visitas internas');
   return bits.join(' · ');
@@ -186,9 +193,38 @@ function prevNameOf(env) {
   return env.range.unit === 'hour' ? 'as 24 h antes' : fmt.range(env.prev.from, env.prev.to, false);
 }
 
+// «24 h» is greyed out on the tabs that take whole days only
+function paintPeriod() {
+  const r = $('#period input[value="24h"]');
+  if (!r) return;
+  const ok = TODAY_OK.has(state.t);
+  r.disabled = !ok;
+  r.closest('label').title = ok ? '' : 'Só no Resumo: aqui contam dias completos';
+}
+function todayPanel(panel) {
+  forget(panel);
+  panel.replaceChildren();
+  const box = emptyState(panel, 'Este separador só mostra dias completos: com o dia de hoje no período, duas leituras com minutos de diferença ligavam uma visita ao sítio de onde veio ou ao que fez. O «Resumo» mostra os totais de hoje.');
+  const b = H('button', 'btn sm gold', 'Ver os últimos 7 dias', box);
+  b.type = 'button';
+  b.addEventListener('click', () => {
+    state.p = '7d';
+    for (const r of $$('#period input')) r.checked = r.value === '7d';
+    $('#custom').hidden = true;
+    refilter();
+  });
+}
+
 async function loadTab(name, force) {
   if (!api) return;
   const panel = $(`#p-${name}`);
+  if (!TODAY_OK.has(name) && withToday()) {
+    $('#range').textContent = state.p === '24h' ? 'Últimas 24 h' : fmt.range(state.from, state.to);
+    if (name === 'calor' && heat) { heat.close(); heat = null; }
+    todayPanel(panel);
+    delete loaded[name];
+    return;
+  }
   if (name === 'calor') {
     if (!heat) heat = createHeat({ api, params, hm: state.hm, save: saveHash, pageText: (k) => pageText(k), onError: () => {},
       audience: async () => (await api.get('audience', params())).vw });
@@ -230,8 +266,8 @@ function refilter() {
   saveHash();
   if (api) api.clear();
   for (const k of Object.keys(loaded)) delete loaded[k];
-  if (heat) heat.refresh();
-  if (state.t !== 'calor') loadTab(state.t);
+  if (state.t === 'calor') loadTab('calor');
+  else { if (heat) heat.refresh(); loadTab(state.t); }
 }
 
 // ---------- «Agora no site»: every 30 s while the tab is open and visible; stops after 30 min without input ----------

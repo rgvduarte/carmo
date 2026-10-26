@@ -256,13 +256,21 @@ const BUILD = {
     for (const [name, key] of [['pv', 'pv'], ['visits', 'visits'], ['uv', 'uv']]) series.s[name] = cur.slots.map((s) => int(cur.slotN(s, 'c', key)));
     const pv = pvOf(cur);
     const d8 = d8Of(cur, w.prev, curAll, w.prevAll);
+    // D13, privacy 2.7: a period with today in it («24 h», or a custom one up to today) changes between two reads, so
+    // it gets totals and the series only: no source, no country, no section, nothing of the funnel
+    const live = ctx.range.unit === 'hour' || ctx.range.to >= ctx.today;
+    if (live) {
+      for (const id of ['sends', 'offer']) k[id] = { v: null, prev: null, spark: [] };
+      for (const x of d8) if (x.id === 'brand') Object.assign(x, { v: null, prev: null, base: 0 });
+    }
+    const none = { rows: [], other: null, total: 0 };
     return {
       kpi: k, series, notes: noteIn(ctx.notes, ctx.range),
-      chan: ranked(cur.rows('d.chan'), { top: 5 }),
-      cc: ranked(cur.rows('d.cc'), { top: 5 }),
-      reach: ZONES.map((z) => ({ z, r: rate(cur.n('z', z), pv) ?? 0 })),
-      funnel: funnelOf(curAll, w.prevAll),
-      d8,
+      chan: live ? none : ranked(cur.rows('d.chan'), { top: 5 }),
+      cc: live ? none : ranked(cur.rows('d.cc'), { top: 5 }),
+      reach: live ? [] : ZONES.map((z) => ({ z, r: rate(cur.n('z', z), pv) ?? 0 })),
+      funnel: live ? [] : funnelOf(curAll, w.prevAll),
+      d8, live,
       allDevices: ['funnel', 'kpi.sends', 'd8.brand'],
     };
   },

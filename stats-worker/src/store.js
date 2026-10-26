@@ -1,10 +1,11 @@
 // The one Durable Object (SQLite) that holds everything (SPEC 2). Raw page views and event batches for 30 days, daily
 // aggregates for 25 months, a monthly archive without places below the region, the day's salt and the day's set of
-// visitor hashes. The Worker (index.js) has already checked and cleaned every message it passes in.
+// visitor hashes, and the admin answers for whole past days until the next rollup. The Worker (index.js) has already
+// checked and cleaned every message it passes in.
 
 import { DurableObject } from 'cloudflare:workers';
 import { derive, M_KEYS, ARCHIVE_SKIP } from './derive.js';
-import { Acc, plan, build, ranked } from './query.js';
+import { Acc, plan, build } from './query.js';
 import { exportTable } from './csv.js';
 import { scrubText } from './sanitize.js';
 import { SCHEMA_VERSION } from './schema.js';
@@ -38,8 +39,11 @@ const DDL = [
     PRIMARY KEY (m, month, dev, int, k)) WITHOUT ROWID`,
   'CREATE TABLE IF NOT EXISTS sys (day TEXT NOT NULL, k TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (day, k)) WITHOUT ROWID',
   'CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, day TEXT NOT NULL, label TEXT NOT NULL, kind TEXT NOT NULL)',
+  // admin answers for whole past days read from rolled-up days only: they change only at a rollup, a late write or a
+  // note, which all empty this table (a 90-day tab reads 25 000 to 40 000 rows; the free plan reads 5 million a day)
+  'CREATE TABLE IF NOT EXISTS ans (k TEXT PRIMARY KEY, v TEXT NOT NULL) WITHOUT ROWID',
 ];
-const TABLES = ['meta', 'salt', 'seen', 'pv', 'bx', 'agg', 'aggm', 'sys', 'notes'];
+const TABLES = ['meta', 'salt', 'seen', 'pv', 'bx', 'agg', 'aggm', 'sys', 'notes', 'ans'];
 const PV_COLS = ['day', 'id', 'hr', 'path', 'lang', 'bl', 'ref', 'chan', 'land', 'nav', 'cmp', 'vw', 'vh', 'pc', 'dev', 'os', 'br',
   'app', 'cc', 'reg', 'city', 'lat', 'lon', 'int', 'uv1', 'b', 'tv', 'nf', 'lastf', 'fin', 'ne', 'eng', 'scr', 's1', 'ex',
   'sec', 'rz', 'lcp', 'inp', 'cls', 'fcp', 'ttfb', 'lcpT', 'inpT', 'inpK', 'clsT'];
@@ -47,6 +51,9 @@ const PERF = ['lcp', 'inp', 'cls', 'fcp', 'ttfb', 'lcpT', 'inpT', 'inpK', 'clsT'
 const ROLL_KEYS = M_KEYS.filter((m) => m !== 'fbs');          // fbs is written at ingest, never by the rollup
 const NOTE_KINDS = new Set(['post', 'prova', 'imprensa', 'site']);
 const MAX_PV_EVENTS = 250;
+const MAX_FLUSH = 8192;          // characters of events stored from one request
+const ROW_BUDGET = 80000;        // rows written in a UTC day (the free plan stops at 100 000): then no new page views
+const PER_ADDR = 300;            // new page views a day from one address (/24), held in memory only
 const LIVE_MS = 30 * 60e3;
 const enc = new TextEncoder();
 const qs = (n) => Array(n).fill('?').join(', ');
@@ -64,8 +71,10 @@ export class Store extends DurableObject {
   reset() {
     this.salt = null;                      // { day, s } of the current Lisbon day
     this.live = new Map();                 // pv → { t, int } while visible (memory only, D21)
-    this.minutes = [new Map(), new Map()]; // new pvs per minute, int 0 / int 1
     this.cnt = new Map();                  // UTC day → k → n, not yet in `sys`
+    this.sysRows = null;                   // { day, n }: the UTC day's rows written, as already in `sys`
+    this.perAddr = new Map();              // keyed /24 → new page views on this Lisbon day (memory only)
+    this.perAddrDay = null;
     this.lastPersist = Date.now();
     this.cache = new Map();                // admin answers
     this.rawCache = new Map();             // derived raw days
@@ -82,10 +91,10 @@ export class Store extends DurableObject {
     this.flags = new Map(this.sql.exec('SELECT k, v FROM meta').toArray().map((r) => [r.k, r.v]));
   }
 
-  // ---------- small SQL helpers (every write is counted for the quota panel) ----------
-  w(q, ...a) { const c = this.sql.exec(q, ...a); c.toArray(); this.count('rows', c.rowsWritten); return c.rowsWritten; }
-  all(q, ...a) { return this.sql.exec(q, ...a).toArray(); }
-  one(q, ...a) { return this.sql.exec(q, ...a).toArray()[0]; }
+  // ---------- small SQL helpers (every row written and read is counted for the quota panel) ----------
+  w(q, ...a) { const c = this.sql.exec(q, ...a); c.toArray(); this.count('rows', c.rowsWritten); this.count('rr', c.rowsRead); return c.rowsWritten; }
+  all(q, ...a) { const c = this.sql.exec(q, ...a), r = c.toArray(); this.count('rr', c.rowsRead); return r; }
+  one(q, ...a) { return this.all(q, ...a)[0]; }
   setMeta(k, v) { this.w('INSERT INTO meta (k, v) VALUES (?, ?) ON CONFLICT (k) DO UPDATE SET v = excluded.v', k, v); this.flags.set(k, v); }
   delMeta(k) { if (!this.flags.has(k)) return; this.w('DELETE FROM meta WHERE k = ?', k); this.flags.delete(k); }
   isRolled(day) { return this.flags.get(`rolled:${day}`) === '1'; }
@@ -121,11 +130,25 @@ export class Store extends DurableObject {
     // each upsert below writes one row: counted in the same write
     tm.set('rows', (tm.get('rows') || 0) + upserts);
     for (const [day, m] of this.cnt) for (const [k, n] of m) list.push([day, k, n]);
+    for (const [day, k, n] of list) if (k === 'rows' && this.sysRows && this.sysRows.day === day) this.sysRows.n += n;
     this.cnt = new Map();
     this.lastPersist = Date.now();
     this.ctx.storage.transactionSync(() => {
       for (const [day, k, n] of list) this.sql.exec('INSERT INTO sys (day, k, n) VALUES (?, ?, ?) ON CONFLICT (day, k) DO UPDATE SET n = n + excluded.n', day, k, n).toArray();
     });
+  }
+
+  // the two write limits; the simulator and the tests may lower them (DEV_HOOKS only)
+  limit(name, dflt) { const n = Number(this.env.DEV_HOOKS === '1' && this.env[name]); return Number.isInteger(n) && n > 0 ? n : dflt; }
+  // rows written so far on this UTC day (the free quota's day)
+  rowsToday() {
+    const day = utcDay(Date.now());
+    if (!this.sysRows || this.sysRows.day !== day) {
+      const r = this.sql.exec("SELECT n FROM sys WHERE day = ? AND k = 'rows'", day).toArray()[0];
+      this.sysRows = { day, n: r ? r.n : 0 };
+    }
+    const m = this.cnt.get(day);
+    return this.sysRows.n + ((m && m.get('rows')) || 0);
   }
 
   // ---------- the daily salt (2.4) ----------
@@ -148,8 +171,9 @@ export class Store extends DurableObject {
     this.salt = { day: asked, s };
     return s;
   }
+  // the address (IPv6: its /64) and the UA of this request, never stored: only this hash, in `seen`, until the day ends
   async visitorHash(salt, msg) {
-    const parts = [new Uint8Array(salt), enc.encode(String(this.env.SALT_SECRET || '')), enc.encode('gocarmo.com'), enc.encode(msg.ipT),
+    const parts = [new Uint8Array(salt), enc.encode(String(this.env.SALT_SECRET || '')), enc.encode('gocarmo.com'), enc.encode(String(msg.ipH || '')),
       enc.encode('\n'), enc.encode(msg.ua), enc.encode('\n'), enc.encode(msg.day)];
     const all = new Uint8Array(parts.reduce((t, p) => t + p.length, 0));
     let o = 0;
@@ -159,36 +183,50 @@ export class Store extends DurableObject {
   }
 
   // ---------- ingest (2.5) ----------
+  // → { full } when the day's write budget is spent (the Worker then stops calling for the rest of the UTC day)
   async ingest(msg) {
     this.enter(msg.rej);
-    if (!msg.pv) { this.persist(false); await this.armAlarm(); return false; }       // a counts-only call
+    if (!msg.pv) { this.persist(false); await this.armAlarm(); return {}; }       // a counts-only call
     const h = await this.visitorHash(this.daySalt(msg.day), msg);
-    let isNew = false;
-    this.ctx.storage.transactionSync(() => { isNew = this.ingestTx(msg, h); });
-    this.touch(msg.day); this.touch(msg.yday);
-    // in memory only: who is on the page now, new page views per minute
-    const now = msg.now;
+    let r = {};
+    this.ctx.storage.transactionSync(() => { r = this.ingestTx(msg, h); });
+    if (r.day) { this.touch(r.day); this.touch(msg.day); this.touch(msg.yday); }
+    // in memory only: who is on the page now
     this.live.delete(msg.pv);
-    if (msg.vis) this.live.set(msg.pv, { t: now, int: msg.meta.int });
+    if (msg.vis && r.day) this.live.set(msg.pv, { t: msg.now, int: msg.meta.int });
     while (this.live.size > 5000) this.live.delete(this.live.keys().next().value);
-    if (isNew) {
-      const ring = this.minutes[msg.meta.int ? 1 : 0], m = Math.floor(now / 60e3);
-      ring.set(m, (ring.get(m) || 0) + 1);
-      for (const k of ring.keys()) if (k < m - 30) ring.delete(k);
-    }
     this.persist(false);
     await this.armAlarm();
-    return true;
+    return { full: !!r.full };
   }
 
   ingestTx(msg, h) {
     const { day, yday, pv: id, snap } = msg;
-    const row = this.one('SELECT day, nf, lastf, fin, ne, eng, scr, s1, ex, sec, rz FROM pv WHERE day IN (?, ?) AND id = ?', day, yday, id);
+    const COLS = 'day, nf, lastf, fin, ne, eng, scr, s1, ex, sec, rz';
+    let row = this.one(`SELECT ${COLS} FROM pv WHERE day IN (?, ?) AND id = ?`, day, yday, id);
+    // a tab looked at again days later sends the same page view: find it further back rather than count it twice
+    if (!row && msg.f > 1) {
+      const back = Array.from({ length: RAW_DAYS - 1 }, (_, i) => addDays(day, -2 - i));
+      row = this.one(`SELECT ${COLS} FROM pv WHERE day IN (${qs(back.length)}) AND id = ?`, ...back, id);
+    }
+    if (!row) {
+      // a new page view: within the day's write budget, and at most PER_ADDR a day from one address
+      if (this.rowsToday() >= this.limit('DAY_ROWS', ROW_BUDGET)) return { full: true };
+      if (this.perAddrDay !== day) { this.perAddr.clear(); this.perAddrDay = day; }
+      if (msg.ak) {
+        const n = this.perAddr.get(msg.ak) || 0;
+        if (n >= this.limit('ADDR_PVS', PER_ADDR)) return { capped: true };
+        this.perAddr.delete(msg.ak);
+        this.perAddr.set(msg.ak, n + 1);
+        while (this.perAddr.size > 20000) this.perAddr.delete(this.perAddr.keys().next().value);
+      }
+    }
     const rowDay = row ? row.day : day;
     let added = 0;
     if (msg.events.length && (!row || row.ne < MAX_PV_EVENTS)) {
-      const list = msg.events.slice(0, MAX_PV_EVENTS - (row ? row.ne : 0));
-      if (this.w('INSERT OR IGNORE INTO bx (day, id, f, e) VALUES (?, ?, ?, ?)', rowDay, id, msg.f, JSON.stringify(list))) added = list.length;
+      let list = msg.events.slice(0, MAX_PV_EVENTS - (row ? row.ne : 0)), json = JSON.stringify(list);
+      while (list.length && json.length > MAX_FLUSH) { list = list.slice(0, -1); json = JSON.stringify(list); }
+      if (list.length && this.w('INSERT OR IGNORE INTO bx (day, id, f, e) VALUES (?, ?, ?, ?)', rowDay, id, msg.f, json)) added = list.length;
     }
     const perf = snap.perf || {};
     const fin = msg.t === 'h' ? 1 : 0;
@@ -215,9 +253,15 @@ export class Store extends DurableObject {
     }
     // a day already rolled up (or being rolled up) got new data: roll it again tonight
     const cur = this.cursor();
-    if (this.isRolled(rowDay) || (cur && cur.day === rowDay)) this.setMeta(`late:${rowDay}`, String(Date.now()));
-    return !row;
+    if (this.isRolled(rowDay) || (cur && cur.day === rowDay)) this.markLate(rowDay);
+    return { isNew: !row, day: rowDay };
   }
+  markLate(day) {
+    const fresh = !this.flags.has(`late:${day}`);
+    this.setMeta(`late:${day}`, String(Date.now()));
+    if (fresh) this.dropAnswers();
+  }
+  dropAnswers() { this.w('DELETE FROM ans'); this.cache.clear(); }
 
   // ---------- feedback (3.4) ----------
   async feedback(msg) {
@@ -228,7 +272,7 @@ export class Store extends DurableObject {
         const e = [{ i: 0, k: 'fb', q: msg.q, a: msg.a, ...(msg.ex ? { ex: msg.ex } : {}) }];
         this.w('INSERT OR IGNORE INTO bx (day, id, f, e) VALUES (?, ?, ?, ?)', row.day, msg.pv, msg.q === 'patrocinio' ? 100 : 101, JSON.stringify(e));
         const cur = this.cursor();
-        if (this.isRolled(row.day) || (cur && cur.day === row.day)) this.setMeta(`late:${row.day}`, String(Date.now()));
+        if (this.isRolled(row.day) || (cur && cur.day === row.day)) this.markLate(row.day);
       } else {
         this.w(`INSERT INTO agg (m, day, dev, int, k, n, u, s) VALUES ('fbs', ?, ?, ?, ?, 1, 0, 0)
           ON CONFLICT (m, day, dev, int, k) DO UPDATE SET n = n + 1`, msg.day, msg.dev, msg.int, `${msg.q}\t${msg.a}\t${msg.lang}`);
@@ -350,6 +394,7 @@ export class Store extends DurableObject {
         if (keepCursor) this.delMeta('cursor');
         this.delMeta(`archived:${day.slice(0, 7)}`);
         this.setMeta('lastroll', day);
+        this.w('DELETE FROM ans');
       } else if (keepCursor) {
         this.setMeta('cursor', JSON.stringify({ day, after: pvs[pvs.length - 1].id, chunk: cur.chunk + 1, t0: cur.t0 }));
       }
@@ -384,6 +429,7 @@ export class Store extends DurableObject {
       this.w('DELETE FROM bx WHERE day < ?', rawCut);
       this.w(`DELETE FROM agg WHERE m IN (${qs(M_KEYS.length)}) AND day < ?`, ...M_KEYS, aggCut);
       this.w('DELETE FROM sys WHERE day < ?', sysCut);
+      this.w('DELETE FROM ans');
       for (const p of ['rolled:', 'late:']) {
         for (const r of this.all('SELECT k FROM meta WHERE k >= ? AND k < ?', p, `${p}${rawCut}`)) this.delMeta(r.k);
       }
@@ -395,17 +441,23 @@ export class Store extends DurableObject {
   // ---------- admin reads (2.8) ----------
   async ping() { this.enter(); await this.armAlarm(); return { ok: true, schema: SCHEMA_VERSION }; }
 
+  // the first day with data, raw or rolled up (both are key prefixes: two index reads)
+  firstDay() {
+    const a = this.one('SELECT min(day) AS d FROM pv');
+    const b = this.one("SELECT min(day) AS d FROM agg WHERE m = 'c'");
+    return [a && a.d, b && b.d].filter(Boolean).sort()[0] || null;
+  }
+
   async adminPing(P) {
     this.enter(P.rej);
     await this.armAlarm();
     const today = P.clock.day;
-    const a = this.one('SELECT min(day) AS d FROM pv');
-    const b = this.one("SELECT min(day) AS d FROM agg WHERE m = 'c'");
-    const ds = [a && a.d, b && b.d].filter(Boolean).sort();
-    const oldest = ds[0] || null;
+    const oldest = this.firstDay();
     return { ok: true, v: 1, today, oldest, complete: oldest && oldest < today ? dayDiff(oldest, today) : 0, retention: { raw: RAW_DAYS, daily: DAILY_DAYS } };
   }
 
+  // «Agora no site» (D21): who has the page open, and today's totals. Nothing by minute, place or source: polled every
+  // 30 s, any of those would tie one arrival to where it came from (privacy 2.7)
   async now(P) {
     this.enter(P.rej);
     await this.armAlarm();
@@ -416,19 +468,11 @@ export class Store extends DurableObject {
       if (!P.int && v.int) continue;
       n++;
     }
-    const m0 = Math.floor(t / 60e3), spark = [];
-    for (let m = m0 - 29; m <= m0; m++) spark.push((this.minutes[0].get(m) || 0) + (P.int ? this.minutes[1].get(m) || 0 : 0));
-    const rows = this.all(`SELECT chan, cc, count(*) AS n, sum(uv1) AS u,
+    const r = this.one(`SELECT count(*) AS n, sum(uv1) AS u,
       sum(CASE WHEN nav IN ('navigate', 'prerender') AND ref <> 'interno' THEN 1 ELSE 0 END) AS x
-      FROM pv WHERE day = ? AND int <= ? GROUP BY chan, cc`, P.clock.day, P.int ? 1 : 0);
-    const chan = new Map(), cc = new Map();
-    const today = { pv: 0, uv: 0, visits: 0 };
-    for (const r of rows) {
-      today.pv += r.n; today.uv += r.u; today.visits += r.x;
-      for (const [map, k] of [[chan, r.chan], [cc, r.cc || 'XX']]) { const a = map.get(k) || [0, 0, 0]; a[0] += r.n; a[1] += r.u; a[2] += r.x; map.set(k, a); }
-    }
+      FROM pv WHERE day = ? AND int <= ?`, P.clock.day, P.int ? 1 : 0) || {};
     const hh = String(P.clock.hr).padStart(2, '0'), mm = String(P.clock.min).padStart(2, '0');
-    return { ok: true, v: 1, at: `${hh}:${mm}`, now: n, spark, today, top: { chan: ranked(chan, { top: 5 }), cc: ranked(cc, { top: 5 }) } };
+    return { ok: true, v: 1, at: `${hh}:${mm}`, now: n, today: { pv: r.n || 0, uv: r.u || 0, visits: r.x || 0 } };
   }
 
   async query(endpoint, P) {
@@ -438,7 +482,17 @@ export class Store extends DurableObject {
     const hit = this.cache.get(key);
     if (hit && hit.exp > Date.now() && this.fresh(hit.gen, hit.lo, hit.hi)) return hit.v;
     const gen = this.gen;
-    const v = this.compute(endpoint, P);
+    // whole past days, all rolled up: the answer kept in `ans` (one row read) until the next rollup, late write or note
+    const akey = endpoint !== 'export' && endpoint !== 'system' ? `${endpoint}|${JSON.stringify({ ...P, rej: undefined, clock: { day: P.clock.day } })}` : null;
+    let v = null;
+    if (akey) {
+      const r = this.one('SELECT v FROM ans WHERE k = ?', akey);
+      if (r) { try { v = JSON.parse(r.v); } catch (_) { v = null; } }
+    }
+    if (!v) {
+      v = this.compute(endpoint, P);
+      if (akey && v && !v.error && this.settled(v, P)) this.w('INSERT OR REPLACE INTO ans (k, v) VALUES (?, ?)', akey, JSON.stringify(v));
+    }
     // the quota panel is always current (3.1), an export always fresh
     if (v && !v.error && endpoint !== 'export' && endpoint !== 'system') {
       const ttl = v.range && v.range.to >= P.clock.day ? 60e3 : 300e3;
@@ -450,10 +504,27 @@ export class Store extends DurableObject {
     return v;
   }
 
+  // an answer that holds until the next rollup: whole past days, each one either rolled up (and not late) or older
+  // than the raw window
+  settled(v, P) {
+    const r = v.range;
+    if (!r || r.unit !== 'day' || r.to >= P.clock.day || P.src === 'raw') return false;
+    const rawFrom = addDays(P.clock.day, -RAW_DAYS);
+    const lo = [r.from, v.prev && v.prev.from, addDays(r.to, -29)].filter(Boolean).sort()[0];
+    for (const d of daysBetween(lo > rawFrom ? lo : rawFrom, r.to)) if (!this.aggValid(d)) return false;
+    return true;
+  }
+
   compute(endpoint, P) {
     if (endpoint === 'export') return this.exportCsv(P);
     const per = period(P, P.clock);
     if (per.error) return { error: 'periodo' };
+    // no comparison with a period the counter was not running for (its first days would read as growth)
+    let prevCut = false;
+    if (per.prev) {
+      const first = this.firstDay();
+      if (!first || per.prev.from < first) { per.prev = null; per.pwin = null; prevCut = true; }
+    }
     const windows = plan(endpoint, { period: per, dev: P.dev, int: P.int, vw: P.vw });
     if (!windows) return { error: 'nada' };
     const accs = this.collect(windows, P);
@@ -463,7 +534,7 @@ export class Store extends DurableObject {
     const body = build(endpoint, { ...accs, ctx });
     const base = accs.cur || accs.curAll;
     return {
-      ok: true, v: 1, range: per.range, prev: per.prev, filters: ctx.filters, ignored: endpoint === 'booking' ? ['dev'] : [],
+      ok: true, v: 1, range: per.range, prev: per.prev, prevCut, filters: ctx.filters, ignored: endpoint === 'booking' ? ['dev'] : [],
       pv: Math.round(base ? base.c('pv') : 0), generated: new Date(P.clock.now).toISOString(), ...body,
     };
   }
@@ -564,7 +635,7 @@ export class Store extends DurableObject {
     const val = new Map(rows.map((r) => [`${r.day}|${r.k}`, r.n]));
     for (const [day, m] of this.cnt) for (const [k, n] of m) val.set(`${day}|${k}`, (val.get(`${day}|${k}`) || 0) + n);
     const s = (k) => x.map((d) => val.get(`${d}|${k}`) || 0);
-    const codes = ['origem', 'tamanho', 'json', 'versao', 'esquema', 'limite', 'robo'];
+    const codes = ['origem', 'tamanho', 'json', 'versao', 'esquema', 'limite', 'robo', 'cheio'];
     const c = clock(P.clock.now);
     // days still to roll up: marked late, or not rolled since the first raw page view
     const first = (this.one('SELECT min(day) AS d FROM pv') || {}).d;
@@ -573,8 +644,8 @@ export class Store extends DurableObject {
       if (this.flags.has(`late:${d}`) || (first && d >= first && !this.isRolled(d))) pending.push(d);
     }
     return {
-      quota: { x, req: s('req'), dor: s('dor'), rows: s('rows'), dbBytes: this.sql.databaseSize,
-        limits: { req: 100000, dor: 100000, rows: 100000, db: 1000000000 } },
+      quota: { x, req: s('req'), dor: s('dor'), rows: s('rows'), rr: s('rr'), dbBytes: this.sql.databaseSize,
+        limits: { req: 100000, dor: 100000, rows: 100000, rr: 5000000, db: 1000000000 } },
       rejected: { x, unit: 'day', s: Object.fromEntries(codes.map((k) => [k, s(`rej.${k}`)])) },
       rollup: { last: this.flags.get('lastroll') || null, pending },
     };
@@ -593,12 +664,12 @@ export class Store extends DurableObject {
       if (this.one('SELECT count(*) AS n FROM notes').n >= 500) return { error: 'limite' };
       this.w('INSERT INTO notes (day, label, kind) VALUES (?, ?, ?)', args.day, label, args.kind);
       const note = this.one('SELECT id, day, label, kind FROM notes WHERE id = last_insert_rowid()');
-      this.cache.clear();
+      this.dropAnswers();
       return { ok: true, note };
     }
     if (op === 'del') {
       const n = this.w('DELETE FROM notes WHERE id = ?', args.id);
-      this.cache.clear();
+      this.dropAnswers();
       return n ? { ok: true } : { error: 'nada' };
     }
     return { error: 'nada' };

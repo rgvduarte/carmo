@@ -16,17 +16,17 @@
 { "imports": {
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
   "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=35971a4d",
-  "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=6e7f48dd",
-  "../assets/js/admin-analytics-heat.js": "../assets/js/admin-analytics-heat.js?v=10b6ca30",
-  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=c4788c8b",
-  "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=f57a7277",
-  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=6b4c1a21",
-  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=ac3d2bb4",
+  "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=3b35f743",
+  "../assets/js/admin-analytics-heat.js": "../assets/js/admin-analytics-heat.js?v=7321de53",
+  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=40073038",
+  "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=a6e8f1b4",
+  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=d192f4a9",
+  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=1eb36543",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=1a6b1eda",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
   "../assets/js/admin.js": "../assets/js/admin.js?v=629edca2",
   "../assets/js/adspace.js": "../assets/js/adspace.js?v=522273a2",
-  "../assets/js/analytics.js": "../assets/js/analytics.js?v=c81f958e",
+  "../assets/js/analytics.js": "../assets/js/analytics.js?v=33844efa",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
   "../assets/js/data.js": "../assets/js/data.js?v=b91ff7a1",
   "../assets/js/flow.js": "../assets/js/flow.js?v=c994a0dc",
@@ -40,10 +40,10 @@
   "../assets/js/privacy.js": "../assets/js/privacy.js?v=75ca785d",
   "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
   "../assets/js/room.js": "../assets/js/room.js?v=b0ef85a2",
-  "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=13c2780d",
-  "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=9a0f8e79",
+  "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=87cd2e59",
+  "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=0a0435b0",
   "../assets/js/stats-zones.js": "../assets/js/stats-zones.js?v=66b2b133",
-  "../assets/js/stats.js": "../assets/js/stats.js?v=fe0baf86",
+  "../assets/js/stats.js": "../assets/js/stats.js?v=9d4500c4",
   "../assets/js/suit-body.js": "../assets/js/suit-body.js?v=e86b9edf",
   "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=b3644acd",
   "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=41a4b375",
@@ -111,13 +111,13 @@
     <li>onde tocas ou clicas (botões, ligações, espaços do fato e do capacete, a vista 3D), pelo elemento e pelo seu nome curto, para eu ver o que se percebe e o que confunde, incluindo os toques que não dão em nada ou que se repetem;</li>
     <li>de onde vens, só o nome do site ou da app (por exemplo, instagram.com), nunca o endereço completo;</li>
     <li>o país, a região e a cidade aproximados, calculados a partir do IP, que não fica guardado;</li>
-    <li>o tipo de aparelho, a largura do ecrã por escalões, o sistema, o browser e a língua;</li>
+    <li>o tipo de aparelho, a largura do ecrã por escalões, a altura da janela (arredondada) e se usas toque ou rato, o sistema, o browser e a língua;</li>
     <li>quanto tempo a página demora a abrir, se a vista 3D carregou e os erros da página;</li>
     <li>os espaços que abres ou juntas ao pacote e os passos de um pedido de patrocínio (abrir, enviar, escolher como pagar), sem a marca, o nome, o NIF, a mensagem, o logótipo ou o valor;</li>
     <li>o dia e a hora da visita, nunca os minutos.</li>
   </ul>
-  <p>Nunca lê o que escreves nos campos nem o logótipo que escolhes. De uma ligação que abres guarda só o tipo (WhatsApp, email, Instagram…), nunca o endereço, porque é aí que vai a mensagem do pedido.</p>
-  <p>Para não contar a mesma pessoa duas vezes no mesmo dia, o serviço junta o IP encurtado, o browser e uma chave que muda todos os dias, e fica só com um código. No fim do dia (hora de Lisboa), o código e a chave são apagados. Não te segue de um dia para o outro nem noutros sites, e não guarda nada no teu browser para isso.</p>
+  <p>Nunca lê o que escreves nos campos nem o logótipo que escolhes. De uma ligação que abres guarda só o tipo ou o nome do site (por exemplo WhatsApp, email ou instagram.com), nunca o endereço completo, porque é aí que vai a mensagem do pedido.</p>
+  <p>Para não contar a mesma pessoa duas vezes no mesmo dia, o serviço junta o IP (num IPv6, só a primeira metade), o browser e uma chave que muda todos os dias, e fica só com um código. No fim do dia (hora de Lisboa), o código e a chave são apagados. Não te segue de um dia para o outro nem noutros sites, e não guarda nada no teu browser para isso.</p>
   <p>Os registos de cada visita são apagados ao fim de 30 dias. Ficam os totais de cada dia durante 25 meses (por exemplo, «40 visitas de Braga a 3 de março») e, depois disso, só totais por mês, sem cidades, que não identificam ninguém. Eu vejo apenas esses totais, nunca uma visita sozinha, e não os junto aos pedidos de patrocínio nem às mensagens que recebo.</p>
   <p>O serviço corre no Cloudflare, e os dados ficam em servidores na União Europeia. A Cloudflare, Inc. trata-os por minha conta, como subcontratante; fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework. Os registos de pedidos do próprio Cloudflare estão desligados neste serviço. Não vendo nem partilho estes dados.</p>
   <p>Porque não te peço autorização: a lei dispensa-a quando o acesso ao teu browser é estritamente necessário para o serviço que pedes (artigo 5.º, n.º 2, alínea b), da Lei n.º 41/2004). Sigo a leitura das autoridades de proteção de dados de França (CNIL), Espanha e Itália: uma medição feita só por mim, só para este site, que dá apenas números de conjunto, não cruza dados, não te segue e se pode desligar, serve para saber se o site funciona e se se percebe. A base legal no RGPD é o meu interesse legítimo nisso mesmo (artigo 6.º, n.º 1, alínea f)).</p>
@@ -200,13 +200,13 @@
     <li>where you tap or click (buttons, links, suit and helmet spots, the 3D view), by the element and its short name, so I can see what is clear and what confuses, including taps that do nothing or are repeated;</li>
     <li>where you came from, only the name of the site or app (instagram.com, for example), never the full address;</li>
     <li>your approximate country, region and city, worked out from your IP address, which is not stored;</li>
-    <li>your type of device, your screen width in broad steps, your system, browser and language;</li>
+    <li>your type of device, your screen width in broad steps, the window height (rounded) and whether you use touch or a mouse, your system, browser and language;</li>
     <li>how long the page takes to open, whether the 3D view loaded, and page errors;</li>
     <li>the spots you open or add to your package and the steps of a sponsorship request (opening it, sending it, choosing how to pay), without the brand, name, tax number, message, logo or amount;</li>
     <li>the day and hour of the visit, never the minutes.</li>
   </ul>
-  <p>It never reads what you type in the fields or the logo you pick. Of a link you open it keeps only the kind (WhatsApp, email, Instagram…), never the address, because that is where the request's message goes.</p>
-  <p>So as not to count the same person twice in one day, the service combines a shortened IP address, the browser and a key that changes every day, and keeps only a code. At the end of the day (Lisbon time), the code and the key are deleted. It does not follow you from one day to the next or on other sites, and stores nothing in your browser for this.</p>
+  <p>It never reads what you type in the fields or the logo you pick. Of a link you open it keeps only the kind or the site's name (WhatsApp, email or instagram.com, for example), never the full address, because that is where the request's message goes.</p>
+  <p>So as not to count the same person twice in one day, the service combines your IP address (for IPv6, only its first half), the browser and a key that changes every day, and keeps only a code. At the end of the day (Lisbon time), the code and the key are deleted. It does not follow you from one day to the next or on other sites, and stores nothing in your browser for this.</p>
   <p>The records of each visit are deleted after 30 days. Daily totals stay for 25 months (for example, “40 visits from Braga on 3 March”) and, after that, only monthly totals without cities, which identify no one. I only ever see those totals, never a single visit, and I never match them with sponsorship requests or the messages I receive.</p>
   <p>The service runs on Cloudflare, and the data stays on servers in the European Union. Cloudflare, Inc. processes it on my behalf, as a processor; it is based in the United States and certified under the EU-US Data Privacy Framework. Cloudflare's own request logs are switched off for this service. I do not sell or share this data.</p>
   <p>Why I do not ask for permission: the law does not require it when access to your browser is strictly necessary for the service you asked for (Article 5(2)(b) of Portuguese Law 41/2004). I follow the reading of the data protection authorities of France (CNIL), Spain and Italy: measurement done by me alone, for this site alone, that gives only overall numbers, matches no data, does not follow you and can be switched off, is there to find out whether the site works and is understood. The legal basis under the GDPR is my legitimate interest in exactly that (Article 6(1)(f)).</p>
