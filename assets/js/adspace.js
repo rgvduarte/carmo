@@ -5,7 +5,7 @@
 import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
-import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE } from './gl3d.js';
+import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, fixable, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE, isIOS, inApp, appName } from './gl3d.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -87,7 +87,6 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     for (const m of models()) { m.labels = kitLabels(); m.money = money; m.drawOverlay(); m.kick(); }
     const ld = $('#item-loading span'); if (ld) ld.textContent = t('helmet.loading');
     const gl = $('#gl-lost span'); if (gl) gl.textContent = t('stage.lost');
-    for (const el of $$('.stage-fallback [data-i18n], #stage-loading [data-i18n]')) el.textContent = t(el.dataset.i18n);
   });
   // the 3D view loads when the entry cards or either stage approach the viewport (so it is ready by the time the suit
   // part is reached, and a helmet deep link, which lands far below the suit, still gets it)
@@ -121,7 +120,9 @@ function wire3d() {
     st.addEventListener('suit:frame', () => { frameErrs = 0; if (kit) { kit._drawn = true; mark(st.dataset.item === 'helmet' ? 'helmet-first-frame' : 'first-frame'); } placeCallout(); });
     st.addEventListener('suit:error', (e) => onFrameError(e.detail));
   }
-  document.addEventListener('click', (e) => { if (e.target.closest('[data-act="retry3d"]')) retry3d(); });
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-act="retry3d"]')) retry3d(); else { const a = e.target.closest('[data-act="open-safari"]'); if (a) openSafari(a); } });
+  // the still's line and buttons, also when the page stopped before the rate card (spots.json did not load)
+  onLang(() => { for (const el of $$('.stage-fallback [data-i18n], #stage-loading [data-i18n]')) el.textContent = t(el.dataset.i18n, ...(el.dataset.i18nArgs ? JSON.parse(el.dataset.i18nArgs) : [])); });
   D.state = () => ({
     item, want, profile: profile && profile.name, rebuilds, ctx: current ? (isLost(current) ? 'LOST' : 'ok') : 'none',
     lostMs: glBack ? Math.round(performance.now() - lostAt) : 0, pr: current ? current.getPixelRatio() : null,
@@ -152,9 +153,11 @@ async function fetchRetry(url, tries = 3) {
     try { const r = await fetch(url); if (!r.ok) throw new Error(`${r.status} ${url}`); await r.arrayBuffer(); return; } catch (e) { if (i >= tries) throw e; await sleep(700 * i); }
   }
 }
+// An import that fails although every file came in is a module that does not parse or run here ('module'), not the network.
 async function importStudio(path, deps = []) {
-  try { await Promise.all([path, ...deps].map((p) => fetchRetry(own(p)))); } catch (e) { note('prefetch-failed', { msg: String(e.message || e).slice(0, 120) }); }
-  try { return await import(path); } catch (e) { throw new GLFail('import', path, e); }
+  let fetched = true;
+  try { await Promise.all([path, ...deps].map((p) => fetchRetry(own(p)))); } catch (e) { fetched = false; note('prefetch-failed', { msg: String(e.message || e).slice(0, 120) }); }
+  try { return await import(path); } catch (e) { throw new GLFail(fetched ? 'module' : 'import', path, e); }
 }
 
 // Build the suit with profile p (gl3d.js). If that throws, once more in lite, then the still picture with the reason.
@@ -206,15 +209,18 @@ async function mountSuit(p = startProfile(), again = false) {
     if (pending === s) pending = null;
     if (s && suit === s) suit = kit = null;
     if (s) { try { s.setActive(false); s.destroy(); } catch (_) {} }
-    if (r0) { if (r0 === current) current = null; release(r0); }
+    if (r0) { if (r0 === current) current = null; if (lost) comeBack(r0); release(r0); }
     if (!glModels().length) { settle(); setUp(false); }
-    const retryable = !['nowebgl', 'nowebgl2', 'import'].includes(code);
+    const retryable = !['nowebgl', 'nowebgl2', 'import', 'module'].includes(code);
     // it failed while the page was in the background: the same again once it is back in view
     if (retryable && !again && (document.hidden || hiddenAt > t0)) {
       note('retry-visible', { after: code });
       await untilVisible(); await sleep(500);
       return mountSuit(p, true);
     }
+    // a GPU process that hangs on context creation (WebKit bug 303827, ~15 s on iOS 26.1): one stall is enough, not three
+    const lastCtx = D.ctx[D.ctx.length - 1];
+    if ((code === 'ctx-dead' || code === 'ctx-create') && lastCtx && lastCtx.ms > 3000) { note('ctx-slow', { ms: lastCtx.ms }); $('#stage-loading')?.remove(); no3d(rec); return; }
     // no context, or one born lost: the same look on the other GPU display first
     if ((code === 'ctx-dead' || code === 'ctx-create') && p !== LITE && p.power !== 'high-performance') {
       note('retry-hp', { after: code });
@@ -275,7 +281,7 @@ function onLost(how) {
   lostAt = performance.now(); note('lost', { how, rebuilds });
   let done = null;
   glBack = new Promise((res) => { done = res; }); glBack.done = done;   // ensureHelmet waits on it
-  showLost();
+  glBack.label = setTimeout(showLost, 400);   // a loss given back at once stays invisible
   arm();
 }
 // the label sits in the stage on screen, and moves with the canvas
@@ -326,7 +332,9 @@ function rebuild(why) {
   let r;
   try { r = SuitClass.makeRenderer(p); } catch (e) { fail(e.code || 'ctx-create', 'rebuild', e.cause || e); arm(); return; }
   const old = current;
-  for (const m of ms) m.rebind(r);
+  // whatever a model throws here (the new context lost while the room renders), the old context is released and the
+  // new one watched: guard() sees it lost and arms the next rebuild, or its restore brings it back
+  for (const m of ms) { try { m.rebind(r); } catch (e) { fail('build', 'rebind', e); } }
   if (old) release(old);
   note('rebuilt', { n: rebuilds, pr: p.pr, aa: p.antialias, power: p.power });
   settle();
@@ -334,7 +342,7 @@ function rebuild(why) {
   if (kit) { liveIn(item); kit.kick(); }
   readyAgain();
 }
-function settle() { $('#gl-lost')?.remove(); clearTimeout(rebuildTimer); const g = glBack; glBack = null; if (g) g.done(); }
+function settle() { $('#gl-lost')?.remove(); clearTimeout(rebuildTimer); const g = glBack; glBack = null; if (g) { clearTimeout(g.label); g.done(); } }
 // the helmet's programs on the context that is back (or new), before it next takes the stage
 function readyAgain() {
   const h = helmet;
@@ -356,11 +364,26 @@ function onFrameError(e) {
 function no3d(r) {
   lastFail = r || { code: 'build', where: 'unknown', msg: '' };
   setNo3d(lastFail); note('no3d', { code: lastFail.code });
+  if (current && isLost(current)) comeBack(current);
   teardown();
   stopTour();
   $('#callout').classList.remove('on');
-  for (const it of ITEMS) stageStill(it, msgKey(lastFail), lastFail.code);
+  // the same reason a second time after «Tentar outra vez»: the line says what to do, a button that cannot help goes
+  const key = msgKey(lastFail), again = retrying && retryCode === lastFail.code && key !== 'suit.no3dErr';
+  for (const it of ITEMS) stageStill(it, key, lastFail.code, fixable(lastFail) && !again);
   ['#sd-try', '#tryon'].forEach((q) => { const n = $(q); if (n && !n.hidden) { n.hidden = true; n.dataset.no3d = '1'; } });
+  // after a tap, the focus goes back to the still that answered it (the button it was on is gone)
+  if (retrying && !retryAuto) { const fb = $('.stage-fallback', stageOf(retryIn)); if (fb) { fb.tabIndex = -1; ($('[data-act="retry3d"]', fb) || fb).focus({ preventScroll: true }); } }
+}
+// A context given up on that the browser gives back later: its GPU works again, so the 3D comes back by itself
+// (once per page view, so a GPU that keeps dropping contexts does not loop)
+let cameBack = 0;
+function comeBack(r) {
+  r.domElement.addEventListener('webglcontextrestored', () => {
+    if (cameBack || suit || pending || retrying || !lastFail || document.hidden) return;
+    cameBack++; note('restored-after-still', { code: lastFail.code });
+    retry3d({ auto: true });
+  }, { once: true });
 }
 // every model and the context go, their memory with them
 function teardown() {
@@ -370,18 +393,28 @@ function teardown() {
   settle();
 }
 // a stage without 3D: the picture of its model stays, with a line that says why, «Tentar outra vez» and the reason
-// code (small, for a screenshot); its 3D controls are hidden until the 3D comes back
-function stageStill(it, key, code = '') {
+// code (small, for a screenshot); its 3D controls are hidden until the 3D comes back. In an in-app browser on an iPhone
+// the line names the app and a second button opens the page in Safari.
+function stageStill(it, key, code = '', retry = true) {
   const stage = stageOf(it);
   $$(':scope > canvas, .loading', stage).forEach((n) => { if (n.classList.contains('stage-freeze')) n.width = n.height = 0; n.remove(); });
   stage.classList.remove('live', 'frozen');
   if (!$('.stage-fallback', stage)) {
     const fb = document.createElement('div');
-    fb.className = 'stage-fallback';
-    const sp = document.createElement('span'); sp.dataset.i18n = key; sp.textContent = t(key); fb.appendChild(sp);
-    const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.act = 'retry3d'; b.dataset.i18n = 'suit.retry'; b.textContent = t('suit.retry'); fb.appendChild(b);
+    fb.className = 'stage-fallback'; fb.setAttribute('role', 'status');
+    const args = key === 'suit.no3dApp' ? [appName(), isIOS() ? 'Safari' : 'Chrome'] : [];
+    const sp = document.createElement('span'); sp.dataset.i18n = key; if (args.length) sp.dataset.i18nArgs = JSON.stringify(args); fb.appendChild(sp);
+    const acts = document.createElement('div'); acts.className = 'acts';
+    if (retry) { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.act = 'retry3d'; b.dataset.i18n = 'suit.retry'; b.textContent = t('suit.retry'); acts.appendChild(b); }
+    if (inApp() && isIOS()) {
+      // iOS 17 and later open an x-safari-https:// link in Safari; openSafari() also copies the address, in case not
+      const a = document.createElement('a'); a.className = 'chip'; a.dataset.act = 'open-safari'; a.dataset.i18n = 'suit.openSafari'; a.textContent = t('suit.openSafari');
+      a.href = `x-safari-${pageUrl(it)}`; acts.appendChild(a);
+    }
+    if (acts.childElementCount) fb.appendChild(acts);
     if (code) { const c = document.createElement('small'); c.className = 'code'; c.textContent = code; fb.appendChild(c); }
     stage.appendChild(fb);
+    sp.textContent = t(key, ...args);   // set once the live region is in the page, so it is read out
   }
   stage.classList.add('no3d');
   // a still picture does not need to stay on screen while the rate card scrolls
@@ -404,13 +437,19 @@ function loadingIn(it, id, key) {
 }
 // «Tentar outra vez»: the whole studio again (rebuild counters reset), or only the helmet if the suit is up. A module
 // that did not load stays failed in this page, so that case reloads it (main.js drops the ?fresh= again).
-let retrying = false;
-async function retry3d() {
+// After a dead GPU display it starts on the other one (high-performance) first.
+let retrying = false, retryAuto = false, retryCode = null, retryIn = 'suit';
+// this page, without the cache-buster, landing on the part `it` (both are deep links: hashLand)
+function pageUrl(it) { const u = new URL(location.href); u.searchParams.delete('fresh'); u.hash = it === 'helmet' ? 'o-capacete' : 'o-fato'; return u.href; }
+async function retry3d({ auto = false } = {}) {
   if (retrying) return;
   const f = suit ? helmetFail : lastFail;
-  if (f && (f.code === 'import' || f.code === 'data')) { const u = new URL(location.href); u.searchParams.set('fresh', Date.now()); location.replace(u.href); return; }
-  retrying = true;
-  note('retry', { code: f && f.code });
+  retryIn = midPart() || item;
+  if (f && (f.code === 'import' || f.code === 'module' || f.code === 'data')) { const u = new URL(pageUrl(retryIn)); u.searchParams.set('fresh', Date.now()); location.replace(u.href); return; }
+  retrying = true; retryAuto = auto; retryCode = f && f.code;
+  note('retry', { code: f && f.code, auto });
+  // the button about to go had the focus: the stage keeps it, so it does not fall back to the top of the page
+  if (!auto) { const st = stageOf(retryIn); st.tabIndex = -1; st.focus({ preventScroll: true }); }
   try {
     if (suit) {
       unStill('helmet'); loadingIn('helmet', 'item-loading', 'helmet.loading');
@@ -424,8 +463,17 @@ async function retry3d() {
     lastFail = null; helmetFail = null; setNo3d(null); rebuilds = 0; frameErrs = 0;
     $$('#sd-try, #tryon').forEach((n) => { if (n.dataset.no3d) { n.hidden = false; delete n.dataset.no3d; } });
     want = midPart() || want;
-    await mountSuit();
-  } finally { retrying = false; }
+    const p = startProfile();
+    await mountSuit(f && (f.code === 'ctx-dead' || f.code === 'ctx-create') ? hp(p) : p);
+  } finally { retrying = false; retryAuto = false; }
+}
+// «Abrir no Safari» in an in-app browser: the link does it on iOS 17 and later; the address is copied as well, and if
+// the page is still in front a moment later, a toast says how to open it by hand
+function openSafari(a) {
+  const url = a.href.replace(/^x-safari-/, '');
+  let copied = false;
+  try { navigator.clipboard.writeText(url).then(() => { copied = true; }, () => {}); } catch (_) {}
+  setTimeout(() => { if (!document.hidden) toast(copied ? t('toast.safari') : t('toast.safariNo', location.host)); }, 1500);
 }
 // the helmet's atlases did not fit next to the full suit's (a browser short of canvas memory): the studio again, in lite
 async function studioLite() {

@@ -618,8 +618,11 @@ section { position: relative; }
 /* no 3D on this device: the picture of the model stays, with the reason on a line under it, «Tentar outra vez» and
    the reason code (small, for a screenshot) */
 .stage-fallback { position: absolute; inset: auto 14px 14px; z-index: 2; display: grid; place-items: center; gap: 8px; text-align: center; }
-.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: balance; }
-.stage-fallback .chip { background: rgba(11,11,12,0.72); backdrop-filter: blur(8px); color: var(--ink); }
+.stage-fallback span { padding: 10px 14px; border-radius: 14px; background: rgba(11,11,12,0.9); backdrop-filter: blur(8px); font-size: 13px; line-height: 1.4; color: var(--ink); text-wrap: balance; }
+.stage-fallback .acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.stage-fallback .chip { min-height: 44px; padding: 0 18px; background: rgba(11,11,12,0.9); backdrop-filter: blur(8px); color: var(--ink); text-decoration: none; }
+/* the picture sits above the line and the buttons, not under them */
+.stage.no3d .stage-poster { inset: 5% 8% 172px; }
 .stage-fallback .code { font: 500 10px/1 var(--mono); letter-spacing: .08em; color: var(--dim); }
 .stage-ui[hidden], .stage-foot[hidden] { display: none; }
 /* «A carregar o fato / o capacete» and «A recuperar a vista 3D»: a pill over the picture or the last frame */

@@ -224,11 +224,12 @@ O worker que constrói a malha do fato não lê o mapa de importação, por isso
 
 ## Quando o 3D não aparece num telemóvel
 
-O estúdio tenta várias vezes antes de desistir: se o iPhone tira o contexto WebGL à página (pouca memória, ou ao voltar do WhatsApp), espera que volte e, se não voltar em 1,5 s de página visível, cria outro e passa o fato e o capacete para ele (no máximo duas vezes por visita). Se o primeiro arranque falhar, tenta outra vez com outra configuração da GPU e depois numa versão mais leve. Só então mostra a fotografia com uma frase que diz porquê, o botão «Tentar outra vez» e um código pequeno (por exemplo `ctx-dead`).
+O estúdio tenta várias vezes antes de desistir: se o iPhone tira o contexto WebGL à página (pouca memória, ou ao voltar do WhatsApp), espera que volte e, se não voltar em 1,5 s de página visível, cria outro e passa o fato e o capacete para ele (no máximo duas vezes por visita). Se o primeiro arranque falhar, tenta outra vez com outra configuração da GPU e depois numa versão mais leve. Só então mostra a fotografia com uma frase que diz porquê, o botão «Tentar outra vez» (não aparece quando a página não o pode resolver, como no Modo de isolamento) e um código pequeno (por exemplo `ctx-dead`). Se o browser devolver o contexto mais tarde, o 3D volta sozinho.
 
 - Para ver o que se passou num telemóvel, abre `gocarmo.com/?debug3d`: aparece um painel com o browser, cada contexto WebGL pedido, os tempos e cada perda e recuperação. Tira um screenshot ou carrega em «Copiar». O painel fica ligado nesse separador até abrires `?debug3d=0`. Não envia nada para lado nenhum.
 - `?lite3d` força a versão leve, para comparar.
 - No Safari do iPhone, se a frase pedir para fechar o Safari de vez, é isso mesmo: o processo gráfico do Safari pode ficar estragado até a app ser fechada no seletor de apps.
+- Dentro do Instagram, do Facebook ou do WhatsApp num iPhone, a frase diz o nome da app e há um botão «Abrir no Safari», que também copia o endereço. No Chrome ou no Firefox do iPhone a frase pede para fechar essa app, não o Safari.
 - Para tirar o painel do site, põe `DEBUG = false` no início de `assets/js/gl3d.js` e corre `node scripts/stamp.mjs`.
 
 ## Créditos técnicos

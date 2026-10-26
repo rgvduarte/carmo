@@ -50,6 +50,11 @@ const UA = navigator.userAgent;
 export const isIOS = () => /iP(hone|ad|od)/.test(UA) || (/Macintosh/.test(UA) && navigator.maxTouchPoints > 1);
 const APPS = /Instagram|FBAN|FBAV|FB_IAB|WhatsApp|musical_ly|BytedanceWebview|TikTok|LinkedInApp|GSA\/|Snapchat|Line\/|Twitter/;
 export const inApp = () => APPS.test(UA);
+// the app an in-app browser belongs to, for the line under the still ('' if it cannot be told)
+const APP_NAMES = [[/Instagram/, 'Instagram'], [/Messenger/, 'Messenger'], [/FBAN|FBAV|FB_IAB/, 'Facebook'], [/WhatsApp/, 'WhatsApp'], [/musical_ly|BytedanceWebview|TikTok/, 'TikTok'], [/LinkedInApp/, 'LinkedIn'], [/GSA\//, 'Google'], [/Snapchat/, 'Snapchat'], [/Line\//, 'LINE'], [/Twitter/, 'X']];
+export const appName = () => (APP_NAMES.find(([re]) => re.test(UA)) || [, ''])[1];
+// browsers on iOS other than Safari: each app runs its own GPU process, so closing Safari does nothing for them
+const OTHER_IOS = /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|DuckDuckGo|Ddg\//;
 // three r170 needs WebGL 2. Returns a reason code, or null when it is worth trying; makes no context.
 export function glSupport() {
   if (typeof WebGLRenderingContext === 'undefined') return 'nowebgl';    // Lockdown Mode on iPhone, WebGL turned off
@@ -58,17 +63,20 @@ export function glSupport() {
 }
 // on an iPhone or iPad, no WebGL interfaces at all is Lockdown Mode
 export const lockdownHint = () => isIOS() && typeof WebGLRenderingContext === 'undefined';
-// the line under the still picture, by reason: only a browser that cannot make WebGL 2 at all is "not available"
+// the line under the still picture, by reason. Only a browser without WebGL 2 is told the 3D does not work there: an
+// iPhone (iOS 15 and later) always has it, so no context there is the GPU process, which closing the app cures
 export function msgKey(r) {
-  const c = r && r.code;
-  if (c === 'nowebgl' && lockdownHint()) return 'suit.no3dLock';
-  if (c === 'nowebgl' || c === 'nowebgl2' || c === 'ctx-create') return 'suit.no3d';
+  const c = r && r.code, probe = r && r.where === 'probe';
+  if (c === 'nowebgl' && lockdownHint()) return inApp() || OTHER_IOS.test(UA) ? 'suit.no3dLockApp' : 'suit.no3dLock';
+  if (c === 'nowebgl' || (c === 'nowebgl2' && probe) || (!isIOS() && (c === 'ctx-create' || c === 'nowebgl2'))) return 'suit.no3d';
   if (c === 'import' || c === 'data') return 'suit.no3dNet';
   if (inApp()) return 'suit.no3dApp';
-  // a GPU that hands out dead contexts: on an iPhone that stays so until Safari is closed for good (what fixed it)
-  if (c === 'ctx-dead' || c === 'lost') return isIOS() ? 'suit.no3dSafari' : 'suit.no3dGpu';
+  // a GPU that hands out dead contexts, or none: on an iPhone that stays so until the browser app is closed for good
+  if (['ctx-dead', 'ctx-create', 'nowebgl2', 'lost', 'lost-build'].includes(c)) return isIOS() ? (OTHER_IOS.test(UA) ? 'suit.no3dIosApp' : 'suit.no3dSafari') : 'suit.no3dGpu';
   return 'suit.no3dErr';
 }
+// a cause the page cannot undo (WebGL turned off, Lockdown Mode, iOS 14 and older): no «Tentar outra vez»
+export const fixable = (r) => !(r && (r.code === 'nowebgl' || (r.code === 'nowebgl2' && r.where === 'probe')));
 
 // ---------- profiles ----------
 const dpr = () => window.devicePixelRatio || 1;
@@ -117,13 +125,12 @@ export function makeContext({ antialias = false, power = 'default' } = {}) {
   try { gl = canvas.getContext('webgl2', attrs); } catch (e) { rec.status = e.message; }
   rec.ms = Math.round(performance.now() - t0);
   if (!gl) {
+    // WebGL2RenderingContext is there (glSupport), so this is the GPU process not handing one out, not an old browser
     rec.ok = false;
-    let v1 = false;
-    try { const g1 = document.createElement('canvas').getContext('webgl'); v1 = !!g1; if (g1) g1.getExtension('WEBGL_lose_context')?.loseContext(); } catch (_) {}
     paint();
-    throw new GLFail(v1 ? 'nowebgl2' : 'ctx-create', 'renderer', rec.status || 'getContext(webgl2) returned null');
+    throw new GLFail('ctx-create', 'renderer', rec.status || 'getContext(webgl2) returned null');
   }
-  const loser = gl.getExtension('WEBGL_lose_context');   // kept: getExtension answers null once the context is lost
+  const loser = gl.getExtension('WEBGL_lose_context');   // kept: getExtension answers null while the context is lost
   const max = gl.getParameter(gl.MAX_TEXTURE_SIZE);        // a round trip to the GPU process
   rec.ms = Math.round(performance.now() - t0);
   if (gl.isContextLost() || !max) {
@@ -155,7 +162,9 @@ export function release(r) {
   let gl = null;
   try { gl = r.getContext ? r.getContext() : r.gl; } catch (_) {}
   const loser = r.loser || (gl && !gl.isContextLost() ? gl.getExtension('WEBGL_lose_context') : null);
-  const lose = () => { try { if (loser && gl && !gl.isContextLost()) loser.loseContext(); } catch (_) {} };
+  // fetched again at the time: after a real loss WebKit detaches the old extension object, and one restored since then
+  // would otherwise stay alive (and keep its memory) with no one drawing to it
+  const lose = () => { try { if (gl && !gl.isContextLost()) (gl.getExtension('WEBGL_lose_context') || loser)?.loseContext(); } catch (_) {} };
   try { if (r.dispose) r.dispose(); } catch (_) {}   // three lets go of its listeners: the loss below is not prevented
   lose();
   if (c) { c.addEventListener('webglcontextrestored', lose, { once: true }); c.width = c.height = 1; c.remove(); }
@@ -185,13 +194,18 @@ function draw() {
   if (!panel) {
     panel = document.createElement('div');
     panel.setAttribute('aria-hidden', 'true');
-    panel.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:2147483000;max-width:calc(100vw - 16px);max-height:55svh;overflow:auto;'
-      + 'background:rgba(8,8,10,.92);color:#e8e8e3;font:11px/1.35 ui-monospace,Menlo,monospace;border:1px solid #333;border-radius:8px;padding:6px 8px;'
-      + '-webkit-user-select:text;user-select:text;white-space:pre-wrap;word-break:break-all';
+    // at the top and 40svh at most: the stage's line and «Tentar outra vez» stay visible (and tappable) under it
+    panel.style.cssText = 'position:fixed;left:8px;right:8px;top:calc(env(safe-area-inset-top) + 8px);z-index:2147483000;max-height:40svh;overflow:auto;'
+      + 'background:#08080a;color:#e8e8e3;font:12px/1.4 ui-monospace,Menlo,monospace;border:1px solid #333;border-radius:8px;padding:8px 10px;'
+      + '-webkit-user-select:text;user-select:text;white-space:pre-wrap;word-break:normal;overflow-wrap:anywhere';
     const bar = document.createElement('div'); bar.style.cssText = 'display:flex;gap:6px;margin-bottom:4px';
-    const btn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = 'font:inherit;color:inherit;background:#222;border:1px solid #444;border-radius:4px;padding:2px 6px'; b.addEventListener('click', fn); bar.appendChild(b); };
+    const btn = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.style.cssText = 'font:inherit;color:inherit;background:#222;border:1px solid #444;border-radius:4px;min-height:36px;padding:6px 12px'; b.addEventListener('click', () => fn(b)); bar.appendChild(b); };
     btn('3D debug ▾', () => { small = !small; draw(); });
-    btn('Copiar / Copy', () => { const s = JSON.stringify(dump(), null, 1); (navigator.clipboard ? navigator.clipboard.writeText(s) : Promise.reject()).catch(() => { const ta = document.createElement('textarea'); ta.value = s; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (_) {} ta.remove(); }); });
+    btn('Copiar / Copy', (b) => {
+      const s = JSON.stringify(dump(), null, 1);
+      const done = () => { b.textContent = 'Copiado ✓'; setTimeout(() => { b.textContent = 'Copiar / Copy'; }, 1500); };
+      (navigator.clipboard ? navigator.clipboard.writeText(s) : Promise.reject()).then(done, () => { const ta = document.createElement('textarea'); ta.value = s; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (_) {} ta.remove(); done(); });
+    });
     pre = document.createElement('div');
     panel.append(bar, pre);
     document.body.appendChild(panel);
@@ -199,21 +213,23 @@ function draw() {
   const d = dump(), err = d.errors[d.errors.length - 1];
   const head = `${d.profile || '-'} · ${d.now ? `${d.now.item || '-'} ${d.now.ctx || ''} rebuilds ${d.now.rebuilds ?? 0}` : 'no stage yet'}${document.documentElement.dataset.no3d ? ` · no3d ${document.documentElement.dataset.no3d}` : ''}${err ? ` · last error ${err.code}@${err.where}` : ''}`;
   if (small) { pre.textContent = head; return; }
-  const L = [head, '', `UA ${d.device.ua}`, `iOS ${d.device.ios || '-'} · Version ${d.device.version || '-'} · ${d.device.host}${d.device.standalone ? ' (home screen)' : ''}`,
-    `dpr ${d.device.dpr} · viewport ${d.device.viewport} · screen ${d.device.screen} · cores ${d.device.cores} · reduce ${d.device.reduce} · rAF ${d.device.fps ?? '…'} fps${d.device.fps && d.device.fps < 40 ? ' (Low Power Mode?)' : ''}`,
-    `interfaces ${JSON.stringify(d.device.lockdown)}`, '', 'contexts:'];
-  for (const c of d.contexts) L.push(`  @${c.t} ${c.ok ? 'ok' : c.lost ? 'BORN LOST' : 'FAILED'} ${c.ms ?? '?'}ms aa=${c.antialias} power=${c.power}${c.status ? ` status="${c.status}"` : ''}${c.renderer ? ` · ${c.renderer} · ${c.version} · maxTex ${c.maxTex} maxRb ${c.maxRb} samples ${c.maxSamples} · ${c.ext}` : ''}${c.attrs ? ` · got aa=${c.attrs.antialias} preserve=${c.attrs.preserveDrawingBuffer}` : ''}`);
-  if (d.now) L.push('', `now ${JSON.stringify(d.now)}`);
-  L.push('', `t ${Object.entries(d.t).map(([k, v]) => `${k} ${v}`).join(' · ')}`, '', 'errors:');
+  // what went wrong first, so a screenshot of the top of the panel already shows it
+  const L = [head, '', 'errors:'];
   for (const e of d.errors) L.push(`  @${e.t} [${e.vis}] ${e.code}@${e.where} ${e.name}: ${e.msg}${e.stack ? `\n    ${e.stack}` : ''}`);
-  L.push('', 'log:');
+  L.push('', 'contexts:');
+  for (const c of d.contexts) L.push(`  @${c.t} ${c.ok ? 'ok' : c.lost ? 'BORN LOST' : 'FAILED'} ${c.ms ?? '?'}ms aa=${c.antialias} power=${c.power}${c.status ? ` status="${c.status}"` : ''}${c.renderer ? ` · ${c.renderer} · ${c.version} · maxTex ${c.maxTex} maxRb ${c.maxRb} samples ${c.maxSamples} · ${c.ext}` : ''}${c.attrs ? ` · got aa=${c.attrs.antialias} preserve=${c.attrs.preserveDrawingBuffer}` : ''}`);
+  L.push('', `UA ${d.device.ua}`, `iOS ${d.device.ios || '-'} · Version ${d.device.version || '-'} · ${d.device.host}${d.device.standalone ? ' (home screen)' : ''}`,
+    `dpr ${d.device.dpr} · viewport ${d.device.viewport} · screen ${d.device.screen} · cores ${d.device.cores} · reduce ${d.device.reduce} · rAF ${d.device.fps ?? '…'} fps${d.device.fps >= 27 && d.device.fps <= 33 ? ' (30 fps cap: Low Power Mode?)' : ''}`,
+    `interfaces ${JSON.stringify(d.device.lockdown)}`);
+  if (d.now) L.push('', `now ${Object.entries(d.now).filter(([, v]) => v != null).map(([k, v]) => `${k} ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' · ')}`);
+  L.push('', `t ${Object.entries(d.t).map(([k, v]) => `${k} ${v}`).join(' · ')}`, '', 'log:');
   for (const e of d.log.slice(-60)) { const { t, kind, vis, ...rest } = e; L.push(`  @${t} [${vis}] ${kind}${Object.keys(rest).length ? ' ' + JSON.stringify(rest) : ''}`); }
   pre.textContent = L.join('\n');
 }
 if (D.on) {
   setInterval(paint, 2000);
-  let n = 0, t0 = 0;
-  const f = (t) => { if (!n) t0 = t; if (++n < 61) requestAnimationFrame(f); else { D.fps = Math.round(60000 / (t - t0)); paint(); } };
-  requestAnimationFrame(f);
+  // the frame rate once the page has booted (during boot three is parsed and the atlases drawn, which says nothing)
+  const measure = () => { let n = 0, t0 = 0; const f = (t) => { if (!n) t0 = t; if (++n < 61) requestAnimationFrame(f); else { D.fps = Math.round(60000 / (t - t0)); paint(); } }; requestAnimationFrame(f); };
+  if (document.readyState === 'complete') setTimeout(measure, 4000); else addEventListener('load', () => setTimeout(measure, 4000), { once: true });
   paint();
 }

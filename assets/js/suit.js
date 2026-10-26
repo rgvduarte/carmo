@@ -694,11 +694,25 @@ export class Kit {
   // canvas textures live on the CPU side, so three uploads them to the new context on the first frame; only the room
   // reflection is a GPU render target, so it is made again.
   rebind(r) {
+    if (this.renderer !== r) this.dropGPU();
     this.renderer = r; this.canvas = r.domElement;
     this.bindCanvas();
-    this.swapEnv(this.scene.environment);
+    // lost again while the room renders (Safari up to 26 throws there): the restore or the next rebuild renders it
+    try { this.swapEnv(this.scene.environment); } catch (e) { if (!this.lost()) throw e; }
     this.running = false; this._drawn = false;
     if (this.active) this.setActive(true); else this.resize();
+  }
+  // The old renderer lets go of this model: its 'dispose' listeners on the textures, materials and geometries would
+  // keep it reachable, with its context, which WebKit goes on trying to restore. three uploads all of it again to the
+  // new renderer on the first frame (or in ready()).
+  dropGPU() {
+    try {
+      for (const t of this.gpuTextures()) if (t) t.dispose();
+      this.scene.traverse((o) => {
+        if (o.geometry) o.geometry.dispose();
+        for (const m of [].concat(o.material || [])) { if (m.normalMap) m.normalMap.dispose(); m.dispose(); }
+      });
+    } catch (_) {}
   }
 
   // A throw inside a frame (three on a context lost before its event arrives) must not leave `running` set, or the

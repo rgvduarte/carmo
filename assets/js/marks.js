@@ -112,9 +112,12 @@ export async function initMarks({ lenis } = {}) {
   if (!section || !MARKS.length) return;
   track.style.setProperty('--steps', MARKS.length);
   $('#mk-total').textContent = String(MARKS.length).padStart(2, '0');
-  flows = await makeFlows($('#mk-time'));
   const ST = window.ScrollTrigger;
   const scrubbed = !reduce && ST;
+  // the short static layout before the await: a deep link that already scrolled below would otherwise be left far
+  // down the page when the track collapses (Safari has no scroll anchoring)
+  if (!scrubbed) section.classList.add('static');
+  flows = await makeFlows($('#mk-time'));
   const stepTop = (i) => track.getBoundingClientRect().top + scrollY + ((track.offsetHeight - innerHeight) * (i + 0.5)) / MARKS.length;
   const scrollToStep = (i) => {
     if (!scrubbed) { show(i); return; }
