@@ -56,10 +56,17 @@
   [CONFIRMAR] (notes for the owner, not shown on the page)
   - Accept Google's data processing terms: Analytics → Admin → Account settings → Data processing terms. The page says
     Google processes the data on Gonçalo's behalf, which holds once those terms are accepted.
-  - The transfer basis is the EU-US Data Privacy Framework (adequacy decision of 10 July 2023; Google LLC and
-    GitHub, Inc. certified). Check dataprivacyframework.gov if the framework is ever struck down.
+  - Accept Cloudflare's data processing terms (DPA) for the Cloudflare account that runs the booking Worker
+    (gocarmo-pedidos). The page says Cloudflare, Inc. processes the booking requests on Gonçalo's behalf, which holds
+    once those terms apply to the account. Cloudflare publishes them at cloudflare.com/cloudflare-customer-dpa/.
+  - The transfer basis is the EU-US Data Privacy Framework (adequacy decision of 10 July 2023; Google LLC,
+    GitHub, Inc. and Cloudflare, Inc. certified). Check dataprivacyframework.gov if the framework is ever struck down.
+  - Booking requests and their logos are deleted from the Worker after 180 days (KEEP_S in worker/requests.js). If
+    180 days is not what you want, set another period there and change "180 dias" / "180 days" on this page with it.
   - How long booking messages and donation receipts are kept: "while needed for the sponsorship and the receipts" is
     honest but vague; put a period here once the accountant confirms the tax rules that apply.
+  - Turnstile is off (no TURNSTILE_SECRET). If it is ever switched on, this page must say so: a Cloudflare script then
+    runs on the booking form and Cloudflare gets the visitor's IP address to check the request.
   - GitHub Pages server logs: GitHub keeps visitors' IP addresses for security; the period is GitHub's, see its
     privacy statement.
 -->
@@ -69,7 +76,7 @@
   <p class="eyebrow gold">Privacidade</p>
   <h1 class="display legal-h">O que o site sabe de ti</h1>
   <p class="lead">Muito pouco. Aqui está o que fica guardado, porquê, durante quanto tempo e como mudas de ideias.</p>
-  <p class="legal-date">Atualizada a 23 de outubro de 2026</p>
+  <p class="legal-date">Atualizada a 26 de outubro de 2026</p>
 
   <h2>Quem é o responsável</h2>
   <p>Gonçalo Carmo, o atleta deste site. Para qualquer pedido sobre os teus dados, escreve para <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a>.</p>
@@ -86,9 +93,12 @@
     <div><dt>gc.consent</dt><dd>A tua escolha sobre as estatísticas. Passados seis meses, o site volta a perguntar.</dd></div>
     <div><dt>gc.lang</dt><dd>A língua que escolheste.</dd></div>
     <div><dt>gc.package.2027</dt><dd>Os espaços que juntaste ao pacote.</dd></div>
-    <div><dt>gc.claim.sent</dt><dd>Que já enviaste o pedido, até fechares o separador.</dd></div>
+    <div><dt>gc.claim.draft</dt><dd>O que escreveste no pedido (marca, nome, NIF, mensagem) e o logótipo, para não se perderem se a página recarregar. Apaga-se em «Feito» ou quando fechas o separador, e passadas seis horas já não é usado.</dd></div>
+    <div><dt>gc.claim.pending</dt><dd>Que um pedido vai a caminho e ainda não teve resposta. Conta durante 10 minutos, no máximo, e apaga-se quando fechas o separador.</dd></div>
+    <div><dt>gc.claim.req</dt><dd>O número, a marca, os espaços e o último dia de cada pedido que fizeste, para o mesmo pedido não ir duas vezes. Deixa de contar quando a reserva acaba e apaga-se quando fechas o separador.</dd></div>
+    <div><dt>gc.claim.sent, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>Que já enviaste o pedido, a forma de pagar e se o WhatsApp abriu, para o passo do pagamento voltar se a página recarregar. Até fechares o separador.</dd></div>
   </dl>
-  <p>Os quatro últimos nunca saem do teu browser. Servem coisas que tu pedes, por isso não precisam de autorização.</p>
+  <p>Os sete últimos ficam só no teu browser. Servem coisas que tu pedes, por isso não precisam de autorização.</p>
 
   <h2>A Google</h2>
   <p>A Google Ireland Limited trata as estatísticas por minha conta, como subcontratante. Parte dos dados pode ir para servidores nos Estados Unidos: a Google LLC está certificada no EU-US Data Privacy Framework, abrangido pela decisão de adequação da Comissão Europeia de 10 de julho de 2023 (artigo 45.º do RGPD).</p>
@@ -98,8 +108,14 @@
   <p>Os dados ao pormenor ficam 14 meses no Google Analytics e depois são apagados. Os totais, como as visitas por mês, podem ficar.</p>
 
   <h2>Pedidos de patrocínio e contactos</h2>
-  <p>O formulário de reserva não envia nada para este site. Junta o pedido numa mensagem e abre o WhatsApp, o email ou o Instagram, à tua escolha, e és tu que a envias. A mensagem chega-me por esse serviço, que tem a sua própria política de privacidade. Guardo-a enquanto for precisa para tratar do patrocínio e dos recibos. Faço-o para responder ao teu pedido e preparar o patrocínio (artigo 6.º, n.º 1, alínea b), do RGPD) e, nos recibos, porque a lei fiscal obriga a passá-los e guardá-los (alínea c)).</p>
-  <p>O logótipo que experimentas no fato ou no capacete não sai do teu aparelho.</p>
+  <p>Quando envias um pedido, o site manda-o para o serviço de reservas, que corre no Cloudflare. Vão os espaços, a marca, o nome, o NIF, a mensagem, a forma de pagamento, a língua, a app que escolheste para a mensagem e o logótipo, em PNG.</p>
+  <p>O serviço reserva os espaços durante 48 horas. Enquanto dura a reserva, a marca e o número do pedido aparecem no ficheiro público dos espaços deste site. Esse ficheiro está no GitHub, que guarda o histórico de cada mudança. Se comprares, a marca e o logótipo passam a aparecer no site.</p>
+  <p>Depois, o site prepara a mensagem e abre o WhatsApp, o email ou o Instagram, à tua escolha, e és tu que a envias. A mensagem chega-me por esse serviço, que tem a sua própria política de privacidade. Se o serviço de reservas não responder, o pedido vai só nessa mensagem.</p>
+  <p>O serviço de reservas guarda o pedido e o logótipo durante 180 dias e depois apaga-os sozinho. Só eu os consigo ler. O nome e o NIF servem para o recibo de donativo. A mensagem, guardo-a enquanto for precisa para tratar do patrocínio e dos recibos.</p>
+  <p>A base legal do pedido é preparar o patrocínio, a teu pedido, antes de o fecharmos (artigo 6.º, n.º 1, alínea b), do RGPD). Nos recibos, é a lei fiscal, que obriga a passá-los e guardá-los (alínea c)).</p>
+  <p>O serviço não guarda o teu endereço IP, só um código feito a partir dele que não se consegue reverter. Serve para limitar os pedidos de cada endereço e para bloquear quem faz pedidos falsos. Fica no pedido até a compra ser confirmada, ou até o pedido se apagar, e nos contadores apaga-se ao fim de 30 dias, no máximo. A base legal é o interesse legítimo em proteger as reservas de abusos (artigo 6.º, n.º 1, alínea f), do RGPD).</p>
+  <p>A Cloudflare, Inc. trata estes dados por minha conta, como subcontratante. Fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework.</p>
+  <p>O logótipo que experimentas no fato ou no capacete só sai do teu aparelho quando o envias com o pedido.</p>
 
   <h2>Alojamento</h2>
   <p>O site está alojado no GitHub Pages, da GitHub, Inc., que regista o endereço IP de quem o visita, por segurança. A base legal é o interesse legítimo em manter o site seguro e a funcionar (artigo 6.º, n.º 1, alínea f), do RGPD). A GitHub, Inc. fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework.</p>
@@ -118,7 +134,7 @@
   <p class="eyebrow gold">Privacy</p>
   <h1 class="display legal-h">What this site knows about you</h1>
   <p class="lead">Very little. Here is what is stored, why, for how long and how to change your mind.</p>
-  <p class="legal-date">Updated 23 October 2026</p>
+  <p class="legal-date">Updated 26 October 2026</p>
 
   <h2>Who is responsible</h2>
   <p>Gonçalo Carmo, the athlete behind this site. For anything about your data, write to <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a>.</p>
@@ -135,9 +151,12 @@
     <div><dt>gc.consent</dt><dd>Your choice about statistics. After six months the site asks again.</dd></div>
     <div><dt>gc.lang</dt><dd>The language you picked.</dd></div>
     <div><dt>gc.package.2027</dt><dd>The spots you added to your package.</dd></div>
-    <div><dt>gc.claim.sent</dt><dd>That you have sent your request, until you close the tab.</dd></div>
+    <div><dt>gc.claim.draft</dt><dd>What you typed in the request (brand, name, tax number, message) and the logo, so nothing is lost if the page reloads. It goes when you tap “Done” or close the tab, and after six hours it is no longer used.</dd></div>
+    <div><dt>gc.claim.pending</dt><dd>That a request is on its way and has had no answer yet. It counts for 10 minutes at most and goes when you close the tab.</dd></div>
+    <div><dt>gc.claim.req</dt><dd>The number, brand, spots and last day of each request you made, so the same request is not sent twice. It stops counting when the hold ends and goes when you close the tab.</dd></div>
+    <div><dt>gc.claim.sent, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>That you have sent your request, how you will pay and whether WhatsApp opened, so the payment step comes back if the page reloads. Until you close the tab.</dd></div>
   </dl>
-  <p>The last four never leave your browser. They do things you ask for, so they need no permission.</p>
+  <p>The last seven stay in your browser only. They do things you ask for, so they need no permission.</p>
 
   <h2>Google</h2>
   <p>Google Ireland Limited processes the statistics on my behalf, as a processor. Some of the data may go to servers in the United States: Google LLC is certified under the EU-US Data Privacy Framework, covered by the European Commission's adequacy decision of 10 July 2023 (Article 45 GDPR).</p>
@@ -147,8 +166,14 @@
   <p>Detailed data stays in Google Analytics for 14 months and is then deleted. Totals, such as visits per month, may remain.</p>
 
   <h2>Sponsorship requests and messages</h2>
-  <p>The booking form sends nothing to this site. It puts your request into a message and opens WhatsApp, email or Instagram, whichever you choose, and you send it yourself. The message reaches me through that service, which has its own privacy policy. I keep it for as long as I need it to handle the sponsorship and the receipts. I do this to answer your request and set up the sponsorship (Article 6(1)(b) GDPR) and, for receipts, because tax law requires me to issue and keep them (Article 6(1)(c)).</p>
-  <p>The logo you try on the suit or the helmet never leaves your device.</p>
+  <p>When you send a request, the site sends it to the booking service, which runs on Cloudflare. It carries the spots, the brand, your name, your tax number, your message, how you will pay, the language, the app you picked for the message and the logo, as a PNG.</p>
+  <p>The service holds the spots for 48 hours. While the hold lasts, the brand and the request number appear in this site's public spots file. That file is on GitHub, which keeps the history of every change. If you buy, the brand and the logo appear on the site.</p>
+  <p>Then the site writes the message and opens WhatsApp, email or Instagram, whichever you choose, and you send it yourself. The message reaches me through that service, which has its own privacy policy. If the booking service does not answer, the request goes in that message only.</p>
+  <p>The booking service keeps the request and the logo for 180 days and then deletes them on its own. Only I can read them. The name and the tax number are for the donation receipt. I keep the message for as long as I need it to handle the sponsorship and the receipts.</p>
+  <p>The legal basis for the request is preparing the sponsorship, at your request, before we agree on it (Article 6(1)(b) GDPR). For receipts, it is tax law, which requires me to issue and keep them (Article 6(1)(c)).</p>
+  <p>The service does not keep your IP address, only a code made from it that cannot be turned back into it. It is used to limit the requests from each address and to block people who send fake ones. It stays with the request until the purchase is confirmed, or until the request is deleted, and in the counters it is deleted after 30 days at most. The legal basis is the legitimate interest in protecting the bookings from abuse (Article 6(1)(f) GDPR).</p>
+  <p>Cloudflare, Inc. processes this data on my behalf, as a processor. It is based in the United States and certified under the EU-US Data Privacy Framework.</p>
+  <p>The logo you try on the suit or the helmet only leaves your device when you send it with your request.</p>
 
   <h2>Hosting</h2>
   <p>The site is hosted on GitHub Pages, run by GitHub, Inc., which logs visitors' IP addresses for security. The legal basis is the legitimate interest in keeping the site secure and running (Article 6(1)(f) GDPR). GitHub, Inc. is based in the United States and certified under the EU-US Data Privacy Framework.</p>
