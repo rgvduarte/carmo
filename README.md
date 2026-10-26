@@ -30,9 +30,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
   pedido, «Ao enviar, aceitas as condições do patrocínio.»): o que inclui um espaço, o que fica de fora, como se reserva
-  e paga, o parceiro de prova e o que se combina num acordo escrito. Enquanto for rascunho, tem o bloco «Rascunho para
-  aprovação», as marcas a amarelo (`.ph-mark`: `[DECISÃO]`, `[CONFIRMAR]`, `[PREENCHER]`) e `noindex`; saem todos
-  antes de publicar, e a data «Atualizada a» muda sempre que o texto mudar.
+  e paga, o parceiro de prova e o que se combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
+  sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. As notas para ti estão num comentário no
+  topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 
 PT e EN (botão no topo; a língua também segue o browser).
 
