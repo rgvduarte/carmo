@@ -1833,7 +1833,7 @@ function failed(res, j, by, r) {
       if (xs.length && xs.every((x) => x.status === 'reserved' && x.request === j.id)) { held(by, pkKey(), { ...r, id: j.id, until: j.until, total: totals().net }); return; }
       // another request of this buyer, for other spots: this package goes as a message only, and the message names it
       rqMode = 'msg'; openReq = j.id;
-      setNote(() => t('rq.aberto', j.id, longDay(j.until)), () => t('rq.abertoSub'));
+      setNote(() => t('rq.aberto', j.id, longDay(j.until), j.title ? 'title' : 0), () => t('rq.abertoSub'));
       renderClaim();
       return;
     }
