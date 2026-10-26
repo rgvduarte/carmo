@@ -216,32 +216,47 @@ export function changedSince(snap, raw) {
   return Object.keys(snap).filter((id) => fresh[id] !== snap[id]);
 }
 
-// ---------- payment reference: 'KONA 01 21 22', 'kona 1,21', 'KONA-01-21', 'KONA FATO' ----------
-// Only the run of codes right after KONA counts. A pasted bank line may carry a date before KONA and an amount after
-// the codes ('TRF KONA 21 22 600,00 EUR', 'KONA 21 · 20,00 €', 'KONA 03 1 080,00'): the run stops at the first word
-// that is not a code, at an amount and at any number of three or more digits.
+// ---------- payment reference: 'CARMO 01 21 22', 'carmo 1,21', 'CARMO-01-21', 'CARMO FATO' ----------
+// The site writes CARMO; it used to write KONA, and references already sent that way keep matching: either word starts
+// the run. Only the run of codes right after it counts. A pasted bank line may carry a date before it and
+// an amount after the codes ('TRF CARMO 21 22 600,00 EUR', 'KONA 21 · 20,00 €', 'CARMO 03 1 080,00'): the run stops at
+// the first word that is not a code, at an amount and at any number of three or more digits. The payee's own name comes
+// before the code in many bank lines ('GONCALO CARMO CARMO 01'): a CARMO with no code after it is passed over for the
+// next one.
+const REF_PREFIX = /CARMO|KONA/g;
 const REF_SEP = /[\s;·|+&#-]+/;
 const REF_LIST = /^\d{1,2}(?:[.,]\d{1,2})*$/;   // '01', '1,21', '01.21'
 // '20,00', '600.00' and '1,00' are amounts; '1,21' is spots 1 and 21 (no price has cents)
 const isAmount = (t) => { const m = t.match(/^(\d+)[.,](\d{2})$/); return !!m && (m[1].length >= 3 || m[2] === '00'); };
-export function refTokens(text) {
-  const up = String(text || '').toUpperCase(), at = up.indexOf('KONA');
-  const parts = (at >= 0 ? up.slice(at + 4) : up).split(REF_SEP).map((t) => t.replace(/^[.,]+|[.,]+$/g, '')).filter(Boolean);
+// the codes of a run of text (after a prefix, or a whole text without one)
+function refRun(s) {
+  const parts = s.split(REF_SEP).map((t) => t.replace(/^[.,]+|[.,]+$/g, '')).filter(Boolean);
   const toks = [];
   for (let i = 0; i < parts.length; i++) {
     const t = parts[i];
     if (t === 'FATO' || t === 'APOIO') { toks.push(t); continue; }
-    if (t === 'E') continue;   // 'KONA 21 E 22'
+    if (t === 'E') continue;   // 'CARMO 21 E 22'
     if (isAmount(t) || !REF_LIST.test(t)) break;
     if (/^\d$/.test(t) && /^\d{3}(?:[.,]\d{2})?$/.test(parts[i + 1] || '')) break;   // '1 080,00': an amount's first digit
     toks.push(...t.split(/[.,]/));
   }
   return toks;
 }
+// { prefix: 'CARMO' | 'KONA' | '', toks }: the first CARMO or KONA with codes after it (no prefix at all: the whole text)
+function refOfText(text) {
+  const up = String(text || '').toUpperCase(), hits = [...up.matchAll(REF_PREFIX)];
+  if (!hits.length) return { prefix: '', toks: refRun(up) };
+  for (const m of hits) {
+    const toks = refRun(up.slice(m.index + m[0].length));
+    if (toks.length) return { prefix: m[0], toks };
+  }
+  return { prefix: hits[0][0], toks: [] };
+}
+export const refTokens = (text) => refOfText(text).toks;
 export function parseRef(text, data) {
-  const toks = refTokens(text);
+  const { prefix, toks } = refOfText(text);
   const out = { ids: [], unknown: [], note: '' };
-  if (toks.includes('APOIO') && !toks.some((x) => x !== 'APOIO')) { out.note = 'KONA APOIO é um donativo, não um espaço.'; return out; }
+  if (toks.includes('APOIO') && !toks.some((x) => x !== 'APOIO')) { out.note = `${prefix || 'CARMO'} APOIO é um donativo, não um espaço.`; return out; }
   const nums = [...new Set(toks.filter((x) => /^\d+$/.test(x)).map(Number))];
   if (toks.includes('FATO')) {
     out.ids = [TITLE];
@@ -273,12 +288,12 @@ export function totals(data, ids) {
 //   • 21 Topo do capacete (6×13 cm) · 400 €           (the email may leave the sizes out)
 //   Total: 540 € (600 € −10%)
 //   Marca: … / Nome: … / NIF: …
-//   Referência: KONA 21 22
+//   Referência: CARMO 21 22                          (KONA 21 22 in an older request)
 //   Pagamento: transferência ou MB WAY                («MB WAY», «transferência bancária»; EN «Payment: …»)
 //
 //   the buyer's own message, then the link: https://gocarmo.com/#pacote=capacete-topo,… or …/#fato/title
 // The link names the spots by id, so it wins over the list (unless it was cut short); the list is read by name, then by
-// number; the KONA line comes last. A text with none of this is a bare payment reference: parseRef, as before.
+// number; the CARMO line comes last. A text with none of this is a bare payment reference: parseRef, as before.
 // parsePaste() returns { kind: 'ref' | 'link' | 'request', ids, from, unknown, notes, brand, name, nif, nifOk, pay, ref,
 // stated, lang, request }; for kind 'ref', parseRef's { ids, unknown, note }.
 const LINE = {
@@ -321,7 +336,7 @@ export function payOf(text) {
 }
 export const PAY_LABEL = { mb: 'MB WAY', tr: 'Transferência', either: 'Transferência ou MB WAY' };
 // the payment reference the site shows for these targets (adspace.js payRef)
-export const refOf = (data, ids) => (ids[0] === TITLE ? 'KONA FATO' : `KONA ${sortTargets(data, ids).map((id) => pad2(targetOf(data, id).n)).join(' ')}`);
+export const refOf = (data, ids) => (ids[0] === TITLE ? 'CARMO FATO' : `CARMO ${sortTargets(data, ids).map((id) => pad2(targetOf(data, id).n)).join(' ')}`);
 
 // one line of the list: by its name first (the numbers could have moved), else by its number
 function spotOfLine(data, n, label) {
@@ -384,7 +399,7 @@ export function parsePaste(text, data) {
   if (!looks) out.kind = 'link';
   out.nifOk = out.nif ? nifOk(out.nif) : null;
 
-  // the spots: the link, else the whole suit, else the list, else the KONA line
+  // the spots: the link, else the whole suit, else the list, else the CARMO line
   const fromList = [], listNotes = [], listUnknown = [];
   for (const it of listed) {
     const { spot, note } = spotOfLine(data, it.n, it.label);

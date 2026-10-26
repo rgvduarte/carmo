@@ -231,7 +231,7 @@ function row(v, raw, id, today, suitCount = 0) {
   cb.type = 'checkbox'; cb.checked = sel.has(id); cb.value = id;
   cb.addEventListener('change', () => toggle(id, cb.checked));
   lab.append(cb, el('span', 'n', isTitle ? 'FATO' : C.pad2(x.n)), el('span', 'nm', C.nameOf(raw, id)), el('span', 'pr', C.money(x.price)));
-  let sub = isTitle && st.key === 'available' ? `Os ${suitCount} espaços do fato, de uma vez · KONA FATO` : st.sub;
+  let sub = isTitle && st.key === 'available' ? `Os ${suitCount} espaços do fato, de uma vez · CARMO FATO` : st.sub;
   if (st.key === 'reserved' && !x.byTitle && C.targetOf(raw, id).request) sub = `${sub ? `${sub} · ` : ''}pedido do site`;   // worker/requests.js
   if (sub) lab.appendChild(el('span', 'sub', sub));
   const chip = el('span', `st ${st.key}`); chip.appendChild(el('span', null, st.chip));
@@ -269,9 +269,10 @@ function updateBar() {
 }
 
 // ---------- «Colar pedido ou referência» ----------
-// A bare payment reference (KONA 01 21 22) selects those spots, as before. A pasted request (the site's message by
-// WhatsApp or email, or its link) selects them too and shows what it asks for, checked against the prices of now, with
-// «Reservar 48 h» and «Marcar como vendido». Every piece of the text is shown with textContent only.
+// A bare payment reference (CARMO 01 21 22, or the older KONA 01 21 22) selects those spots, as before. A pasted
+// request (the site's message by WhatsApp or email, or its link) selects them too and shows what it asks for, checked
+// against the prices of now, with «Reservar 48 h» and «Marcar como vendido». Every piece of the text is shown with
+// textContent only.
 const REF_HINT = 'É o descritivo da transferência ou do MB WAY, ou a mensagem do pedido (WhatsApp, email ou o link). Seleciona esses espaços.';
 let pasted = null;   // the last parsePaste() result of a request, for its two buttons
 let refLen = 0;      // the field's length before this input: a jump is a paste
@@ -306,7 +307,7 @@ function onRef() {
   const extra = [];
   if (r.unknown.length) extra.push(`Não conheço ${r.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(r.unknown.map(String))}.`);
   if (r.note) extra.push(r.note);
-  if (!r.ids.length && !extra.length) extra.push('Não encontrei números de espaços. Ex.: KONA 01 21 22.');
+  if (!r.ids.length && !extra.length) extra.push('Não encontrei números de espaços. Ex.: CARMO 01 21 22.');
   if (extra.length) { const b = el('span', r.unknown.length || !r.ids.length ? 'bad' : null, `${r.ids.length ? ' ' : ''}${extra.join(' ')}`); out.appendChild(b); }
   refBox(r);
 }
@@ -379,13 +380,15 @@ function showPaste(p) {
   if (p.lang === 'en') row('Língua', 'Inglês');
   if (dl.children.length) box.appendChild(dl);
 
-  // the request of the site behind these spots (they carry its id), or the one the message names
-  const owner = ids.length ? heldBy(raw, ids) : '', reqId = owner || p.request;
+  // the request of the site behind these spots (they carry its id), or the one the message names (only when that
+  // request covers these very spots: the buyer's own words could name any request, and their ids are public)
+  const owner = ids.length ? heldBy(raw, ids) : '', named = namedReq(p, ids), reqId = owner || named;
   const req = inboxFind(reqId), keyMissing = !!reqId && inboxOn() && !inbox.list;
 
   // what stands in the way now, and what the text itself says against itself
   const notes = el('ul', 'notes');
   if (owner) notes.appendChild(el('li', null, holdText(raw, ids, owner)));
+  if (!owner && p.request && !named) notes.appendChild(el('li', null, `A mensagem fala do pedido ${p.request}, que é de outros espaços: não o uso.`));
   if (keyMissing) notes.appendChild(el('li', null, KEY_FOR_LOGO));
   if (p.unknown.length) notes.appendChild(el('li', 'block', `Não conheço ${p.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(p.unknown)}.`));
   for (const n of p.notes) notes.appendChild(el('li', null, n));
@@ -422,6 +425,13 @@ function holdText(raw, ids, id) {
   return C.lapsed(x, Date.now()) ? `A reserva do pedido ${id} do site acabou a ${C.fmtDay(x.until)}: o espaço já está livre no site.` : `Já reservado pelo site até ${C.fmtDay(x.until)} (pedido ${id}).`;
 }
 const sameIds = (a, b) => { const x = C.sortTargets(base.data, a), y = C.sortTargets(base.data, b); return x.length === y.length && x.every((v, i) => v === y[i]); };
+// the request a pasted text names on a «Pedido:» line, while it may be the one for these spots: '' once the Pedidos
+// list shows it covers other spots (before the list is in, it is still asked for, and checked again once it is)
+function namedReq(p, ids) {
+  if (!p.request) return '';
+  const r = inboxFind(p.request);
+  return !r || !ids.length || sameIds(reqIds(r), ids) ? p.request : '';
+}
 
 // A sale of spots that a request of the site holds goes through that request: its logo goes to the site with the
 // sale, and the request closes. True when it took over (that request's sheet, or the ask for the key first).
@@ -443,7 +453,8 @@ function pasteAct(action) {
   if (!p || !base || !p.ids.length) return;
   if (busy) { toast('Espera: ainda estou a guardar.'); return; }
   const ids = C.sortTargets(base.data, p.ids.filter((id) => C.targetOf(base.data, id)));
-  const owner = heldBy(base.data, ids), reqId = owner || p.request;
+  // (with the list just brought in by needKey, this runs again: a named request of other spots is then let go)
+  const owner = heldBy(base.data, ids), reqId = owner || namedReq(p, ids);
   if (reqId && inboxOn() && !inbox.list && (action === 'sold' || owner)) { needKey(reqId, () => pasteAct(action)); return; }
   const req = inboxFind(reqId);
   if (action === 'sold' && req && req.status !== 'cancelado') { confirmPurchase(req); return; }

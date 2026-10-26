@@ -35,8 +35,9 @@ Recebe as compras feitas no site e guarda os espaços enquanto o Gonçalo espera
   nada no KV.
 - Pedido até 600 KB e logótipo PNG até 400 KB e 4096 px de lado. O site converte o logótipo para PNG (até 1200 px),
   o que fica quase sempre muito abaixo disso.
-- O Turnstile do Cloudflare fica desligado enquanto não houver o secret `TURNSTILE_SECRET`. Liga-o antes de pôr
-  `SITE.requestsApi` no ar: é o que mais trava um abuso feito de muitos endereços.
+- O Turnstile do Cloudflare fica desligado enquanto não houver o secret `TURNSTILE_SECRET`. É o que mais trava um
+  abuso feito de muitos endereços, mas o site ainda não manda o token: com o secret posto, o Worker recusaria todos
+  os pedidos. Os passos para o ligar estão no `README.md` da raiz, em **Compras automáticas**.
 
 No plano gratuito do Cloudflare (Workers Free) há 1 000 escritas no KV por dia e 10 ms de CPU por pedido. Um pedido
 aceite gasta 5 escritas, e com um logótipo de 400 KB fica bem abaixo dos 10 ms (o PNG é lido pelo próprio motor, com
@@ -75,7 +76,8 @@ requestsApi: 'https://gocarmo-pedidos.<conta>.workers.dev',
 ```
 
 Depois corre `node scripts/stamp.mjs` (deixa a página de admin falar com esse endereço) e publica. Com
-`requestsApi: ''` a página de admin não mostra os Pedidos.
+`requestsApi: ''` a página de admin não mostra os Pedidos e o pedido de reserva do site volta a ser só mensagem.
+Hoje está ligado: o pedido de reserva manda cada compra para `POST /pedido`, com o logótipo.
 
 ## Privacidade
 
@@ -102,9 +104,16 @@ qualquer ação seguinte do admin tira esse campo.
 O corpo de `POST /pedido` (JSON, `Content-Type: application/json`, do site `https://gocarmo.com`):
 `{ items: [ids de data.spots, 1 a 6] | title: true, brand, name?, nif?, message?, pay: "mb" | "tr", lang?: "pt" | "en",
 channel?: "whatsapp" | "email" | "instagram" | "site", logo: "data:image/png;base64,…", website: "", turnstile? }`.
-Os erros: `ocupado` (409, com `ids`), `aberto` (429; com `id` e `until` só se a marca for a mesma), `limite` (429),
+Os erros: `ocupado` (409, com `ids`), `aberto` (429; só se a marca for a mesma, com `id`, `until` e o que esse pedido
+reserva, `items` ou `title: true`: o site só o toma como seu quando é o mesmo pacote), `limite` (429),
 `limite-site` (429), `muitos` (400, com `max`), `espacos`, `marca`, `nome`, `nif`, `mensagem`, `pagamento`,
 `lingua`, `canal`, `logo`, `recusado` (400), `logo-grande` e `tamanho` (413), `json` (400 ou 415), `turnstile` e
 `origem` (403), `config` e `interno` (503), `github` e `conflito` (502).
 
 Os pedidos de admin levam `Authorization: Bearer <ADMIN_KEY>`.
+
+**Origens.** O Worker só responde (CORS e `POST /pedido`) a `SITE_ORIGIN`, `https://gocarmo.com`. Para testar com uma
+cópia local do site, o `worker/.dev.vars` (só o `wrangler dev` o lê; o git ignora-o) pode ter
+`DEV_ORIGIN=http://127.0.0.1:8000` (uma origem, ou várias separadas por vírgulas). Nunca o ponhas no
+`wrangler.toml`: o Worker publicado aceitaria pedidos dessa origem. Os passos de um teste de ponta a ponta estão no
+`README.md` da raiz, em **Compras automáticas**.

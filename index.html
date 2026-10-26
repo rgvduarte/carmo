@@ -23,7 +23,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="assets/css/style.css?v=aede62d9">
+<link rel="stylesheet" href="assets/css/style.css?v=4b85a2b5">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -53,17 +53,17 @@
   "three": "./assets/vendor/three@0.170.0/build/three.module.min.js",
   "three/addons/": "./assets/vendor/three@0.170.0/examples/jsm/",
   "./assets/js/admin-3d.js": "./assets/js/admin-3d.js?v=f6109481",
-  "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=e8d3fb57",
+  "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=1a6b1eda",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
-  "./assets/js/admin.js": "./assets/js/admin.js?v=b5eff06f",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=e798d1c8",
+  "./assets/js/admin.js": "./assets/js/admin.js?v=629edca2",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=55369f51",
   "./assets/js/analytics.js": "./assets/js/analytics.js?v=895f1e1c",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
   "./assets/js/data.js": "./assets/js/data.js?v=22e018cb",
   "./assets/js/flow.js": "./assets/js/flow.js?v=c994a0dc",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=55483b20",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=8667ed1c",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=d52ee6bd",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=3843dd80",
   "./assets/js/marks.js": "./assets/js/marks.js?v=42ebc301",
@@ -97,6 +97,7 @@
   <symbol id="i-copy" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M9 8.5h10.5V20H9zM5 15.5V4h10.5"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
   <symbol id="i-heart" viewBox="0 0 24 24"><path fill="currentColor" d="M12 21s-7.5-4.6-9.6-9.3C.9 8.2 3 4 6.9 4c2.2 0 3.6 1.2 5.1 3 1.5-1.8 2.9-3 5.1-3C21 4 23.1 8.2 21.6 11.7 19.5 16.4 12 21 12 21z"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M12 15V4.5M7.5 9 12 4.5 16.5 9M4.5 14.5v5h15v-5"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></symbol>
 </svg>
 
@@ -679,7 +680,7 @@
         <p class="give-k"><span data-i18n="sup.tk">Por transferência</span><span id="give-or"> <span data-i18n="sup.tk2">ou MB WAY</span></span></p>
         <button type="button" class="give-iban" data-copy-iban data-copy="PT50003501250000532893068" data-toast="toast.iban"><span class="give-v"><span class="give-l">IBAN</span><span class="mono" data-iban>PT50 0035 0125 0000 5328 9306 8</span></span><span class="give-cp"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sup.tc">Copiar IBAN</span></span></button>
         <button type="button" class="give-iban give-mb" id="give-mb" data-copy="916395103" data-toast="toast.mb"><span class="give-v"><span class="give-l"><picture><source type="image/webp" srcset="assets/img/mbway-272.webp 272w" sizes="60px"><img class="give-logo" src="assets/img/mbway-272.png" srcset="assets/img/mbway-272.png 272w, assets/img/mbway-544.png 544w" sizes="60px" width="60" height="36" alt="MB WAY" loading="lazy" decoding="async"></picture></span><span class="mono" id="give-mb-n">916 395 103</span></span><span class="give-cp"><svg class="i-cp" aria-hidden="true"><use href="#i-copy"/></svg><svg class="i-ok" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="sup.mc">Copiar número</span></span></button>
-        <p class="give-sub"><span class="nw"><span data-i18n="sup.to">Em nome de</span> <b data-payee>Gonçalo Carmo</b> ·</span> <span class="nw"><span data-i18n="sup.ref">Referência</span> <b>KONA APOIO</b></span></p>
+        <p class="give-sub"><span class="nw"><span data-i18n="sup.to">Em nome de</span> <b data-payee>Gonçalo Carmo</b> ·</span> <span class="nw"><span data-i18n="sup.ref">Referência</span> <b>CARMO APOIO</b></span></p>
       </div>
       <div class="inkind rv">
         <div><b data-i18n="sup.i1h">Equipamento</b><span data-i18n="sup.i1p">Bicicleta, rodas, fato de neoprene e sapatilhas.</span></div>
@@ -752,6 +753,8 @@
           <p class="cl-line"><span class="cl-txt"><span id="cl-what"></span> · <b id="cl-tot"></b></span><button type="button" class="link cl-more" id="cl-more" aria-expanded="false" aria-controls="cl-items" hidden></button></p>
           <ul class="cl-items" id="cl-items" hidden></ul>
         </div>
+        <!-- this package already holds its spots (a request sent from this tab): the buttons send its message again -->
+        <p class="cl-note ok" id="cl-held1" hidden></p>
         <!-- how the buyer will pay: written in the request, and step 2 opens on it -->
         <div class="cl-pay" id="cl-pay" role="radiogroup" aria-labelledby="cl-pay-l">
           <p class="cl-pay-l" id="cl-pay-l" data-i18n="cl.payby">Pagar por</p>
@@ -762,25 +765,51 @@
           <p class="cl-hint" id="cl-pay-cap" hidden></p>
         </div>
         <div class="cl-fields">
-          <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
-          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome (opcional)</label><input id="cl-name" autocomplete="name" enterkeyhint="done"></div>
+          <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" maxlength="60" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
+          <!-- the logo goes with the request (SITE.requestsApi): the whole box is the file input, so a tap opens the
+               photos on a phone and a file dropped on it on a computer is taken as picked. Shown only with the Worker on -->
+          <div class="field cl-logo" id="cl-logo-f" hidden>
+            <label for="cl-logo" id="cl-logo-l" data-i18n="cl.logo">Logótipo</label>
+            <div class="cl-drop" id="cl-drop">
+              <input type="file" id="cl-logo" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-required="true" aria-describedby="cl-logo-info cl-logo-err">
+              <span class="cl-drop-ic" id="cl-logo-tile" aria-hidden="true"><svg focusable="false"><use href="#i-up"/></svg><img id="cl-logo-img" alt="" hidden></span>
+              <span class="cl-drop-t" id="cl-logo-info"><b class="cl-drop-e"><span class="cl-drop-p" data-i18n="cl.logoPick">Escolher o logótipo</span><span class="cl-drop-d" data-i18n="cl.logoDrop">Arrasta o logótipo para aqui ou escolhe um ficheiro</span></b><b class="cl-drop-n" id="cl-logo-name" hidden></b> <small class="cl-drop-e" data-i18n="cl.logoHint">PNG, JPG, WebP ou SVG</small><small id="cl-logo-meta" hidden></small></span>
+              <span class="cl-drop-ch" id="cl-logo-ch" aria-hidden="true" hidden data-i18n="cl.logoCh">Trocar</span>
+            </div>
+            <p class="err" id="cl-logo-err" hidden></p>
+          </div>
+          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome (opcional)</label><input id="cl-name" autocomplete="name" maxlength="80" enterkeyhint="done"></div>
           <button type="button" class="link cl-add" id="cl-add" aria-expanded="false" aria-controls="cl-extra"><span aria-hidden="true">+</span> <span data-i18n="cl.add">Adicionar NIF ou mensagem</span></button>
           <div class="cl-extra" id="cl-extra" hidden>
             <div class="field"><label for="cl-nif" data-i18n="cl.nif">NIF para o recibo</label><input id="cl-nif" inputmode="numeric" autocomplete="off" maxlength="20" enterkeyhint="next"></div>
-            <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem</label><textarea id="cl-msg" rows="3"></textarea><p class="cl-hint" id="cl-mailcut" hidden data-i18n="cl.mailcut">Mensagem longa: o email só leva o início. Pelo WhatsApp vai inteira.</p></div>
+            <div class="field"><label for="cl-msg" data-i18n="cl.msg">Mensagem</label><textarea id="cl-msg" rows="3" maxlength="2000"></textarea><p class="cl-hint" id="cl-mailcut" hidden data-i18n="cl.mailcut">Mensagem longa: o email só leva o início. Pelo WhatsApp vai inteira.</p></div>
           </div>
         </div>
+        <!-- what went wrong with the request, and what to do; announced as it shows -->
+        <div class="cl-note" id="cl-note" role="alert" hidden></div>
         <div class="cl-acts">
           <a class="btn gold" id="cl-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></a>
           <div class="cl-alt">
             <a class="btn ghost" id="cl-mail" data-send="mail" href="mailto:allez@gocarmo.com" aria-label="Enviar por email" data-i18n-attr="aria-label:a.mail"><svg aria-hidden="true" focusable="false"><use href="#i-mail"/></svg><span>Email</span></a>
             <button type="button" class="btn ghost" id="cl-ig" data-send="ig" aria-label="Enviar por Instagram" data-i18n-attr="aria-label:a.ig"><svg aria-hidden="true" focusable="false"><use href="#i-ig"/></svg><span>Instagram</span></button>
           </div>
+          <p class="cl-need" id="cl-need" hidden></p>
         </div>
         <p class="cl-foot"><button type="button" class="link" id="cl-sent"><span data-i18n="cl.sent">Já enviei o pedido</span> <span aria-hidden="true">→</span></button></p>
       </section>
       <!-- step 2: pay by transfer or MB WAY -->
       <section class="cl-pane" id="cl-s2" hidden>
+        <!-- the request held the spots: until when, its number, and the 48 hours to send the proof of payment -->
+        <div class="cl-held" id="cl-held" hidden>
+          <p class="cl-held-t"><svg aria-hidden="true" focusable="false"><use href="#i-check"/></svg><b id="cl-held-h"></b></p>
+          <p class="cl-held-id"><span data-i18n="cl.heldId">Pedido</span> <b class="mono" id="cl-held-id"></b></p>
+          <p class="cl-held-p" id="cl-held-p"></p>
+        </div>
+        <!-- the chosen app did not open by itself after the hold: one tap sends the request's message -->
+        <div class="cl-fb cl-gobox" id="cl-gobox" hidden>
+          <p class="cl-fb-t"><b data-i18n="cl.goq">Falta um passo.</b> <span data-i18n="cl.go">Envia-me a mensagem com o número do pedido.</span></p>
+          <a class="btn gold" id="cl-go" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use id="cl-go-ic" href="#i-wa"/></svg><span id="cl-go-t"></span></a>
+        </div>
         <!-- WhatsApp did not take over (not installed): the same email and Instagram actions as step 1. A computer cannot
              tell whether WhatsApp Web worked: «Sem WhatsApp?», one quiet row (.lite) -->
         <div class="cl-fb" id="cl-wafb" hidden>
@@ -820,7 +849,8 @@
           <p class="pay-who" data-for="tr"><span data-i18n="pay.payee">Titular</span>: <b data-payee>Gonçalo Carmo</b></p>
           <p class="pay-how" data-for="mb" data-i18n="pay.how">No MB WAY: Enviar dinheiro › número › valor › descrição</p>
         </div>
-        <p class="pay-note" data-i18n="cl.pay">O espaço fica teu quando o pagamento entrar. Se alguém o fechar antes, devolvo no mesmo dia.</p>
+        <p class="pay-note" id="pay-note" data-i18n="cl.pay">O espaço fica teu quando o pagamento entrar. Se alguém o fechar antes, devolvo no mesmo dia.</p>
+        <p class="pay-note" id="pay-note2" hidden></p>
         <div class="cl-acts">
           <button type="button" class="btn" id="cl-done" data-i18n="cl.done">Feito</button>
           <button type="button" class="link" id="cl-back"><span aria-hidden="true">←</span> <span data-i18n="cl.back">Voltar</span></button>
