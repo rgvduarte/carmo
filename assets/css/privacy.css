@@ -23,3 +23,7 @@
 @media (max-width: 640px) {
   .store > div { grid-template-columns: minmax(0, 1fr); padding: 12px 14px; }
 }
+/* the list of what the visit counter records, and the line under its opt-out button */
+.legal-list { margin: 0 0 16px; padding-left: 1.2em; max-width: 68ch; color: var(--muted); }
+.legal-list li { margin: 0 0 6px; text-wrap: pretty; }
+.legal .optout-note { color: var(--ink); }

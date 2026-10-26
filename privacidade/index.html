@@ -4,44 +4,44 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Privacidade · Gonçalo Carmo</title>
-<meta name="description" content="O que o site gocarmo.com guarda, porquê, durante quanto tempo e como mudas a tua escolha sobre cookies.">
+<meta name="description" content="O que o site gocarmo.com guarda, porquê, durante quanto tempo, como conta as visitas sem cookies e como mudas a tua escolha.">
 <meta name="theme-color" content="#0b0b0c">
 <link rel="canonical" href="https://gocarmo.com/privacidade/">
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/fonts.css?v=38c3202f">
 <link rel="stylesheet" href="../assets/css/style.css?v=0de009c3">
-<link rel="stylesheet" href="../assets/css/privacy.css?v=659a788e">
+<link rel="stylesheet" href="../assets/css/privacy.css?v=5f17a7b2">
 <script type="importmap">
 { "imports": {
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
   "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=35971a4d",
   "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=6e7f48dd",
   "../assets/js/admin-analytics-heat.js": "../assets/js/admin-analytics-heat.js?v=3682fca7",
-  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=00896775",
+  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=c4788c8b",
   "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=f57a7277",
-  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=901d0aa8",
+  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=6b4c1a21",
   "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=ac3d2bb4",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=1a6b1eda",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
   "../assets/js/admin.js": "../assets/js/admin.js?v=629edca2",
   "../assets/js/adspace.js": "../assets/js/adspace.js?v=522273a2",
-  "../assets/js/analytics.js": "../assets/js/analytics.js?v=253e66cc",
+  "../assets/js/analytics.js": "../assets/js/analytics.js?v=c81f958e",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
   "../assets/js/data.js": "../assets/js/data.js?v=b91ff7a1",
   "../assets/js/flow.js": "../assets/js/flow.js?v=c994a0dc",
   "../assets/js/gl3d.js": "../assets/js/gl3d.js?v=a7737baa",
   "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=df0a53e9",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=2d0fb70f",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=b772f051",
   "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
   "../assets/js/main.js": "../assets/js/main.js?v=3843dd80",
   "../assets/js/marks.js": "../assets/js/marks.js?v=fdea7b6c",
-  "../assets/js/privacy.js": "../assets/js/privacy.js?v=a5e77c39",
+  "../assets/js/privacy.js": "../assets/js/privacy.js?v=75ca785d",
   "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
   "../assets/js/room.js": "../assets/js/room.js?v=b0ef85a2",
   "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=13c2780d",
-  "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=bb606a03",
+  "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=9a0f8e79",
   "../assets/js/stats-zones.js": "../assets/js/stats-zones.js?v=66b2b133",
   "../assets/js/stats.js": "../assets/js/stats.js?v=ada682da",
   "../assets/js/suit-body.js": "../assets/js/suit-body.js?v=e86b9edf",
@@ -50,7 +50,7 @@
   "../assets/js/suit.js": "../assets/js/suit.js?v=116c1105"
 } }
 </script>
-<script type="module" src="../assets/js/privacy.js?v=a5e77c39"></script>
+<script type="module" src="../assets/js/privacy.js?v=75ca785d"></script>
 </head>
 <body class="legal-page">
 <a class="skip" href="#main" data-i18n="skip">Saltar para o conteúdo</a>
@@ -70,8 +70,16 @@
   - Accept Google's data processing terms: Analytics → Admin → Account settings → Data processing terms. The page says
     Google processes the data on Gonçalo's behalf, which holds once those terms are accepted.
   - Accept Cloudflare's data processing terms (DPA) for the Cloudflare account that runs the booking Worker
-    (gocarmo-pedidos). The page says Cloudflare, Inc. processes the booking requests on Gonçalo's behalf, which holds
-    once those terms apply to the account. Cloudflare publishes them at cloudflare.com/cloudflare-customer-dpa/.
+    (gocarmo-pedidos) and the statistics Worker (gocarmo-api). The page says Cloudflare, Inc. processes the booking
+    requests and the visit counts on Gonçalo's behalf, which holds once those terms apply to the account. Cloudflare
+    publishes them at cloudflare.com/cloudflare-customer-dpa/.
+  - «Contagem de visitas» shows only while SITE.stats.url is set (assets/js/data.js; privacy.js shows it). It says the
+    counts are kept "na União Europeia": that holds while STORE_JURISDICTION = "eu" in stats-worker/wrangler.toml and
+    the Worker's /health answers "eu": true. If the first deploy had to empty it (stats-worker/README.md), change that
+    sentence in both languages to "em servidores da Cloudflare na Europa Ocidental, sempre que possível" / "on
+    Cloudflare servers in Western Europe, where possible".
+  - Raw visit records 30 days, daily totals 25 months, monthly totals without cities kept: stats-worker/src/store.js.
+    If any of those changes, change the page with it.
   - The transfer basis is the EU-US Data Privacy Framework (adequacy decision of 10 July 2023; Google LLC,
     GitHub, Inc. and Cloudflare, Inc. certified). Check dataprivacyframework.gov if the framework is ever struck down.
   - Booking requests and their logos are deleted from the Worker after 180 days (KEEP_S in worker/requests.js). If
@@ -94,7 +102,34 @@
   <h2>Quem é o responsável</h2>
   <p>Gonçalo Carmo, o atleta deste site. Para qualquer pedido sobre os teus dados, escreve para <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a>.</p>
 
-  <h2>Estatísticas, só se aceitares</h2>
+  <div data-stats-ui hidden>
+  <h2>Contagem de visitas, sem cookies</h2>
+  <p>Para perceber como o site é usado e torná-lo mais claro, conto as visitas com uma ferramenta minha, feita só para este site. Não usa cookies, não te identifica e não guarda o teu endereço IP. Não é o Google Analytics, que só funciona se o aceitares (mais abaixo).</p>
+  <p>Em cada visita, regista:</p>
+  <ul class="legal-list">
+    <li>a página e as secções que vês, quanto tempo ficas e até onde desces;</li>
+    <li>onde tocas ou clicas (botões, ligações, espaços do fato e do capacete, a vista 3D), pelo elemento e pelo seu nome curto, para eu ver o que se percebe e o que confunde, incluindo os toques que não dão em nada ou que se repetem;</li>
+    <li>de onde vens, só o nome do site ou da app (por exemplo, instagram.com), nunca o endereço completo;</li>
+    <li>o país, a região e a cidade aproximados, calculados a partir do IP, que não fica guardado;</li>
+    <li>o tipo de aparelho, a largura do ecrã por escalões, o sistema, o browser e a língua;</li>
+    <li>quanto tempo a página demora a abrir, se a vista 3D carregou e os erros da página;</li>
+    <li>os espaços que abres ou juntas ao pacote e os passos de um pedido de patrocínio (abrir, enviar, escolher como pagar), sem a marca, o nome, o NIF, a mensagem, o logótipo ou o valor;</li>
+    <li>o dia e a hora da visita, nunca os minutos.</li>
+  </ul>
+  <p>Nunca lê o que escreves nos campos nem o logótipo que escolhes. De uma ligação que abres guarda só o tipo (WhatsApp, email, Instagram…), nunca o endereço, porque é aí que vai a mensagem do pedido.</p>
+  <p>Para não contar a mesma pessoa duas vezes no mesmo dia, o serviço junta o IP encurtado, o browser e uma chave que muda todos os dias, e fica só com um código. No fim do dia (hora de Lisboa), o código e a chave são apagados. Não te segue de um dia para o outro nem noutros sites, e não guarda nada no teu browser para isso.</p>
+  <p>Os registos de cada visita são apagados ao fim de 30 dias. Ficam os totais de cada dia durante 25 meses (por exemplo, «40 visitas de Braga a 3 de março») e, depois disso, só totais por mês, sem cidades, que não identificam ninguém. Eu vejo apenas esses totais, nunca uma visita sozinha, e não os junto aos pedidos de patrocínio nem às mensagens que recebo.</p>
+  <p>O serviço corre no Cloudflare, e os dados ficam em servidores na União Europeia. A Cloudflare, Inc. trata-os por minha conta, como subcontratante; fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework. Os registos de pedidos do próprio Cloudflare estão desligados neste serviço. Não vendo nem partilho estes dados.</p>
+  <p>Porque não te peço autorização: a lei dispensa-a quando o acesso ao teu browser é estritamente necessário para o serviço que pedes (artigo 5.º, n.º 2, alínea b), da Lei n.º 41/2004). Sigo a leitura das autoridades de proteção de dados de França (CNIL), Espanha e Itália: uma medição feita só por mim, só para este site, que dá apenas números de conjunto, não cruza dados, não te segue e se pode desligar, serve para saber se o site funciona e se se percebe. A base legal no RGPD é o meu interesse legítimo nisso mesmo (artigo 6.º, n.º 1, alínea f)).</p>
+  <p>Se o teu browser tiver ligado o Global Privacy Control ou o Do Not Track, não é registado nada. Também podes usar o botão abaixo: a escolha fica guardada só neste browser.</p>
+  <p class="optout-note" data-optout-signal hidden>O teu browser já pede aos sites que não sigam as tuas visitas, por isso aqui não são contadas.</p>
+  <p class="legal-act"><button type="button" class="btn sm" data-optout data-off="Não contar as minhas visitas" data-on="Voltar a contar">Não contar as minhas visitas</button></p>
+  <p class="optout-note" data-optout-note role="status" hidden>As tuas visitas não estão a ser contadas neste browser.</p>
+  <p>Às vezes aparece uma pergunta rápida, de um toque: «Percebeste como funciona o patrocínio?». É opcional e anónima: a resposta vai com o registo dessa visita e só conta nos totais. Depois de responderes ou fechares, o browser guarda só o mês, para não voltar a perguntar durante seis meses, e esse mês não é enviado. Com o Global Privacy Control, o Do Not Track ou o botão acima, a pergunta não aparece.</p>
+  <p>Como não sei quem és, em regra não consigo encontrar as tuas visitas nos registos. Podes opor-te a esta contagem com o botão acima, ou escrever-me (mais abaixo, em «Os teus direitos»).</p>
+  </div>
+
+  <h2>Google Analytics, só se aceitares</h2>
   <p>Quando o site te pergunta se pode usar o Google Analytics e carregas em «Aceitar», passa a contar as visitas: as páginas e as secções que vês, de onde vieste (por exemplo, um link do Instagram), o tipo de aparelho e de browser, o país e a cidade aproximados, e os passos de um pedido de patrocínio (abrir o pedido, escolher como pagar, enviá-lo). Serve só para eu perceber o que interessa a quem visita o site.</p>
   <p>Não recolhe o que escreves no formulário (marca, nome, NIF, mensagem), nem o teu email, nem o teu número. Não serve para publicidade: os sinais da Google e a personalização de anúncios estão desligados.</p>
   <p>Antes de aceitares, o código da Google nem sequer é carregado. Se recusares, ou se o teu browser pedir aos sites que não sigam as tuas visitas (Global Privacy Control ou Do Not Track), nada é enviado, mesmo que tenhas aceitado antes de ligares essa opção.</p>
@@ -111,14 +146,17 @@
     <div><dt>gc.claim.req</dt><dd>O número, a marca, os espaços, a forma de pagar e o último dia de cada pedido que fizeste, para o mesmo pedido não ir duas vezes. Deixa de contar quando a reserva acaba e apaga-se quando fechas o separador.</dd></div>
     <div><dt>gc.claim.sent, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>Que já enviaste o pedido, a forma de pagar e se o WhatsApp abriu, para o passo do pagamento voltar se a página recarregar. Até fechares o separador.</dd></div>
     <div><dt>gc.3d.up, gc.3d.lite, gc.3d.hp, gc.debug3d</dt><dd>Se a vista 3D está a funcionar e, depois de uma falha, a versão que funcionou neste aparelho, para a página não repetir o que falhou quando recarrega. gc.debug3d só existe se abriste o painel de diagnóstico com ?debug3d. Até fechares o separador.</dd></div>
+    <div data-stats-ui hidden><dt>gc.optout</dt><dd>Que pediste para não contar as tuas visitas neste browser («Não contar as minhas visitas», em «Contagem de visitas»). Fica até carregares em «Voltar a contar» ou apagares os dados do site.</dd></div>
+    <div data-stats-ui hidden><dt>gc.fb</dt><dd>O mês em que respondeste ou fechaste a pergunta rápida, para não voltar a aparecer durante seis meses. Não é enviado.</dd></div>
+    <div><dt>gc.internal</dt><dd>Só nos aparelhos de quem gere o site, depois de abrir a página de admin: as visitas desse aparelho não entram nas estatísticas.</dd></div>
   </dl>
-  <p>Os oito últimos ficam só no teu browser. Servem coisas que tu pedes, por isso não precisam de autorização.</p>
+  <p>Todos, menos os cookies _ga, ficam só no teu browser. Servem coisas que tu pedes, por isso não precisam de autorização.</p>
 
   <h2>A Google</h2>
   <p>A Google Ireland Limited trata as estatísticas por minha conta, como subcontratante. Parte dos dados pode ir para servidores nos Estados Unidos: a Google LLC está certificada no EU-US Data Privacy Framework, abrangido pela decisão de adequação da Comissão Europeia de 10 de julho de 2023 (artigo 45.º do RGPD).</p>
   <p>O Google Analytics não guarda o teu endereço IP. Usa-o para calcular a localização aproximada e descarta-o.</p>
 
-  <h2>Durante quanto tempo</h2>
+  <h2>Durante quanto tempo, no Google Analytics</h2>
   <p>Os dados ao pormenor ficam 14 meses no Google Analytics e depois são apagados. Os totais, como as visitas por mês, podem ficar.</p>
 
   <h2>Pedidos de patrocínio e contactos</h2>
@@ -153,7 +191,34 @@
   <h2>Who is responsible</h2>
   <p>Gonçalo Carmo, the athlete behind this site. For anything about your data, write to <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a>.</p>
 
-  <h2>Statistics, only if you accept</h2>
+  <div data-stats-ui hidden>
+  <h2>Visit counting, without cookies</h2>
+  <p>To see how the site is used and make it clearer, I count visits with my own tool, built for this site only. It uses no cookies, does not identify you and does not store your IP address. It is not Google Analytics, which only runs if you accept it (further down).</p>
+  <p>For each visit it records:</p>
+  <ul class="legal-list">
+    <li>the page and the sections you see, how long you stay and how far down you scroll;</li>
+    <li>where you tap or click (buttons, links, suit and helmet spots, the 3D view), by the element and its short name, so I can see what is clear and what confuses, including taps that do nothing or are repeated;</li>
+    <li>where you came from, only the name of the site or app (instagram.com, for example), never the full address;</li>
+    <li>your approximate country, region and city, worked out from your IP address, which is not stored;</li>
+    <li>your type of device, your screen width in broad steps, your system, browser and language;</li>
+    <li>how long the page takes to open, whether the 3D view loaded, and page errors;</li>
+    <li>the spots you open or add to your package and the steps of a sponsorship request (opening it, sending it, choosing how to pay), without the brand, name, tax number, message, logo or amount;</li>
+    <li>the day and hour of the visit, never the minutes.</li>
+  </ul>
+  <p>It never reads what you type in the fields or the logo you pick. Of a link you open it keeps only the kind (WhatsApp, email, Instagram…), never the address, because that is where the request's message goes.</p>
+  <p>So as not to count the same person twice in one day, the service combines a shortened IP address, the browser and a key that changes every day, and keeps only a code. At the end of the day (Lisbon time), the code and the key are deleted. It does not follow you from one day to the next or on other sites, and stores nothing in your browser for this.</p>
+  <p>The records of each visit are deleted after 30 days. Daily totals stay for 25 months (for example, “40 visits from Braga on 3 March”) and, after that, only monthly totals without cities, which identify no one. I only ever see those totals, never a single visit, and I never match them with sponsorship requests or the messages I receive.</p>
+  <p>The service runs on Cloudflare, and the data stays on servers in the European Union. Cloudflare, Inc. processes it on my behalf, as a processor; it is based in the United States and certified under the EU-US Data Privacy Framework. Cloudflare's own request logs are switched off for this service. I do not sell or share this data.</p>
+  <p>Why I do not ask for permission: the law does not require it when access to your browser is strictly necessary for the service you asked for (Article 5(2)(b) of Portuguese Law 41/2004). I follow the reading of the data protection authorities of France (CNIL), Spain and Italy: measurement done by me alone, for this site alone, that gives only overall numbers, matches no data, does not follow you and can be switched off, is there to find out whether the site works and is understood. The legal basis under the GDPR is my legitimate interest in exactly that (Article 6(1)(f)).</p>
+  <p>If your browser has Global Privacy Control or Do Not Track switched on, nothing is recorded. You can also use the button below: the choice is kept in this browser only.</p>
+  <p class="optout-note" data-optout-signal hidden>Your browser already asks sites not to track your visits, so they are not counted here.</p>
+  <p class="legal-act"><button type="button" class="btn sm" data-optout data-off="Don't count my visits" data-on="Count them again">Don't count my visits</button></p>
+  <p class="optout-note" data-optout-note role="status" hidden>Your visits are not being counted in this browser.</p>
+  <p>Sometimes a quick one-tap question appears: “Did you get how the sponsorship works?”. It is optional and anonymous: the answer goes with that visit's record and only counts in the totals. After you answer or close it, the browser keeps only the month, so it does not ask again for six months, and that month is never sent. With Global Privacy Control, Do Not Track or the button above, the question does not appear.</p>
+  <p>Since I do not know who you are, I usually cannot find your visits in the records. You can object to this counting with the button above, or write to me (see “Your rights” below).</p>
+  </div>
+
+  <h2>Google Analytics, only if you accept</h2>
   <p>When the site asks whether it may use Google Analytics and you choose “Accept”, it starts counting visits: the pages and sections you see, where you came from (an Instagram link, for example), your type of device and browser, your approximate country and city, and the steps of a sponsorship request (opening it, choosing how to pay, sending it). It is only there so I can see what interests the people who visit.</p>
   <p>It does not collect what you type in the form (brand, name, tax number, message), your email or your phone number. It is not used for advertising: Google signals and ad personalisation are switched off.</p>
   <p>Until you accept, Google's code is not even loaded. If you decline, or if your browser asks sites not to track you (Global Privacy Control or Do Not Track), nothing is sent, even if you accepted before you switched that setting on.</p>
@@ -170,14 +235,17 @@
     <div><dt>gc.claim.req</dt><dd>The number, brand, spots, how you will pay and last day of each request you made, so the same request is not sent twice. It stops counting when the hold ends and goes when you close the tab.</dd></div>
     <div><dt>gc.claim.sent, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>That you have sent your request, how you will pay and whether WhatsApp opened, so the payment step comes back if the page reloads. Until you close the tab.</dd></div>
     <div><dt>gc.3d.up, gc.3d.lite, gc.3d.hp, gc.debug3d</dt><dd>Whether the 3D view is running and, after a failure, the version that worked on this device, so a reload does not repeat what failed. gc.debug3d is there only if you opened the diagnostics panel with ?debug3d. Until you close the tab.</dd></div>
+    <div data-stats-ui hidden><dt>gc.optout</dt><dd>That you asked for your visits not to be counted in this browser (“Don't count my visits”, under “Visit counting”). It stays until you choose “Count them again” or clear the site's data.</dd></div>
+    <div data-stats-ui hidden><dt>gc.fb</dt><dd>The month you answered or closed the quick question, so it does not appear again for six months. It is never sent.</dd></div>
+    <div><dt>gc.internal</dt><dd>Only on the devices of whoever runs the site, after opening the admin page: visits from that device are left out of the statistics.</dd></div>
   </dl>
-  <p>The last eight stay in your browser only. They do things you ask for, so they need no permission.</p>
+  <p>Everything except the _ga cookies stays in your browser only. They do things you ask for, so they need no permission.</p>
 
   <h2>Google</h2>
   <p>Google Ireland Limited processes the statistics on my behalf, as a processor. Some of the data may go to servers in the United States: Google LLC is certified under the EU-US Data Privacy Framework, covered by the European Commission's adequacy decision of 10 July 2023 (Article 45 GDPR).</p>
   <p>Google Analytics does not store your IP address. It uses it to work out your approximate location and then discards it.</p>
 
-  <h2>How long</h2>
+  <h2>How long, in Google Analytics</h2>
   <p>Detailed data stays in Google Analytics for 14 months and is then deleted. Totals, such as visits per month, may remain.</p>
 
   <h2>Sponsorship requests and messages</h2>
