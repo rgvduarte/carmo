@@ -1,0 +1,193 @@
+name: Deploy stats
+
+# Publishes stats-worker/ (gocarmo-api: the site's own visit counting, without cookies) to Cloudflare, on its
+# workers.dev address. Runs on a push to gh-pages that touches stats-worker/ or this file, and by hand: Actions >
+# Deploy stats > Run workflow. The secrets are listed in stats-worker/README.md. If the account has no workers.dev
+# subdomain yet, this workflow creates one. It sets ADMIN_KEY (from GitHub) and, the first time only, a SALT_SECRET it
+# makes itself (never stored in GitHub). The run ends with the Worker's address in the job summary: it goes into
+# SITE.stats.url in assets/js/data.js.
+on:
+  push:
+    branches: [gh-pages]
+    paths:
+      - 'stats-worker/**'
+      - '.github/workflows/deploy-stats.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-stats
+  cancel-in-progress: false
+
+env:
+  WRANGLER_VERSION: '4.146.0'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Check the secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+        run: |
+          missing=""
+          for k in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID ADMIN_KEY; do
+            [ -n "${!k}" ] || missing="$missing $k"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Faltam secrets::Faltam no GitHub (Settings > Secrets and variables > Actions):$missing. Ver stats-worker/README.md."
+            exit 1
+          fi
+          if [ "${#ADMIN_KEY}" -lt 16 ]; then
+            echo "::error title=ADMIN_KEY curta::A ADMIN_KEY tem de ter pelo menos 16 caracteres. Gera uma com: openssl rand -hex 24"
+            exit 1
+          fi
+          # the dev hooks (fake clock, fake address, reset) exist only in a local .dev.vars, never in production
+          if grep -q 'DEV_HOOKS' stats-worker/wrangler.toml; then
+            echo "::error title=DEV_HOOKS no wrangler.toml::O stats-worker/wrangler.toml não pode ter DEV_HOOKS: é só para testes no computador (.dev.vars)."
+            exit 1
+          fi
+          # no request logs, ever: they would hold IP addresses and browsers
+          if ! awk '/^\[observability\]/{o=1; next} /^\[/{o=0} o && /^enabled *= *false/{f=1} END{exit !f}' stats-worker/wrangler.toml; then
+            echo "::error title=Registos ligados::O stats-worker/wrangler.toml tem de ter [observability] enabled = false."
+            exit 1
+          fi
+
+      # workers.dev needs a subdomain on the account: read it, or create one (gocarmo, gocarmo-site, gocarmo-<4 hex>)
+      - name: Find or create the workers.dev subdomain
+        id: sub
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          api="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain"
+          get() { curl -sS --max-time 20 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$api" || true; }
+          field() { printf '%s' "$1" | jq -r "$2" 2>/dev/null || true; }
+          body="$(get)"
+          sub="$(field "$body" '.result.subdomain // empty')"
+          codes="$(field "$body" '[.errors[]?.code] | map(tostring) | join(",")')"
+          created=""
+          # 10007: the account has no subdomain yet
+          if [ -z "$sub" ] && { [ "$(field "$body" '.success')" = "true" ] || [[ ",$codes," == *",10007,"* ]]; }; then
+            for name in gocarmo gocarmo-site "gocarmo-$(openssl rand -hex 2)"; do
+              r="$(curl -sS --max-time 20 -X PUT -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H 'Content-Type: application/json' \
+                --data "{\"subdomain\":\"$name\"}" "$api" || true)"
+              if [ -n "$(field "$r" '.result.subdomain // empty')" ]; then created="$name"; break; fi
+              codes="$(field "$r" '[.errors[]?.code] | map(tostring) | join(",")')"
+              # 10031: that name is taken, try the next one; anything else: stop
+              [[ ",$codes," == *",10031,"* ]] || break
+            done
+            body="$(get)"
+            sub="$(field "$body" '.result.subdomain // empty')"
+            [ -n "$sub" ] || codes="${codes:-$(field "$body" '[.errors[]?.code] | map(tostring) | join(",")')}"
+          fi
+          if [ -z "$sub" ]; then
+            echo "::error title=Subdomínio workers.dev::Não consegui ler nem criar o subdomínio (erros: ${codes:-sem resposta}). O token precisa do modelo «Edit Cloudflare Workers»."
+            exit 1
+          fi
+          if [ -n "$created" ]; then
+            echo "::notice::Criei o subdomínio $sub.workers.dev (o endereço pode levar alguns minutos a responder)."
+          fi
+          echo "subdomain=$sub" >> "$GITHUB_OUTPUT"
+
+      # the Worker is published only when its tests pass
+      - name: Install and test
+        working-directory: stats-worker
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
+      - name: Deploy
+        id: deploy
+        uses: cloudflare/wrangler-action@da0e0dfe58b7a431659754fdf3f186c529afbe65 # v3.14.1
+        env:
+          ADMIN_KEY: ${{ secrets.ADMIN_KEY }}
+          WRANGLER_SEND_METRICS: 'false'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: stats-worker
+          secrets: |
+            ADMIN_KEY
+          command: deploy
+
+      # The pepper of the daily visitor hash. Made here once and never shown; never rotated by later runs (a new one
+      # would split the day's visitors in two). To change it on purpose: delete the secret in the Cloudflare dashboard
+      # (Workers & Pages > gocarmo-api > Settings > Variables and Secrets) and run this workflow again.
+      - name: Make sure SALT_SECRET exists
+        working-directory: stats-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: |
+          if ! list="$(npx --no-install wrangler secret list 2>/dev/null)"; then
+            echo "::error title=SALT_SECRET::Não consegui ver os secrets do Worker gocarmo-api. Corre a action outra vez."
+            exit 1
+          fi
+          if printf '%s' "$list" | grep -q '"SALT_SECRET"'; then
+            echo "O SALT_SECRET já existe: fica o mesmo."
+          else
+            s="$(openssl rand -hex 32)"
+            echo "::add-mask::$s"
+            printf '%s' "$s" | npx --no-install wrangler secret put SALT_SECRET
+            echo "::notice::Criei o SALT_SECRET do Worker (só desta vez; não está no GitHub e não precisas dele)."
+          fi
+
+      - name: The Worker's address
+        env:
+          DEPLOYED: ${{ steps.deploy.outputs.deployment-url }}
+          SUB: ${{ steps.sub.outputs.subdomain }}
+        run: |
+          url="${DEPLOYED%/}"
+          if [ -z "$url" ]; then url="https://gocarmo-api.$SUB.workers.dev"; fi
+          health=""
+          ok=""
+          # a new workers.dev subdomain can take a few minutes to answer: every 15 s, for up to 5 minutes
+          for i in $(seq 1 20); do
+            health="$(curl -fsS --max-time 10 "$url/health" 2>/dev/null || true)"
+            if [ "$(printf '%s' "$health" | jq -r '.ok // empty' 2>/dev/null)" = "true" ]; then ok=1; break; fi
+            sleep 15
+          done
+          {
+            echo "## Estatísticas publicadas"
+            echo
+            echo "Endereço: \`$url\`"
+            echo
+            echo "Estado (\`/health\`): \`${health:-ainda sem resposta (um subdomínio novo pode levar alguns minutos)}\`"
+            echo
+            echo "Para ligar no site: em \`assets/js/data.js\` põe \`stats: { url: '$url', …}\`, corre \`node scripts/stamp.mjs\` e publica."
+            echo
+            echo "Painel: https://gocarmo.com/admin/analytics/"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Endereço das estatísticas::$url"
+          if [ -z "$ok" ]; then
+            echo "::warning::O Worker ainda não respondeu em $url/health. Se o subdomínio é novo, espera uns minutos e abre esse endereço no browser."
+            exit 0
+          fi
+          bad=""
+          for k in store salt admin; do
+            [ "$(printf '%s' "$health" | jq -r ".$k")" = "true" ] || bad="$bad $k"
+          done
+          if [ -n "$bad" ]; then
+            extra=""
+            if [[ " $bad " == *" store "* ]] && [ "$(printf '%s' "$health" | jq -r '.eu')" = "true" ]; then
+              extra=" Se o Cloudflare recusar dados na UE neste plano, põe \`STORE_JURISDICTION = \"\"\` em stats-worker/wrangler.toml e corre outra vez (ainda não há dados)."
+            fi
+            echo "::error title=Estatísticas incompletas::O /health diz false em:$bad. Ver stats-worker/README.md, «Problemas».$extra"
+            exit 1
+          fi
