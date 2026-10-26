@@ -657,10 +657,11 @@ export class Kit {
     this.camera.aspect = w / h;
     this.fit = w / h < 0.85 ? 1 + (0.85 - w / h) * 1.05 : 1;   // keep the whole model framed on tall screens
     this.camera.updateProjectionMatrix();
-    // a reallocated buffer is blank, and this can run after the frame's rAF draw (a ResizeObserver, the end of a
-    // snapshot): draw again now, before paint. Only a model that has drawn already: its first frame, and the shaders it
-    // compiles, stay in the loop, and a throw here goes the loop's way (suit:error)
-    if (now && this.active && this._drawn && this.visible && !this.held && !document.hidden && !this.lost()) {
+    // a reallocated buffer is blank, and this can run after the frame's rAF draw (a part switch, the end of a snapshot):
+    // draw again now, before paint, so the stage never shows an empty frame. Not while a fresh renderer is being bound
+    // (rebind: its first frame belongs to the loop, once adspace watches the new context), and a throw here goes the
+    // loop's way (suit:error)
+    if (now && this.active && this.visible && !this.held && !this._binding && !document.hidden && !this.lost()) {
       try {
         this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
         this.camera.lookAt(this.state.x, this.state.ty, 0);
@@ -710,7 +711,8 @@ export class Kit {
     // lost again while the room renders (Safari up to 26 throws there): the restore or the next rebuild renders it
     try { this.swapEnv(this.scene.environment); } catch (e) { if (!this.lost()) throw e; }
     this.running = false; this._drawn = false;
-    if (this.active) this.setActive(true); else this.resize();
+    this._binding = true;
+    try { if (this.active) this.setActive(true); else this.resize(); } finally { this._binding = false; }
   }
   // The old renderer lets go of this model: its 'dispose' listeners on the textures, materials and geometries would
   // keep it reachable, with its context, which WebKit goes on trying to restore. three uploads all of it again to the
@@ -758,7 +760,6 @@ export class Kit {
     this.camera.position.set(this.state.x, this.state.y, this.state.dist * (this.fit || 1));
     this.camera.lookAt(this.state.x, this.state.ty, 0);
     this.renderer.render(this.scene, this.camera);
-    this._drawn = true;
     this.el.dispatchEvent(new CustomEvent('suit:frame'));
     // once at rest, one frame more: the drawing buffer is not preserved, and a compositor that shows it a frame late
     // (WebKit on Linux does) would otherwise keep the frame before the last one on screen
