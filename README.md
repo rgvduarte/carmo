@@ -36,6 +36,8 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   chaves `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `msg.terms` (a linha
   «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`).
   As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
+- **Cartão de contacto** (`/cartao/`, para o Gonçalo mostrar e partilhar): foto, contactos, «Guardar contacto», o QR
+  do cartão e, depois de ligado, «Adicionar à Apple Wallet». Ver «Cartão de contacto», mais abaixo.
 
 PT e EN (botão no topo; a língua também segue o browser).
 
@@ -54,6 +56,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
+| Cartão de contacto (página, vCard, QR, Apple Wallet) | `cartao/`, `wallet/cartao/pass.json` e `python3 scripts/cartao.py` (ver «Cartão de contacto») |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
 ## Vender um espaço
@@ -381,6 +384,101 @@ aspeto da GoFundMe e um script de outro servidor, e o site não corre scripts de
 donativo: os espaços do fato e do capacete vendem-se só aqui no site e nunca são recompensa (Termos 6.1 e 8.12).
 Agradecer nas atualizações da campanha pode.
 
+## Cartão de contacto
+
+Para o Gonçalo ter os contactos no telemóvel e os passar a marcas e parceiros: uma página, um contacto para guardar, um
+cartão para o Apple Wallet e uma imagem com o código QR, tudo com a marca GOCARMO.
+
+| Peça | Onde | O que faz |
+|---|---|---|
+| Página `gocarmo.com/cartao/` | `cartao/index.html`, `assets/css/cartao.css`, `assets/js/cartao.js` | Foto, nome, «Triatleta · Lisboa», **Guardar contacto**, WhatsApp, email, Instagram, site, Strava, a linha do patrocínio e um QR grande para mostrar, com **Partilhar o link**. PT e EN, como as páginas legais. Sem contador de visitas e sem nada de novo no browser (só `gc.lang`, como no resto do site), por isso a página de privacidade não muda. |
+| Contacto | `cartao/goncalo-carmo.vcf` | vCard 3.0 (o formato do próprio iPhone) com nome, GOCARMO, Triatleta, telemóvel, email, site, Instagram, Strava, a linha do patrocínio e a foto. No iPhone abre «Criar novo contacto»; no Android descarrega e abre nos Contactos. |
+| Código QR | `cartao/qr.svg` | Leva a `https://gocarmo.com/cartao/`. Feito aqui, sem nenhum serviço de QR. |
+| Cartão do Apple Wallet | fonte em `wallet/cartao/`, feito por **Actions → Wallet pass** | Frente: GO CARMO, época 2027, nome, «Triatleta · Lisboa», a foto, telefone, email, Instagram, IRONMAN Cascais 2026 em 9:35:08 e o QR. Verso: telefone e WhatsApp, email, Instagram, site, Strava, o patrocínio e o link do cartão. Em português e em inglês, conforme a língua do iPhone. A Action publica-o em `cartao/goncalo-carmo.pkpass` e só então a página mostra **Adicionar à Apple Wallet** (num iPhone, iPad ou Mac; noutros aparelhos o Wallet não abre um `.pkpass`). |
+| Imagens para o telemóvel | fora do site | `qr-cartao-iphone.png` (1179 × 2556, para ecrã bloqueado ou para mostrar das Fotografias) e `qr-cartao-quadrado.png` (1080 × 1080, para enviar). Para as fazer outra vez: `node scripts/cartao-images.mjs <pasta>`. |
+
+O botão do Wallet é um botão do site com o texto «Adicionar à Apple Wallet». O selo oficial da Apple só se pode usar
+depois de aceitar, com a conta do Apple Developer Program, o «Wallet Marketing Agreement» em
+https://developer.apple.com/wallet/add-to-apple-wallet-guidelines/; quem o aceitar pode descarregar o selo lá e pô-lo no
+lugar do botão em `cartao/index.html`.
+
+**Pôr o cartão no ecrã principal.** No iPhone, Safari → `gocarmo.com/cartao/` → Partilhar → Adicionar ao ecrã
+principal. Fica com o ícone GOCARMO e abre no Safari, onde o contacto e o Wallet funcionam sempre.
+
+**O certificado da Apple (uma vez, uns 20 minutos).** Um iPhone só aceita um cartão do Wallet assinado com um
+certificado da Apple; com outro qualquer recusa-o. O site nunca vê o certificado: está só nos secrets do GitHub.
+1. Inscreve-te no Apple Developer Program (https://developer.apple.com/programs/enroll/, com uma quota anual de 99 USD
+   ou o valor em euros que a Apple indicar), com a conta Apple do Gonçalo. O nome da conta aparece no certificado.
+2. Em https://developer.apple.com/account → **Membership details**, copia o **Team ID** (10 letras e números).
+3. Em **Certificates, Identifiers & Profiles → Identifiers → +**, escolhe **Pass Type IDs → Continue**. Description:
+   `Cartão GOCARMO`; Identifier: `pass.com.gocarmo.cartao`. **Continue → Register**.
+4. O pedido de certificado (CSR), de uma destas formas:
+   - num Mac: **Acesso a Porta-chaves** → menu **Acesso a Porta-chaves → Assistente de Certificação → Pedir um
+     certificado a uma autoridade de certificação**. Email `allez@gocarmo.com`, nome `Gonçalo Carmo`, **Guardado no
+     disco**. Fica o ficheiro `CertificateSigningRequest.certSigningRequest`, e a chave fica no Porta-chaves;
+   - com o openssl, em qualquer computador:
+     `openssl req -new -utf8 -newkey rsa:2048 -nodes -keyout cartao.key -out cartao.csr -subj "/emailAddress=allez@gocarmo.com/CN=Gonçalo Carmo/C=PT"`.
+     O `cartao.key` é a chave privada: nunca a envies nem a ponhas no repositório.
+5. Em **Certificates → +**, escolhe **Pass Type ID Certificate → Continue**, escolhe `pass.com.gocarmo.cartao`, carrega
+   o CSR e descarrega o certificado (`pass.cer`).
+6. Junta o certificado e a chave num `.p12` com uma palavra-passe:
+   - num Mac: abre o `pass.cer` (entra no Porta-chaves); em **Os meus certificados** está «Pass Type ID:
+     pass.com.gocarmo.cartao» com a chave por baixo; escolhe os dois → **Exportar 2 itens** → formato `.p12` →
+     escolhe a palavra-passe;
+   - com o openssl: `openssl x509 -inform DER -in pass.cer -out pass.pem` e
+     `openssl pkcs12 -export -inkey cartao.key -in pass.pem -out cartao.p12 -name "Pass Type ID: pass.com.gocarmo.cartao"`
+     (pede a palavra-passe).
+7. Passa o `.p12` a texto: num Mac `base64 -i cartao.p12 | pbcopy` (fica copiado), no Linux `base64 -w0 cartao.p12`.
+8. No GitHub, **Settings → Secrets and variables → Actions**:
+   - separador **Secrets → New repository secret**: `WALLET_P12_BASE64` (o texto do passo 7) e `WALLET_P12_PASSWORD`
+     (a palavra-passe do passo 6);
+   - separador **Variables → New repository variable**: `WALLET_PASS_TYPE_ID` = `pass.com.gocarmo.cartao` e
+     `WALLET_TEAM_ID` = o Team ID do passo 2. (Também servem como secrets, com os mesmos nomes.)
+9. **Actions → Wallet pass → Run workflow** (o número de série fica `goncalo-carmo`). Em cerca de um minuto, a action
+   descarrega da apple.com o certificado intermédio da Apple (WWDR G4) e confirma-o, faz o cartão, confirma a assinatura
+   até à raiz da Apple, guarda-o nos artifacts da corrida e publica `cartao/goncalo-carmo.pkpass` e `cartao/wallet.json`
+   no `gh-pages`. Se faltar alguma coisa, a corrida diz em português o que criar e onde. 1 ou 2 minutos depois,
+   `gocarmo.com/cartao/` mostra **Adicionar à Apple Wallet**.
+10. No iPhone do Gonçalo: Safari → `gocarmo.com/cartao/` → **Adicionar à Apple Wallet** → **Adicionar**. Para mostrar
+    o QR a alguém, abre a app Wallet e toca no cartão.
+
+O certificado tem uma data de validade (está em Certificates). Depois dela, para fazer um cartão novo, cria outro
+certificado (passos 4 a 8) e troca os dois secrets.
+
+**Fazer o cartão no computador.** O mesmo que a action faz:
+`WALLET_P12_FILE=cartao.p12 WALLET_P12_PASSWORD='…' WALLET_PASS_TYPE_ID=pass.com.gocarmo.cartao WALLET_TEAM_ID=… sh wallet/build-pass.sh goncalo-carmo.pkpass`
+e depois `python3 wallet/check-pass.py goncalo-carmo.pkpass`. Precisa só de `openssl`, `zip` e `python3`; o script
+não mostra a palavra-passe nem a chave e apaga a pasta temporária onde as pôs. Para experimentar sem a Apple, um
+certificado de teste feito com o openssl também serve (o `check-pass.py` confirma o cartão todo), mas um iPhone recusa
+esse cartão.
+
+**NameDrop e «O meu cartão».** O NameDrop (iPhone com iOS 17 ou mais recente, e Apple Watch) partilha o contacto que o
+iPhone tem como «O meu cartão», não esta página. Para ser o do cartão:
+1. No iPhone do Gonçalo, Safari → `gocarmo.com/cartao/` → **Guardar contacto** → **Criar novo contacto** (ou
+   **Adicionar a contacto existente**, se já tiver o dele nos Contactos).
+2. **Definições → Contactos → Os meus dados** (no iOS 18 e seguintes: **Definições → Apps → Contactos → Os meus dados**)
+   e escolhe «Gonçalo Carmo».
+3. Em **Contactos**, toca no cartão do topo («O meu cartão») → **Foto e poster do contacto** para escolher a foto e o
+   nome que os outros veem.
+4. Para trocar contactos: os dois iPhones desbloqueados, topo com topo, até aparecer o NameDrop; **Partilhar** envia o
+   dele e recebe o da outra pessoa, **Receber só** recebe. Com um Android, mostra o QR (Wallet, ecrã bloqueado ou a
+   página) ou envia o link.
+
+**Mudar o cartão mais tarde.**
+- Os contactos vêm de `assets/js/data.js` (`SITE`). Se mudarem, muda também o texto de `cartao/index.html` (PT e EN) e
+  `wallet/cartao/pass.json`, corre `python3 scripts/cartao.py` (vCard, QR, fotos e traduções do Wallet; precisa de
+  `pip install pillow segno`) e, se mudaste o CSS ou o JS, `node scripts/stamp.mjs`. `python3 scripts/cartao.py --check`
+  diz se ficou alguma coisa por fazer.
+- Logótipo e ícone do Wallet: `node scripts/cartao-images.mjs` (a partir de `wallet/marca/`).
+- Depois de publicar a mudança no `gh-pages`, corre **Actions → Wallet pass** outra vez. Com o mesmo número de série
+  (`goncalo-carmo`), o cartão novo substitui o que está no Wallet quando o Gonçalo o abrir no iPhone; com um número
+  novo, o Wallet fica com dois cartões.
+- Este cartão não tem serviço de atualização (`webServiceURL`), por isso não muda sozinho em nenhum telemóvel: depois
+  da action, o Gonçalo abre `gocarmo.com/cartao/` e toca outra vez em **Adicionar à Apple Wallet**. Quem recebeu o
+  cartão antes fica com a versão antiga.
+- O `.pkpass` é público (só tem os contactos que já estão no site e o certificado público). O `.p12`, a chave e a
+  palavra-passe nunca vão para o repositório.
+
 ## Ligar o Strava (uma vez)
 
 Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo.
@@ -613,9 +711,9 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `privacidade/index.html` e de `condicoes/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
-Numa página com Content-Security-Policy (as do admin), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista.
+Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista.
 
 O mesmo script escreve em `index.html` os cartões de «Todas as provas» a partir de `RESULTS` (`assets/js/data.js`), com o mesmo código que os desenha na página (`assets/js/races.js`): são eles que aparecem sem JavaScript e no media kit impresso. Pára com uma lista do que falta se uma prova não tiver o que os cartões precisam (um triatlo sem `splits` ou `ag`, uma corrida sem `pace`). `node scripts/stamp.mjs --check` não muda nada e falha se alguma página estiver desatualizada.
 
