@@ -106,7 +106,7 @@ if (OUT) {
       <div class="row">${G.auxiliaryFields.map((f, i) => field(f, i ? 'r' : '')).join('')}</div>
       <div class="code"><div class="tile">${qrWallet}<div class="alt">${esc(B.altText)}</div></div></div>
     </div>
-    <p class="cap">Frente do passe (aproximação do Wallet no iPhone)</p>
+    <p class="cap">Frente do passe (aproximação da Wallet no iPhone)</p>
   </div>`;
   const frontCss = `
   body { background: #000; }
@@ -139,7 +139,7 @@ if (OUT) {
       <div class="head"><img src="/wallet/cartao/icon@3x.png" alt=""><div><b>${esc(PASS.organizationName)}</b><small>${esc(PASS.description)}</small></div></div>
       <div class="grp">${G.backFields.map((f) => `<div class="bf"><div class="bl">${esc(f.label)}</div><div class="bv${f.dataDetectorTypes ? ' tel' : ''}">${link(f)}</div></div>`).join('')}</div>
     </div>
-    <p class="cap">Verso do passe (aproximação do Wallet no iPhone)</p>
+    <p class="cap">Verso do passe (aproximação da Wallet no iPhone)</p>
   </div>`;
   const backCss = `
   body { background: #000; }

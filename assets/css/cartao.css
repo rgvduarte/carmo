@@ -9,8 +9,9 @@
 .vc-id { display: flex; align-items: center; gap: clamp(16px, 3vw, 24px); }
 .vc-photo { width: 96px; height: 96px; border-radius: 22px; object-fit: cover; background: var(--bg-3); flex: none; }
 .vc-who { min-width: 0; }
-/* a little more than the display line height: the Ç's cedilla stays clear of the line under it */
-.vc-name { font-size: clamp(38px, 10.5vw, 84px); line-height: 1.08; overflow-wrap: anywhere; }
+/* when the name takes two lines (GONÇALO / CARMO), the Ç's cedilla reaches down to the cap height of the line under
+   it: at 1.2 or less it touches the R of CARMO, at 1.25 there is a clear gap (2 to 5 px, 320 to 1440 px wide) */
+.vc-name { font-size: clamp(38px, 10.5vw, 84px); line-height: 1.25; overflow-wrap: anywhere; }
 .vc-role { margin: 12px 0 0; font: 500 12px/1.3 var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
 .vc-lead { margin: 24px 0 0; max-width: 46ch; font-size: 17px; line-height: 1.55; color: var(--muted); text-wrap: pretty; }
 

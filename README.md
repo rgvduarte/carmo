@@ -387,25 +387,25 @@ Agradecer nas atualizações da campanha pode.
 ## Cartão de contacto
 
 Para o Gonçalo ter os contactos no telemóvel e os passar a marcas e parceiros: uma página, um contacto para guardar, um
-cartão para o Apple Wallet e uma imagem com o código QR, tudo com a marca GOCARMO.
+cartão para a Apple Wallet e uma imagem com o código QR, tudo com a marca GOCARMO.
 
 | Peça | Onde | O que faz |
 |---|---|---|
-| Página `gocarmo.com/cartao/` | `cartao/index.html`, `assets/css/cartao.css`, `assets/js/cartao.js` | Foto, nome, «Triatleta · Lisboa», **Guardar contacto**, WhatsApp, email, Instagram, site, Strava, a linha do patrocínio e um QR grande para mostrar, com **Partilhar o link**. PT e EN, como as páginas legais. Sem contador de visitas e sem nada de novo no browser (só `gc.lang`, como no resto do site), por isso a página de privacidade não muda. |
+| Página `gocarmo.com/cartao/` | `cartao/index.html`, `assets/css/cartao.css`, `assets/js/cartao.js` | Foto, nome, «Triatleta · Lisboa», **Guardar contacto**, telefone (para ligar com um toque), WhatsApp, email, Instagram, site, Strava, a linha do patrocínio e um QR grande para mostrar, com **Partilhar o link**. PT e EN, como as páginas legais. Sem contador de visitas e sem nada de novo no browser (só `gc.lang`, como no resto do site), por isso a página de privacidade não muda. |
 | Contacto | `cartao/goncalo-carmo.vcf` | vCard 3.0 (o formato do próprio iPhone) com nome, GOCARMO, Triatleta, telemóvel, email, site, Instagram, Strava, a linha do patrocínio e a foto. No iPhone abre «Criar novo contacto»; no Android descarrega e abre nos Contactos. |
 | Código QR | `cartao/qr.svg` | Leva a `https://gocarmo.com/cartao/`. Feito aqui, sem nenhum serviço de QR. |
-| Cartão do Apple Wallet | fonte em `wallet/cartao/`, feito por **Actions → Wallet pass** | Frente: GO CARMO, época 2027, nome, «Triatleta · Lisboa», a foto, telefone, email, Instagram, IRONMAN Cascais 2026 em 9:35:08 e o QR. Verso: telefone e WhatsApp, email, Instagram, site, Strava, o patrocínio e o link do cartão. Em português e em inglês, conforme a língua do iPhone. A Action publica-o em `cartao/goncalo-carmo.pkpass` e só então a página mostra **Adicionar à Apple Wallet** (num iPhone, iPad ou Mac; noutros aparelhos o Wallet não abre um `.pkpass`). |
+| Cartão da Apple Wallet | fonte em `wallet/cartao/`, feito por **Actions → Wallet pass** | Frente: GO CARMO, época 2027, nome, «Triatleta · Lisboa», a foto, telefone, email, Instagram, IRONMAN Portugal-Cascais 2026 em 9:35:08 e o QR. Verso: telefone e WhatsApp, email, Instagram, site, Strava, o patrocínio e o link do cartão. Em português e em inglês, conforme a língua do iPhone. A Action publica-o em `cartao/goncalo-carmo.pkpass` e só então a página mostra **Adicionar à Apple Wallet** (num iPhone, iPad ou Mac; noutros aparelhos a Wallet não abre um `.pkpass`). |
 | Imagens para o telemóvel | fora do site | `qr-cartao-iphone.png` (1179 × 2556, para ecrã bloqueado ou para mostrar das Fotografias) e `qr-cartao-quadrado.png` (1080 × 1080, para enviar). Para as fazer outra vez: `node scripts/cartao-images.mjs <pasta>`. |
 
-O botão do Wallet é um botão do site com o texto «Adicionar à Apple Wallet». O selo oficial da Apple só se pode usar
+O botão da Wallet é um botão do site com o texto «Adicionar à Apple Wallet». O selo oficial da Apple só se pode usar
 depois de aceitar, com a conta do Apple Developer Program, o «Wallet Marketing Agreement» em
 https://developer.apple.com/wallet/add-to-apple-wallet-guidelines/; quem o aceitar pode descarregar o selo lá e pô-lo no
 lugar do botão em `cartao/index.html`.
 
 **Pôr o cartão no ecrã principal.** No iPhone, Safari → `gocarmo.com/cartao/` → Partilhar → Adicionar ao ecrã
-principal. Fica com o ícone GOCARMO e abre no Safari, onde o contacto e o Wallet funcionam sempre.
+principal. Fica com o ícone GOCARMO e abre no Safari, onde o contacto e a Wallet funcionam sempre.
 
-**O certificado da Apple (uma vez, uns 20 minutos).** Um iPhone só aceita um cartão do Wallet assinado com um
+**O certificado da Apple (uma vez, uns 20 minutos).** Um iPhone só aceita um cartão da Wallet assinado com um
 certificado da Apple; com outro qualquer recusa-o. O site nunca vê o certificado: está só nos secrets do GitHub.
 1. Inscreve-te no Apple Developer Program (https://developer.apple.com/programs/enroll/, com uma quota anual de 99 USD
    ou o valor em euros que a Apple indicar), com a conta Apple do Gonçalo. O nome da conta aparece no certificado.
@@ -435,7 +435,8 @@ certificado da Apple; com outro qualquer recusa-o. O site nunca vê o certificad
    - separador **Variables → New repository variable**: `WALLET_PASS_TYPE_ID` = `pass.com.gocarmo.cartao` e
      `WALLET_TEAM_ID` = o Team ID do passo 2. (Também servem como secrets, com os mesmos nomes.)
 9. **Actions → Wallet pass → Run workflow** (o número de série fica `goncalo-carmo`). Em cerca de um minuto, a action
-   descarrega da apple.com o certificado intermédio da Apple (WWDR G4) e confirma-o, faz o cartão, confirma a assinatura
+   descarrega da apple.com o certificado intermédio da Apple (WWDR G4) e a raiz da Apple e confirma-os (se a apple.com
+   não responder, usa as cópias em `wallet/`, com as mesmas verificações), faz o cartão, confirma a assinatura
    até à raiz da Apple, guarda-o nos artifacts da corrida e publica `cartao/goncalo-carmo.pkpass` e `cartao/wallet.json`
    no `gh-pages`. Se faltar alguma coisa, a corrida diz em português o que criar e onde. 1 ou 2 minutos depois,
    `gocarmo.com/cartao/` mostra **Adicionar à Apple Wallet**.
@@ -445,12 +446,30 @@ certificado da Apple; com outro qualquer recusa-o. O site nunca vê o certificad
 O certificado tem uma data de validade (está em Certificates). Depois dela, para fazer um cartão novo, cria outro
 certificado (passos 4 a 8) e troca os dois secrets.
 
-**Fazer o cartão no computador.** O mesmo que a action faz:
+**Fazer o cartão no computador.** Faz o mesmo cartão que a action:
 `WALLET_P12_FILE=cartao.p12 WALLET_P12_PASSWORD='…' WALLET_PASS_TYPE_ID=pass.com.gocarmo.cartao WALLET_TEAM_ID=… sh wallet/build-pass.sh goncalo-carmo.pkpass`
 e depois `python3 wallet/check-pass.py goncalo-carmo.pkpass`. Precisa só de `openssl`, `zip` e `python3`; o script
-não mostra a palavra-passe nem a chave e apaga a pasta temporária onde as pôs. Para experimentar sem a Apple, um
-certificado de teste feito com o openssl também serve (o `check-pass.py` confirma o cartão todo), mas um iPhone recusa
-esse cartão.
+não mostra a palavra-passe nem a chave e apaga a pasta temporária onde as pôs.
+
+Para o publicar à mão (sem a action), põe o ficheiro em `cartao/goncalo-carmo.pkpass` no `gh-pages` e muda
+`cartao/wallet.json` para `{ "pkpass": "goncalo-carmo.pkpass" }`. A página só mostra **Adicionar à Apple Wallet**
+quando o `wallet.json` diz o nome do ficheiro e o ficheiro existe; enquanto diz `{ "pkpass": "" }`, nem pergunta por
+ele.
+
+Para experimentar sem a Apple, serve um certificado de teste feito com o openssl, desde que `WALLET_WWDR` aponte para o
+certificado que o emitiu (ou para o próprio, se for autoassinado): sem isso, o script recusa-o, porque espera o
+intermediário da Apple. Por exemplo, numa pasta temporária:
+
+```
+t=$(mktemp -d)
+openssl req -x509 -newkey rsa:2048 -nodes -days 30 -keyout "$t/teste.key" -out "$t/teste.pem" -subj "/UID=pass.com.gocarmo.cartao/CN=Pass Type ID: pass.com.gocarmo.cartao/OU=TESTE12345/C=PT"
+openssl pkcs12 -export -inkey "$t/teste.key" -in "$t/teste.pem" -out "$t/teste.p12" -passout pass:teste
+WALLET_P12_FILE="$t/teste.p12" WALLET_P12_PASSWORD=teste WALLET_WWDR="$t/teste.pem" WALLET_PASS_TYPE_ID=pass.com.gocarmo.cartao WALLET_TEAM_ID=TESTE12345 sh wallet/build-pass.sh "$t/teste.pkpass"
+python3 wallet/check-pass.py "$t/teste.pkpass" --ca "$t/teste.pem"
+```
+
+O `check-pass.py` confirma o cartão todo, mas um iPhone recusa este cartão: só aceita um assinado com o certificado
+da Apple. Nunca publiques um cartão de teste.
 
 **NameDrop e «O meu cartão».** O NameDrop (iPhone com iOS 17 ou mais recente, e Apple Watch) partilha o contacto que o
 iPhone tem como «O meu cartão», não esta página. Para ser o do cartão:
@@ -466,13 +485,13 @@ iPhone tem como «O meu cartão», não esta página. Para ser o do cartão:
 
 **Mudar o cartão mais tarde.**
 - Os contactos vêm de `assets/js/data.js` (`SITE`). Se mudarem, muda também o texto de `cartao/index.html` (PT e EN) e
-  `wallet/cartao/pass.json`, corre `python3 scripts/cartao.py` (vCard, QR, fotos e traduções do Wallet; precisa de
+  `wallet/cartao/pass.json`, corre `python3 scripts/cartao.py` (vCard, QR, fotos e traduções da Wallet; precisa de
   `pip install pillow segno`) e, se mudaste o CSS ou o JS, `node scripts/stamp.mjs`. `python3 scripts/cartao.py --check`
   diz se ficou alguma coisa por fazer.
-- Logótipo e ícone do Wallet: `node scripts/cartao-images.mjs` (a partir de `wallet/marca/`).
+- Logótipo e ícone da Wallet: `node scripts/cartao-images.mjs` (a partir de `wallet/marca/`).
 - Depois de publicar a mudança no `gh-pages`, corre **Actions → Wallet pass** outra vez. Com o mesmo número de série
-  (`goncalo-carmo`), o cartão novo substitui o que está no Wallet quando o Gonçalo o abrir no iPhone; com um número
-  novo, o Wallet fica com dois cartões.
+  (`goncalo-carmo`), o cartão novo substitui o que está na Wallet quando o Gonçalo o abrir no iPhone; com um número
+  novo, a Wallet fica com dois cartões.
 - Este cartão não tem serviço de atualização (`webServiceURL`), por isso não muda sozinho em nenhum telemóvel: depois
   da action, o Gonçalo abre `gocarmo.com/cartao/` e toca outra vez em **Adicionar à Apple Wallet**. Quem recebeu o
   cartão antes fica com a versão antiga.

@@ -155,7 +155,7 @@ EN = {
     'TELEFONE': 'PHONE',
     'EMAIL': 'EMAIL',
     'INSTAGRAM': 'INSTAGRAM',
-    'IRONMAN CASCAIS 2026': 'IRONMAN CASCAIS 2026',
+    'IRONMAN PORTUGAL-CASCAIS': 'IRONMAN PORTUGAL-CASCAIS',
     'Telefone e WhatsApp': 'Phone and WhatsApp',
     'WhatsApp': 'WhatsApp',
     'Email': 'Email',
