@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       serial:
-        description: 'Número de série. O mesmo substitui o cartão que já está no Wallet; outro junta um segundo cartão.'
+        description: 'Número de série. O mesmo substitui o cartão que já está na Wallet; outro junta um segundo cartão.'
         required: false
         default: 'goncalo-carmo'
 
@@ -27,7 +27,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Apple Root CA, as Apple publishes it in its list of trusted root certificates (support.apple.com/en-us/121728)
+  # Apple Root CA, as Apple publishes it in its list of trusted root certificates (support.apple.com/en-us/121728);
+  # a copy, for when apple.com does not answer, in wallet/AppleIncRootCertificate.cer (wallet/SOURCES.txt)
   APPLE_ROOT_SHA256: B0B1730ECBC7FF4505142C49F1295E6EDA6BCAED7E2C68C5BE91B5A11001F024
   # Apple Worldwide Developer Relations G4 (the intermediate of Pass Type ID certificates), downloaded from
   # https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer on 27 Oct 2026, checked against the root above, and
@@ -103,36 +104,34 @@ jobs:
           [ -z "$fail" ] || exit 1
 
       # Apple's intermediate goes inside the signature. Fetched from apple.com and checked: its fingerprint, and that
-      # Apple's root (whose fingerprint Apple publishes) signed it. If apple.com does not answer, the copy in
-      # wallet/AppleWWDRCAG4.cer is used, with the same fingerprint check.
+      # Apple's root (whose fingerprint Apple publishes) signed it. If apple.com does not answer, the copies in
+      # wallet/AppleWWDRCAG4.cer and wallet/AppleIncRootCertificate.cer are used, with the same checks, so the chain
+      # check of the pass still goes up to Apple's root (an intermediate alone is not a trust anchor for openssl).
       - name: Apple's WWDR G4 certificate
         run: |
           d="$RUNNER_TEMP/apple"; mkdir -p "$d"
           fp() { openssl x509 -inform DER -in "$1" -noout -fingerprint -sha256 | sed 's/^.*=//; s/://g'; }
           if curl -fsS --max-time 30 --retry 2 -o "$d/g4.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer &&
              curl -fsS --max-time 30 --retry 2 -o "$d/root.cer" https://www.apple.com/appleca/AppleIncRootCertificate.cer; then
-            if [ "$(fp "$d/root.cer")" != "$APPLE_ROOT_SHA256" ]; then
-              echo "::error title=Raiz da Apple diferente::O certificado em apple.com/appleca/AppleIncRootCertificate.cer não tem a impressão digital que a Apple publica. Não assino nada: vê support.apple.com/en-us/121728."
-              exit 1
-            fi
-            if [ "$(fp "$d/g4.cer")" != "$WWDR_G4_SHA256" ]; then
-              echo "::error title=WWDR G4 diferente::O AppleWWDRCAG4.cer da apple.com mudou (SHA-256 $(fp "$d/g4.cer")). Confirma em apple.com/certificateauthority e, se for um certificado novo da Apple, atualiza WWDR_G4_SHA256 neste ficheiro e wallet/AppleWWDRCAG4.cer."
-              exit 1
-            fi
-            openssl x509 -inform DER -in "$d/root.cer" -out "$d/root.pem"
-            openssl x509 -inform DER -in "$d/g4.cer" -out "$d/g4.pem"
-            openssl verify -CAfile "$d/root.pem" "$d/g4.pem"
-            echo "CHECK_CHAIN=--ca $d/root.pem --untrusted $d/g4.pem" >> "$GITHUB_ENV"
+            from="a apple.com"
           else
-            echo "::warning::A apple.com não respondeu: uso a cópia em wallet/AppleWWDRCAG4.cer."
+            echo "::warning::A apple.com não respondeu: uso as cópias em wallet/AppleWWDRCAG4.cer e wallet/AppleIncRootCertificate.cer."
             cp wallet/AppleWWDRCAG4.cer "$d/g4.cer"
-            if [ "$(fp "$d/g4.cer")" != "$WWDR_G4_SHA256" ]; then
-              echo "::error title=WWDR G4 diferente::wallet/AppleWWDRCAG4.cer não é o certificado esperado."
-              exit 1
-            fi
-            openssl x509 -inform DER -in "$d/g4.cer" -out "$d/g4.pem"
-            echo "CHECK_CHAIN=--ca $d/g4.pem" >> "$GITHUB_ENV"
+            cp wallet/AppleIncRootCertificate.cer "$d/root.cer"
+            from="o repositório (wallet/)"
           fi
+          if [ "$(fp "$d/root.cer")" != "$APPLE_ROOT_SHA256" ]; then
+            echo "::error title=Raiz da Apple diferente::O AppleIncRootCertificate.cer que veio d$from não tem a impressão digital que a Apple publica. Não assino nada: vê support.apple.com/en-us/121728."
+            exit 1
+          fi
+          if [ "$(fp "$d/g4.cer")" != "$WWDR_G4_SHA256" ]; then
+            echo "::error title=WWDR G4 diferente::O AppleWWDRCAG4.cer que veio d$from mudou (SHA-256 $(fp "$d/g4.cer")). Confirma em apple.com/certificateauthority e, se for um certificado novo da Apple, atualiza WWDR_G4_SHA256 neste ficheiro e wallet/AppleWWDRCAG4.cer."
+            exit 1
+          fi
+          openssl x509 -inform DER -in "$d/root.cer" -out "$d/root.pem"
+          openssl x509 -inform DER -in "$d/g4.cer" -out "$d/g4.pem"
+          openssl verify -CAfile "$d/root.pem" "$d/g4.pem"
+          echo "CHECK_CHAIN=--ca $d/root.pem --untrusted $d/g4.pem" >> "$GITHUB_ENV"
           echo "WALLET_WWDR=$d/g4.cer" >> "$GITHUB_ENV"
 
       - name: Build the pass
@@ -174,7 +173,7 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add cartao/goncalo-carmo.pkpass cartao/wallet.json
           if git diff --cached --quiet; then echo "Sem mudanças."; exit 0; fi
-          git commit -m "Cartão de contacto: passe do Apple Wallet (série $W_SERIAL)"
+          git commit -m "Cartão de contacto: passe da Apple Wallet (série $W_SERIAL)"
           # someone (the admin page, the spots form) may have pushed in the meantime
           for i in 1 2 3; do
             if git pull --rebase origin gh-pages && git push origin HEAD:gh-pages; then pushed=1; break; fi
@@ -191,5 +190,5 @@ jobs:
             echo
             echo "- Passe: https://gocarmo.com/cartao/goncalo-carmo.pkpass (série \`$W_SERIAL\`, \`$W_TYPE\`)"
             echo "- Página: https://gocarmo.com/cartao/ mostra «Adicionar à Apple Wallet» daqui a 1 ou 2 minutos."
-            echo "- No iPhone: abre a página no Safari e toca no botão. Com a mesma série, o cartão novo substitui o que já está no Wallet."
+            echo "- No iPhone: abre a página no Safari e toca no botão. Com a mesma série, o cartão novo substitui o que já está na Wallet."
           } >> "$GITHUB_STEP_SUMMARY"

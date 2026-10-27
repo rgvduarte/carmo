@@ -11,7 +11,9 @@
 # WALLET_TEAM_ID      the 10-character Team ID of the Apple Developer account (Membership details)
 # WALLET_SERIAL       optional, default goncalo-carmo. Wallet keeps one pass per Pass Type ID and serial number: a
 #                     new build with the same serial replaces the card already in Wallet, a new serial adds a second.
-# WALLET_WWDR         optional, Apple's WWDR intermediate G4 (DER or PEM); default wallet/AppleWWDRCAG4.cer
+# WALLET_WWDR         optional, Apple's WWDR intermediate G4 (DER or PEM); default wallet/AppleWWDRCAG4.cer. With a
+#                     test certificate (not Apple's), the certificate that issued it, or the certificate itself when
+#                     it is self-signed: the script refuses a certificate that this one did not issue.
 #
 # Steps (Apple, «Building a pass»): copy the source, fill in the three identifiers, write manifest.json with the SHA-1
 # of every file, sign it (PKCS #7, detached, DER, with the WWDR certificate inside) into «signature», zip.
@@ -85,13 +87,13 @@ openssl x509 -inform DER -in "$WALLET_WWDR" -out "$tmp/wwdr.pem" 2>/dev/null ||
   openssl x509 -in "$WALLET_WWDR" -out "$tmp/wwdr.pem" 2>/dev/null || die "$WALLET_WWDR não é um certificado"
 issuer=$(openssl x509 -in "$tmp/cert.pem" -noout -issuer -nameopt RFC2253 | sed 's/^issuer= *//')
 wwdr=$(openssl x509 -in "$tmp/wwdr.pem" -noout -subject -nameopt RFC2253 | sed 's/^subject= *//')
-[ "$issuer" = "$wwdr" ] || die "o certificado foi emitido por «$issuer», não pelo intermediário em $WALLET_WWDR («$wwdr»): um Pass Type ID usa o WWDR G4"
+[ "$issuer" = "$wwdr" ] || die "o certificado foi emitido por «$issuer», não pelo intermediário em $WALLET_WWDR («$wwdr»): um Pass Type ID da Apple usa o WWDR G4; com um certificado de teste, põe em WALLET_WWDR o certificado que o emitiu (ou o próprio, se for autoassinado)"
 
 # ---- the pass ---------------------------------------------------------------------------------------------------
 mkdir "$tmp/pass"
 cp -R "$src/." "$tmp/pass/"
 find "$tmp/pass" -name '.*' -exec rm -rf {} + 2>/dev/null || true      # .DS_Store and the like never go in
-[ -f "$tmp/pass/icon.png" ] || die "falta wallet/cartao/icon.png (o Wallet não aceita um passe sem ícone)"
+[ -f "$tmp/pass/icon.png" ] || die "falta wallet/cartao/icon.png (a Wallet não aceita um passe sem ícone)"
 
 python3 - "$tmp/pass" <<'PY'
 import hashlib, json, os, sys

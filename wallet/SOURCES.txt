@@ -12,6 +12,16 @@ wallet/AppleWWDRCAG4.cer
   The Action (.github/workflows/wallet-pass.yml) downloads both again on every run and repeats the checks; this copy is
   only used when apple.com does not answer.
 
+wallet/AppleIncRootCertificate.cer
+  Apple Root CA (C=US, O=Apple Inc., OU=Apple Certification Authority), the root that signed the WWDR G4 above. Public.
+  Downloaded on 27 Oct 2026 from https://www.apple.com/appleca/AppleIncRootCertificate.cer
+  SHA-256 B0:B1:73:0E:CB:C7:FF:45:05:14:2C:49:F1:29:5E:6E:DA:6B:CA:ED:7E:2C:68:C5:BE:91:B5:A1:10:01:F0:24, the
+  fingerprint Apple publishes for «Apple Root CA» in support.apple.com/en-us/121728 (the Action pins it as
+  APPLE_ROOT_SHA256). Valid from 25 Apr 2006 to 9 Feb 2035.
+  Only used when apple.com does not answer: the Action then checks both fingerprints, that this root signed the G4, and
+  the pass's chain from the signing certificate up to this root (python3 wallet/check-pass.py ... --ca root.pem
+  --untrusted g4.pem), exactly as with the copies it downloads.
+
 wallet/marca/*.svg
   The GOCARMO brand files (the symbol, and GO CARMO with the symbol), as in the brand kit, text in outlines.
   scripts/cartao-images.mjs draws the pass logo and icon from them.

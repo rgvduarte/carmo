@@ -63,7 +63,12 @@ with tempfile.TemporaryDirectory() as t:
     if ca:
         extra = ['-CAfile', ca, '-purpose', 'any'] + (['-certfile', untrusted] if untrusted else [])
         r = subprocess.run(base + extra, capture_output=True, text=True)
-        ok(r.returncode == 0, f'the signing certificate chains up to {os.path.basename(ca)}{": " + r.stderr.strip() if r.returncode else ""}')
+        # openssl only ends a chain at a self-signed root: an intermediate given as --ca fails even when it is right
+        ca_names = subprocess.run(['openssl', 'x509', '-in', ca, '-noout', '-subject', '-issuer', '-nameopt', 'RFC2253'],
+                               capture_output=True, text=True).stdout.split('\n')
+        root = len(ca_names) >= 2 and ca_names[0].removeprefix('subject=').strip() == ca_names[1].removeprefix('issuer=').strip()
+        hint = '' if root else f' ({os.path.basename(ca)} is not a root: give the root with --ca and the intermediate with --untrusted)'
+        ok(r.returncode == 0, f'the signing certificate chains up to {os.path.basename(ca)}{": " + ((r.stderr.strip() or "failed").splitlines()[0]) + hint if r.returncode else ""}')
     # the signer's certificate, from inside the signature
     r = subprocess.run(['openssl', 'pkcs7', '-inform', 'DER', '-in', os.path.join(t, 'signature'), '-print_certs'],
                        capture_output=True, text=True)
