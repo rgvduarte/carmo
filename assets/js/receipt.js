@@ -65,9 +65,12 @@ const rg = (c) => `${c.map(n).join(' ')} rg`, RG = (c) => `${c.map(n).join(' ')}
 // ---------- drawing ----------
 function page(m, s) {
   const ops = [], z = (x) => x * s;
+  // over: a line ran past the margins (the page is then made again smaller, as when it runs out of height)
+  let over = false;
   // one line at baseline y
   const text = (x, y, b, { f = 1, size = 10, color = INK, tc = 0, right = false } = {}) => {
-    const at = right ? x - width(b, f, size, tc) : x;
+    const w = width(b, f, size, tc), at = right ? x - w : x;
+    if (at < M - 0.5 || at + w > W - M + 0.5) over = true;
     ops.push(`BT /F${f} ${n(size)} Tf ${n(tc)} Tc ${rg(color)} 1 0 0 1 ${n(at)} ${n(y)} Tm ${lit(b)} Tj ET`);
   };
   // a paragraph from the top `y`: returns the top of what follows
@@ -170,19 +173,40 @@ function page(m, s) {
   rule(M, W - M, y, 0.9, INK);
   y -= z(22);
 
+  // the grey band: [label, value, note?, tracking] cells side by side, each in its half, or, when a value needs more than
+  // one line there (the CARMO reference of a long package lists every spot), one full-width row under the other, the
+  // value wrapped at its spaces (never cut off: it is what the buyer copies into the transfer)
+  const half = CW / 2;
+  const band = (cells) => {
+    const px = z(12), size = z(13.5), lead = z(17.5);
+    const lines = (c, w) => wrap(win(c[1]), 2, size, w - 2 * px - (c[2] ? width(win(c[2]), 1, z(10)) + z(8) : 0), c[3] || 0);
+    const side = cells.length > 1 && cells.every((c) => lines(c, half).length === 1);
+    const top = y, at = ops.length;
+    let row = y, low = y;
+    cells.forEach((c, i) => {
+      const x = M + px + (side ? i * half : 0), t0 = side ? top : row, ls = lines(c, side ? half : CW), last = t0 - z(31) - (ls.length - 1) * lead;
+      small(x, t0 - z(13), c[0]);
+      ls.forEach((l, j) => text(x, t0 - z(31) - j * lead, l, { f: 2, size, tc: c[3] || 0 }));
+      if (c[2]) text(x + width(ls[ls.length - 1], 2, size, c[3] || 0) + z(8), last, win(c[2]), { size: z(10), color: MUTED });
+      low = Math.min(low, last - z(11));
+      row = last - z(6);
+    });
+    const inner = ops.splice(at);
+    box(M, low, CW, top - low, 6, BAND, null);
+    ops.push(...inner);
+    y = low;
+  };
+
   // how to pay: the amount and the CARMO reference once, then each way to pay (or, for the whole suit, the written
-  // agreement that comes first)
+  // agreement that comes first, and its reference, by bank transfer only)
   const p = m.pay;
   y = para(M, y, p.h, CW, { f: 2, size: z(11.5) }) - z(8);
-  if (p.agree) y = para(M, y, p.agree, CW, { size: z(10.5), lead: z(14.5) }) - z(4);
-  else {
-    const bh = z(42), half = CW / 2;
-    box(M, y - bh, CW, bh, 6, BAND, null);
-    for (const [i, [k, v]] of [p.amt, p.ref].entries()) {
-      small(M + z(12) + i * half, y - z(13), k);
-      text(M + z(12) + i * half, y - z(31), win(v), { f: 2, size: z(13.5), tc: i ? 0.6 : 0 });
-    }
-    y -= bh + z(14);
+  if (p.agree) {
+    y = para(M, y, p.agree, CW, { size: z(10.5), lead: z(14.5) }) - z(4);
+    if (p.ref) { y -= z(6); band([[p.ref[0], p.ref[1], p.ref[2], 0.6]]); y -= z(4); }
+  } else {
+    band([[p.amt[0], p.amt[1]], [p.ref[0], p.ref[1], '', 0.6]]);
+    y -= z(14);
     const cols = p.methods, cw = cols.length > 1 ? half - 8 : CW;
     let low = y;
     cols.forEach((mt, i) => {
@@ -218,7 +242,7 @@ function page(m, s) {
   const fl = wrap(win(m.foot), 1, 8.5, CW), fTop = M + fl.length * 11.5 + 8;
   rule(M, W - M, fTop, 0.5, LINE);
   fl.forEach((l, i) => text(M, fTop - 14 - i * 11.5, l, { size: 8.5, color: MUTED }));
-  return { ops, fits: y > fTop + 12 };
+  return { ops, fits: y > fTop + 12 && !over };
 }
 
 // The emblem (index.html, symbol #i-gc), its 64-unit paths flipped into PDF space: the moon in ink, the sun in gold

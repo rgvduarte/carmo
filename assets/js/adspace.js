@@ -1148,12 +1148,15 @@ const igUrl = () => `https://ig.me/m/${SITE.instagram}`;
 
 // A sent request is noted for this tab only (sessionStorage, gone when the tab closes): if the phone reloads the page
 // while the buyer is in WhatsApp, Mail or the bank app, the payment opens again by itself, on the way to pay the message
-// named (SENT_PAY) or the tab picked since (PAY_TAB); a reopen from the bar comes back on them too. «Feito» and «Limpar»
-// forget it.
-const SENT = 'gc.claim.sent', SENT_PAY = 'gc.claim.pay', PAY_TAB = 'gc.claim.tab', WA_NAV = 'gc.claim.wa';
-const NOTES = [SENT, SENT_PAY, PAY_TAB, WA_NAV];
+// named (SENT_PAY) or the tab picked since (PAY_TAB); a reopen from the bar comes back on them too. SENT_AT: when its
+// message went out (the comprovativo's «Data do pedido» after a reload, when there is no hold to give it). «Feito» and
+// «Limpar» forget it.
+const SENT = 'gc.claim.sent', SENT_PAY = 'gc.claim.pay', PAY_TAB = 'gc.claim.tab', WA_NAV = 'gc.claim.wa', SENT_AT = 'gc.claim.at';
+const NOTES = [SENT, SENT_PAY, PAY_TAB, WA_NAV, SENT_AT];
 const pkKey = () => (wantTitle ? 'title' : [...basket].sort().join(','));
-const noteSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); sessionStorage.setItem(SENT, pkKey()); sessionStorage.setItem(SENT_PAY, sentPay); } catch (_) {} };
+const noteSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); sessionStorage.setItem(SENT, pkKey()); sessionStorage.setItem(SENT_PAY, sentPay); if (sentAt) sessionStorage.setItem(SENT_AT, String(sentAt)); } catch (_) {} };
+// the time noted with this package's sent request (0: none, or another package's)
+const sentAtNoted = () => { try { const v = Number(sessionStorage.getItem(SENT_AT)); return sessionStorage.getItem(SENT) === pkKey() && v > 0 && v <= Date.now() + 60e3 ? v : 0; } catch (_) { return 0; } };
 const forgetSent = () => { try { NOTES.forEach((k) => sessionStorage.removeItem(k)); } catch (_) {} };
 function resumeClaim() {
   let sent = null, pay = null, tab = null, waNav = false;
@@ -1194,7 +1197,7 @@ function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
   sentBy = waNav ? 'wa' : ''; waFail = waNav ? 'no' : ''; igBox = ''; igText = '';
   stopWa();
   // the comprovativo's card is open from the start where the PDF may not be kept (an in-app browser)
-  rcptOpen = inApp(); rcptOk = null; rcptErr = false;
+  rcptOpen = inApp(); rcptOk = null; rcptErr = false; sentAt = sentAtNoted();
   // each opening tries the Worker again; a held package says whether its message went out
   const held = heldReq();
   if (!rqBusy) { rqMode = API ? 'api' : 'msg'; openReq = ''; setNote(null); }
@@ -1340,7 +1343,8 @@ function setTab(tab, { focus = false, user = false } = {}) {
 // a request goes out (by: 'wa', 'mail', 'ig', or '' for «Já enviei o pedido»): noted for a reload, with the way to pay
 // its message named. «Já enviei» sends nothing: after a request that went out here, the way stays the one it named
 function sent(by) {
-  sentBy = by; if (by || !sentPay) sentPay = payNow(); waFail = ''; igBox = ''; sentAt = Date.now();
+  // (the time a message went out; «Já enviei» sends nothing, so it keeps the one noted for this package, if any)
+  sentBy = by; if (by || !sentPay) sentPay = payNow(); waFail = ''; igBox = ''; if (by) sentAt = Date.now();
   if (by) { msgOut = true; markOut(); }
   if (by !== 'wa') { stopWa(); waTap = null; }
   noteSent();
@@ -1818,7 +1822,7 @@ function held(by, key, r) {
   keepReq(key, r);
   markHeld(r);
   setNote(null);
-  sentPay = r.pay; sentBy = ''; waFail = ''; igBox = ''; msgOut = false;
+  sentPay = r.pay; sentBy = ''; waFail = ''; igBox = ''; msgOut = false; sentAt = Date.parse(r.at) || Date.now();
   noteSent();
   // for analytics.js (generate_lead): the request reached Gonçalo, held, at the amount the Worker held it for
   document.dispatchEvent(new CustomEvent('gc:lead', { detail: { method: CHANNEL[by], value: r.total } }));
@@ -1904,11 +1908,14 @@ async function igSend(text) {
 // when, how to pay. Without one (the Worker down, or no Worker) it is a summary of the request, with no number.
 // rcptModel builds the content once, for the card and the PDF, from what the dialog and the message already use
 // (totals, payRef, heldReq, longDay, SITE): the same total, reference, number and day. Nothing of it leaves the device.
-// «Feito» on a hold whose comprovativo was not saved asks once (#cl-nag).
-// rcptOpen: the card is shown. rcptSaved / rcptAsked: the hold (rcptKey) saved, or asked about, in this page.
-// rcptOk: the line under the buttons (a function, for a change of language). rcptErr: saving failed (the note, the card)
-let rcptOpen = false, rcptBusy = false, rcptMod = null, rcptSaved = '', rcptAsked = '', rcptOk = null, rcptErr = false, sentAt = 0, rcptDrawn = '';
-const rcptKey = () => { const r = heldReq(); return r ? `${pkKey()}|${r.id}` : ''; };
+// «Feito» in step 2, when its comprovativo was not saved or shared, asks once (#cl-nag).
+// rcptOpen: the card is shown. rcptSaved / rcptAsked: the request (rcptKey: the package and its hold, or its summary)
+// saved, or asked about, in this page. rcptOk: the line under the buttons (a function, for a change of language).
+// rcptErr: saving failed (the note, the card). rcptBusy: the PDF is being made (the button says so). rcptLock: a press
+// is being handed over (until the share sheet settles, and a second after a download), so a double tap hands it once.
+// sentAt: when this package's message went out (gc.claim.at, kept with the note of the sent request), 0 when unknown
+let rcptOpen = false, rcptBusy = false, rcptLock = false, rcptMod = null, rcptSaved = '', rcptAsked = '', rcptOk = null, rcptErr = false, sentAt = 0, rcptDrawn = '';
+const rcptKey = () => { const k = pkKey(), r = heldReq(); return !k || clStep !== 2 ? '' : r ? `${k}|${r.id}` : `${k}|msg`; };
 const loadRcpt = () => {
   if (!rcptMod) { const p = import('./receipt.js'); rcptMod = p; p.catch(() => { if (rcptMod === p) rcptMod = null; }); }
   return rcptMod;
@@ -1920,7 +1927,7 @@ const mbShown = () => String(SITE.mbway || '').replace(/\D/g, '').replace(/(\d{3
 function atLisbon(d) {
   const loc = getLang() === 'en' ? 'en-GB' : 'pt-PT', tz = { timeZone: 'Europe/Lisbon' };
   try {
-    return t('rc.when', new Intl.DateTimeFormat(loc, { ...tz, day: 'numeric', month: 'long', year: 'numeric' }).format(d),
+    return t('rcpt.when', new Intl.DateTimeFormat(loc, { ...tz, day: 'numeric', month: 'long', year: 'numeric' }).format(d),
       new Intl.DateTimeFormat(loc, { ...tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(d));
   } catch (_) { return d.toISOString().slice(0, 16).replace('T', ' '); }
 }
@@ -1928,34 +1935,38 @@ function rcptModel() {
   const { list, gross, net, disc } = totals(), r = heldReq(), k = kOf(), id = r ? r.id : '';
   // the amount to pay is the dialog's (the one the Worker held it for); the total is the message's
   const amt = r && r.total > 0 ? r.total : net, mb = mbwayOk(amt);
-  const when = new Date((r && Date.parse(r.at)) || sentAt || Date.now());
-  const rows = [[t('rc.date'), atLisbon(when)], [t('msg.brand'), (r && r.brand) || $('#cl-brand').value.trim()]];
+  // the request's time: the hold's (gc.claim.req), or when its message went out (gc.claim.at); without either (only «Já
+  // enviei o pedido» here), the row says it is this summary's own time
+  const at = (r && Date.parse(r.at)) || sentAt, when = new Date(at || Date.now()), day = r ? longDay(r.until, true) : '';
+  const rows = [[t(at ? 'rcpt.date' : 'rcpt.dateNow'), atLisbon(when)], [t('msg.brand'), (r && r.brand) || $('#cl-brand').value.trim()]];
   for (const [key, q] of [['msg.name', '#cl-name'], ['msg.nif', '#cl-nif']]) { const v = $(q).value.trim(); if (v) rows.push([t(key), v]); }
   if (!r && openReq) rows.push([t('msg.open'), openReq]);
   const items = wantTitle ? [{ n: '', name: t('msg.title'), model: t('z.suit'), price: money(net) }]
     : list.map((s) => ({ n: pad2(s.n), name: pick(s).name, model: t(itemOf(s) === 'helmet' ? 'z.helmet' : 'z.suit'), price: money(s.price) }));
-  // the whole suit: the written agreement before any payment (as step 2 says), so no payment details
-  const pay = wantTitle ? { h: t('rc.payH'), agree: r ? t('cl.heldP', 'title') : t('rc.agree') } : {
-    h: t('rc.payH'), amt: [t('rc.amt'), money(amt)], ref: [t('msg.ref'), payRef()],
-    methods: [{ h: t('rc.tr'), rows: [['IBAN', ibanPretty(SITE.iban || '')], [t('rc.payee'), SITE.payee]] },
-      ...(mb ? [{ h: 'MB WAY', rows: [[t('rc.num'), mbShown()], [t('rc.name'), SITE.payee]] }] : [])],
-    cap: SITE.mbway && !mb ? t('cl.mbmax', money(SITE.mbwayMax || 0)) : '', hint: t('rc.hint', mb),
+  // the whole suit: the written agreement before any payment (as step 2 says), so no account details; its reference, as
+  // the message and the terms give it (CARMO FATO, bank transfer only)
+  const pay = wantTitle ? { h: t('rcpt.payH'), agree: r ? t('rcpt.agreeHeld', day) : t('rcpt.agree'), ref: [t('msg.ref'), payRef(), t('rcpt.trOnly')] } : {
+    h: t('rcpt.payH'), amt: [t('rcpt.amt'), money(amt)], ref: [t('msg.ref'), payRef()],
+    methods: [{ h: t('rcpt.tr'), rows: [['IBAN', ibanPretty(SITE.iban || '')], [t('rcpt.payee'), SITE.payee]] },
+      ...(mb ? [{ h: 'MB WAY', rows: [[t('rcpt.num'), mbShown()], [t('rcpt.name'), SITE.payee]] }] : [])],
+    cap: SITE.mbway && !mb ? t('cl.mbmax', money(SITE.mbwayMax || 0)) : '', hint: t('rcpt.hint', mb),
   };
-  const next = !r ? [t('rc.proof'), t('rc.logo')] : wantTitle ? [t('cl.payHeld', k), t('rc.logo')] : [t('cl.heldP', k), t('cl.payHeld', k), t('rc.logo')];
+  // (step 2's lines, with the hold's day written in: on paper they sit far from «Reservado até …»)
+  const next = !r ? [t('rcpt.proof'), t('rcpt.logo')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k), t('rcpt.logo')] : [t('rcpt.payBy', day), t('cl.payHeld', k), t('rcpt.logo')];
   return {
     lang: getLang(),
     file: `gocarmo-pedido-${id || `resumo-${when.toISOString().slice(0, 10)}`}.pdf`,
-    title: t(r ? 'rc.title' : 'rc.titleNo'), docTitle: `${r ? t('rc.doc', id) : t('rc.titleNo')} · ${SITE.name}`,
+    title: t(r ? 'rcpt.title' : 'rcpt.titleNo'), docTitle: `${r ? t('rcpt.doc', id) : t('rcpt.titleNo')} · ${SITE.name}`,
     head: { name: SITE.name, site: 'gocarmo.com' },
-    status: r ? { h: t('cl.heldH', longDay(r.until, true)), k: t('msg.req'), id } : { h: t('rc.noholdH'), p: t('rc.nohold', k) },
-    rows, cols: [t('rc.spot'), t('rc.kit'), t('rc.price')], items,
+    status: r ? { h: t('cl.heldH', day), k: t('msg.req'), id } : { h: t('rcpt.noholdH'), p: t('rcpt.nohold', k) },
+    reqH: t('rcpt.reqH'), rows, cols: [t('rcpt.spot'), t('rcpt.kit'), t('rcpt.price')], items,
     disc: disc ? [t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`] : null,
     total: [t('msg.total'), money(net)],
-    pay, next: { h: t('rc.nextH'), items: next },
+    pay, next: { h: t('rcpt.nextH'), items: next },
     // the message's own terms line, date included, under the document's label
-    terms: `${t('rc.terms')}: ${t('msg.terms').replace(/^[^:]*:\s*/, '')}`,
-    contact: [t('rc.ct'), `WhatsApp ${waShown()} · ${SITE.email}`],
-    foot: t(r ? 'rc.foot' : 'rc.footNo'),
+    terms: `${t('rcpt.terms')}: ${t('msg.terms').replace(/^[^:]*:\s*/, '')}`,
+    contact: [t('rcpt.ct'), `WhatsApp ${waShown()} · ${SITE.email}`],
+    foot: t(r ? 'rcpt.foot' : 'rcpt.footNo'),
   };
 }
 // the card: the model as it reads on paper (text only: the brand, the name and the NIF are the buyer's own words)
@@ -1984,21 +1995,28 @@ function drawRcpt(m) {
   for (const [cls, row] of [['save', m.disc], ['tot', m.total]]) if (row) { const li = el('li', cls); li.append(el('span', '', row[0]), el('span', 'pr', row[1])); items.append(li); }
   const pay = el('div', 'cl-card-pay');
   pay.append(el('h5', '', m.pay.h));
-  if (m.pay.agree) pay.append(el('p', '', m.pay.agree));
-  else {
+  if (m.pay.agree) {
+    pay.append(el('p', '', m.pay.agree));
+    // CARMO FATO, and only by bank transfer
+    if (m.pay.ref) { const b = dl([m.pay.ref.slice(0, 2)], 'cl-card-band'); b.append(el('p', 'cl-card-only', m.pay.ref[2])); pay.append(b); }
+  } else {
     const ways = el('div', 'cl-card-ways');
     for (const w of m.pay.methods) { const d = el('div'); d.append(el('h6', '', w.h), dl(w.rows, '', true)); ways.append(d); }
     pay.append(dl([m.pay.amt, m.pay.ref], 'cl-card-band'), ways);
     for (const x of [m.pay.cap, m.pay.hint]) if (x) pay.append(el('p', 'cl-card-hint', x));
   }
-  const next = el('div'), ol = el('ol');
+  const req = el('div', 'cl-card-req');
+  req.append(el('h5', '', m.reqH), dl(m.rows, 'cl-card-rows'), items);
+  const next = el('div', 'cl-card-next'), ol = el('ol');
   m.next.items.forEach((x) => ol.append(el('li', '', x)));
   next.append(el('h5', '', m.next.h), ol);
   const ct = el('p', 'cl-card-ct');
   ct.append(el('b', '', `${m.contact[0]}:`), ` ${m.contact[1]}`);
   const card = $('#cl-card');
   card.textContent = '';
-  card.append(top, h, st, dl(m.rows, 'cl-card-rows'), items, pay, next, el('p', 'cl-card-terms', m.terms), ct, el('p', 'cl-card-foot', m.foot));
+  // on screen, what one screenshot must hold comes first: the hold and its number, then the amount, the reference and
+  // where to pay; then the request itself, and the rest in smaller type (the PDF keeps the order of a document)
+  card.append(top, h, st, pay, req, next, el('p', 'cl-card-terms', m.terms), ct, el('p', 'cl-card-foot', m.foot));
   card.setAttribute('aria-labelledby', 'cl-card-h');
 }
 function renderRcpt() {
@@ -2031,22 +2049,33 @@ const canShare = (file) => { try { return typeof navigator.share === 'function' 
 // The PDF, made and handed over in the same press: on a phone the share sheet (it needs that press, so nothing slow
 // comes before it but the first load of receipt.js), elsewhere, or when sharing a file is not there, a download.
 // True once the file was handed over; false when the sheet was closed, or the press ran out (the next one shares at
-// once), or it failed (the note, and the card opens).
+// once), or it failed (the note, and the card opens). A press while one is still being handed over does nothing.
 async function saveRcpt() {
-  if (rcptBusy) return false;
-  const m = rcptModel();
-  rcptErr = false; rcptOk = null; rcptBusy = true; renderRcpt();
-  let file = null;
-  try { const R = await loadRcpt(); file = new File([R.receiptPdf(m)], m.file, { type: 'application/pdf' }); } catch (_) {}
-  rcptBusy = false;
-  if (!file) return rcptFail();
-  if (touch() && canShare(file)) {
-    try { await navigator.share({ files: [file], title: m.title }); return rcptDone(() => t('cl.rcptShared')); } catch (e) {
-      if (e && e.name === 'AbortError') { renderRcpt(); return false; }
-      if (e && e.name === 'NotAllowedError' && !tapLive()) { rcptOk = () => t('cl.rcptAgain'); renderRcpt(); $('#cl-rcpt-save').focus(); return false; }
-      // anything else: the download
+  if (rcptLock) return false;
+  rcptLock = true;
+  let hold = 0;
+  try {
+    const m = rcptModel();
+    rcptErr = false; rcptOk = null; rcptBusy = true; renderRcpt();
+    let file = null;
+    try { const R = await loadRcpt(); file = new File([R.receiptPdf(m)], m.file, { type: 'application/pdf' }); } catch (_) {}
+    rcptBusy = false;
+    if (!file) return rcptFail();
+    if (touch() && canShare(file)) {
+      try { await navigator.share({ files: [file], title: m.title }); return rcptDone(() => t('cl.rcptShared')); } catch (e) {
+        // closed, or a sheet still open (InvalidStateError): nothing more, never a download on top of the sheet
+        if (e && (e.name === 'AbortError' || e.name === 'InvalidStateError')) { renderRcpt(); return false; }
+        if (e && e.name === 'NotAllowedError' && !tapLive()) { rcptOk = () => t('cl.rcptAgain'); renderRcpt(); $('#cl-rcpt-save').focus(); return false; }
+        // anything else: the download
+      }
     }
+    hold = 1000;
+    return downRcpt(file);
+  } finally {
+    if (hold) setTimeout(() => { rcptLock = false; }, hold); else rcptLock = false;
   }
+}
+function downRcpt(file) {
   if (!('download' in HTMLAnchorElement.prototype)) return rcptFail();
   try {
     // inside the open dialog (a modal dialog makes the rest of the page inert)
@@ -2330,6 +2359,8 @@ function bindUI() {
   const finish = () => {
     if (!$('#claim').open) return;
     const r = heldReq();
+    // the request is done (stats-site.js counts «Feito» here, not on a press that only brought the reminder)
+    document.dispatchEvent(new CustomEvent('gc:done'));
     rcptOpen = false; rcptOk = null; rcptErr = false;
     forgetSent();
     forgetDraft();
@@ -2338,14 +2369,16 @@ function bindUI() {
     if (document.activeElement?.closest('#package')) { const h = $(`.ratecard[data-item="${midPart() || 'suit'}"] h4`); h.tabIndex = -1; h.focus({ preventScroll: true }); }
     toast(r ? (msgOut ? t('toast.held', longDay(r.until), r.title ? 'title' : 0) : t('toast.heldNoMsg', longDay(r.until), r.id)) : t('toast.thanks'));
   };
-  // a hold whose comprovativo was not saved or shared here: «Feito» asks once, in a dialog over this one (Esc or a
-  // second «Feito» goes on as before). Its «Guardar comprovativo» saves and then finishes; «Fechar sem guardar» finishes
+  // a comprovativo not saved or shared here (a hold's, or the summary of a request with none): «Feito» asks once, in a
+  // dialog over this one (Esc or a second «Feito» goes on as before). Its «Guardar comprovativo» saves and then
+  // finishes; «Fechar sem guardar» finishes
   const nag = $('#cl-nag');
   $('#cl-done').addEventListener('click', () => {
     const k = rcptKey();
     if (k && rcptSaved !== k && rcptAsked !== k && typeof nag.showModal === 'function') {
       rcptAsked = k;
       loadRcpt();   // its likely next tap shares the PDF: the module on its way already
+      $('#cl-nag-p').textContent = t(heldReq() ? 'cl.nagP' : 'cl.nagPNo');
       nag.showModal();
       return;
     }

@@ -1127,7 +1127,9 @@ dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4p
 .cl-held-id b { color: var(--ink); font-weight: 600; letter-spacing: .04em; }
 .cl-held-p { font-size: 14px; line-height: 1.5; color: var(--muted); }
 /* the comprovativo: «Guardar comprovativo» (a light button: gold stays for sending), «Ver no ecrã», what happened, and
-   the request on paper: the same content as the PDF, dark on light, for a screenshot */
+   the request on paper: the same content as the PDF, dark on light, for a screenshot. The card puts what one screenshot
+   must hold first (the hold and its number, the amount, the reference, where to pay), the request after it, and the
+   next steps, the terms and the footer last, in smaller type */
 .cl-rcpt { display: grid; gap: 10px; margin-top: -8px; }
 .cl-rcpt-acts { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 16px; }
 .cl-rcpt-acts .btn { flex: 1 1 220px; min-height: 52px; padding: 0 16px; font-size: 16px; }
@@ -1176,10 +1178,13 @@ dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4p
 .cl-card-ways dl { display: grid; gap: 6px; }
 .cl-card-ways dd.mono { font: 500 clamp(12px, 3.7vw, 14px)/1.35 var(--mono); }
 .cl-card .cl-card-hint { margin-top: 8px; font-size: 12.5px; color: var(--muted-dark); }
-.cl-card ol { padding-left: 20px; display: grid; gap: 5px; font-size: 13px; }
-.cl-card-terms, .cl-card-ct { font-size: 12.5px; color: var(--muted-dark); }
+.cl-card-band .cl-card-only { flex-basis: 100%; margin-top: -6px; font-size: 12.5px; color: var(--muted-dark); }
+.cl-card-req { display: grid; gap: 8px; padding-top: 2px; }
+.cl-card-req h5 { margin-bottom: 0; }
+.cl-card ol { padding-left: 20px; display: grid; gap: 4px; font-size: 12.5px; line-height: 1.4; }
+.cl-card-terms, .cl-card-ct { font-size: 12px; color: var(--muted-dark); }
 .cl-card-ct b { color: var(--ink-dark); }
-.cl-card-foot { padding-top: 10px; border-top: 1px solid var(--line-dark); font-size: 12px; color: var(--muted-dark); }
+.cl-card-foot { padding-top: 10px; border-top: 1px solid var(--line-dark); font-size: 11.5px; color: var(--muted-dark); }
 /* «Feito» before the comprovativo was saved: a small card over the dialog, its two answers stacked */
 dialog.cl-nag { width: min(400px, calc(100% - 32px)); max-width: none; margin: auto; padding: 22px 22px 18px; border: 1px solid var(--line-2); border-radius: 20px; background: var(--bg-2); color: var(--ink); box-shadow: 0 24px 60px rgba(0,0,0,.6); }
 dialog.cl-nag[open] { display: grid; gap: 8px; animation: paneIn .3s var(--ease); }

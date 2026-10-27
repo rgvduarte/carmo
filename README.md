@@ -54,7 +54,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
-| Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rc.*` e `cl.rcpt*` (PT e EN); o desenho do PDF em `assets/js/receipt.js` |
+| Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rcpt.*`, `cl.rcpt*` e `cl.nag*` (PT e EN; `rc.*` são os da tabela de preços); o desenho do PDF em `assets/js/receipt.js` |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
@@ -91,8 +91,8 @@ de uma mensagem que chega sem `Pedido:`:
    Instagram copia a mensagem e passa ao passo Pagar, que começa por «Mensagem copiada. Cola-a na conversa do
    Instagram:» e o botão «Abrir o Instagram» (a conversa com @goncalo.carmo99, no mesmo separador no telemóvel para
    abrir a app); se o browser não deixar copiar, a mensagem aparece selecionada na mesma caixa para copiar à mão.
-   **Feito** fecha o pedido e esvazia o pacote (numa reserva cujo comprovativo a marca ainda não guardou, pergunta
-   uma vez antes: ver **Compras automáticas**). O email abre a app de email do aparelho com a mesma mensagem; se a
+   **Feito** fecha o pedido e esvazia o pacote (se a marca ainda não guardou o comprovativo, pergunta uma vez antes:
+   ver **Compras automáticas**). O email abre a app de email do aparelho com a mesma mensagem; se a
    marca escrever uma mensagem muito longa, o email leva só o início (há apps que não abrem links de email enormes)
    e o pedido avisa-a de que pelo WhatsApp vai inteira.
 2. Confirmas em 24 horas. Para guardar os espaços enquanto esperas pelo comprovativo, cola a mensagem em **Colar
@@ -272,20 +272,27 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome e o NIF (se os deu),
    cada espaço com o número, o nome, fato ou capacete e o preço, o desconto de pacote, o total, «Reservado até …», como
    pagar (transferência para o IBAN e o titular de `SITE`, MB WAY até `SITE.mbwayMax`, o montante e a referência
-   `CARMO`), o que vem a seguir (pagar e enviar o comprovativo do pagamento, o logótipo em vetor até 15 de fevereiro de
-   2027), a linha das condições com a data delas (a mesma `msg.terms` da mensagem), o contacto e, no fim, «Este
+   `CARMO`, que numa referência longa passa à linha seguinte sem nunca ser cortada), o que vem a seguir (pagar e
+   enviar o comprovativo do pagamento até ao dia da reserva, escrito na frase; o logótipo em vetor até 15 de fevereiro
+   de 2027), a linha das condições com a data delas (a mesma `msg.terms` da mensagem), o contacto e, no fim, «Este
    documento não é uma fatura nem um recibo. …». Os valores são os do passo 2 e da mensagem, tirados das mesmas funções:
-   o número, o total, a referência e o dia batem sempre certo. No fato completo não há dados de pagamento: diz que antes
-   de pagar envias o acordo escrito. Sem reserva (o Worker em baixo, ou sem Worker) é um «Resumo do pedido de reserva»,
-   sem número, que diz que o espaço ainda não está reservado no site. **Ver no ecrã** mostra o mesmo num cartão claro,
-   para um screenshot: no browser do Instagram ou do Facebook, onde o PDF pode não ficar guardado, o cartão já vem
-   aberto e uma linha diz para tirar o screenshot; se não der para guardar, o passo 2 diz isso e abre o cartão. Depois
-   de recarregar a página, o passo 2 volta com o mesmo comprovativo (o número, o dia, a hora e os espaços vêm de
-   `gc.claim.req`; o nome e o NIF, do rascunho). Não é obrigatório, mas numa reserva **Feito** pergunta uma vez se a
-   marca ainda não o guardou nem partilhou: «Ainda não guardaste o comprovativo.», com **Guardar comprovativo** (guarda
-   e fecha) e **Fechar sem guardar** (fecha como antes). Nada disto sai do aparelho da marca: não há pedido à rede nem
-   nada guardado de novo. Nas estatísticas do site contam como cliques em «Reserva» (`#cl-rcpt-save`, `#cl-rcpt-view`,
-   `#cl-nag-save`, `#cl-nag-close`), sem eventos novos.
+   o número, o total, a referência e o dia batem sempre certo. No fato completo não há dados da conta: diz que antes de
+   pagar envias o acordo escrito, até quando fica reservado, e a referência `CARMO FATO`, só por transferência. Sem
+   reserva (o Worker em baixo, mais de 6 espaços, ou sem Worker) é um «Resumo do pedido de reserva», sem número, que
+   diz que o espaço ainda não está reservado no site; a hora é a do envio da mensagem (ou, depois de «Já enviei o
+   pedido» sem envio neste separador, a do próprio resumo, e a linha diz «Data deste resumo»). **Ver no ecrã** mostra
+   o mesmo num cartão claro, para um screenshot, com o essencial no início (a reserva e o número, o montante, a
+   referência e onde pagar) e o resto por baixo: no browser do Instagram ou do Facebook, onde o PDF pode não ficar
+   guardado, o cartão já vem aberto e uma linha diz para tirar o screenshot; se não der para guardar, o passo 2 diz isso
+   e abre o cartão. Um duplo toque no botão entrega o PDF uma vez só. Depois de recarregar a página, o passo 2 volta
+   com o mesmo comprovativo (o número, o dia, a hora e os espaços vêm de `gc.claim.req`; sem reserva, a hora do envio
+   vem de `gc.claim.at`; o nome e o NIF, do rascunho). Não é obrigatório, mas no passo 2 **Feito** pergunta uma vez se
+   a marca ainda não o guardou nem partilhou: «Ainda não guardaste o comprovativo.», com **Guardar comprovativo**
+   (guarda e fecha) e **Fechar sem guardar** (fecha como antes). Nada disto sai do aparelho da marca: não há pedido à
+   rede, e o único dado novo guardado é a hora do envio (`gc.claim.at`, no separador, ao lado da nota do pedido
+   enviado). Nas estatísticas do site contam como cliques em «Reserva» (`#cl-rcpt-save`, `#cl-rcpt-view`,
+   `#cl-nag-save`, `#cl-nag-close`), sem eventos novos; `claim_done` conta quando «Feito» fecha mesmo o pedido, não
+   o toque que só mostrou a pergunta.
 4. Na página, os espaços passam logo a «Reservado até 25 out.»; para toda a gente, assim que o GitHub Pages publica o
    commit (1 a 2 minutos). Cada vez que o pedido abre, o site lê outra vez o `data/spots.json` sem cache: um espaço
    que outra marca reservou entretanto sai do pacote e o pedido diz qual foi.

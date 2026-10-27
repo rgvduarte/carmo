@@ -281,7 +281,6 @@ export function init(api) {
     ['#pay-mb-cp, #pay-amt-cp, #pay-ref-cp, #cl-mailfb-cp, #cl-s2 [data-copy-iban]', (el) =>
       ev('pay_copy', { what: { 'pay-mb-cp': 'mb', 'pay-amt-cp': 'amt', 'pay-ref-cp': 'ref', 'cl-mailfb-cp': 'email' }[el.id] || 'iban' })],
     ['#cl-back', () => ev('claim_back')],
-    ['#cl-done', () => { clHow = 'feito'; ev('claim_done', { tab: tabNow() }); }],
     ['#claim .close', () => { clHow = 'x'; }],
     ['#apoiar [data-copy-iban]', () => ev('give_copy', { what: 'iban' })],
     ['#give-mb', () => ev('give_copy', { what: 'mb' })],
@@ -385,6 +384,9 @@ export function init(api) {
     // booking's; its two buttons count as clicks in 'reserva', and «Fechar sem guardar» closes as «Feito»)
     on('cancel', (e) => { if (e.target === dlg) clHow = 'esc'; }, dlg);
     on('close', (e) => { if (e.target !== dlg) return; ev('claim_close', { step: +dlg.dataset.step || 1, how: clHow || undefined }); clOpen = false; clHow = null; clStep = 0; }, dlg);
+    // «Feito» ended the request (adspace.js 'gc:done'): not a press of «Feito» that only brought up the comprovativo
+    // reminder, which Esc or × may follow
+    on('gc:done', () => { clHow = 'feito'; ev('claim_done', { tab: tabNow() }); });
     // the booking Worker held the request (adspace.js): that is the send, whatever happens to its message after
     on('gc:lead', (e) => { const ch = e.detail && e.detail.method; if (!/^(whatsapp|email|instagram)$/.test(ch)) return; sent = 1; ev('claim_send', { ch }); A.flush(); });
   }

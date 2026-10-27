@@ -23,7 +23,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="assets/css/style.css?v=cf25a755">
+<link rel="stylesheet" href="assets/css/style.css?v=ede62741">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -70,7 +70,7 @@
   "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=1a6b1eda",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
   "./assets/js/admin.js": "./assets/js/admin.js?v=629edca2",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=3061fa22",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=770efbfd",
   "./assets/js/analytics.js": "./assets/js/analytics.js?v=33844efa",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
   "./assets/js/data.js": "./assets/js/data.js?v=bbf4e22b",
@@ -78,16 +78,16 @@
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=d81dc718",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=b02b2193",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=3843dd80",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
   "./assets/js/privacy.js": "./assets/js/privacy.js?v=95de7df4",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
-  "./assets/js/receipt.js": "./assets/js/receipt.js?v=6e0a4432",
+  "./assets/js/receipt.js": "./assets/js/receipt.js?v=d54cc0c9",
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
   "./assets/js/stats-fb.js": "./assets/js/stats-fb.js?v=87cd2e59",
-  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=71858774",
+  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=c1ae9984",
   "./assets/js/stats-zones.js": "./assets/js/stats-zones.js?v=66b2b133",
   "./assets/js/stats.js": "./assets/js/stats.js?v=9d4500c4",
   "./assets/js/suit-body.js": "./assets/js/suit-body.js?v=e86b9edf",
@@ -624,7 +624,7 @@
 
     <div class="steps">
       <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Um ou vários espaços, no fato e no capacete. A partir de três, tens 10% de&nbsp;desconto.</p></div>
-      <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Reserva</h4><p data-i18n="sp.p2">Envias o pedido com o logótipo. O espaço fica reservado durante 48 horas, à espera do&nbsp;comprovativo.</p></div>
+      <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Reserva</h4><p data-i18n="sp.p2">Envias o pedido com o logótipo. O espaço fica reservado durante 48 horas, à espera do comprovativo do&nbsp;pagamento.</p></div>
       <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Pagamento</h4><p data-i18n="sp.p3">Por transferência, ou MB WAY até 2&nbsp;000&nbsp;€, com a referência dos espaços no descritivo. Recebes um recibo de&nbsp;donativo.</p></div>
       <div class="rv"><b>04</b><h4 data-i18n="sp.h4">É teu</h4><p data-i18n="sp.p4">O espaço fecha e a tua marca aparece aqui, no fato ou no capacete. No equipamento real, entra antes do primeiro triatlo da época, se o logótipo chegar até 15 de&nbsp;fevereiro.</p></div>
     </div>
@@ -839,7 +839,7 @@
           </div>
           <p class="cl-rcpt-ok" id="cl-rcpt-ok" role="status"></p>
           <div class="cl-note" id="cl-rcpt-err" role="alert" hidden></div>
-          <p class="cl-rcpt-app" id="cl-rcpt-app" hidden data-i18n="cl.rcptApp">No browser do Instagram ou do Facebook, o PDF pode não ficar guardado. Tira um screenshot deste resumo: tem os mesmos dados.</p>
+          <p class="cl-rcpt-app" id="cl-rcpt-app" hidden data-i18n="cl.rcptApp">No browser do Instagram ou do Facebook, o PDF pode não ficar guardado. Tira um screenshot deste resumo: o essencial está no início.</p>
           <section class="cl-card" id="cl-card" tabindex="-1" hidden></section>
         </div>
         <!-- the chosen app did not open by itself after the hold: one tap sends the request's message -->
@@ -899,7 +899,7 @@
   <!-- «Feito» before the comprovativo was saved: asked once, over the dialog (a dialog of its own, so focus stays in it) -->
   <dialog class="cl-nag" id="cl-nag" aria-labelledby="cl-nag-h" aria-describedby="cl-nag-p">
     <h4 id="cl-nag-h" data-i18n="cl.nagH">Ainda não guardaste o comprovativo.</h4>
-    <p id="cl-nag-p" data-i18n="cl.nagP">Tem o número do pedido e até quando fica reservado.</p>
+    <p id="cl-nag-p">Tem o número do pedido e até quando fica reservado.</p>
     <div class="cl-acts">
       <button type="button" class="btn" id="cl-nag-save"><svg aria-hidden="true" focusable="false"><use href="#i-down"/></svg><span data-i18n="cl.rcpt">Guardar comprovativo</span></button>
       <button type="button" class="btn ghost" id="cl-nag-close" data-i18n="cl.nagClose">Fechar sem guardar</button>
