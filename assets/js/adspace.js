@@ -1945,7 +1945,7 @@ function rcptModel() {
     : list.map((s) => ({ n: pad2(s.n), name: pick(s).name, model: t(itemOf(s) === 'helmet' ? 'z.helmet' : 'z.suit'), price: money(s.price) }));
   // the whole suit: the written agreement before any payment (as step 2 says), so no account details; its reference, as
   // the message and the terms give it (CARMO FATO, bank transfer only)
-  const pay = wantTitle ? { h: t('rcpt.payH'), agree: r ? t('rcpt.agreeHeld', day) : t('rcpt.agree'), ref: [t('msg.ref'), payRef(), t('rcpt.trOnly')] } : {
+  const pay = wantTitle ? { h: t('rcpt.payHT'), agree: r ? t('rcpt.agreeHeld', day) : t('rcpt.agree'), ref: [t('msg.ref'), payRef(), t('rcpt.trOnly')] } : {
     h: t('rcpt.payH'), amt: [t('rcpt.amt'), money(amt)], ref: [t('msg.ref'), payRef()],
     methods: [{ h: t('rcpt.tr'), rows: [['IBAN', ibanPretty(SITE.iban || '')], [t('rcpt.payee'), SITE.payee]] },
       ...(mb ? [{ h: 'MB WAY', rows: [[t('rcpt.num'), mbShown()], [t('rcpt.name'), SITE.payee]] }] : [])],

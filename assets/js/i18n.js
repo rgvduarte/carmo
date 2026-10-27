@@ -406,7 +406,7 @@ const PT_JS = {
   'rcpt.noholdH': 'Sem reserva no site',
   'rcpt.nohold': (k) => `${k === 'title' ? 'O fato completo ainda não está reservado' : k === 1 ? 'O espaço ainda não está reservado' : 'Os espaços ainda não estão reservados'} no site: confirmo por mensagem.`,
   'rcpt.spot': 'Espaço', 'rcpt.kit': 'Equipamento', 'rcpt.price': 'Preço',
-  'rcpt.payH': 'Como pagar', 'rcpt.amt': 'Montante', 'rcpt.tr': 'Transferência bancária', 'rcpt.payee': 'Titular', 'rcpt.num': 'Número', 'rcpt.name': 'Nome',
+  'rcpt.payH': 'Como pagar', 'rcpt.payHT': 'Antes do pagamento', 'rcpt.amt': 'Montante', 'rcpt.tr': 'Transferência bancária', 'rcpt.payee': 'Titular', 'rcpt.num': 'Número', 'rcpt.name': 'Nome',
   'rcpt.hint': (mb) => (mb ? 'Escreve a referência no descritivo da transferência ou na descrição do MB WAY.' : 'Escreve a referência no descritivo da transferência.'),
   'rcpt.agree': 'Antes de pagares, envio-te o acordo escrito.', 'rcpt.trOnly': 'só por transferência',
   // cl.heldP and its whole-suit line, with the day in the sentence (on paper they sit far from «Reservado até …»)
@@ -531,7 +531,7 @@ const EN_JS = {
   'rcpt.noholdH': 'Not on hold on the site',
   'rcpt.nohold': (k) => `${k === 'title' ? 'The whole suit is' : k === 1 ? 'The spot is' : 'The spots are'} not on hold on the site yet: I will confirm by message.`,
   'rcpt.spot': 'Spot', 'rcpt.kit': 'Kit', 'rcpt.price': 'Price',
-  'rcpt.payH': 'How to pay', 'rcpt.amt': 'Amount', 'rcpt.tr': 'Bank transfer', 'rcpt.payee': 'Account holder', 'rcpt.num': 'Number', 'rcpt.name': 'Name',
+  'rcpt.payH': 'How to pay', 'rcpt.payHT': 'Before you pay', 'rcpt.amt': 'Amount', 'rcpt.tr': 'Bank transfer', 'rcpt.payee': 'Account holder', 'rcpt.num': 'Number', 'rcpt.name': 'Name',
   'rcpt.hint': (mb) => (mb ? 'Put the reference in the bank transfer description or in the MB WAY description.' : 'Put the reference in the bank transfer description.'),
   'rcpt.agree': 'Before you pay, I\'ll send you the written agreement.', 'rcpt.trOnly': 'bank transfer only',
   'rcpt.payBy': (d) => `Pay and send me the proof of payment on WhatsApp or by email by ${d} (48 hours from the request) to lock in the sponsorship. Without it, the hold ends on its own.`,
