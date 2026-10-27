@@ -1,7 +1,7 @@
 {
   "season": "2027",
   "currency": "EUR",
-  "updated": "2026-10-26",
+  "updated": "2026-10-27",
   "bundle": {
     "min": 3,
     "discount": 0.1
@@ -388,7 +388,7 @@
       "h": 5,
       "area": "legs",
       "price": 60,
-      "status": "available",
+      "status": "reserved",
       "vis": {
         "bike": 1,
         "run": 2,
@@ -402,7 +402,10 @@
       "en": {
         "name": "Left rear thigh",
         "pitch": "Visible on the run to anyone behind."
-      }
+      },
+      "brand": "Buildity",
+      "until": "2026-10-29",
+      "request": "TNKB6DUW68"
     },
     {
       "id": "coxa-tras-d",
