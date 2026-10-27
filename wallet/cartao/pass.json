@@ -1,0 +1,89 @@
+{
+  "formatVersion": 1,
+  "organizationName": "GOCARMO",
+  "description": "Cartão de contacto de Gonçalo Carmo",
+  "backgroundColor": "rgb(11, 11, 12)",
+  "foregroundColor": "rgb(242, 241, 236)",
+  "labelColor": "rgb(230, 180, 80)",
+  "sharingProhibited": false,
+  "barcodes": [
+    {
+      "format": "PKBarcodeFormatQR",
+      "message": "https://gocarmo.com/cartao/",
+      "messageEncoding": "iso-8859-1",
+      "altText": "gocarmo.com/cartao"
+    }
+  ],
+  "barcode": {
+    "format": "PKBarcodeFormatQR",
+    "message": "https://gocarmo.com/cartao/",
+    "messageEncoding": "iso-8859-1",
+    "altText": "gocarmo.com/cartao"
+  },
+  "generic": {
+    "headerFields": [
+      { "key": "season", "label": "ÉPOCA", "value": "2027" }
+    ],
+    "primaryFields": [
+      { "key": "name", "label": "TRIATLETA · LISBOA", "value": "Gonçalo Carmo" }
+    ],
+    "secondaryFields": [
+      { "key": "phone", "label": "TELEFONE", "value": "+351 916 395 103" },
+      { "key": "email", "label": "EMAIL", "value": "allez@gocarmo.com" }
+    ],
+    "auxiliaryFields": [
+      { "key": "instagram", "label": "INSTAGRAM", "value": "@goncalo.carmo99" },
+      { "key": "ironman", "label": "IRONMAN PORTUGAL-CASCAIS", "value": "9:35:08 · 2026" }
+    ],
+    "backFields": [
+      {
+        "key": "b-phone",
+        "label": "Telefone e WhatsApp",
+        "value": "+351 916 395 103",
+        "dataDetectorTypes": ["PKDataDetectorTypePhoneNumber"]
+      },
+      {
+        "key": "b-whatsapp",
+        "label": "WhatsApp",
+        "value": "wa.me/351916395103",
+        "attributedValue": "<a href='https://wa.me/351916395103'>wa.me/351916395103</a>"
+      },
+      {
+        "key": "b-email",
+        "label": "Email",
+        "value": "allez@gocarmo.com",
+        "attributedValue": "<a href='mailto:allez@gocarmo.com'>allez@gocarmo.com</a>"
+      },
+      {
+        "key": "b-instagram",
+        "label": "Instagram",
+        "value": "@goncalo.carmo99",
+        "attributedValue": "<a href='https://www.instagram.com/goncalo.carmo99/'>@goncalo.carmo99</a>"
+      },
+      {
+        "key": "b-site",
+        "label": "Site",
+        "value": "gocarmo.com",
+        "attributedValue": "<a href='https://gocarmo.com/'>gocarmo.com</a>"
+      },
+      {
+        "key": "b-strava",
+        "label": "Strava",
+        "value": "Gonçalo Carmo",
+        "attributedValue": "<a href='https://www.strava.com/athletes/50182673'>Gonçalo Carmo</a>"
+      },
+      {
+        "key": "b-sponsor",
+        "label": "Patrocínio",
+        "value": "Espaços no fato e no capacete para a época 2027: gocarmo.com/#fato",
+        "attributedValue": "Espaços no fato e no capacete para a época 2027: <a href='https://gocarmo.com/#fato'>gocarmo.com/#fato</a>"
+      },
+      {
+        "key": "b-card",
+        "label": "Guardar o contacto",
+        "value": "gocarmo.com/cartao",
+        "attributedValue": "<a href='https://gocarmo.com/cartao/'>gocarmo.com/cartao</a>"
+      }
+    ]
+  }
+}

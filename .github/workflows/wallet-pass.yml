@@ -1,0 +1,194 @@
+name: Wallet pass
+
+# Builds Gonçalo's contact card for Apple Wallet from wallet/cartao/ (sh wallet/build-pass.sh), checks it
+# (python3 wallet/check-pass.py, with the chain up to Apple's root), keeps it as an artifact of the run and publishes
+# it on the site as cartao/goncalo-carmo.pkpass, with cartao/wallet.json: /cartao/ then shows «Adicionar à Apple
+# Wallet». By hand only: Actions > Wallet pass > Run workflow. Step by step in README.md, «Cartão de contacto».
+#
+# Needs, in Settings > Secrets and variables > Actions:
+#   secrets   WALLET_P12_BASE64    the Pass Type ID certificate with its key (.p12), in base64
+#             WALLET_P12_PASSWORD  the .p12's password
+#   variables WALLET_PASS_TYPE_ID  e.g. pass.com.gocarmo.cartao      (or secrets with the same names)
+#             WALLET_TEAM_ID       the Apple Developer Team ID
+on:
+  workflow_dispatch:
+    inputs:
+      serial:
+        description: 'Número de série. O mesmo substitui o cartão que já está na Wallet; outro junta um segundo cartão.'
+        required: false
+        default: 'goncalo-carmo'
+
+permissions:
+  contents: write
+  pages: write
+
+concurrency:
+  group: wallet-pass
+  cancel-in-progress: false
+
+env:
+  # Apple Root CA, as Apple publishes it in its list of trusted root certificates (support.apple.com/en-us/121728);
+  # a copy, for when apple.com does not answer, in wallet/AppleIncRootCertificate.cer (wallet/SOURCES.txt)
+  APPLE_ROOT_SHA256: B0B1730ECBC7FF4505142C49F1295E6EDA6BCAED7E2C68C5BE91B5A11001F024
+  # Apple Worldwide Developer Relations G4 (the intermediate of Pass Type ID certificates), downloaded from
+  # https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer on 27 Oct 2026, checked against the root above, and
+  # kept in wallet/AppleWWDRCAG4.cer (wallet/SOURCES.txt). Valid until 10 Dec 2030.
+  WWDR_G4_SHA256: EA4757885538DD8CB59FF4556F676087D83C85E70902C122E42C0808B5BCE14C
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      # A value pasted into GitHub with a line break or a space at the end breaks the build: every later step uses
+      # these trimmed copies, masked in the logs like the secrets themselves (as in deploy-stats.yml).
+      - name: Trim the values
+        env:
+          RAW_P12: ${{ secrets.WALLET_P12_BASE64 }}
+          RAW_PASSWORD: ${{ secrets.WALLET_P12_PASSWORD }}
+          RAW_TYPE: ${{ vars.WALLET_PASS_TYPE_ID || secrets.WALLET_PASS_TYPE_ID }}
+          RAW_TEAM: ${{ vars.WALLET_TEAM_ID || secrets.WALLET_TEAM_ID }}
+          RAW_SERIAL: ${{ inputs.serial }}
+        run: |
+          p12="$(printf '%s' "$RAW_P12" | tr -d '[:space:]')"
+          # the password: only line breaks and spaces at the ends go (a password may hold inner spaces)
+          password="$(printf '%s' "$RAW_PASSWORD" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          type="$(printf '%s' "$RAW_TYPE" | tr -d '[:space:]')"
+          team="$(printf '%s' "$RAW_TEAM" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          serial="$(printf '%s' "${RAW_SERIAL:-goncalo-carmo}" | tr -d '[:space:]')"
+          [ -n "$p12" ] && echo "::add-mask::$p12"
+          [ -n "$password" ] && echo "::add-mask::$password"
+          eof="EOF_$(openssl rand -hex 12)"
+          {
+            echo "W_P12<<$eof"; printf '%s\n' "$p12"; echo "$eof"
+            echo "W_PASSWORD<<$eof"; printf '%s\n' "$password"; echo "$eof"
+            echo "W_TYPE=$type"; echo "W_TEAM=$team"; echo "W_SERIAL=${serial:-goncalo-carmo}"
+            echo "W_HAS_PASSWORD=${RAW_PASSWORD:+1}"
+          } >> "$GITHUB_ENV"
+
+      - name: Check the settings
+        run: |
+          where="Settings > Secrets and variables > Actions"
+          apple="https://developer.apple.com/account/resources/identifiers/list/passTypeId"
+          fail=""
+          if [ -z "$W_P12" ]; then
+            echo "::error title=Falta WALLET_P12_BASE64::Falta o secret WALLET_P12_BASE64. Em developer.apple.com > Certificates, Identifiers & Profiles > Identifiers > Pass Type IDs ($apple) cria o Pass Type ID (por exemplo pass.com.gocarmo.cartao); em Certificates cria um «Pass Type ID Certificate» para ele, exporta-o com a chave como .p12 e põe o resultado de base64 -i cartao.p12 no secret WALLET_P12_BASE64 ($where). Passo a passo: README.md, «Cartão de contacto»."
+            fail=1
+          fi
+          if [ -z "$W_HAS_PASSWORD" ]; then
+            echo "::error title=Falta WALLET_P12_PASSWORD::Falta o secret WALLET_P12_PASSWORD, a palavra-passe que escolheste ao exportar o .p12 ($where)."
+            fail=1
+          fi
+          if [ -z "$W_TYPE" ]; then
+            echo "::error title=Falta WALLET_PASS_TYPE_ID::Falta a variável WALLET_PASS_TYPE_ID ($where > Variables): o Pass Type ID criado em developer.apple.com > Certificates, Identifiers & Profiles > Identifiers > Pass Type IDs ($apple), por exemplo pass.com.gocarmo.cartao."
+            fail=1
+          elif ! printf '%s' "$W_TYPE" | grep -Eq '^pass\.[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$'; then
+            echo "::error title=WALLET_PASS_TYPE_ID errado::WALLET_PASS_TYPE_ID tem de ser o Pass Type ID, que começa por pass. (por exemplo pass.com.gocarmo.cartao). Está em $apple."
+            fail=1
+          fi
+          if [ -z "$W_TEAM" ]; then
+            echo "::error title=Falta WALLET_TEAM_ID::Falta a variável WALLET_TEAM_ID ($where > Variables): o Team ID da conta, 10 letras e números, em developer.apple.com > Account > Membership details."
+            fail=1
+          elif ! printf '%s' "$W_TEAM" | grep -Eq '^[A-Z0-9]{10}$'; then
+            echo "::error title=WALLET_TEAM_ID errado::WALLET_TEAM_ID tem de ter 10 letras e números (developer.apple.com > Account > Membership details)."
+            fail=1
+          fi
+          if ! printf '%s' "$W_SERIAL" | grep -Eq '^[A-Za-z0-9._-]{1,64}$'; then
+            echo "::error title=Número de série errado::O número de série só pode ter letras, números, ponto, hífen e sublinhado."
+            fail=1
+          fi
+          [ -z "$fail" ] || exit 1
+
+      # Apple's intermediate goes inside the signature. Fetched from apple.com and checked: its fingerprint, and that
+      # Apple's root (whose fingerprint Apple publishes) signed it. If apple.com does not answer, the copies in
+      # wallet/AppleWWDRCAG4.cer and wallet/AppleIncRootCertificate.cer are used, with the same checks, so the chain
+      # check of the pass still goes up to Apple's root (an intermediate alone is not a trust anchor for openssl).
+      - name: Apple's WWDR G4 certificate
+        run: |
+          d="$RUNNER_TEMP/apple"; mkdir -p "$d"
+          fp() { openssl x509 -inform DER -in "$1" -noout -fingerprint -sha256 | sed 's/^.*=//; s/://g'; }
+          if curl -fsS --max-time 30 --retry 2 -o "$d/g4.cer" https://www.apple.com/certificateauthority/AppleWWDRCAG4.cer &&
+             curl -fsS --max-time 30 --retry 2 -o "$d/root.cer" https://www.apple.com/appleca/AppleIncRootCertificate.cer; then
+            from="a apple.com"
+          else
+            echo "::warning::A apple.com não respondeu: uso as cópias em wallet/AppleWWDRCAG4.cer e wallet/AppleIncRootCertificate.cer."
+            cp wallet/AppleWWDRCAG4.cer "$d/g4.cer"
+            cp wallet/AppleIncRootCertificate.cer "$d/root.cer"
+            from="o repositório (wallet/)"
+          fi
+          if [ "$(fp "$d/root.cer")" != "$APPLE_ROOT_SHA256" ]; then
+            echo "::error title=Raiz da Apple diferente::O AppleIncRootCertificate.cer que veio d$from não tem a impressão digital que a Apple publica. Não assino nada: vê support.apple.com/en-us/121728."
+            exit 1
+          fi
+          if [ "$(fp "$d/g4.cer")" != "$WWDR_G4_SHA256" ]; then
+            echo "::error title=WWDR G4 diferente::O AppleWWDRCAG4.cer que veio d$from mudou (SHA-256 $(fp "$d/g4.cer")). Confirma em apple.com/certificateauthority e, se for um certificado novo da Apple, atualiza WWDR_G4_SHA256 neste ficheiro e wallet/AppleWWDRCAG4.cer."
+            exit 1
+          fi
+          openssl x509 -inform DER -in "$d/root.cer" -out "$d/root.pem"
+          openssl x509 -inform DER -in "$d/g4.cer" -out "$d/g4.pem"
+          openssl verify -CAfile "$d/root.pem" "$d/g4.pem"
+          echo "CHECK_CHAIN=--ca $d/root.pem --untrusted $d/g4.pem" >> "$GITHUB_ENV"
+          echo "WALLET_WWDR=$d/g4.cer" >> "$GITHUB_ENV"
+
+      - name: Build the pass
+        env:
+          WALLET_P12_BASE64: ${{ env.W_P12 }}
+          WALLET_P12_PASSWORD: ${{ env.W_PASSWORD }}
+          WALLET_PASS_TYPE_ID: ${{ env.W_TYPE }}
+          WALLET_TEAM_ID: ${{ env.W_TEAM }}
+          WALLET_SERIAL: ${{ env.W_SERIAL }}
+        run: |
+          if ! sh wallet/build-pass.sh "$RUNNER_TEMP/goncalo-carmo.pkpass" 2> "$RUNNER_TEMP/build.err"; then
+            msg="$(tail -n 1 "$RUNNER_TEMP/build.err")"
+            echo "::error title=O passe não foi feito::${msg#build-pass: }"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/build.err" >&2
+          # the later steps (and the upload action) never need the certificate or its password
+          { echo "W_P12="; echo "W_PASSWORD="; } >> "$GITHUB_ENV"
+
+      # what an iPhone checks before it shows the pass: the manifest, the signature and the chain up to Apple's root
+      - name: Check the pass
+        run: python3 wallet/check-pass.py "$RUNNER_TEMP/goncalo-carmo.pkpass" $CHECK_CHAIN
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: goncalo-carmo-pkpass
+          path: ${{ runner.temp }}/goncalo-carmo.pkpass
+          retention-days: 30
+          if-no-files-found: error
+
+      # on the site: cartao/goncalo-carmo.pkpass and cartao/wallet.json, which tells /cartao/ to show the button
+      - name: Publish on gocarmo.com
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "$RUNNER_TEMP/goncalo-carmo.pkpass" cartao/goncalo-carmo.pkpass
+          printf '{ "pkpass": "goncalo-carmo.pkpass", "serial": "%s", "built": "%s" }\n' "$W_SERIAL" "$(date -u +%Y-%m-%d)" > cartao/wallet.json
+          git config user.name "wallet-pass"
+          git config user.email "actions@users.noreply.github.com"
+          git add cartao/goncalo-carmo.pkpass cartao/wallet.json
+          if git diff --cached --quiet; then echo "Sem mudanças."; exit 0; fi
+          git commit -m "Cartão de contacto: passe da Apple Wallet (série $W_SERIAL)"
+          # someone (the admin page, the spots form) may have pushed in the meantime
+          for i in 1 2 3; do
+            if git pull --rebase origin gh-pages && git push origin HEAD:gh-pages; then pushed=1; break; fi
+            sleep 5
+          done
+          if [ -z "${pushed:-}" ]; then
+            echo "::error title=Não consegui publicar::O passe está feito (artifact goncalo-carmo-pkpass desta corrida), mas o push para gh-pages falhou. Corre a action outra vez."
+            exit 1
+          fi
+          # belt and braces: ask Pages to rebuild, in case the bot push does not trigger it
+          gh api -X POST "repos/${{ github.repository }}/pages/builds" > /dev/null || true
+          {
+            echo "## Cartão de contacto publicado"
+            echo
+            echo "- Passe: https://gocarmo.com/cartao/goncalo-carmo.pkpass (série \`$W_SERIAL\`, \`$W_TYPE\`)"
+            echo "- Página: https://gocarmo.com/cartao/ mostra «Adicionar à Apple Wallet» daqui a 1 ou 2 minutos."
+            echo "- No iPhone: abre a página no Safari e toca no botão. Com a mesma série, o cartão novo substitui o que já está na Wallet."
+          } >> "$GITHUB_STEP_SUMMARY"

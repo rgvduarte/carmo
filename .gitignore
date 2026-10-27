@@ -4,3 +4,11 @@ _domain/
 worker/node_modules/
 worker/.wrangler/
 worker/.dev.vars
+# Apple Wallet (README, «Cartão de contacto»): the certificate, its key and the request never go in; a pass built on the
+# computer neither (the Action publishes cartao/goncalo-carmo.pkpass)
+*.p12
+*.key
+*.csr
+*.certSigningRequest
+/*.pkpass
+/wallet/*.pkpass
