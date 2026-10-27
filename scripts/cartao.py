@@ -133,7 +133,7 @@ lines = [
     f'TEL;TYPE=CELL,VOICE:{PHONE}',
     f'EMAIL;TYPE=INTERNET:{EMAIL}',
     'URL:https://gocarmo.com/',
-    f'X-SOCIALPROFILE;TYPE=instagram;X-USER={IG}:https://www.instagram.com/{IG}/',
+    # Instagram as a labelled URL only: iPhone and Android both show it, once (an X-SOCIALPROFILE too made it twice on iPhone)
     f'item1.URL:https://www.instagram.com/{IG}/',
     'item1.X-ABLabel:Instagram',
     f'item2.URL:{STRAVA}',
