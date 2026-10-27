@@ -388,7 +388,7 @@
       "h": 5,
       "area": "legs",
       "price": 60,
-      "status": "sold",
+      "status": "available",
       "vis": {
         "bike": 1,
         "run": 2,
@@ -402,9 +402,7 @@
       "en": {
         "name": "Left rear thigh",
         "pitch": "Visible on the run to anyone behind."
-      },
-      "brand": "Buildity",
-      "logo": "assets/img/brands/coxa-tras-e.png"
+      }
     },
     {
       "id": "coxa-tras-d",
