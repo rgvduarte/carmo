@@ -34,7 +34,8 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   e paga, o parceiro de prova e o que se combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
   sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. No mesmo dia muda também a data das
   chaves `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `msg.terms` (a linha
-  «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`).
+  «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`;
+  o comprovativo do pedido usa esta mesma linha, por isso não há mais nenhuma data para mudar).
   As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 
 PT e EN (botão no topo; a língua também segue o browser).
@@ -53,6 +54,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
+| Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rc.*` e `cl.rcpt*` (PT e EN); o desenho do PDF em `assets/js/receipt.js` |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
@@ -89,7 +91,8 @@ de uma mensagem que chega sem `Pedido:`:
    Instagram copia a mensagem e passa ao passo Pagar, que começa por «Mensagem copiada. Cola-a na conversa do
    Instagram:» e o botão «Abrir o Instagram» (a conversa com @goncalo.carmo99, no mesmo separador no telemóvel para
    abrir a app); se o browser não deixar copiar, a mensagem aparece selecionada na mesma caixa para copiar à mão.
-   **Feito** fecha o pedido e esvazia o pacote. O email abre a app de email do aparelho com a mesma mensagem; se a
+   **Feito** fecha o pedido e esvazia o pacote (numa reserva cujo comprovativo a marca ainda não guardou, pergunta
+   uma vez antes: ver **Compras automáticas**). O email abre a app de email do aparelho com a mesma mensagem; se a
    marca escrever uma mensagem muito longa, o email leva só o início (há apps que não abrem links de email enormes)
    e o pedido avisa-a de que pelo WhatsApp vai inteira.
 2. Confirmas em 24 horas. Para guardar os espaços enquanto esperas pelo comprovativo, cola a mensagem em **Colar
@@ -262,28 +265,49 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    Instagram, a mensagem fica copiada para colar. «Já enviei o pedido», que salta para o pagamento, só aparece depois
    de o pacote estar reservado (ou quando o pedido voltou a ser só mensagem): nunca passa à frente da reserva nem do
    logótipo.
-3. Na página, os espaços passam logo a «Reservado até 25 out.»; para toda a gente, assim que o GitHub Pages publica o
+3. **O comprovativo.** No passo 2, a primeira ação é **Guardar comprovativo**: um PDF de uma página A4 que o próprio
+   browser escreve (`assets/js/receipt.js`, que só carrega quando a marca carrega no botão, com as letras Helvetica de
+   qualquer leitor de PDF e o emblema GOCARMO desenhado), `gocarmo-pedido-<número>.pdf`. No telemóvel abre a folha de
+   partilha (Ficheiros, WhatsApp, email); no computador descarrega. Leva o cabeçalho GOCARMO, «Comprovativo do pedido
+   de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome e o NIF (se os deu),
+   cada espaço com o número, o nome, fato ou capacete e o preço, o desconto de pacote, o total, «Reservado até …», como
+   pagar (transferência para o IBAN e o titular de `SITE`, MB WAY até `SITE.mbwayMax`, o montante e a referência
+   `CARMO`), o que vem a seguir (pagar e enviar o comprovativo do pagamento, o logótipo em vetor até 15 de fevereiro de
+   2027), a linha das condições com a data delas (a mesma `msg.terms` da mensagem), o contacto e, no fim, «Este
+   documento não é uma fatura nem um recibo. …». Os valores são os do passo 2 e da mensagem, tirados das mesmas funções:
+   o número, o total, a referência e o dia batem sempre certo. No fato completo não há dados de pagamento: diz que antes
+   de pagar envias o acordo escrito. Sem reserva (o Worker em baixo, ou sem Worker) é um «Resumo do pedido de reserva»,
+   sem número, que diz que o espaço ainda não está reservado no site. **Ver no ecrã** mostra o mesmo num cartão claro,
+   para um screenshot: no browser do Instagram ou do Facebook, onde o PDF pode não ficar guardado, o cartão já vem
+   aberto e uma linha diz para tirar o screenshot; se não der para guardar, o passo 2 diz isso e abre o cartão. Depois
+   de recarregar a página, o passo 2 volta com o mesmo comprovativo (o número, o dia, a hora e os espaços vêm de
+   `gc.claim.req`; o nome e o NIF, do rascunho). Não é obrigatório, mas numa reserva **Feito** pergunta uma vez se a
+   marca ainda não o guardou nem partilhou: «Ainda não guardaste o comprovativo.», com **Guardar comprovativo** (guarda
+   e fecha) e **Fechar sem guardar** (fecha como antes). Nada disto sai do aparelho da marca: não há pedido à rede nem
+   nada guardado de novo. Nas estatísticas do site contam como cliques em «Reserva» (`#cl-rcpt-save`, `#cl-rcpt-view`,
+   `#cl-nag-save`, `#cl-nag-close`), sem eventos novos.
+4. Na página, os espaços passam logo a «Reservado até 25 out.»; para toda a gente, assim que o GitHub Pages publica o
    commit (1 a 2 minutos). Cada vez que o pedido abre, o site lê outra vez o `data/spots.json` sem cache: um espaço
    que outra marca reservou entretanto sai do pacote e o pedido diz qual foi.
-4. Se recarregar a página (ou voltar do WhatsApp com a página recarregada), o pedido volta ao passo 2, reservado. O
+5. Se recarregar a página (ou voltar do WhatsApp com a página recarregada), o pedido volta ao passo 2, reservado. O
    número do pedido fica guardado nesse separador: o mesmo pacote nunca é enviado duas vezes, nem com dois toques
    seguidos, nem com «Voltar» (os botões só enviam outra vez a mensagem). O que escreveu e o logótipo também ficam
    guardados no separador, no máximo 6 horas; «Feito» apaga o nome, o NIF, a mensagem e o logótipo.
-5. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: outra marca reservou
+6. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: outra marca reservou
    entretanto o espaço (sai do pacote, escolhe outro; o espaço fica reservado na página mesmo antes de o GitHub Pages
    o mostrar), mais de 6 espaços (escolhe o fato completo ou fala comigo), um campo a corrigir, um logótipo que não
    serve (ou pequeno demais, com menos de 64 px). Se já tem outro pedido aberto, o pedido diz o número e até quando;
    este pacote segue só por mensagem, com a linha `Pedido aberto: <número>`, para o juntares a esse pedido. Só quando
    o pedido aberto é exatamente este pacote (a resposta perdeu-se, ou outro separador da mesma marca já o enviou) é
    que o pedido o toma como seu e mostra a reserva.
-6. Se o Worker não responder em 25 segundos (tempo que inclui enviar o logótipo numa rede lenta) ou a rede falhar,
+7. Se o Worker não responder em 25 segundos (tempo que inclui enviar o logótipo numa rede lenta) ou a rede falhar,
    o site tenta uma segunda vez: se o primeiro pedido tiver chegado, o Worker responde com esse pedido e o site
    mostra-o reservado, sem segunda reserva. Se continuar sem resposta, o pedido diz «A reserva está a demorar mais do
    que o costume. Pode já ter ficado feita. Espera um momento e toca outra vez», nunca que não ficou reservado. Se a
    rede falhar duas vezes ou o Worker responder com erro do servidor, nada se perde: os mesmos botões enviam só a
    mensagem, como antes, com a linha «Sem reserva no site: confirmas se está livre? Envio o logótipo nesta
    conversa.», e o pedido diz «O espaço ainda não ficou reservado: confirmo por mensagem.»
-7. Depois de confirmares a compra, se a marca ainda tiver o separador aberto com o espaço no pacote, o site diz
+8. Depois de confirmares a compra, se a marca ainda tiver o separador aberto com o espaço no pacote, o site diz
    «Compra confirmada: o espaço … já é teu.» e tira-o do pacote.
 
 **O que tu fazes.**
@@ -341,7 +365,8 @@ recusar todos os pedidos** (o site diria «A verificação contra spam falhou»)
 **Privacidade.** O nome e o NIF servem só para o recibo. Cada pedido fica guardado 180 dias no Cloudflare e depois
 apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. No `data/spots.json`, público, só ficam a marca, o
 último dia da reserva e o número do pedido. O que a marca escreve no pedido de reserva (e o logótipo) fica no browser
-dela só enquanto o separador estiver aberto.
+dela só enquanto o separador estiver aberto. O comprovativo (o PDF e o cartão) faz-se no aparelho dela e não vai para
+lado nenhum.
 
 ## GoFundMe
 

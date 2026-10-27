@@ -381,8 +381,10 @@ export function init(api) {
   const dlg = $('#claim');
   if (dlg) {
     new MutationObserver(claimSeen).observe(dlg, { attributes: true, attributeFilter: ['open', 'data-step'] });
-    on('cancel', () => { clHow = 'esc'; }, dlg);
-    on('close', () => { ev('claim_close', { step: +dlg.dataset.step || 1, how: clHow || undefined }); clOpen = false; clHow = null; clStep = 0; }, dlg);
+    // (only the dialog's own: the «Feito» reminder inside it, #cl-nag, is a dialog too, and its Esc or close is not the
+    // booking's; its two buttons count as clicks in 'reserva', and «Fechar sem guardar» closes as «Feito»)
+    on('cancel', (e) => { if (e.target === dlg) clHow = 'esc'; }, dlg);
+    on('close', (e) => { if (e.target !== dlg) return; ev('claim_close', { step: +dlg.dataset.step || 1, how: clHow || undefined }); clOpen = false; clHow = null; clStep = 0; }, dlg);
     // the booking Worker held the request (adspace.js): that is the send, whatever happens to its message after
     on('gc:lead', (e) => { const ch = e.detail && e.detail.method; if (!/^(whatsapp|email|instagram)$/.test(ch)) return; sent = 1; ev('claim_send', { ch }); A.flush(); });
   }
