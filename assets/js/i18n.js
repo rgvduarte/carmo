@@ -246,7 +246,7 @@ const EN = {
   "bud.src": "Entry fees are the official prices published in October 2026. Travel and kit figures are estimates.",
   "ct.k": "08 · Contact",
   "ct.h": "Get in touch.",
-  "ct.p": "Sponsorship, partnerships and press. I'm looking for brands for 2027 and the seasons after.",
+  "ct.p": "Sponsorship, partnerships and press. In 2027 and the seasons after, I take brands with me.",
   "ct.phone": "WhatsApp and phone",
   "ct.mail": "Email for media and sponsorship",
   "ct.b1": "Send an email",
