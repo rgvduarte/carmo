@@ -112,8 +112,16 @@ async function signIn(e) {
     err.textContent = errText(x);
   } finally { btn.disabled = false; btn.textContent = 'Abrir patrocínios'; }
 }
+// what the page has drawn of the records (contacts, notes, amounts): gone with the key
+function wipe() {
+  closeDialogs();
+  ['#list', '#now', '#summary', '#cal'].forEach((q) => { const n = $(q); if (n) n.textContent = ''; });
+  const f = $('#sh-form'); if (f) f.reset();
+  S.sheet = null; S.pdf = ''; S.hl = '';
+}
 function forget() {
   dropKey(); S.key = ''; S.contracts = null; S.requests = null;
+  wipe();
   showKey(); $('#key-err').textContent = '';
   toast('Esqueci a chave dos pedidos neste separador.');
 }
@@ -133,7 +141,7 @@ async function load({ quiet = false } = {}) {
   btn.classList.add('busy'); btn.disabled = true;
   if (!quiet && !S.contracts) { $('#body').hidden = false; $('#key-form').hidden = true; meta.textContent = 'A ler os patrocínios…'; meta.classList.remove('bad'); }
   try { await take(await call('GET', '/contratos')); } catch (e) {
-    if (e instanceof ApiError && e.status === 401) { dropKey(); S.key = ''; S.contracts = null; showKey('A chave dos pedidos mudou ou não está certa. Escreve-a outra vez.'); return; }
+    if (e instanceof ApiError && e.status === 401) { dropKey(); S.key = ''; S.contracts = null; S.requests = null; wipe(); showKey('A chave dos pedidos mudou ou não está certa. Escreve-a outra vez.'); return; }
     if (!S.contracts) { $('#body').hidden = false; $('#key-form').hidden = true; }
     meta.textContent = errText(e); meta.classList.add('bad');
   } finally { btn.classList.remove('busy'); btn.disabled = false; }
@@ -195,6 +203,7 @@ function nowAct(it, a) {
   if (a.op === 'logo') return patch(it.id, { action: 'editar', set: { logo: { vector: true } } }, 'Logótipo em vetor recebido.');
   if (a.op === 'renovacao') return renew(it.id, a.state);
   if (a.op === 'registar') return register(it.request);
+  if (a.op === 'editar') { const c = findC(it.id); if (c) openSheet(c); }
 }
 
 function renderCal(day, r) {
@@ -211,6 +220,7 @@ function renderFilters(day) {
   const fs = $('#filters');
   const counts = A.filterCounts(S.contracts, { season: S.pref.season, q: S.pref.q }, day);
   if (!fs.querySelector('input')) {
+    fs.appendChild(el('span', 'fl-k', 'Renovação'));
     for (const [k, label] of A.FILTERS) {
       const lab = el('label', 'chip'), inp = el('input');
       inp.type = 'radio'; inp.name = 'state'; inp.value = k;
@@ -256,15 +266,26 @@ function card(c, day) {
   const spots = A.spotsText(c);
   li.appendChild(el('p', 'ct-spots', [spots, c.label && spots !== c.label ? c.label : ''].filter(Boolean).join(' · ')));
 
-  const pay = el('p', 'ct-pay');
-  pay.appendChild(el('b', null, A.money(c.amount)));
-  pay.append(` · pago a ${c.paidAt ? A.ptDay(c.paidAt, true) : '?'}`);
-  const how = c.pay === 'produto' ? `em produto${c.inKind ? `: ${c.inKind}` : ''}` : A.PAY[c.pay] || '';
-  if (how) pay.append(` · ${how}`);
+  // the money and its day; a deal in kind (nothing paid in money): what was agreed and when, with no «0 €»
+  const pay = el('p', 'ct-pay'), when = c.paidAt ? A.ptDay(c.paidAt, true) : '?';
+  if (c.pay === 'produto' && !(Number(c.amount) > 0)) {
+    pay.appendChild(el('b', null, `Em produto${c.inKind ? `: ${c.inKind}` : ''}`));
+    pay.append(` · combinado a ${when}`);
+  } else {
+    pay.appendChild(el('b', null, A.money(c.amount)));
+    pay.append(` · pago a ${when}`);
+    const how = c.pay === 'produto' ? `em produto${c.inKind ? `: ${c.inKind}` : ''}` : A.PAY[c.pay] || '';
+    if (how) pay.append(` · ${how}`);
+  }
   li.appendChild(pay);
+  // the season discount was applied only when the amount is the table's price; otherwise it is part of what the table
+  // asked («A tabela pedia 90 € (desconto de época de maio, −10,42%)»)
   const season = A.seasonText(c.price);
-  if (season) li.appendChild(el('p', 'ct-season', season));
-  if (c.price && Number.isFinite(Number(c.price.total)) && Number(c.price.total) !== Number(c.amount)) li.appendChild(el('p', 'ct-table', `A tabela pedia ${A.money(c.price.total)}`));
+  if (A.paidTable(c)) { if (season) li.appendChild(el('p', 'ct-season', season)); }
+  else if (c.price && Number.isFinite(Number(c.price.total))) {
+    const m = Number(c.price.m) || 0;
+    li.appendChild(el('p', 'ct-table', `A tabela pedia ${A.money(c.price.total)}${m > 0 ? ` (desconto de época de ${A.monthName(m)}, −${pctText(Number(c.price.seasonBp) || 0)}%)` : ''}`));
+  }
 
   const left = A.daysLeft(c, day);
   li.appendChild(el('p', 'ct-period', `${A.ptDay(r.start).replace('.', '')} a ${A.ptDay(r.end).replace('.', '')} ${r.end.slice(0, 4)} · ${left.text}`));
@@ -283,7 +304,7 @@ function card(c, day) {
   const logo = el('label', 'check ct-logo'), cb = el('input');
   cb.type = 'checkbox'; cb.checked = c.logo?.vector === true; cb.disabled = busy;
   cb.addEventListener('change', () => patch(c.id, { action: 'editar', set: { logo: { vector: cb.checked } } }, cb.checked ? 'Logótipo em vetor recebido.' : 'Logótipo em vetor em falta.'));
-  logo.append(cb, el('span', null, `Logótipo em vetor: ${c.logo?.vector ? 'recebido' : 'em falta'}${c.logo?.fromRace ? ` · a partir de ${c.logo.fromRace}` : ''}`));
+  logo.append(cb, el('span', null, `Logótipo em vetor: ${c.logo?.vector ? 'recebido' : 'em falta'}${c.logo?.fromRace ? ` · no equipamento a partir da prova: ${c.logo.fromRace}` : A.logoLate(c) ? ' · falta combinar a prova' : ''}`));
   li.appendChild(logo);
 
   const who = [c.contact?.name, A.CHANNEL[c.contact?.channel || ''], c.contact?.email, c.contact?.phone, c.contact?.handle].filter(Boolean).join(' · ');
@@ -310,8 +331,9 @@ function card(c, day) {
 
 // patrocinios/#<id> (from Pedidos): that card, in view and marked
 function goHash() {
-  const id = decodeURIComponent(location.hash.slice(1));
-  if (!id || !findC(id)) return;
+  let id = '';
+  try { id = decodeURIComponent(location.hash.slice(1)); } catch (_) { return; }
+  if (!/^[0-9A-Z]{10}$/.test(id) || !findC(id)) return;   // (the Worker's record ids)
   const c = findC(id);
   if (!A.filterContracts([c], S.pref, today()).length) { S.pref = { ...S.pref, state: 'todos', season: String(c.season), q: '' }; $('#q').value = ''; render(); }
   mark(id);
@@ -364,7 +386,8 @@ async function register(r) {
 }
 function authLost(e) {
   if (!(e instanceof ApiError) || e.status !== 401) return false;
-  closeDialogs(); dropKey(); S.key = ''; S.contracts = null;
+  dropKey(); S.key = ''; S.contracts = null; S.requests = null;
+  wipe();
   showKey('A chave dos pedidos mudou ou não está certa. Escreve-a outra vez.');
   return true;
 }
@@ -435,29 +458,39 @@ function openSheet(c = null) {
   d.scrollTop = 0;
   if (!c && matchMedia('(pointer: fine)').matches) $('#c-brand').focus();
 }
-// what the price table asked for these spots on the payment day (a site request's record keeps the request day's)
+// what the price table asked for these spots: a deal by hand on the payment day; a site request's record on its request
+// day, with its own season month, also when its spots change (as the Worker reprices it)
 function tableQuote() {
   const ids = pickedIds();
   if (!S.data || !ids.length) return null;
   const paid = $('#c-paid').value, season = $('#c-season').value, r = rules();
-  const c = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
-  if (c && c.kind === 'site' && c.price && [...A.idsOf(c)].sort().join() === [...ids].sort().join()) return { net: c.price.total, m: c.price.m, seasonBp: c.price.seasonBp, discPct: c.price.discPct, gross: c.price.gross };
-  const day = /^\d{4}-\d{2}-\d{2}$/.test(paid) ? paid : today();
-  const m = seasonMonth(season === r.season ? r : defaultRules(season), day);
+  const c = S.sheet && S.sheet.id ? findC(S.sheet.id) : null, site = !!c && c.kind === 'site' && !!c.price;
+  if (site && [...A.idsOf(c)].sort().join() === [...ids].sort().join()) return { net: c.price.total, m: c.price.m, seasonBp: c.price.seasonBp, discPct: c.price.discPct, gross: c.price.gross };
+  const day = site && /^\d{4}-\d{2}-\d{2}$/.test(c.price.day || '') ? c.price.day : /^\d{4}-\d{2}-\d{2}$/.test(paid) ? paid : today();
+  const m = site && Number.isInteger(c.price.m) ? c.price.m : seasonMonth(season === r.season ? r : defaultRules(season), day);
   return quote(S.data, ids, { day, m });
 }
+// the rules of the season picked in the sheet
+const sheetRules = () => { const r = rules(), season = $('#c-season').value; return season === r.season ? r : defaultRules(season); };
 function sheetHints() {
   const q = tableQuote(), hint = $('#c-table'), use = $('#c-use');
   if (q) {
     const parts = [q.m > 0 ? `desconto de época de ${A.monthName(q.m)}, −${pctText(q.seasonBp)}%` : '', q.discPct ? `desconto de pacote, −${q.discPct}%` : ''].filter(Boolean);
     hint.textContent = `Tabela: ${A.money(q.net)}${parts.length ? ` (${parts.join('; ')})` : ''}`;
+    // a deal by hand paid after the season's sales closed: priced as the last month of sales
+    const sr = sheetRules(), paidAt = $('#c-paid').value, c0 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
+    if ((!c0 || c0.kind !== 'site') && paidAt > sr.requestsUntil && paidAt <= sr.end && q.m > 0) hint.textContent += `. Pago depois do fecho das vendas de ${sr.season}: tabela de ${A.monthName(q.m)} (−${pctText(q.seasonBp)}%)`;
     use.hidden = String(q.net) === $('#c-amount').value.trim();
   } else { hint.textContent = pickedIds().length ? '' : 'Escolhe os espaços para ver o preço da tabela.'; use.hidden = true; }
   const pay = $('#c-pay').value;
   $('#c-inkind-box').hidden = pay !== 'produto' && pay !== 'outro';
-  const r = rules(), season = $('#c-season').value, logoBy = (season === r.season ? r : defaultRules(season)).logoBy, paid = $('#c-paid').value;
-  $('#c-race-box').hidden = !(paid && paid > logoBy) && !$('#c-race').value;
-  $('#c-race-hint').textContent = `Pago depois de ${A.ptDay(logoBy, true)}: o logótipo vai para o fato e o capacete a partir desta prova.`;
+  // the race the logo goes on the kit from: after the logo deadline, counted from the request day of a site request (what
+  // its buyer was told) or the payment day of a deal by hand (admin-contracts.js logoRef)
+  const logoBy = sheetRules().logoBy, c1 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
+  const site = c1 && c1.kind === 'site' && c1.price && /^\d{4}-\d{2}-\d{2}$/.test(c1.price.day || '');
+  const ref = site ? c1.price.day : $('#c-paid').value;
+  $('#c-race-box').hidden = !(ref && ref > logoBy) && !$('#c-race').value;
+  $('#c-race-hint').textContent = `${site ? 'Pedido' : 'Pago'} depois de ${A.ptDay(logoBy, true)}: o logótipo vai para o equipamento a partir desta prova, que combinas com a marca antes do pagamento.`;
   const nif = $('#c-nif').value.trim(), ok = nif ? nifOk(nif) : null;
   $('#c-nif-hint').textContent = ok === false ? 'Este NIF não bate certo (o último algarismo não confere). Confirma com a marca.' : '';
   $('#c-nif-hint').classList.toggle('bad', ok === false);
@@ -520,7 +553,8 @@ async function submitSheet(e) {
 const touch = () => matchMedia('(pointer: coarse)').matches;
 const ios = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const canShare = (file) => { try { return typeof navigator.share === 'function' && !!navigator.canShare && navigator.canShare({ files: [file] }); } catch (_) { return false; } };
-// on a phone, the share sheet (Ficheiros, WhatsApp, email); elsewhere (or when it is not there), a download
+// on a phone, the share sheet (Ficheiros, WhatsApp, email); elsewhere (or when it is not there), a download. Only for the
+// confirmation PDF, which goes to the sponsor: the CSV (every contact, NIF and note) is always a download (Ficheiros)
 async function deliver(file) {
   if (touch() && canShare(file)) {
     try { await navigator.share({ files: [file], title: file.name }); return true; } catch (e) { if (e && (e.name === 'AbortError' || e.name === 'InvalidStateError')) return false; }
@@ -563,7 +597,7 @@ async function saveCsv() {
   const day = today(), season = S.pref.season || 'todas';
   const list = A.filterContracts(S.contracts, { season }, day);
   const file = new File([A.toCsv(list, day, S.data)], A.csvName(season, day), { type: 'text/csv;charset=utf-8' });
-  if (await deliver(file)) toast(`CSV com ${list.length} ${list.length === 1 ? 'registo' : 'registos'}.`);
+  if (download(file)) toast(`CSV com ${list.length} ${list.length === 1 ? 'registo' : 'registos'}.`);
 }
 function saveIcs() {
   if (!S.contracts) return;

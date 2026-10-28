@@ -1054,8 +1054,14 @@ dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4p
 /* the season the spot is for (always), and the mid-season discount from February */
 .cl-period { margin: -6px 8px 10px 0; font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
 .cl-season { margin: -4px 8px 12px 0; font-size: 13px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
-/* after the season's last day for requests: a quiet note in the place of the send actions' reason */
-.cl-closed { margin: -6px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.08); font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+/* after the season's last day for requests: the note right under the summary, with the one way left (write for the
+   next season); the brand, logo, payment and send parts of step 1 go */
+.cl-closed { padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.08); font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+.cl-closed p { margin: 0; }
+.cl-closed .cl-closed-ct { margin-top: 8px; }
+.cl-closed a { color: var(--gold); text-underline-offset: 3px; overflow-wrap: anywhere; }
+#cl-s1.is-closed > :not(.cl-sum):not(.cl-closed) { display: none; }
+.package.closed .sum b { font-size: 15px; white-space: normal; }
 .cl-fields, .cl-extra { display: grid; gap: 14px; }
 .cl-add { justify-self: start; margin: -6px 0; }
 .field { display: grid; gap: 6px; }
@@ -1412,6 +1418,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   #cl-s1 > * { grid-column: 1 / -1; }
   #cl-s1 > .cl-sum { grid-column: 1; align-self: end; }
   #cl-s1 > .cl-pay { grid-column: 2; align-self: start; gap: 4px; }
+  #cl-s1.is-closed > .cl-sum { grid-column: 1 / -1; }
   .cl-fields { grid-template-columns: 1fr 1fr; column-gap: 12px; align-items: start; }
   .cl-add, .cl-extra { grid-column: 1 / -1; }
 }

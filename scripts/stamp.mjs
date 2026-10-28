@@ -15,8 +15,11 @@
 //    the sponsorship terms print agree with them: the «Atualizada a» date of /condicoes/ (PT and EN), of the booking
 //    dialog (index.html) and of the message (i18n.js) is seasonRules.termsDate; each article of /condicoes/ names every
 //    date of the season; and its mid-season discount table (table.season-disc) has, for each month, the percent and the
-//    prices season-rules.js gives. A mismatch stops it (also with --check): the terms cannot drift from the code, and a
-//    new season is not published before its terms carry its dates.
+//    prices season-rules.js gives; the home page's season copy (ru.p2 «De janeiro a dezembro de 2027», the step «É teu»
+//    with the logo deadline, of.a4 with the renewal deadline, PT in index.html and EN in i18n.js) has this season's
+//    dates, and no level card but «Todos os espaços» promises the renewal preference (every level has it). A mismatch
+//    stops it (also with --check): the terms cannot drift from the code, and a new season is not published before its
+//    terms carry its dates.
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -86,11 +89,28 @@ function checkTerms(R) {
     }
     for (const m of byMonth.keys()) need(m >= first && m <= last, `condicoes/index.html (${l}): table.season-disc has a row for ${Ms[m - 1]}, a month with no mid-season discount or no sales`);
   }
-  const ix = plain(readFileSync('index.html', 'utf8'));
+  const IX = readFileSync('index.html', 'utf8'), ix = plain(IX);
   need(ix.includes(`atualizadas a ${pt(R.termsDate)}`), `index.html: «atualizadas a ${pt(R.termsDate)}» (cl.terms, seasonRules.termsDate)`);
   const js = readFileSync('assets/js/i18n.js', 'utf8').replace(/\s+/g, ' ');
   need(js.includes(`atualizadas a ${pt(R.termsDate)}`), `assets/js/i18n.js: «atualizadas a ${pt(R.termsDate)}» (msg.terms, seasonRules.termsDate)`);
   need(js.includes(`updated ${en(R.termsDate)}`), `assets/js/i18n.js: «updated ${en(R.termsDate)}» (msg.terms and cl.terms, seasonRules.termsDate)`);
+  // the home page's season copy: the period (ru.p2), the logo deadline of the page without JS (#sp-p4; adspace.js
+  // writes it from the rules), the renewal preference of every level (of.a4)
+  const next = String(Number(R.season) + 1), dm = (d, M, l) => { const [, m, n] = ymd(d); return l === 'pt' ? `${n} de ${M[m - 1]}` : `${n} ${M[m - 1]}`; };
+  need(ix.includes(`De janeiro a dezembro de ${R.season}`), `index.html: «De janeiro a dezembro de ${R.season}» (ru.p2, the season)`);
+  need(js.includes(`January to December ${R.season}`), `assets/js/i18n.js: «January to December ${R.season}» (ru.p2, the season)`);
+  need(ix.includes(`se o logótipo chegar até ${dm(R.logoBy, PT_M, 'pt')}`), `index.html: «se o logótipo chegar até ${dm(R.logoBy, PT_M, 'pt')}» (#sp-p4, seasonRules.logoBy)`);
+  need(ix.includes(`em ${next}, se disseres que sim até ${pt(R.renewBy)}`), `index.html: «em ${next}, se disseres que sim até ${pt(R.renewBy)}» (of.a4, seasonRules.renewBy)`);
+  need(js.includes(`in ${next}, if you say yes by ${en(R.renewBy)}`), `assets/js/i18n.js: «in ${next}, if you say yes by ${en(R.renewBy)}» (of.a4, seasonRules.renewBy)`);
+  const offer = IX.match(/<div class="offer">([\s\S]*?)\n\s*<\/div>\n/);
+  if (!offer) out.push('index.html: no <div class="offer"> (the level cards)');
+  else {
+    const cards = offer[1].split(/<div class="card\b/).slice(1);
+    need(cards.length >= 2 && /renova|preferência/i.test(plain(cards[0])), 'index.html: the «Todos os espaços» card has to name the renewal preference (of.a4)');
+    cards.slice(1).forEach((c, i) => need(!/renova|preferência/i.test(plain(c)), `index.html: level card ${i + 2} names the renewal preference, which every level has (put it only in «Todos os espaços»)`));
+    const enLevels = [...js.matchAll(/"(of\.[bcd]\d)":\s*"([^"]*)"/g)].filter((m) => /renew|first option/i.test(m[2])).map((m) => m[1]);
+    need(!enLevels.length, `assets/js/i18n.js: ${enLevels.join(', ')} names the renewal preference, which every level has`);
+  }
   return out;
 }
 

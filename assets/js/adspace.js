@@ -92,12 +92,12 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     basket = new Set(ids.filter((id) => { const s = byId(id); return !!s && (s.status === 'available' || ownHold(s) || mine(s)); }));
   } catch (_) {}
   readHash();
-  renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
+  renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); renderSeasonCopy();
   bindUI();
   if (selected) select(selected);
   resumeClaim();
   onLang(() => {
-    renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit();
+    renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); renderSeasonCopy();
     if ($('#claim').open) renderClaim();
     for (const m of models()) { m.labels = kitLabels(); m.money = money; m.drawOverlay(); m.kick(); }
     const ld = $('#item-loading span'); if (ld) ld.textContent = t('helmet.loading');
@@ -1063,7 +1063,15 @@ function totals() {
 // the season's rules (data/spots.json → seasonRules), and whether the site still takes a request for it. A package
 // already held, or a request already sent, is never shut out (only step 1 waits for the next season)
 const rules = () => rulesOf(DATA);
-const shut = () => clStep === 1 && !heldReq() && !salesOpen(rules(), lisbonDay());
+// the season's sales are over and nothing of this tab's is held: the package bar and step 1 say so
+const closedNow = () => !heldReq() && !salesOpen(rules(), lisbonDay());
+const shut = () => clStep === 1 && closedNow();
+// the step «É teu» (#sp-p4) from the season's rules: the logo deadline while it is open, the race after it (the page
+// without JS keeps the sentence that covers both)
+function renderSeasonCopy() {
+  const p = $('#sp-p4');
+  if (p && DATA) p.textContent = t('sp.p4', rules(), logoOpen(rules(), lisbonDay()));
+}
 // the line that says it, brought on screen and read out (a tap on a send button while the season is closed)
 function closedTap() {
   const el = $('#cl-closed');
@@ -1078,8 +1086,11 @@ function renderPackage() {
   document.body.classList.toggle('pk-on', on);
   if (!on) return;
   // the total stands alone on top; the count, the bundle discount and the names share the line below, where only the
-  // names give way on a narrow screen (on phones that line runs the full width of the bar, under the buttons)
-  $('#pk-total').textContent = money(net);
+  // names give way on a narrow screen (on phones that line runs the full width of the bar, under the buttons). After the
+  // season's last day for requests, no price: «Pedidos de 2027 fechados»
+  const closed = closedNow();
+  pk.classList.toggle('closed', closed);
+  $('#pk-total').textContent = closed ? t('pk.closed', rules()) : money(net);
   const line = $('#pk-list'); line.textContent = '';
   const part = (cls, txt) => { const el = document.createElement('span'); el.className = cls; el.textContent = txt; line.appendChild(el); };
   part('pk-k', wantTitle ? t('msg.title') : t('pk.spots', list.length));
@@ -1145,7 +1156,7 @@ function message({ sizes = true, extra = null } = {}) {
   // renewal preference
   lines.push(t('msg.period', R));
   if (midSeason) lines.push(t('msg.season', m, seasonBp));
-  lines.push(t('msg.logo', R, logoOpen(R, day)), t('msg.renew', R));
+  lines.push(t('msg.logo', R, logoOpen(R, day)), t('msg.renew', R, kOf()));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -1273,10 +1284,12 @@ function renderClaim() {
   $('#cl-step').textContent = t('cl.step', clStep);
   // step 1: one line («Peito · 600 €», «3 espaços · 1 080 €»); a package lists its spots and the saving behind «ver»
   $('#cl-what').textContent = wantTitle ? t('cl.title') : list.length === 1 ? pick(list[0]).name : t('pk.spots', list.length);
-  $('#cl-tot').textContent = money(net);
+  // (after the season's last day for requests: no price, as in the package bar)
+  const shutNow = shut();
+  $('#cl-tot').textContent = shutNow ? t('pk.closed', R) : money(net);
   const items = $('#cl-items'), more = $('#cl-more');
   // (a mid-season discount lists what it is taken from even for one spot or the whole suit)
-  more.hidden = !(midSeason || (!wantTitle && list.length >= 2));
+  more.hidden = shutNow || !(midSeason || (!wantTitle && list.length >= 2));
   if (more.hidden) items.hidden = true;
   more.textContent = t(items.hidden ? 'cl.more' : 'cl.less');
   more.setAttribute('aria-expanded', String(!items.hidden));
@@ -1290,12 +1303,20 @@ function renderClaim() {
   // the season the spot is for, always; the mid-season discount and why, from February
   $('#cl-period').textContent = t('cl.period', R);
   const se = $('#cl-season');
-  se.hidden = !midSeason;
-  se.textContent = midSeason ? t('cl.season', m, seasonBp) : '';
-  // after the season's last day for requests: the note, and the send actions on hold (renderNeed)
+  se.hidden = !midSeason || shutNow;
+  se.textContent = midSeason && !shutNow ? t('cl.season', m, seasonBp) : '';
+  // after the season's last day for requests: the note first, with one plain way to write for the next season (no
+  // request, no hold), and the rest of step 1 hidden (#cl-s1.is-closed)
   const closed = shut(), cn = $('#cl-closed');
   cn.hidden = !closed;
-  cn.textContent = closed ? t('cl.closed', R) : '';
+  $('#cl-s1').classList.toggle('is-closed', closed);
+  $('#cl-closed-t').textContent = closed ? t('cl.closed', R) : '';
+  if (closed) {
+    $('#cl-closed-l').textContent = t('cl.closedCt', R);
+    $('#cl-closed-mail').textContent = SITE.email;
+    $('#cl-closed-mail').href = `mailto:${SITE.email}?subject=${encodeURIComponent(t('cl.closedSubj', R))}&body=${encodeURIComponent(t('cl.closedAsk', R))}`;
+    $('#cl-closed-wa').href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(t('cl.closedAsk', R))}`;
+  }
   if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t(brandErrKey);
   // the request: a package already held from this tab says so; the logo field, its error, what is missing, the note
   const r = heldReq(), k = kOf();
@@ -2017,7 +2038,7 @@ function rcptModel() {
   };
   // (step 2's lines, with the hold's day written in: on paper they sit far from «Reservado até …»)
   // then the season: the logo deadline (or, after it, from which race), the mid-season discount, the renewal preference
-  const season = [t('rcpt.logo', R, logoOpen(R, qDay)), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R)];
+  const season = [t('rcpt.logo', R, logoOpen(R, qDay)), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R, k, qDay)];
   const next = [...(!r ? [t('rcpt.proof')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k)] : [t('rcpt.payBy', day), t('cl.payHeld', k)]), ...season];
   return {
     lang: getLang(),
@@ -2059,7 +2080,8 @@ function drawRcpt(m) {
     li.append(nm, el('span', 'pr', it.price));
     items.append(li);
   }
-  for (const [cls, row] of [['save', m.disc], ['tot', m.total]]) if (row) { const li = el('li', cls); li.append(el('span', '', row[0]), el('span', 'pr', row[1])); items.append(li); }
+  // in the order of the sum, as the PDF: the season discount, the bundle discount, the total
+  for (const [cls, row] of [['save', m.season], ['save', m.disc], ['tot', m.total]]) if (row) { const li = el('li', cls); li.append(el('span', '', row[0]), el('span', 'pr', row[1])); items.append(li); }
   const pay = el('div', 'cl-card-pay');
   pay.append(el('h5', '', m.pay.h));
   if (m.pay.agree) {

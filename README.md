@@ -455,7 +455,7 @@ fica com o espaço; a partir de 1 de novembro de 2027 os não renovados ficam li
 passo.
 
 **Mudar de época (para 2028).** Depois de 1 de novembro de 2027, com a tabela de 2028 pronta:
-1. Em Patrocínios, exporta o CSV de 2027 (é a tua cópia).
+1. Em Patrocínios, exporta o CSV de 2027 (é a tua cópia; apaga-a até 31 de dezembro de 2028).
 2. Na página de admin, liberta os espaços que não foram renovados (os renovados ficam vendidos à mesma marca).
 3. Em `data/spots.json`: `"season": "2028"`, o bloco `seasonRules` de 2028 (as mesmas datas, um ano depois, e o
    `termsDate` do dia em que publicas) e os preços de 2028.
@@ -485,26 +485,36 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
 
 **O que a página mostra.**
 - **Agora**: o que há para fazer hoje, cada linha com o seu botão. Até 15 de janeiro, os logótipos em vetor que
-  faltam («Recebido»); um espaço vendido sem logótipo no site; um contrato cujos espaços não estão vendidos a essa
-  marca no site; um pedido confirmado sem registo («Registar»); de 1 de setembro a 31 de outubro, as propostas de
-  2028 por enviar («Proposta enviada»); nas duas últimas semanas antes de 31 de outubro, as respostas que faltam
-  («Renova», «Não renova»); a partir de 1 de novembro, os espaços para libertar; no último mês, os contratos que acabam
-  a 31 de dezembro.
+  faltam («Recebido»); um patrocinador cujo pedido (ou, à mão, o pagamento) foi depois de 15 de janeiro e ainda sem a
+  prova a partir da qual o logótipo entra no equipamento («Falta combinar a prova do logótipo», «Editar»); um espaço
+  vendido sem logótipo no site; um contrato cujos espaços não estão vendidos a essa marca no site; um pedido confirmado
+  sem registo («Registar»); de 1 de setembro a 31 de outubro, as propostas de 2028 por enviar («Enviei a proposta»;
+  nas duas últimas semanas, «ainda por enviar», com o prazo); nas duas últimas semanas antes de 31 de outubro, as
+  respostas que faltam («Renova», «Não renova»); a partir de 1 de novembro, os espaços para libertar (também os de quem
+  nunca recebeu proposta); no último mês, os contratos que acabam a 31 de dezembro.
+- **A prova do logótipo.** Num pedido depois de 15 de janeiro, o site diz à marca que o logótipo entra no equipamento a
+  partir da prova que lhe dizes antes de ela pagar. Os Pedidos lembram-te disso («Diz a prova antes do pagamento»);
+  depois, escreve-a em Patrocínios (Editar, «A partir da prova»). A data que conta é a do pedido, como no comprovativo.
 - **Calendário**: início (1 jan), logótipos (15 jan), propostas (1 set), renovação (31 out), livres para todos (1 nov)
   e fim (31 dez), cada data com «passou», «hoje» ou quantos dias faltam. **Juntar ao calendário** descarrega um
-  `.ics` com estas datas e um lembrete por marca para a proposta (às 9:00 desse dia; a renovação também uma semana
-  antes). No iPhone, abre o ficheiro e carrega em «Adicionar todos». Abrir um `.ics` novo atualiza os mesmos eventos
+  `.ics` com estas datas e um lembrete por marca: a proposta por enviar (a 1 de setembro, ou no dia a seguir à
+  exportação, se já passou), e a resposta que falta de quem já recebeu a proposta (uma semana antes de 31 de outubro),
+  sempre às 9:00; a renovação também uma semana antes. No iPhone, abre o ficheiro e carrega em «Adicionar todos». Abrir um `.ics` novo atualiza os mesmos eventos
   em vez de os repetir. Só leva o nome das marcas e dos espaços: nem contactos, nem NIF, nem montantes.
-- Um resumo (quantos patrocínios, quanto recebido, quantos a propor, quantos sem resposta), filtros (Todos, Ativos, A
-  propor, Proposta enviada, Renova, Não renova, Terminados), a época e a pesquisa por marca.
+- Um resumo (quantos patrocínios, quanto recebido, quantos a propor, quantos à espera de resposta), os filtros da
+  renovação (Todos, Antes das propostas, A propor, Proposta enviada, Renova, Não renova, Terminados), a época e a
+  pesquisa por marca.
 - **Um cartão por patrocínio**: marca e nível, espaços, montante e data do pagamento (com «Desconto de época
-  (março): −6,25%» quando houve), o período e os dias que faltam, o estado da renovação com os toques do passo
-  seguinte (Ativo → A propor a partir de 1 de setembro → Proposta enviada → Renova ou Não renova; «Desfazer» volta à
-  proposta; depois de 31 de dezembro, Terminado; uma proposta sem resposta a 1 de novembro conta como Não renova),
+  (março): −6,25%» quando o montante é o da tabela; num acordo com outro montante, «A tabela pedia …»; em produto, o
+  que foi combinado e quando, sem «0 €»), o período e os dias que faltam, o estado da renovação com os toques do passo
+  seguinte (Antes das propostas → A propor a partir de 1 de setembro → «Enviei a proposta» → Proposta enviada a <dia>
+  → Renova ou Não renova; «Desfazer» volta um passo atrás; depois de 31 de dezembro, Terminado; a 1 de novembro, uma
+  proposta sem resposta, ou uma marca a quem a proposta nunca foi enviada, conta como Não renova),
   o logótipo em vetor (recebido ou em falta), as notas, **Editar**, **Confirmação (PDF)** e **Apagar** (só para um
   registo feito por engano; pergunta antes).
 - **Exportar CSV**: `gocarmo-patrocinios-<época>-<data>.csv`, separado por `;`, que o Excel em português abre
-  direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas). É a tua
+  direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas). No
+  iPhone descarrega para Ficheiros (nunca passa pela folha de partilha, porque leva os contactos e os NIF). É a tua
   cópia de segurança: guarda-a e apaga as antigas até ao fim do prazo dos registos.
 - **Confirmação (PDF)**: a «Confirmação de patrocínio» que envias à marca depois do pagamento, feita no telemóvel como
   o comprovativo: marca, espaços e preços, desconto de época e de pacote (só quando o montante é o da tabela), montante

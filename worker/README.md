@@ -59,8 +59,9 @@ num ficheiro público, com a chave `c:<id>`:
 - **À mão**: em **Patrocínios**, para o que foi combinado por email, WhatsApp ou em produto. Tem um número novo.
 
 Cada contrato apaga-se sozinho no fim de 31 de dezembro do ano seguinte ao da época (os da época 2027 a 31 de dezembro
-de 2028). Antes disso, exporta o CSV em **Patrocínios**: é a cópia do Gonçalo. Não guarda o código do endereço de
-internet nem o logótipo. Confirmar gasta 2 escritas no KV (o contrato e o pedido); cada mudança num contrato, 1.
+de 2028). Se precisares de uma cópia, exporta o CSV em **Patrocínios**; apaga as exportações até à mesma data (a página
+privacidade/ promete isso). Não guarda o código do endereço de internet nem o logótipo. Confirmar gasta 2 escritas no KV
+(o contrato e o pedido); cada mudança num contrato, 1.
 
 ## Limites contra abusos
 

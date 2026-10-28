@@ -199,11 +199,14 @@ function newId(now) {
   return Math.floor(now / 1000).toString(36).toUpperCase().padStart(6, '0').slice(-6) + Array.from(rnd, (b) => ID_CHARS[b % ID_CHARS.length]).join('');
 }
 // text from the site: a string (or nothing), no control characters, spaces collapsed (the message keeps its line
-// breaks); null when it is not text or is longer than `max` characters
+// breaks); null when it is not text or is longer than `max` characters. The invisible format characters (zero-width
+// spaces and joiners, the direction marks, the word joiner and the byte-order mark) go without a trace: «Build\u200bity»
+// is stored as «Buildity», the brand the admin finds and compares, and the PDFs can write
+const INVISIBLE = /[\u061c\u200b-\u200f\u2060-\u2064\ufeff]/g;
 function text(v, max, lines = false) {
   if (v === undefined || v === null) return '';
   if (typeof v !== 'string') return null;
-  let s = v.normalize('NFC').replace(lines ? /\r\n?/g : /[\r\n]+/g, lines ? '\n' : ' ');
+  let s = v.normalize('NFC').replace(INVISIBLE, '').replace(lines ? /\r\n?/g : /[\r\n]+/g, lines ? '\n' : ' ');
   s = s.replace(lines ? /[\u0000-\u0009\u000b-\u001f\u007f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g : /[\u0000-\u001f\u007f\u2028\u2029\u202a-\u202e\u2066-\u2069]/g, ' ');
   s = lines ? s.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim() : s.replace(/\s+/g, ' ').trim();
   return Array.from(s).length > max ? null : s;
@@ -927,10 +930,13 @@ async function actContract(request, env, id) {
     c.level = ids.length ? levelOf(pricedAs(data, c.spots), ids) : '';
     changed.push(set0.items !== undefined ? 'items' : 'title');
   }
-  // the price the table asked: on the payment day for a deal by hand; a site request keeps its request day's price
-  // unless its spots change
+  // the price the table asked: on the payment day for a deal by hand; a site request keeps its request day's price, and
+  // when its spots change, the new spots are priced on that request day, with its own season month (rule 4': the price
+  // of the request day; a request from before the seasons kept m = 0)
   if (moved || changed.includes('season') || (c.kind === 'manual' && changed.includes('paidAt'))) {
-    c.price = ids.length ? priceOf(contractQuote(data, c.season, ids, c.spots, c.paidAt)) : null;
+    const site = c.kind === 'site' && c.price && isDate(c.price.day) && !changed.includes('season');
+    const pday = site ? c.price.day : c.paidAt, m0 = site && Number.isInteger(c.price.m) ? c.price.m : undefined;
+    c.price = ids.length ? priceOf(contractQuote(data, c.season, ids, c.spots, pday, m0)) : null;
   }
   if (!changed.length && JSON.stringify(c) === before) return reply(request, env, { contrato: c });
   const values = {};

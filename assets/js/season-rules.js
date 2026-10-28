@@ -159,15 +159,18 @@ export function levelOf(data, ids) {
 }
 
 // ---------- contracts ----------
-// the renewal step as shown on Lisbon day `day`, from the step stored by hand ('', 'proposta', 'renova', 'nao-renova')
+// the renewal step as shown on Lisbon day `day`, from the step stored by hand ('', 'proposta', 'renova', 'nao-renova').
+// From openFrom, a sponsor with no answer does not renew: 'sem-resposta' after a proposal, 'sem-proposta' when none was
+// marked as sent (the spot opens to everyone all the same, as /condicoes/ says)
 export function renewalView(contract, day) {
   const c = contract || {}, d0 = defaultRules(c.season);
   const end = c.period?.end || d0.end, openFrom = c.dates?.openFrom || d0.openFrom, proposalsFrom = c.dates?.proposalsFrom || d0.proposalsFrom;
   const st = c.renewal?.state || '';
-  if (day > end) return { state: 'terminado', outcome: st === 'renova' || st === 'nao-renova' ? st : 'sem-resposta' };
+  if (day > end) return { state: 'terminado', outcome: st === 'renova' || st === 'nao-renova' ? st : st === 'proposta' ? 'sem-resposta' : 'sem-proposta' };
   if (st === 'renova' || st === 'nao-renova') return { state: st, outcome: st };
   if (st === 'proposta' && day >= openFrom) return { state: 'nao-renova', outcome: 'sem-resposta' };
   if (st === 'proposta') return { state: 'proposta', outcome: '' };
+  if (!st && day >= openFrom) return { state: 'nao-renova', outcome: 'sem-proposta' };
   if (day >= proposalsFrom) return { state: 'a-propor', outcome: '' };
   return { state: 'ativo', outcome: '' };
 }

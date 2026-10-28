@@ -176,6 +176,7 @@ const EN = {
   "of.a1": "Logo on the suit or helmet at every 2027 triathlon, except as set out in the <a href=\"condicoes/\">terms</a> (the suit in training too)",
   "of.a2": "Logo and link on this page",
   "of.a3": "Tagged in every race post",
+  "of.a4": "First option on the same spot in 2028, if you say yes by 31 October 2027",
   "of.k2": "Official · from\u00a0€150",
   "of.h2": "Content and reports",
   "of.b1": "Announcement post and story on Instagram",
@@ -186,7 +187,6 @@ const EN = {
   "of.c0": "Everything in Official",
   "of.c1": "Three dedicated posts a month",
   "of.c2": "Logo on training kit",
-  "of.c3": "First option on renewal for 2028",
   "of.c4": "A GOCARMO T-shirt",
   "of.k4": "Title partner",
   "of.h4": "Your name on it",
@@ -201,7 +201,6 @@ const EN = {
   "sp.h3": "Payment",
   "sp.p3": "Bank transfer, or MB WAY up to €2,000, with the spot numbers as the reference. You get a donation\u00a0receipt.",
   "sp.h4": "It's yours",
-  "sp.p4": "The spot closes and your brand appears here, on the suit or the helmet. On the real kit, it goes on before the first triathlon of the season, if the logo arrives by 15\u00a0January.",
   "ru.h1": "One brand per spot.",
   "ru.p1": "Once the payment lands, the spot closes for everyone and shows your brand.",
   "ru.h2": "Full season.",
@@ -331,6 +330,12 @@ const enLong = (day) => { const [y, m, d] = ymd(day); return `${d} ${EN_MONTHS[m
 const ptShort = (day) => { const [, m, d] = ymd(day); return `${d} ${PT_SHORT[m - 1]}`; };
 const enShort = (day) => { const [, m, d] = ymd(day); return `${d} ${EN_MONTHS[m - 1].slice(0, 3)}`; };
 const nextSeason = (r) => String(Number(r.season) + 1);
+// what the renewal preference is on, for k = 'title' (the whole suit) or the number of spots: [where, what stays yours]
+const ptWhat = (k) => (k === 'title' ? ['no fato completo', 'o fato completo continua teu'] : k === 1 ? ['no mesmo espaço', 'o espaço continua teu'] : ['nos mesmos espaços', 'os espaços continuam teus']);
+const enWhat = (k) => (k === 'title' ? ['on the whole suit', 'the whole suit stays yours'] : k === 1 ? ['on the same spot', 'the spot stays yours'] : ['on the same spots', 'the spots stay yours']);
+// '15 de janeiro' / '15 January', with a no-break space before the month (the step «É teu»)
+const ptDM = (day) => { const [, m, d] = ymd(day); return `${d} de\u00a0${PT_MONTHS[m - 1]}`; };
+const enDM = (day) => { const [, m, d] = ymd(day); return `${d}\u00a0${EN_MONTHS[m - 1]}`; };
 // the long name of month m (1-12) of the season: 'março' / 'March' (the mid-season discount names the request's month)
 export const monthName = (m, l = lang) => ((l === 'en' ? EN_MONTHS : PT_MONTHS)[m - 1] || '');
 // the season discount in basis points as a percent: 625 -> '6,25' (PT) / '6.25' (EN). The same as season-rules.js
@@ -396,12 +401,20 @@ const PT_JS = {
   'msg.season': (m, bp) => `Desconto de época (${PT_MONTHS[m - 1]}, mês ${m}): −${ptP(bp)}%`,
   // the bracket of the Total / whole suit line, after the amount to pay: «(1 100 € −6,25% −10%)»; '' when there is nothing off
   'msg.totalS': (gross, bp, disc) => (bp || disc ? `(${gross}${bp ? ` −${ptP(bp)}%` : ''}${disc ? ` −${disc}%` : ''})` : ''),
-  'msg.logo': (r, open) => (open ? `Logótipo em vetor: até ${ptLong(r.logoBy)}` : 'Logótipo no fato e no capacete: a partir da prova combinada antes do pagamento'),
-  'msg.renew': (r) => `Renovação para ${nextSeason(r)}: preferência no mesmo espaço até ${ptLong(r.renewBy)}`,
+  'msg.logo': (r, open) => (open ? `Logótipo em vetor: até ${ptLong(r.logoBy)}` : 'Logótipo no equipamento: a partir da prova combinada antes do pagamento'),
+  // k: 'title' or the number of spots (adspace.js kOf)
+  'msg.renew': (r, k = 1) => `Renovação para ${nextSeason(r)}: preferência ${ptWhat(k)[0]}, com resposta até ${ptLong(r.renewBy)}`,
   'cl.period': (r) => `Época ${r.season} · ${ptShort(r.start)} a ${ptShort(r.end)} ${ymd(r.end)[0]}`,
   'cl.season': (m, bp) => `Entrada a meio da época: em ${PT_MONTHS[m - 1]} já passaram ${m} de 12 meses; o desconto é um quarto disso, ${ptP(bp)}%.`,
   'cl.seasonrow': (m, bp) => `Desconto de época (${PT_MONTHS[m - 1]}, −${ptP(bp)}%)`,
-  'cl.closed': (r) => `Os pedidos para a época ${r.season} fecharam a ${ptLong(r.requestsUntil)}. A época ${nextSeason(r)} abre aqui quando a tabela estiver pronta.`,
+  'cl.closed': (r) => `Os pedidos para a época ${r.season} fecharam a ${ptLong(r.requestsUntil)}. A tabela de ${nextSeason(r)} sai em breve; se quiseres um espaço em ${nextSeason(r)}, escreve-me.`,
+  // the one way left while sales are closed: a plain message, no request and no hold
+  'cl.closedCt': (r) => `Para a época ${nextSeason(r)}, escreve-me:`,
+  'cl.closedAsk': (r) => `Olá Gonçalo, gostava de saber dos espaços no fato e no capacete para a época ${nextSeason(r)}.`,
+  'cl.closedSubj': (r) => `Patrocínio · época ${nextSeason(r)}`,
+  'pk.closed': (r) => `Pedidos de ${r.season} fechados`,
+  // the step «É teu» (index.html #sp-p4): up to the logo deadline, and after it
+  'sp.p4': (r, open) => `O espaço fecha e a tua marca aparece aqui, no fato ou no capacete. ${open ? `No equipamento real, se o logótipo chegar até ${ptDM(r.logoBy)}, conto tê-lo no primeiro triatlo da época; depois dessa data, entra a partir da prova que te digo antes de pagares.` : 'O logótipo entra logo no site e nas publicações e, no equipamento, a partir da prova que te digo antes de pagares.'}`,
   'pk.season': (bp) => `−${ptP(bp)}% de época`,
   'rq.net': 'Não consegui falar com o serviço de reservas.',
   'rq.lento': 'A reserva está a demorar mais do que o costume.',
@@ -451,11 +464,18 @@ const PT_JS = {
   // the production deadline, as the terms (/condicoes/, «O logótipo e a produção») and the 05 steps say it
   // (after the deadline: on the site and in the posts at once, on the kit from the race agreed before paying)
   'rcpt.logo': (r, open) => (open ? `Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS). Se chegar até ${ptLong(r.logoBy)}, conto ter o equipamento pronto para o primeiro triatlo.`
-    : 'O logótipo entra no site e nas publicações logo que o pagamento é confirmado e, no fato e no capacete, a partir da prova que te digo antes de pagares. Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).'),
+    : 'O logótipo entra no site e nas publicações logo que o pagamento é confirmado e, no equipamento, a partir da prova que te digo antes de pagares. Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).'),
   'rcpt.period': 'Período', 'rcpt.periodV': (r) => `Época ${r.season}, de ${ptLong(r.start).replace(/ de \d{4}$/, '')} a ${ptLong(r.end)}`,
   // (disc false: no bundle discount in this request, so the sentence leaves it out)
   'rcpt.season': (m, bp, disc = true) => `Desconto de época: o pedido é de ${PT_MONTHS[m - 1]}, quando já tinham passado ${m} de 12 meses da época; o desconto é um quarto disso, ${ptP(bp)}%. ${disc ? 'Primeiro o desconto de época, depois o de pacote, e o total arredonda ao euro.' : 'O total arredonda ao euro.'}`,
-  'rcpt.renew': (r) => `Renovação: tens preferência no mesmo espaço em ${nextSeason(r)}, ao preço da tabela de ${nextSeason(r)}. Envio-te a proposta a partir de ${ptLong(r.proposalsFrom)}; se me disseres que sim até ${ptLong(r.renewBy)}, o espaço continua teu.`,
+  // k: 'title' or the number of spots; day: the request's Lisbon day (from proposalsFrom the proposal goes with the
+  // payment confirmation, as /condicoes/ says)
+  'rcpt.renew': (r, k = 1, day = '') => {
+    const w = ptWhat(k), y = nextSeason(r), head = `Renovação: tens preferência ${w[0]} em ${y}, ao preço da tabela de ${y}.`;
+    if (day && day > r.renewBy) return `${head} A proposta de ${y} segue à parte.`;
+    if (day && day >= r.proposalsFrom) return `${head} Como entras a partir de ${ptLong(r.proposalsFrom)}, envio-te a proposta com a confirmação do pagamento; tens até ${ptLong(r.renewBy)} para me dizer que sim.`;
+    return `${head} Envio-te a proposta a partir de ${ptLong(r.proposalsFrom)}; se me disseres que sim até ${ptLong(r.renewBy)}, ${w[1]}.`;
+  },
   'rcpt.terms': 'Condições do patrocínio', 'rcpt.ct': 'Contacto',
   'rcpt.foot': 'Este documento não é uma fatura nem um recibo. Confirma o pedido e a reserva até à data indicada. Depois do pagamento, recebes um recibo de donativo.',
   'rcpt.footNo': 'Este documento não é uma fatura nem um recibo. Resume o pedido que me enviaste, sem reserva no site. Depois do pagamento, recebes um recibo de donativo.',
@@ -541,12 +561,17 @@ const EN_JS = {
   'msg.period': (r) => `${r.season} season: ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
   'msg.season': (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, month ${m}): −${enP(bp)}%`,
   'msg.totalS': (gross, bp, disc) => (bp || disc ? `(${gross}${bp ? ` −${enP(bp)}%` : ''}${disc ? ` −${disc}%` : ''})` : ''),
-  'msg.logo': (r, open) => (open ? `Vector logo: by ${enLong(r.logoBy)}` : 'Logo on the suit and helmet: from the race agreed before payment'),
-  'msg.renew': (r) => `${nextSeason(r)} renewal: first option on the same spot until ${enLong(r.renewBy)}`,
+  'msg.logo': (r, open) => (open ? `Vector logo: by ${enLong(r.logoBy)}` : 'Logo on the kit: from the race agreed before payment'),
+  'msg.renew': (r, k = 1) => `${nextSeason(r)} renewal: first option ${enWhat(k)[0]}, answer by ${enLong(r.renewBy)}`,
   'cl.period': (r) => `${r.season} season · ${enShort(r.start)} to ${enShort(r.end)} ${ymd(r.end)[0]}`,
   'cl.season': (m, bp) => `Mid-season discount: by ${EN_MONTHS[m - 1]}, ${m} of the 12 months have gone; the discount is a quarter of that, ${enP(bp)}%.`,
   'cl.seasonrow': (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, −${enP(bp)}%)`,
-  'cl.closed': (r) => `Requests for the ${r.season} season closed on ${enLong(r.requestsUntil)}. The ${nextSeason(r)} season opens here once its rate card is ready.`,
+  'cl.closed': (r) => `Requests for the ${r.season} season closed on ${enLong(r.requestsUntil)}. The ${nextSeason(r)} rate card is coming soon; if you would like a spot in ${nextSeason(r)}, write to me.`,
+  'cl.closedCt': (r) => `For the ${nextSeason(r)} season, write to me:`,
+  'cl.closedAsk': (r) => `Hi Gonçalo, I would like to hear about the suit and helmet spots for the ${nextSeason(r)} season.`,
+  'cl.closedSubj': (r) => `Sponsorship · ${nextSeason(r)} season`,
+  'pk.closed': (r) => `${r.season} requests closed`,
+  'sp.p4': (r, open) => `The spot closes and your brand appears here, on the suit or the helmet. ${open ? `On the real kit, if the logo arrives by ${enDM(r.logoBy)}, I expect it in place for the first triathlon of the season; after that date, it goes on from the race I tell you before you pay.` : 'Your logo goes on the site and in my posts straight away, and on the kit from the race I tell you before you pay.'}`,
   'pk.season': (bp) => `−${enP(bp)}% mid-season`,
   'rq.net': 'Could not reach the booking service.',
   'rq.lento': 'The booking is taking longer than usual.',
@@ -589,10 +614,15 @@ const EN_JS = {
   'rcpt.reqH': 'The request',
   'rcpt.nextH': 'What happens next', 'rcpt.proof': 'Once you pay, send me the proof of payment on WhatsApp or by email.',
   'rcpt.logo': (r, open) => (open ? `For production, send me the logo as a vector file (SVG, PDF, AI or EPS). If it arrives by ${enLong(r.logoBy)}, I expect the kit to be ready for the first triathlon.`
-    : 'Your logo goes on the site and in my posts as soon as the payment is confirmed, and on the suit and the helmet from the race I tell you before you pay. For production, send me the logo as a vector file (SVG, PDF, AI or EPS).'),
+    : 'Your logo goes on the site and in my posts as soon as the payment is confirmed, and on the kit from the race I tell you before you pay. For production, send me the logo as a vector file (SVG, PDF, AI or EPS).'),
   'rcpt.period': 'Period', 'rcpt.periodV': (r) => `${r.season} season, ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
   'rcpt.season': (m, bp, disc = true) => `Mid-season discount: the request is from ${EN_MONTHS[m - 1]}, when ${m} of the 12 months of the season had gone; the discount is a quarter of that, ${enP(bp)}%. ${disc ? 'The mid-season discount comes first, then the bundle discount, and the total is rounded to the euro.' : 'The total is rounded to the euro.'}`,
-  'rcpt.renew': (r) => `Renewal: you have first option on the same spot in ${nextSeason(r)}, at the ${nextSeason(r)} rate card price. I send you the proposal from ${enLong(r.proposalsFrom)}; if you say yes by ${enLong(r.renewBy)}, the spot stays yours.`,
+  'rcpt.renew': (r, k = 1, day = '') => {
+    const w = enWhat(k), y = nextSeason(r), head = `Renewal: you have first option ${w[0]} in ${y}, at the ${y} rate card price.`;
+    if (day && day > r.renewBy) return `${head} The ${y} proposal follows separately.`;
+    if (day && day >= r.proposalsFrom) return `${head} As you join from ${enLong(r.proposalsFrom)}, I send you the proposal with the payment confirmation; you have until ${enLong(r.renewBy)} to say yes.`;
+    return `${head} I send you the proposal from ${enLong(r.proposalsFrom)}; if you say yes by ${enLong(r.renewBy)}, ${w[1]}.`;
+  },
   'rcpt.terms': 'Sponsorship terms', 'rcpt.ct': 'Contact',
   'rcpt.foot': 'This document is not an invoice or a receipt. It confirms the request and the hold until the date shown. Once you pay, you get a donation receipt.',
   'rcpt.footNo': 'This document is not an invoice or a receipt. It sums up the request you sent me, with no hold on the site. Once you pay, you get a donation receipt.',

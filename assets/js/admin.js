@@ -3,7 +3,7 @@
 // browser only). The page then waits until gocarmo.com serves the new data/spots.json. The rules (what each action
 // writes, and when it is allowed) live in admin-core.js, which is tested against the issue-form bot.
 import * as C from './admin-core.js';
-import { lisbonDay } from './season-rules.js';
+import { lisbonDay, rulesOf, isDay } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -304,7 +304,8 @@ function onRef() {
     const t = C.totals(base.data, r.ids);
     const names = r.ids.map((id) => shortName(base.data, id));
     const note = C.totalNote(t);
-    out.append(`${r.ids[0] === C.TITLE ? '' : `${plural(r.ids.length, 'espaço', 'espaços')}: `}${names.join(', ')} · Total esperado ${C.money(t.net)}${note ? ` ${note}` : ''}`);
+    // (a reference carries no date: the price of a request made today)
+    out.append(`${r.ids[0] === C.TITLE ? '' : `${plural(r.ids.length, 'espaço', 'espaços')}: `}${names.join(', ')} · Total de hoje ${C.money(t.net)}${note ? ` ${note}` : ''}`);
   }
   const extra = [];
   if (r.unknown.length) extra.push(`Não conheço ${r.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(r.unknown.map(String))}.`);
@@ -363,8 +364,10 @@ function refBox(r) {
 function showPaste(p) {
   const out = $('#ref-out'), box = $('#paste'), raw = base.data, now = Date.now();
   pasted = p;
-  // the price of the message's own month (its «Desconto de época (…, mês N)» line), else the full price
-  const ids = p.ids, t = ids.length ? C.totals(raw, ids, { m: p.m ?? 0 }) : null;
+  // a message: the price of its own month (its «Desconto de época (…, mês N)» line), else the full price (a message
+  // with no season line is from before February); a link carries no date: today's price, as the bar and a reference
+  const ids = p.ids, link = p.kind === 'link';
+  const t = !ids.length ? null : link ? C.totals(raw, ids) : C.totals(raw, ids, { m: p.m ?? 0 });
   out.classList.toggle('ok', ids.length > 0);
   out.textContent = !ids.length ? (p.kind === 'link' ? 'Este link não tem espaços que eu conheça.' : 'Li o pedido, mas não encontrei os espaços.')
     : `${p.kind === 'link' ? 'Link do pedido' : 'Pedido'}: ${ids[0] === C.TITLE ? 'fato completo' : plural(ids.length, 'espaço', 'espaços')} · Total ${C.money(t.net)}`;
@@ -377,6 +380,7 @@ function showPaste(p) {
   row('Pagamento', C.PAY_LABEL[p.pay] || '');
   row('Referência', p.ref);
   if (p.m) row('Época', C.seasonLine(p.m));
+  else if (link && t) row('Época', `preço de hoje (sem data no link)${t.m > 0 ? ` · ${C.seasonLine(t.m, t.seasonBp)}` : ''}`);
   if (t) {
     const said = p.stated;
     row('Total', said === null ? `${C.money(t.net)} (o pedido não diz)` : said === t.net ? `${C.money(t.net)} ✓ confere` : `${C.money(t.net)} · o pedido diz ${C.money(said)}`, said !== null && said !== t.net ? 'bad' : '');
@@ -673,6 +677,8 @@ function reqCard(r) {
     li.appendChild(line);
   }
   const stand = reqStanding(r);
+  // a request after the logo deadline: its logo goes on the kit from a race named before the payment
+  if (open && raw && logoLateReq(raw, r)) stand.lines.push(RACE_ASK);
   if (stand.lines.length) { const n = el('ul', 'notes'); for (const s of stand.lines) n.appendChild(el('li', null, s)); li.appendChild(n); }
   if (open) {
     const acts = el('div', 'req-acts'), busyNow = inbox.busy.has(r.id);
@@ -727,11 +733,16 @@ async function confirmPurchase(r) {
   $('#f-brand').value = r.brand || '';
   sheet.request = r.id;
   const note = $('#sh-req');
-  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.`;
+  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.${logoLateReq(base.data, r) ? ` ${RACE_ASK} Escreve-a depois em Patrocínios (Editar, «A partir da prova»).` : ''}`;
   note.hidden = false;
   showPaid(r);
   showLogo(logo);
 }
+
+// a request made after the season's logo deadline (its Lisbon day, as the message and the comprovativo counted it)
+const reqDay = (r) => (isDay(r.day) ? r.day : Date.parse(r.at || '') ? lisbonDay(Date.parse(r.at)) : '');
+const logoLateReq = (data, r) => { const d = reqDay(r), R = rulesOf(data); return !!d && String(r.season || R.season) === R.season && d > R.logoBy; };
+const RACE_ASK = 'Diz a prova antes do pagamento: o logótipo entra no equipamento a partir de que prova?';
 
 // ---------- the payment of a request: «Pago a» and «Montante recebido» (they go into its sponsor contract) ----------
 // «Desconto de época (março): −6,25%» of a request the Worker priced (its record's m and seasonBp), '' at full price
