@@ -138,6 +138,8 @@ lines = [
     'item1.X-ABLabel:Instagram',
     f'item2.URL:{STRAVA}',
     'item2.X-ABLabel:Strava',
+    f'item3.URL:https://www.tiktok.com/@{IG}',
+    'item3.X-ABLabel:TikTok',
     f'NOTE:{esc("Espaços no fato e no capacete para a época 2027: gocarmo.com/#fato")}',
     'PHOTO;ENCODING=b;TYPE=JPEG:' + base64.b64encode(photo).decode('ascii'),
     'END:VCARD',
