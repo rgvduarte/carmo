@@ -1,7 +1,9 @@
 // Spot rules for the admin page (admin/index.html). Pure: no DOM, no fetch, no storage, so Node can test it
 // against scripts/spot-update.mjs, the issue-form bot. applyAction() runs the bot's apply block statement by
 // statement, so data/spots.json comes out byte for byte as the bot would write it and the public site
-// (adspace.js) renders it unchanged.
+// (adspace.js) renders it unchanged. The price of a package is season-rules.js quote(), the one the site and the
+// booking Worker use (the mid-season discount, then the bundle discount, then one rounding).
+import { quote, seasonBp, pctText } from './season-rules.js';
 
 export const REPO = 'rgvduarte/carmo';
 export const BRANCH = 'gh-pages';
@@ -271,13 +273,21 @@ export function parseRef(text, data) {
   return out;
 }
 
-// the expected payment: adspace.js totals() (bundle discount from bundle.min spots, suit and helmet together)
-export function totals(data, ids) {
-  if (ids.includes(TITLE)) return { gross: data.title.price, net: data.title.price, disc: 0 };
-  const list = ids.map((id) => targetOf(data, id)).filter(Boolean);
-  const gross = list.reduce((a, s) => a + s.price, 0);
-  const disc = data.bundle && list.length >= data.bundle.min ? data.bundle.discount : 0;
-  return { gross, net: Math.round(gross * (1 - disc)), disc };
+// the expected payment: season-rules.js quote(), as the site (adspace.js totals()) and the Worker work it out. opts.day:
+// the Lisbon day of the request (default today: the price of a request made now); opts.m: the season month a pasted
+// message states (wins over the day). disc: the bundle discount as a fraction (0.1), discPct the same in percent;
+// m, midSeason, seasonBp: the mid-season discount (m = 0: none); steps: { season, bundle }, the euros each one takes off.
+export function totals(data, ids, { day, m } = {}) {
+  const q = quote(data, ids.includes(TITLE) ? [TITLE] : ids, { day, m });
+  return { gross: q.gross, net: q.net, disc: q.discPct / 100, discPct: q.discPct, m: q.m, midSeason: q.midSeason, seasonBp: q.seasonBp, steps: q.steps, day: q.day };
+}
+// «Desconto de época (março): −6,25%» for a season month m (and its basis points, when known)
+export const SEASON_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+export const seasonLine = (m, bp) => (m > 0 ? `Desconto de época (${SEASON_MONTHS[m - 1]}): −${pctText(bp || seasonBp(m))}%` : '');
+// the bracket after a total: «(1 100 € −6,25% −10%)», '' when nothing is off
+export function totalNote(t) {
+  const parts = [t.seasonBp ? `−${pctText(t.seasonBp)}%` : '', t.discPct ? `−${t.discPct}%` : ''].filter(Boolean);
+  return parts.length ? `(${money(t.gross)} ${parts.join(' ')})` : '';
 }
 
 // ---------- a pasted request: the site's message (WhatsApp, email, Instagram) or its gocarmo.com link ----------
@@ -305,11 +315,17 @@ const LINE = {
   total: /^total\s*:\s*(.*)$/i,
   title: /^(?:fato completo|whole suit)\b[^:]*:\s*(.*)$/i,
   request: /^(?:pedido|request)\s*:\s*([0-9a-z]{10})\s*$/i,   // the Worker's id (worker/requests.js), once the site sends it
+  // the mid-season discount (i18n.js msg.season): «Desconto de época (março, mês 3): −6,25%», «Mid-season discount
+  // (March, month 3): −6.25%». The month NUMBER is what the price is worked out with; the month's name and the percent
+  // are for the reader, and are only checked against it. No such line: m = 0 (a request up to 31 January).
+  season: /^(?:desconto de [eé]poca|mid-season discount)\s*\([^)]*?\b(?:m[eê]s|month)\s+(\d{1,2})\s*\)\s*:\s*[−-]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*$/iu,
   hi: /^(?:ol[aá]|hi|hello)\s+gon[cç]alo\b/i,
   spots: /^(?:espa[cç]os|spots)\s*:\s*$/i,
   bullet: /^[•·*\-–]\s*(\d{1,2})\s+(.+)$/,
 };
-const PT_KEYS = /^(?:ola|espacos|marca|nome|referencia|pagamento|fato)\b/;   // on fold()ed text
+const PT_KEYS = /^(?:ola|espacos|marca|nome|referencia|pagamento|fato|desconto)\b/;   // on fold()ed text
+// month names in a season line, folded: [['janeiro', 'january'], …]
+const MONTH_WORDS = [['janeiro', 'january'], ['fevereiro', 'february'], ['marco', 'march'], ['abril', 'april'], ['maio', 'may'], ['junho', 'june'], ['julho', 'july'], ['agosto', 'august'], ['setembro', 'september'], ['outubro', 'october'], ['novembro', 'november'], ['dezembro', 'december']];
 // a copied WhatsApp chat starts each message with '[14:05, 23/10/2026] Nome: ' (or '23/10/26, 14:05 - Nome: ' in an
 // exported one); a reply by email quotes with '> '
 const QUOTE = /^(?:\s*>)+\s?/, WA_COPY = /^\[[^\]\n]{4,40}\]\s*[^:\n]{1,60}:\s+/, WA_EXPORT = /^\d{1,2}\/\d{1,2}\/\d{2,4},?\s+\d{1,2}:\d{2}(?:\s*[ap]\.?\s?m\.?)?\s+-\s+[^:\n]{1,60}:\s+/i;
@@ -380,6 +396,18 @@ export function parsePaste(text, data) {
     }
     inList = false;
     if (!out.request && (m = l.match(LINE.request))) { out.request = m[1].toUpperCase(); looks = true; continue; }
+    if (!seen.has('season') && (m = l.match(LINE.season))) {
+      seen.add('season'); looks = true;
+      const n = Number(m[1]), said = m[2].replace('.', ',');
+      if (n < 2 || n > 11) { out.notes.push(`Mês do desconto de época inválido (mês ${n}): conto o preço sem esse desconto.`); continue; }
+      out.m = n;
+      const want = pctText(seasonBp(n));
+      if (said !== want) out.notes.push(`A percentagem não bate com o mês ${n} (o pedido diz −${said}%; o mês ${n} dá −${want}%).`);
+      // the month's name, when the line has one, against its number
+      const named = MONTH_WORDS.findIndex((w) => w.some((x) => fold(l.slice(0, l.indexOf(')'))).split(' ').includes(x)));
+      if (named >= 0 && named + 1 !== n) out.notes.push(`O mês escrito no desconto de época não bate com o mês ${n}.`);
+      continue;
+    }
     for (const k of ['brand', 'name', 'nif', 'ref', 'pay', 'total', 'title']) {
       if (seen.has(k) || !(m = l.match(LINE[k]))) continue;
       seen.add(k); looks = true;
@@ -435,11 +463,30 @@ export function parsePaste(text, data) {
   // what the pieces say against each other and against the prices of now
   if (out.ids.length && refIds.length && !same(refIds, out.ids)) out.notes.push(`A referência ${out.ref} não bate com estes espaços (seria ${refOf(data, out.ids)}).`);
   if (out.ids.length && out.stated !== null) {
-    const t = totals(data, out.ids);
-    if (t.net !== out.stated) out.notes.push(`O pedido diz ${money(out.stated)}; com os preços de agora são ${money(t.net)}.`);
+    const t = totals(data, out.ids, { m: out.m ?? 0 });
+    if (t.net !== out.stated) out.notes.push(`O pedido diz ${money(out.stated)}; com os preços de agora${t.m ? ` e o desconto de época de ${SEASON_MONTHS[t.m - 1]}` : ''} são ${money(t.net)}.`);
   }
   if (out.nifOk === false) out.notes.push(`O NIF ${out.nif} não bate certo (o último algarismo não confere). Confirma com a marca antes do recibo.`);
   return out;
+}
+
+// ---------- the payment of a request, when it is confirmed (POST /pedidos/<id> confirmar { paidAt, amount }) ----------
+// paidAt: a real day from 1 January 2026 to tomorrow (Lisbon, the Worker's own limits); amount: whole euros, 0 to 100 000
+// ('1 100', '563 €' are fine; cents are not). today: the Lisbon day. Returns { paidAt, amount } or throws a RuleError.
+export const FIRST_PAID = '2026-01-01';
+export const MAX_AMOUNT = 100000;
+export function normPaid(paidAt, amount, today) {
+  const d = String(paidAt ?? '').trim();
+  if (!d) throw new RuleError('Escreve a data do pagamento.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d) || Number.isNaN(Date.parse(d)) || new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) !== d) throw new RuleError(MSG.badDate);
+  if (d < FIRST_PAID) throw new RuleError('A data do pagamento é anterior a 2026.');
+  if (d > addDays(today, 1)) throw new RuleError('A data do pagamento ainda não chegou.');
+  const a = String(amount ?? '').replace(/[\s\u00a0\u202f€]/g, '');
+  if (!a) throw new RuleError('Escreve o montante recebido, em euros.');
+  if (!/^\d+$/.test(a)) throw new RuleError('O montante é em euros, sem cêntimos (por exemplo 563).');
+  const n = Number(a);
+  if (n > MAX_AMOUNT) throw new RuleError(`O montante passa de ${money(MAX_AMOUNT)}.`);
+  return { paidAt: d, amount: n };
 }
 
 // ---------- holds placed by the site (worker/requests.js) ----------

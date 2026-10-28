@@ -1,17 +1,29 @@
-// Booking requests from gocarmo.com: a Cloudflare Worker (module syntax, no dependencies). Deployed to its workers.dev
-// address by .github/workflows/deploy-pedidos.yml; the secrets and how to switch it on are in worker/README.md.
+// Booking requests and sponsor contracts for gocarmo.com: a Cloudflare Worker (module syntax). Its one import,
+// ../assets/js/season-rules.js (the season's dates and THE price, shared with the site and the admin), is bundled by
+// wrangler at deploy time. Deployed to its workers.dev address by .github/workflows/deploy-pedidos.yml; the secrets
+// and how to switch it on are in worker/README.md.
 //
 //   POST /pedido              the site's booking dialog. Holds the spots for 48 h in data/spots.json on gh-pages (one
 //                             commit, GitHub contents API, SPOTS_GITHUB_TOKEN) and keeps the request and its logo in KV
-//                             for 180 days. JSON in, 201 { id, until, total } out.
+//                             for 180 days. JSON in, 201 { id, until, total, m, seasonBp, day } out. The total is
+//                             quote(data, ids, { day }).net of season-rules.js, day = the Lisbon date of the request,
+//                             so it is the site's total to the euro. From the day after seasonRules.requestsUntil:
+//                             409 { error: 'epoca', season, until }.
 //   GET  /pedidos             (admin) the requests kept, newest first, without the logos
 //   GET  /pedidos/<id>/logo   (admin) the request's logo, a PNG
-//   POST /pedidos/<id>        (admin) { action: 'confirmar' | 'cancelar' | 'prolongar', bloquear?: true (with cancelar) }
+//   POST /pedidos/<id>        (admin) { action: 'confirmar' | 'cancelar' | 'prolongar', bloquear?: true (with cancelar),
+//                             paidAt?: 'YYYY-MM-DD', amount?: euros (with confirmar) }. confirmar also creates the
+//                             sponsor contract c:<id> once (the same call again creates it if KV failed the first time)
+//   GET  /contratos           (admin) the sponsor contracts, newest payment first
+//   POST /contratos           (admin) a contract entered by hand (a deal by email, WhatsApp, in kind)
+//   POST /contratos/<id>      (admin) { action: 'editar' | 'renovacao' | 'apagar', ... }
 //   GET  /estado              which pieces are set up (true / false only), for the deploy check
 //
 // Admin calls carry "Authorization: Bearer <ADMIN_KEY>". A request holds a name and a NIF, so: it expires from KV after
 // 180 days, only an admin call returns it, the address it came from is kept only as a keyed hash (of its /64 for IPv6),
-// nothing is ever logged, and an error is { error: '<code>' } with nothing of the request in it.
+// nothing is ever logged, and an error is { error: '<code>' } with nothing of the request in it. A contract record
+// (KV c:<id>) holds the brand, the spots, the amount paid, the contact and the NIF if given, never an address hash or a
+// logo; it expires at contractExpiry(season): the end of 31 December of the year after its season.
 //
 // Against one person holding everything: at most MAX_ITEMS spots in a request (the whole suit is `title: true`), at
 // most MAX_HELD spots held at once by the site's unpaid requests (counted in data/spots.json inside the sha-checked
@@ -22,7 +34,15 @@
 //
 // The file is written as the admin page (assets/js/admin-core.js, applyAction) and the issue-form bot
 // (scripts/spot-update.mjs) write it: JSON.stringify(data, null, 2) and a newline, the same keys in the same order,
-// plus "request": <id> on each held spot. Any later admin action on that spot drops the "request" key.
+// plus "request": <id> on each held spot. Any later admin action on that spot drops the "request" key. Keys the Worker
+// does not know ("seasonRules" among them) keep their place and value.
+
+import { TITLE, quote, rulesOf, defaultRules, lisbonDay, addDays, salesOpen, seasonMonth, levelOf, contractExpiry } from '../assets/js/season-rules.js';
+
+// The first Lisbon date builds an Intl time-zone formatter, about 13 ms of CPU once per isolate, and the first price
+// compiles the rules: both done here, in the global scope (the isolate's start-up, which has its own limit), so no
+// request spends them out of the 10 ms of Workers Free.
+quote({ season: '2027', spots: [{ id: 'a', n: 1, price: 10 }, { id: 'b', n: 2, price: 10 }, { id: 'c', n: 3, price: 10 }], title: { price: 30 }, bundle: { min: 3, discount: 0.1 }, tiers: [{ key: 'x', min: 0 }] }, ['a', 'b', 'c'], { day: lisbonDay(0) });
 
 const DAY_S = 86400;
 const KEEP_S = 180 * DAY_S;              // a request and its logo live 180 days in KV
@@ -41,7 +61,17 @@ const RETRIES = 3;                       // a write that lost the race to anothe
 const PAYS = ['mb', 'tr'];
 const CHANNELS = ['whatsapp', 'email', 'instagram', 'site'];
 const ACTIONS = ['confirmar', 'cancelar', 'prolongar'];
-const TITLE = 'fato';                    // the whole suit, as data/spots.json "title" (the admin and the bot call it so)
+// contracts (KV c:<id>)
+const MAX_CONTRACTS = 900;               // records kept at once: GET /contratos reads each one, and a Worker call may
+                                         // make at most 1 000 KV operations
+const CONTRACT_BODY = 8192;              // bytes, a contract call's JSON
+const CONTRACT_ACTIONS = ['editar', 'renovacao', 'apagar'];
+const PAY_KINDS = ['mb', 'tr', 'produto', 'outro'];
+const CONTACT_CHANNELS = ['whatsapp', 'email', 'instagram', 'site', 'telefone', 'pessoal', 'outro', ''];
+const RENEWAL_STEPS = ['', 'proposta', 'renova', 'nao-renova'];
+const FIRST_PAID = '2026-01-01';         // the earliest payment date a contract may carry
+const MAX_AMOUNT = 100000;               // euros
+const HISTORY = 50;                      // history entries kept on a contract
 const SPOTS_PATH = 'data/spots.json';
 const ID_CHARS = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 const ID_RE = /^[0-9A-Z]{10}$/;
@@ -69,14 +99,22 @@ async function route(request, env) {
   if (method === 'OPTIONS') return preflight(request, env);
   if (path === '/' || path === '/estado') {
     if (method !== 'GET') return reply(request, env, { error: 'metodo' }, 405);
-    return reply(request, env, { ok: true, kv: !!env.PEDIDOS, github: !!env.SPOTS_GITHUB_TOKEN, admin: keyOk(env), turnstile: !!env.TURNSTILE_SECRET, limites: !!env.RL_PEDIDO && !!env.RL_ADMIN });
+    return reply(request, env, { ok: true, kv: !!env.PEDIDOS, github: !!env.SPOTS_GITHUB_TOKEN, admin: keyOk(env), turnstile: !!env.TURNSTILE_SECRET, limites: !!env.RL_PEDIDO && !!env.RL_ADMIN, contratos: !!env.PEDIDOS });
   }
   if (path === '/pedido') return method === 'POST' ? create(request, env) : reply(request, env, { error: 'metodo' }, 405);
-  const m = path.match(/^\/pedidos(?:\/([^/]+)(\/logo)?)?$/);
-  if (!m) return reply(request, env, { error: 'nada' }, 404);
+  const m = path.match(/^\/pedidos(?:\/([^/]+)(\/logo)?)?$/), c = path.match(/^\/contratos(?:\/([^/]+))?$/);
+  if (!m && !c) return reply(request, env, { error: 'nada' }, 404);
+  // the admin's calls, /pedidos and /contratos alike: the site's Origin (or none, as curl), the burst limit, the key
   if (request.headers.get('Origin') && !originOf(request, env)) return reply(request, env, { error: 'origem' }, 403);
   const denied = await admin(request, env);
   if (denied) return denied;
+  if (c) {
+    if (c[1] && !ID_RE.test(c[1])) return reply(request, env, { error: 'nada' }, 404);
+    if (!c[1] && method === 'GET') return listContracts(request, env);
+    if (!c[1] && method === 'POST') return createContract(request, env);
+    if (c[1] && method === 'POST') return actContract(request, env, c[1]);
+    return reply(request, env, { error: 'metodo' }, 405);
+  }
   if (m[1] && !ID_RE.test(m[1])) return reply(request, env, { error: 'nada' }, 404);
   if (!m[1] && method === 'GET') return list(request, env);
   if (m[1] && m[2] && method === 'GET') return logo(request, env, m[1]);
@@ -113,7 +151,12 @@ const enc = new TextEncoder();
 const sleep = (ms) => new Promise((ok) => setTimeout(ok, ms));
 const pad2 = (n) => String(n).padStart(2, '0');
 const todayUTC = (now) => new Date(now).toISOString().slice(0, 10);
-const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+// a real calendar day 'YYYY-MM-DD'
+function isDate(s) {
+  if (typeof s !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  return Number.isFinite(t) && new Date(t).toISOString().slice(0, 10) === s;
+}
 // the last day of a hold placed now: the UTC date 48 hours from now. The site frees it once that day is over.
 const holdUntil = (now) => new Date(now + HOLD_H * 3600e3).toISOString().slice(0, 10);
 const joinPT = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`);
@@ -250,13 +293,23 @@ function takenOf(data, ids, now) {
   }
   return taken;
 }
-// the price to pay: the whole suit's price, or the spots with the bundle discount from bundle.min spots (adspace.js)
-function totalOf(data, ids) {
-  if (ids.includes(TITLE)) return data.title.price;
-  const list = ids.map((id) => targetOf(data, id)).filter(Boolean);
-  const gross = list.reduce((a, s) => a + s.price, 0);
-  const disc = data.bundle && list.length >= data.bundle.min ? data.bundle.discount : 0;
-  return Math.round(gross * (1 - disc));
+// The price to pay is season-rules.js quote(data, ids, { day }).net, the site's own function: the season discount
+// («desconto de época», m/48 of the price, m = the month of the request in Lisbon, 0 up to fullPriceUntil), then the
+// bundle discount, then one rounding to whole euros, half up. What a request or a contract keeps of it:
+const priceOf = (q) => ({ day: q.day, gross: q.gross, m: q.m, seasonBp: q.seasonBp, discPct: q.discPct, total: q.net });
+// the targets as they are priced and named now, kept with a request (and its contract) so a confirmation months later
+// depends on neither renamed spots nor a new price table
+function snapshotOf(data, ids) {
+  return ids.map((id) => {
+    if (id === TITLE) return { id: TITLE, n: 0, name: 'Fato completo', item: 'suit', price: Number(data.title.price) || 0 };
+    const s = targetOf(data, id);
+    return s ? { id: s.id, n: s.n, name: (s.pt && s.pt.name) || s.id, item: itemOf(s), price: Number(s.price) || 0 } : null;
+  }).filter(Boolean);
+}
+// data with the prices of a snapshot: a contract's price is computed on what was asked, not on today's table
+function pricedAs(data, spots) {
+  const at = new Map(spots.map((x) => [x.id, x.price]));
+  return { ...data, title: at.has(TITLE) ? { ...data.title, price: at.get(TITLE) } : data.title, spots: data.spots.map((s) => (at.has(s.id) ? { ...s, price: at.get(s.id) } : s)) };
 }
 const fileText = (data) => `${JSON.stringify(data, null, 2)}\n`;
 // 'Espaços 01 e 21' / 'Espaço 21' / 'Fato completo', and the plural ending
@@ -383,7 +436,9 @@ async function readList(env, key) {
 async function create(request, env) {
   if (!originOf(request, env)) return fail(request, env, 'origem', 403);
   if (!env.PEDIDOS || !env.SPOTS_GITHUB_TOKEN || !keyOk(env)) return fail(request, env, 'config', 503);
-  const now = Date.now(), day = todayUTC(now), ip = await ipHash(env, request), C = cfg(env);
+  // day: the UTC date (the per-address day count and the file's "updated", as before); lday: the Lisbon date of the
+  // request, the one its price and the season's dates go by
+  const now = Date.now(), day = todayUTC(now), lday = lisbonDay(now), ip = await ipHash(env, request), C = cfg(env);
   if (!(await burstOk(env.RL_PEDIDO, ip))) return fail(request, env, 'limite', 429);
 
   // the cheap checks first: a request that fails them writes nothing to KV
@@ -431,7 +486,8 @@ async function create(request, env) {
     const theirs = open.filter((r) => sameBrand(r.brand, brand));
     const samePkg = (r) => (title ? r.title === true : !r.title && Array.isArray(r.items) && r.items.length === items.length && items.every((x) => r.items.includes(x)));
     const own = theirs.find(samePkg) || theirs[0];
-    return fail(request, env, 'aberto', 429, own ? { id: own.id, until: own.until, ...(own.title ? { title: true } : { items: own.items || [] }) } : {});
+    // with its price, so the site shows that request's total (a request kept from before the seasons: m = 0)
+    return fail(request, env, 'aberto', 429, own ? { id: own.id, until: own.until, ...(own.title ? { title: true } : { items: own.items || [] }), ...priceSeen(own) } : {});
   }
   const paused = recent.some((r) => (r.status === 'cancelado' && now - Date.parse(r.closed || r.updated || r.at) < COOL_S * 1000)
     || (r.status === 'novo' && r.until && holdEnd(r.until) < now && now - holdEnd(r.until) < COOL_S * 1000));
@@ -439,9 +495,11 @@ async function create(request, env) {
   const ipDay = `d:${ip}:${day}`, dayCount = await count(env, ipDay);
   if (dayCount >= PER_IP_DAY) return fail(request, env, 'limite', 429);
 
-  // the public file first: an unknown or taken spot, or a site already full of unpaid holds, ends here
+  // the public file first: a closed season, an unknown or taken spot, or a site already full of unpaid holds, ends here
   const ids0 = title ? [TITLE] : items, live = await liveSpots(env);
   if (live) {
+    const rules = rulesOf(live);
+    if (!salesOpen(rules, lday)) return fail(request, env, 'epoca', 409, { season: rules.season, until: rules.requestsUntil });
     if (!title && ids0.some((id) => !live.spots.some((s) => s.id === id))) return fail(request, env, 'espacos');
     const taken = takenOf(live, ids0, now);
     if (taken.length) return fail(request, env, 'ocupado', 409, { ids: sortTargets(live, taken) });
@@ -452,9 +510,13 @@ async function create(request, env) {
   // the same address sees this one as open. Any of these failing (KV out of writes) ends here, with nothing held.
   const id = newId(now), until = holdUntil(now), at = new Date(now).toISOString();
   const expiration = Math.floor(now / 1000) + KEEP_S;
+  // the price of the public file for now; the write below sets it from the committed file
+  const q0 = live ? quote(live, ids0, { day: lday }) : null;
   const record = {
     id, at, until, ...(title ? { title: true } : { items: [...items] }), brand, name, nif, message, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
-    channel: p.channel || '', total: live ? totalOf(live, ids0) : 0,
+    channel: p.channel || '', total: q0 ? q0.net : 0,
+    season: q0 ? q0.season : '', day: lday, m: q0 ? q0.m : 0, seasonBp: q0 ? q0.seasonBp : 0, gross: q0 ? q0.gross : 0, discPct: q0 ? q0.discPct : 0,
+    terms: live ? rulesOf(live).termsDate : '', prices: live ? snapshotOf(live, ids0) : [],
     status: 'novo', logo: { w: png.w, h: png.h, bytes: png.bytes.length }, commit: '', updated: at, ip,
     history: [{ at, action: 'pedido' }],
   };
@@ -484,26 +546,34 @@ async function create(request, env) {
 
   // the write: data/spots.json at the head of gh-pages, every rule checked again on what is there now
   const res = await edit(env, (data) => {
+    const rules = rulesOf(data);
+    if (!salesOpen(rules, lday)) return { stop: { error: 'epoca', season: rules.season, until: rules.requestsUntil } };
     if (!title && items.some((sid) => !data.spots.some((s) => s.id === sid))) return { stop: { error: 'espacos' } };
     const ids = sortTargets(data, title ? [TITLE] : items), taken = takenOf(data, ids, now);
     if (taken.length) return { stop: { taken: sortTargets(data, taken) } };
     if (siteHeld(data, now, C.maxHeld) + unitsOf(ids, C.maxHeld) > C.maxHeld) return { stop: { error: 'limite-site' } };
-    const [label, s] = labelOf(data, ids);
-    return { data: held(data, ids, { brand, until, id, today: day }), message: `${label} reservado${s} para ${brand} até ${until} (pedido ${id})`, ids, total: totalOf(data, ids) };
+    const [label, s] = labelOf(data, ids), q = quote(data, ids, { day: lday });
+    return {
+      data: held(data, ids, { brand, until, id, today: day }), message: `${label} reservado${s} para ${brand} até ${until} (pedido ${id})`, ids,
+      price: { total: q.net, season: q.season, m: q.m, seasonBp: q.seasonBp, gross: q.gross, discPct: q.discPct, terms: rules.termsDate, prices: snapshotOf(data, ids), level: levelOf(data, ids) },
+    };
   });
   if (!res.ok) {
     await undo();
+    if (res.error === 'epoca') return fail(request, env, 'epoca', 409, { season: res.season, until: res.until });
     if (res.taken) return fail(request, env, 'ocupado', 409, { ids: res.taken });
     if (res.error === 'espacos') return fail(request, env, 'espacos');
     if (res.error === 'limite-site') return fail(request, env, 'limite-site', 429);
     return fail(request, env, res.error === 'conflito' ? 'conflito' : 'github', 502);
   }
-  // the spots are held: whatever KV says now, the answer is 201 (the record is there already, with the total of the
-  // public file; this only brings in the total and the commit of the write)
-  Object.assign(record, title ? {} : { items: res.ids }, { total: res.total, commit: res.commit });
+  // the spots are held: whatever KV says now, the answer is 201 (the record is there already, with the price of the
+  // public file; this only brings in the price of the committed file and the commit of the write)
+  Object.assign(record, title ? {} : { items: res.ids }, res.price, { commit: res.commit });
   try { await env.PEDIDOS.put(`p:${id}`, JSON.stringify(record), { expiration }); } catch (_) {}
-  return reply(request, env, { id, until, total: res.total }, 201);
+  return reply(request, env, { id, until, total: record.total, m: record.m, seasonBp: record.seasonBp, day: lday }, 201);
 }
+// the price of a kept request, as the site shows it: { total, m, seasonBp, day } (one from before the seasons: m = 0)
+const priceSeen = (r) => ({ total: Number(r.total) || 0, m: Number.isInteger(r.m) ? r.m : 0, seasonBp: Number.isInteger(r.seasonBp) ? r.seasonBp : 0, day: r.day || lisbonDay(Date.parse(r.at) || Date.now()) });
 
 // ---------- the admin's calls ----------
 // The burst of calls per address goes to the rate-limiting binding before the key is compared: no KV writes, so a
@@ -555,17 +625,16 @@ async function act(request, env, id) {
   if (error) return fail(request, env, error, error === 'tamanho' ? 413 : 400);
   if (!ACTIONS.includes(b.action)) return fail(request, env, 'acao');
   if (b.bloquear !== undefined && (typeof b.bloquear !== 'boolean' || b.action !== 'cancelar')) return fail(request, env, 'acao');
+  if ((b.paidAt !== undefined || b.amount !== undefined) && b.action !== 'confirmar') return fail(request, env, 'acao');
+  const now = Date.now(), at = new Date(now).toISOString(), today = todayUTC(now), lday = lisbonDay(now);
+  if (b.paidAt !== undefined && !paidOk(b.paidAt, lday)) return fail(request, env, 'campos', 400, { campo: 'paidAt' });
+  if (b.amount !== undefined && !amountOk(b.amount)) return fail(request, env, 'campos', 400, { campo: 'amount' });
   const r = await env.PEDIDOS.get(`p:${id}`, { type: 'json' });
   if (!r) return fail(request, env, 'nada', 404);
-  const now = Date.now(), at = new Date(now).toISOString(), today = todayUTC(now), ids = idsOf(r);
+  const ids = idsOf(r);
   const step = (extra = {}) => { r.history = [...(r.history || []), { at, action: b.action, ...extra }].slice(-20); r.updated = at; };
 
-  if (b.action === 'confirmar') {
-    // the admin page has already sold the spots with its own token (logo included); this only closes the request. A
-    // paid request needs no address any more.
-    if (r.status !== 'confirmado' || r.ip) { r.status = 'confirmado'; r.closed = r.closed || at; delete r.ip; step(); await save(env, r); }
-    return reply(request, env, { pedido: pub(r) });
-  }
+  if (b.action === 'confirmar') return confirm(request, env, r, { paidAt: b.paidAt === undefined ? lday : b.paidAt, amount: b.amount === undefined ? Number(r.total) || 0 : b.amount, now, step });
   if (b.action === 'cancelar' && r.status === 'cancelado') {
     const blocked = b.bloquear === true ? await block(env, r) : false;
     if (blocked && !r.blocked) { r.blocked = true; step({ bloquear: true }); await saveAfter(env, r); }
@@ -606,4 +675,265 @@ async function act(request, env, id) {
   step({ until, ...(res.commit ? { commit: res.commit } : {}) });
   await saveAfter(env, r);
   return reply(request, env, { pedido: pub(r), extended: res.own, lost: res.lost });
+}
+
+// ---------- confirmar: the request closes, the sponsor contract begins ----------
+// The admin page has already sold the spots with its own token (logo included); this closes the request (a paid request
+// needs no address any more) and creates its contract c:<id> once. Allowed on a request confirmed before contracts
+// existed: that is how one gets its record. The contract goes to KV before the request, so the request's "contract"
+// always names a record that exists: two writes. If the contract cannot be written, the request still closes and the
+// answer says contrato: null, erro: 'contrato'; the same call again creates it.
+async function confirm(request, env, r, { paidAt, amount, now, step }) {
+  const at = new Date(now).toISOString(), id = r.id;
+  const closing = r.status !== 'confirmado' || !!r.ip;
+  if (closing) { r.status = 'confirmado'; r.closed = r.closed || at; delete r.ip; step({ paidAt, amount }); }
+  let contrato = null, criado = false;
+  try {
+    contrato = await env.PEDIDOS.get(`c:${id}`, { type: 'json' });
+    if (!contrato) {
+      const c = contractOfRequest(r, await spotsData(env), { paidAt, amount, at });
+      if (c) { await putContract(env, c, now); contrato = c; criado = true; }
+    }
+  } catch (_) { contrato = null; criado = false; }
+  const linked = !!contrato && r.contract !== id;
+  if (linked) { r.contract = id; r.updated = at; }
+  if (closing || linked) await save(env, r);
+  return reply(request, env, { pedido: pub(r), contrato, criado, ...(contrato ? {} : { erro: 'contrato' }) });
+}
+
+// ---------- contracts (KV c:<id>) ----------
+// A payment date: a real day from FIRST_PAID to tomorrow (Lisbon), so a payment entered just after midnight elsewhere fits
+const paidOk = (d, lday) => isDate(d) && d >= FIRST_PAID && d <= addDays(lday, 1);
+const amountOk = (n) => Number.isInteger(n) && n >= 0 && n <= MAX_AMOUNT;
+// the rules of a contract's season: the file's when it is the file's season, else that season's defaults
+const rulesFor = (data, season) => (data && rulesOf(data).season === String(season) ? rulesOf(data) : defaultRules(season));
+// what the price table asked for these targets on `day`, with the prices of the snapshot `spots`: the season month m
+// comes from the contract's season (its rules, or that season's defaults), so a 2028 deal entered in 2027 pays m = 0.
+// m0 forces it (a request from before the seasons: 0).
+function contractQuote(data, season, ids, spots, day, m0) {
+  const m = Number.isInteger(m0) ? m0 : seasonMonth(rulesFor(data, season), day);
+  return quote(pricedAs(data, spots), ids, { day, m });
+}
+const targetsOfContract = (c) => (c.title ? [TITLE] : (c.spots || []).map((x) => x.id).filter((x) => x !== TITLE));
+// data/spots.json for a contract: the public file, else the GitHub copy
+async function spotsData(env) {
+  const live = await liveSpots(env);
+  if (live) return live;
+  const cur = env.SPOTS_GITHUB_TOKEN ? await readFile(env) : null;
+  return cur ? cur.data : null;
+}
+async function putContract(env, c, now) {
+  // the end of 31 December of the year after the season; never less than two minutes ahead (KV refuses a past time)
+  const expiration = Math.max(contractExpiry(c.season), Math.floor(now / 1000) + 120);
+  await env.PEDIDOS.put(`c:${c.id}`, JSON.stringify(c), { expiration });
+}
+function contractShape({ id, kind, request, season, rules, brand, url = '', title, spots, label = '', level, price, amount, paidAt, pay, inKind = '', contact = {}, nif = '', lang = 'pt', logo = {}, notes = '', terms, at, from }) {
+  return {
+    v: 1, id, kind, request, season,
+    period: { start: rules.start, end: rules.end },
+    dates: { logoBy: rules.logoBy, proposalsFrom: rules.proposalsFrom, renewBy: rules.renewBy, openFrom: rules.openFrom },
+    brand, url, title, spots, label, level, price, amount, paidAt, pay, inKind,
+    contact: { name: contact.name || '', channel: contact.channel || '', email: contact.email || '', phone: contact.phone || '', handle: contact.handle || '' },
+    nif, lang, logo: { vector: logo.vector === true, fromRace: logo.fromRace || '' },
+    renewal: { state: '', at: '' }, notes, terms, created: at, updated: at,
+    history: [{ at, action: 'criado', from }],
+  };
+}
+// the contract of a site request: its price snapshot (a request from before contracts: the file's spots now)
+function contractOfRequest(r, data, { paidAt, amount, at }) {
+  const ids = idsOf(r), season = String(r.season || (data ? rulesOf(data).season : ''));
+  if (!/^\d{4}$/.test(season)) return null;
+  const spots = Array.isArray(r.prices) && r.prices.length ? r.prices : data ? snapshotOf(data, ids) : [];
+  if (!spots.length) return null;
+  let price;
+  if (Number.isInteger(r.m)) price = { day: r.day, gross: r.gross, m: r.m, seasonBp: Number(r.seasonBp) || 0, discPct: r.discPct, total: Number(r.total) || 0 };
+  // a request from before this change (all made in 2026): no season discount, m = 0, its own total
+  else if (data) price = { ...priceOf(contractQuote(data, season, ids, spots, lisbonDay(Date.parse(r.at) || Date.now()), 0)), ...(r.total ? { total: Number(r.total) } : {}) };
+  else return null;
+  const level = r.level || (data ? levelOf(pricedAs(data, spots), ids) : '');
+  return contractShape({
+    id: r.id, kind: 'site', request: r.id, season, rules: rulesFor(data, season), brand: r.brand, title: r.title === true, spots, level, price,
+    amount, paidAt, pay: r.pay, contact: { name: r.name || '', channel: r.channel || '' }, nif: r.nif || '', lang: r.lang === 'en' ? 'en' : 'pt',
+    terms: r.terms || '', at, from: 'pedido',
+  });
+}
+
+// The fields of a contract call, checked and cleaned: { set } with the values given, or { campo } naming the first bad
+// one. create: brand, season, amount, paidAt and pay are required.
+function contractInput(p, data, lday, create) {
+  const set = {}, has = (k) => p[k] !== undefined, bad = (campo) => ({ campo });
+  if (create || has('season')) {
+    // '2027' (or 2027): the file's season or the next one
+    const y = typeof p.season === 'string' || Number.isInteger(p.season) ? String(p.season) : '', live = rulesOf(data).season;
+    if (!/^\d{4}$/.test(y) || (y !== live && y !== String(Number(live) + 1))) return bad('season');
+    set.season = y;
+  }
+  if (create || has('brand')) { const v = text(p.brand, CAPS.brand); if (!v) return bad('brand'); set.brand = v; }
+  if (has('label')) { const v = text(p.label, 80); if (v === null) return bad('label'); set.label = v; }
+  if (has('title')) { if (typeof p.title !== 'boolean') return bad('title'); set.title = p.title; }
+  if (has('items')) {
+    const xs = p.items;
+    if (!Array.isArray(xs) || xs.length > 24 || new Set(xs).size !== xs.length || !xs.every((x) => typeof x === 'string' && x !== TITLE && data.spots.some((s) => s.id === x))) return bad('items');
+    set.items = sortTargets(data, xs);
+  }
+  if (create || has('amount')) { if (!amountOk(p.amount)) return bad('amount'); set.amount = p.amount; }
+  if (create || has('paidAt')) { if (!paidOk(p.paidAt, lday)) return bad('paidAt'); set.paidAt = p.paidAt; }
+  if (create || has('pay')) { if (!PAY_KINDS.includes(p.pay)) return bad('pay'); set.pay = p.pay; }
+  if (has('inKind')) { const v = text(p.inKind, 200); if (v === null) return bad('inKind'); set.inKind = v; }
+  if (has('url')) {
+    const v = text(p.url, 200);
+    if (v === null) return bad('url');
+    if (v) { let u = null; try { u = new URL(v); } catch (_) {} if (!u || u.protocol !== 'https:' || !/^https:\/\//i.test(v)) return bad('url'); }
+    set.url = v;
+  }
+  if (has('contact')) {
+    const c = p.contact;
+    if (!c || typeof c !== 'object' || Array.isArray(c)) return bad('contact');
+    const out = {};
+    if (c.name !== undefined) { const v = text(c.name, CAPS.name); if (v === null) return bad('contact.name'); out.name = v; }
+    if (c.channel !== undefined) { if (!CONTACT_CHANNELS.includes(c.channel)) return bad('contact.channel'); out.channel = c.channel; }
+    if (c.email !== undefined) { const v = text(c.email, 120); if (v === null || (v && !/^[^\s@]+@[^\s@]+$/.test(v))) return bad('contact.email'); out.email = v; }
+    if (c.phone !== undefined) { const v = text(c.phone, 30); if (v === null || !/^[0-9 +()-]*$/.test(v)) return bad('contact.phone'); out.phone = v; }
+    if (c.handle !== undefined) { const v = text(c.handle, 60); if (v === null) return bad('contact.handle'); out.handle = v; }
+    set.contact = out;
+  }
+  if (has('nif')) { const v = text(p.nif, CAPS.nif); if (v === null || (v && !/^[A-Za-z0-9 .\-/]+$/.test(v))) return bad('nif'); set.nif = v; }
+  if (has('lang')) { if (p.lang !== 'pt' && p.lang !== 'en') return bad('lang'); set.lang = p.lang; }
+  if (has('notes')) { const v = text(p.notes, CAPS.message, true); if (v === null) return bad('notes'); set.notes = v; }
+  if (has('logo')) {
+    const l = p.logo, out = {};
+    if (!l || typeof l !== 'object' || Array.isArray(l)) return bad('logo');
+    if (l.vector !== undefined) { if (typeof l.vector !== 'boolean') return bad('logo.vector'); out.vector = l.vector; }
+    if (l.fromRace !== undefined) { const v = text(l.fromRace, 80); if (v === null) return bad('logo.fromRace'); out.fromRace = v; }
+    set.logo = out;
+  }
+  if (has('request')) { if (p.request !== '' && (typeof p.request !== 'string' || !ID_RE.test(p.request))) return bad('request'); set.request = p.request; }
+  return { set };
+}
+// the targets after a change: the whole suit, some spots, or the ones there were; null when title and items disagree
+function targetsAfter(set, cur) {
+  if (set.title === true) return set.items && set.items.length ? null : [TITLE];
+  if (set.items !== undefined) return set.items;
+  if (set.title === false) return cur.filter((x) => x !== TITLE);
+  return cur;
+}
+const spotsFor = (data, ids, old = []) => ids.map((x) => old.find((o) => o.id === x) || snapshotOf(data, [x])[0]).filter(Boolean);
+
+async function readContract(env, id) {
+  try { return await env.PEDIDOS.get(`c:${id}`, { type: 'json' }); } catch (_) { return null; }
+}
+async function contractKeys(env) {
+  const keys = [];
+  let cursor;
+  do {
+    const page = await env.PEDIDOS.list({ prefix: 'c:', cursor, limit: 1000 });
+    keys.push(...page.keys.map((k) => k.name));
+    cursor = page.list_complete ? undefined : page.cursor;
+  } while (cursor && keys.length <= MAX_CONTRACTS);
+  return keys;
+}
+
+async function listContracts(request, env) {
+  const keys = (await contractKeys(env)).slice(0, MAX_CONTRACTS);
+  const got = await Promise.all(keys.map((k) => env.PEDIDOS.get(k, { type: 'json' }).catch(() => null)));
+  const by = (a, b) => (String(b.paidAt || '').localeCompare(String(a.paidAt || '')) || String(b.created || '').localeCompare(String(a.created || '')) || String(b.id).localeCompare(String(a.id)));
+  const now = Date.now();
+  return reply(request, env, { contratos: got.filter((c) => c && typeof c === 'object').sort(by), agora: new Date(now).toISOString(), hoje: lisbonDay(now) });
+}
+
+async function createContract(request, env) {
+  const { v: p, error } = await readJson(request, CONTRACT_BODY);
+  if (error) return fail(request, env, error, error === 'tamanho' ? 413 : 400);
+  const data = await spotsData(env);
+  if (!data) return fail(request, env, 'github', 502);
+  const now = Date.now(), at = new Date(now).toISOString(), lday = lisbonDay(now);
+  const inp = contractInput(p, data, lday, true);
+  if (inp.campo) return fail(request, env, 'campos', 400, { campo: inp.campo });
+  const s = inp.set, ids = targetsAfter(s, []);
+  if (!ids || (!ids.length && !s.label)) return fail(request, env, 'campos', 400, { campo: 'items' });
+  if (s.request && await readContract(env, s.request)) return fail(request, env, 'existe', 409, { id: s.request });
+  if ((await contractKeys(env)).length >= MAX_CONTRACTS) return fail(request, env, 'muitos', 409, { max: MAX_CONTRACTS });
+  const spots = spotsFor(data, ids);
+  const c = contractShape({
+    id: newId(now), kind: 'manual', request: s.request || '', season: s.season, rules: rulesFor(data, s.season), brand: s.brand, url: s.url,
+    title: ids[0] === TITLE, spots, label: s.label, level: ids.length ? levelOf(pricedAs(data, spots), ids) : '',
+    price: ids.length ? priceOf(contractQuote(data, s.season, ids, spots, s.paidAt)) : null, amount: s.amount, paidAt: s.paidAt, pay: s.pay,
+    inKind: s.inKind, contact: s.contact, nif: s.nif, lang: s.lang, logo: s.logo, notes: s.notes, terms: rulesOf(data).termsDate, at, from: 'manual',
+  });
+  try { await putContract(env, c, now); } catch (_) { return fail(request, env, 'interno', 503); }
+  return reply(request, env, { contrato: c }, 201);
+}
+
+async function actContract(request, env, id) {
+  const { v: b, error } = await readJson(request, CONTRACT_BODY);
+  if (error) return fail(request, env, error, error === 'tamanho' ? 413 : 400);
+  if (!CONTRACT_ACTIONS.includes(b.action)) return fail(request, env, 'acao');
+  const c = await readContract(env, id);
+  if (!c) return fail(request, env, 'nada', 404);
+  const now = Date.now(), at = new Date(now).toISOString(), lday = lisbonDay(now);
+  const done = async (entry) => {
+    c.history = [...(c.history || []), { at, ...entry }].slice(-HISTORY);
+    c.updated = at;
+    try { await putContract(env, c, now); } catch (_) { return fail(request, env, 'interno', 503); }   // KV out of writes: nothing changed
+    return reply(request, env, { contrato: c });
+  };
+
+  if (b.action === 'apagar') {
+    try { await env.PEDIDOS.delete(`c:${id}`); } catch (_) { return fail(request, env, 'interno', 503); }
+    return reply(request, env, { apagado: id });
+  }
+  if (b.action === 'renovacao') {
+    if (!RENEWAL_STEPS.includes(b.state)) return fail(request, env, 'campos', 400, { campo: 'state' });
+    if (b.at !== undefined && !paidOk(b.at, lday)) return fail(request, env, 'campos', 400, { campo: 'at' });
+    c.renewal = { state: b.state, at: b.at || lday };
+    return done({ action: 'renovacao', state: b.state });
+  }
+
+  // editar: the fields given in `set`, checked as on creation
+  const set0 = b.set;
+  if (!set0 || typeof set0 !== 'object' || Array.isArray(set0)) return fail(request, env, 'campos', 400, { campo: 'set' });
+  const data = await spotsData(env);
+  if (!data) return fail(request, env, 'github', 502);
+  const inp = contractInput(set0, data, lday, false);
+  if (inp.campo) return fail(request, env, 'campos', 400, { campo: inp.campo });
+  const s = inp.set;
+  // the season moves only on a record nobody has worked on yet (its history holds only its creation)
+  if (s.season !== undefined && s.season !== c.season && (c.history || []).some((h) => h.action !== 'criado')) return fail(request, env, 'campos', 400, { campo: 'season' });
+  if (s.request !== undefined && s.request !== c.request) {
+    if (c.kind !== 'manual') return fail(request, env, 'campos', 400, { campo: 'request' });
+    if (s.request && await readContract(env, s.request)) return fail(request, env, 'existe', 409, { id: s.request });
+  }
+  const before = JSON.stringify(c), was = targetsOfContract(c);
+  const ids = targetsAfter(s, was);
+  if (!ids) return fail(request, env, 'campos', 400, { campo: 'items' });
+  const label = s.label !== undefined ? s.label : c.label || '';
+  if (!ids.length && !label) return fail(request, env, 'campos', 400, { campo: 'items' });
+  const changed = [];
+  const put = (k, v) => { if (JSON.stringify(c[k]) !== JSON.stringify(v)) { c[k] = v; changed.push(k); } };
+  for (const k of ['brand', 'label', 'amount', 'paidAt', 'pay', 'inKind', 'url', 'nif', 'lang', 'notes', 'request']) if (s[k] !== undefined) put(k, s[k]);
+  if (s.contact) put('contact', { ...c.contact, ...s.contact });
+  if (s.logo) put('logo', { ...c.logo, ...s.logo });
+  if (s.season !== undefined && s.season !== c.season) {
+    const rules = rulesFor(data, s.season);
+    c.season = s.season;
+    c.period = { start: rules.start, end: rules.end };
+    c.dates = { logoBy: rules.logoBy, proposalsFrom: rules.proposalsFrom, renewBy: rules.renewBy, openFrom: rules.openFrom };
+    changed.push('season');
+  }
+  const moved = ids.join() !== was.join();
+  if (moved) {
+    c.title = ids[0] === TITLE;
+    c.spots = spotsFor(data, ids, c.spots || []);
+    c.level = ids.length ? levelOf(pricedAs(data, c.spots), ids) : '';
+    changed.push(set0.items !== undefined ? 'items' : 'title');
+  }
+  // the price the table asked: on the payment day for a deal by hand; a site request keeps its request day's price
+  // unless its spots change
+  if (moved || changed.includes('season') || (c.kind === 'manual' && changed.includes('paidAt'))) {
+    c.price = ids.length ? priceOf(contractQuote(data, c.season, ids, c.spots, c.paidAt)) : null;
+  }
+  if (!changed.length && JSON.stringify(c) === before) return reply(request, env, { contrato: c });
+  const values = {};
+  for (const k of ['amount', 'paidAt', 'pay', 'season']) if (changed.includes(k)) values[k] = c[k];
+  return done({ action: 'editar', fields: changed, ...values });
 }

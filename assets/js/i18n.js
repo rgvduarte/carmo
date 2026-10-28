@@ -201,7 +201,7 @@ const EN = {
   "sp.h3": "Payment",
   "sp.p3": "Bank transfer, or MB WAY up to €2,000, with the spot numbers as the reference. You get a donation\u00a0receipt.",
   "sp.h4": "It's yours",
-  "sp.p4": "The spot closes and your brand appears here, on the suit or the helmet. On the real kit, it goes on before the first triathlon of the season, if the logo arrives by 15\u00a0February.",
+  "sp.p4": "The spot closes and your brand appears here, on the suit or the helmet. On the real kit, it goes on before the first triathlon of the season, if the logo arrives by 15\u00a0January.",
   "ru.h1": "One brand per spot.",
   "ru.p1": "Once the payment lands, the spot closes for everyone and shows your brand.",
   "ru.h2": "Full season.",
@@ -295,7 +295,7 @@ const EN = {
   "cl.nagH": "You haven't saved the confirmation yet.",
   "cl.nagClose": "Close without saving",
   "cl.back": "Back",
-  "cl.terms": "By sending, you accept the <a href=\"condicoes/\" target=\"_blank\" rel=\"noopener\">sponsorship terms</a> (updated 26 October 2026).",
+  "cl.terms": "By sending, you accept the <a href=\"condicoes/\" target=\"_blank\" rel=\"noopener\">sponsorship terms</a> (updated 28 October 2026).",
   "pay.tr": "Bank transfer",
   "pay.payee": "Account holder",
   "pay.name": "Name",
@@ -318,6 +318,26 @@ const EN = {
   "a.mainnav": "Main", "a.home": "Gonçalo Carmo, home", "a.title": "Gonçalo Carmo · Every race, every session", "a.flight": "Kona, the target race, leg by leg",
 };
 
+// The season's dates in the copy (rules: season-rules.js rulesOf(), passed in by adspace.js; this file imports nothing,
+// so scripts/stamp.mjs can load it). Month names are spelled here, not by Intl, so every engine writes the same words.
+const PT_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const PT_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const ymd = (day) => String(day || '').split('-').map(Number);
+// '15 de janeiro de 2027' / '15 January 2027'
+const ptLong = (day) => { const [y, m, d] = ymd(day); return `${d} de ${PT_MONTHS[m - 1]} de ${y}`; };
+const enLong = (day) => { const [y, m, d] = ymd(day); return `${d} ${EN_MONTHS[m - 1]} ${y}`; };
+// '1 jan' / '1 Jan' (no dot, as the period line is written)
+const ptShort = (day) => { const [, m, d] = ymd(day); return `${d} ${PT_SHORT[m - 1]}`; };
+const enShort = (day) => { const [, m, d] = ymd(day); return `${d} ${EN_MONTHS[m - 1].slice(0, 3)}`; };
+const nextSeason = (r) => String(Number(r.season) + 1);
+// the long name of month m (1-12) of the season: 'março' / 'March' (the mid-season discount names the request's month)
+export const monthName = (m, l = lang) => ((l === 'en' ? EN_MONTHS : PT_MONTHS)[m - 1] || '');
+// the season discount in basis points as a percent: 625 -> '6,25' (PT) / '6.25' (EN). The same as season-rules.js
+// pctText (this file imports nothing; a test keeps the two equal): two decimals, trailing zeros dropped
+const pct = (bp, dec) => { const v = Math.max(0, Math.round(Number(bp) || 0)), f = String(v % 100).padStart(2, '0').replace(/0+$/, ''); return f ? `${Math.floor(v / 100)}${dec}${f}` : String(Math.floor(v / 100)); };
+const ptP = (bp) => pct(bp, ','), enP = (bp) => pct(bp, '.');
+
 // strings only used from JS
 const PT_JS = {
   // cookie banner (analytics.js)
@@ -335,11 +355,11 @@ const PT_JS = {
   'pk.spots': (n) => (n === 1 ? '1 espaço' : `${n} espaços`), 'pk.disc': (p) => `−${p}% no pacote`, 'rc.free': (n) => `${n} ${n === 1 ? 'livre' : 'livres'}`,
   'toast.link': 'Link copiado.', 'toast.big': 'Ficheiro demasiado grande (máx. 5 MB).', 'toast.bad': 'Não consegui abrir esse ficheiro.',
   'toast.sold': 'Esse espaço já foi vendido.',
-  'msg.hi': 'Olá Gonçalo, gostava de patrocinar o teu fato na época 2027.',
+  'msg.hi': (s = '2027') => `Olá Gonçalo, gostava de patrocinar o teu fato na época ${s}.`,
   'msg.spots': 'Espaços', 'msg.total': 'Total', 'msg.ref': 'Referência', 'msg.nif': 'NIF', 'msg.brand': 'Marca', 'msg.name': 'Nome', 'msg.title': 'Fato completo (Title partner)',
-  'msg.subject': 'Patrocínio do fato · época 2027',
-  'msg.hiH': 'Olá Gonçalo, gostava de patrocinar o teu capacete na época 2027.', 'msg.subjectH': 'Patrocínio do capacete · época 2027',
-  'msg.hiB': 'Olá Gonçalo, gostava de patrocinar o teu fato e o teu capacete na época 2027.', 'msg.subjectB': 'Patrocínio do fato e do capacete · época 2027',
+  'msg.subject': (s = '2027') => `Patrocínio do fato · época ${s}`,
+  'msg.hiH': (s = '2027') => `Olá Gonçalo, gostava de patrocinar o teu capacete na época ${s}.`, 'msg.subjectH': (s = '2027') => `Patrocínio do capacete · época ${s}`,
+  'msg.hiB': (s = '2027') => `Olá Gonçalo, gostava de patrocinar o teu fato e o teu capacete na época ${s}.`, 'msg.subjectB': (s = '2027') => `Patrocínio do fato e do capacete · época ${s}`,
   'on.k': 'Já no fato', 'on.kH': 'Já no capacete', 'on.kB': 'Já no fato e no capacete', 'on.helmet': 'Capacete', 'on.both': 'Fato e capacete',
   'helmet.loading': 'A carregar o capacete', 'stage.lost': 'A recuperar a vista 3D', 'toast.helmet': 'Não consegui abrir o capacete 3D. A tabela tem todos os espaços.',
   'st.until': (d) => `Reservado até ${d}`,
@@ -367,8 +387,22 @@ const PT_JS = {
   'toast.heldNoMsg': (d, id) => `Reservado até ${d}. Falta enviares-me a mensagem com o pedido ${id}.`,
   'msg.req': 'Pedido', 'msg.hold': (d, k) => (k === 'title' ? `Reservado até ${d}. Antes de pagar, fico à espera do acordo escrito.` : `Reservado durante 48 horas, até ${d}. Envio o comprovativo do pagamento até lá.`),
   // which terms the request accepts: when /condicoes/ changes, this date changes with its «Atualizada a» (and cl.terms)
-  'msg.terms': 'Condições: gocarmo.com/condicoes, atualizadas a 26 de outubro de 2026',
+  'msg.terms': 'Condições: gocarmo.com/condicoes, atualizadas a 28 de outubro de 2026',
   'msg.nohold': 'Sem reserva no site: confirmas se está livre? Envio o logótipo nesta conversa.', 'msg.open': 'Pedido aberto',
+  // the season (r: season-rules.js rulesOf; m, bp: the season month and its discount in basis points): its period, the
+  // mid-season discount from February, the logo deadline and the renewal preference
+  'msg.period': (r) => `Época ${r.season}: de ${ptLong(r.start).replace(/ de \d{4}$/, '')} a ${ptLong(r.end)}`,
+  // the parse contract with the admin page (admin-core.js LINE.season): the month number N is what it prices with
+  'msg.season': (m, bp) => `Desconto de época (${PT_MONTHS[m - 1]}, mês ${m}): −${ptP(bp)}%`,
+  // the bracket of the Total / whole suit line, after the amount to pay: «(1 100 € −6,25% −10%)»; '' when there is nothing off
+  'msg.totalS': (gross, bp, disc) => (bp || disc ? `(${gross}${bp ? ` −${ptP(bp)}%` : ''}${disc ? ` −${disc}%` : ''})` : ''),
+  'msg.logo': (r, open) => (open ? `Logótipo em vetor: até ${ptLong(r.logoBy)}` : 'Logótipo no fato e no capacete: a partir da prova combinada antes do pagamento'),
+  'msg.renew': (r) => `Renovação para ${nextSeason(r)}: preferência no mesmo espaço até ${ptLong(r.renewBy)}`,
+  'cl.period': (r) => `Época ${r.season} · ${ptShort(r.start)} a ${ptShort(r.end)} ${ymd(r.end)[0]}`,
+  'cl.season': (m, bp) => `Entrada a meio da época: em ${PT_MONTHS[m - 1]} já passaram ${m} de 12 meses; o desconto é um quarto disso, ${ptP(bp)}%.`,
+  'cl.seasonrow': (m, bp) => `Desconto de época (${PT_MONTHS[m - 1]}, −${ptP(bp)}%)`,
+  'cl.closed': (r) => `Os pedidos para a época ${r.season} fecharam a ${ptLong(r.requestsUntil)}. A época ${nextSeason(r)} abre aqui quando a tabela estiver pronta.`,
+  'pk.season': (bp) => `−${ptP(bp)}% de época`,
   'rq.net': 'Não consegui falar com o serviço de reservas.',
   'rq.lento': 'A reserva está a demorar mais do que o costume.',
   'rq.lentoSub': 'Pode já ter ficado feita. Espera um momento e toca outra vez: o mesmo pedido nunca fica reservado duas vezes.',
@@ -415,7 +449,13 @@ const PT_JS = {
   'rcpt.reqH': 'O pedido',
   'rcpt.nextH': 'A seguir', 'rcpt.proof': 'Depois de pagares, envia-me o comprovativo do pagamento por WhatsApp ou email.',
   // the production deadline, as the terms (/condicoes/, «O logótipo e a produção») and the 05 steps say it
-  'rcpt.logo': 'Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS). Se chegar até 15 de fevereiro de 2027, conto ter o equipamento pronto para o primeiro triatlo.',
+  // (after the deadline: on the site and in the posts at once, on the kit from the race agreed before paying)
+  'rcpt.logo': (r, open) => (open ? `Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS). Se chegar até ${ptLong(r.logoBy)}, conto ter o equipamento pronto para o primeiro triatlo.`
+    : 'O logótipo entra no site e nas publicações logo que o pagamento é confirmado e, no fato e no capacete, a partir da prova que te digo antes de pagares. Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).'),
+  'rcpt.period': 'Período', 'rcpt.periodV': (r) => `Época ${r.season}, de ${ptLong(r.start).replace(/ de \d{4}$/, '')} a ${ptLong(r.end)}`,
+  // (disc false: no bundle discount in this request, so the sentence leaves it out)
+  'rcpt.season': (m, bp, disc = true) => `Desconto de época: o pedido é de ${PT_MONTHS[m - 1]}, quando já tinham passado ${m} de 12 meses da época; o desconto é um quarto disso, ${ptP(bp)}%. ${disc ? 'Primeiro o desconto de época, depois o de pacote, e o total arredonda ao euro.' : 'O total arredonda ao euro.'}`,
+  'rcpt.renew': (r) => `Renovação: tens preferência no mesmo espaço em ${nextSeason(r)}, ao preço da tabela de ${nextSeason(r)}. Envio-te a proposta a partir de ${ptLong(r.proposalsFrom)}; se me disseres que sim até ${ptLong(r.renewBy)}, o espaço continua teu.`,
   'rcpt.terms': 'Condições do patrocínio', 'rcpt.ct': 'Contacto',
   'rcpt.foot': 'Este documento não é uma fatura nem um recibo. Confirma o pedido e a reserva até à data indicada. Depois do pagamento, recebes um recibo de donativo.',
   'rcpt.footNo': 'Este documento não é uma fatura nem um recibo. Resume o pedido que me enviaste, sem reserva no site. Depois do pagamento, recebes um recibo de donativo.',
@@ -467,11 +507,11 @@ const EN_JS = {
   'pk.spots': (n) => (n === 1 ? '1 spot' : `${n} spots`), 'pk.disc': (p) => `−${p}% bundle`, 'rc.free': (n) => `${n} free`,
   'toast.link': 'Link copied.', 'toast.big': 'File too large (max 5 MB).', 'toast.bad': 'Could not open that file.',
   'toast.sold': 'That spot is already sold.',
-  'msg.hi': 'Hi Gonçalo, I would like to sponsor your suit for the 2027 season.',
+  'msg.hi': (s = '2027') => `Hi Gonçalo, I would like to sponsor your suit for the ${s} season.`,
   'msg.spots': 'Spots', 'msg.total': 'Total', 'msg.ref': 'Reference', 'msg.nif': 'NIF', 'msg.brand': 'Brand', 'msg.name': 'Name', 'msg.title': 'Whole suit (Title partner)',
-  'msg.subject': 'Suit sponsorship · 2027 season',
-  'msg.hiH': 'Hi Gonçalo, I would like to sponsor your helmet for the 2027 season.', 'msg.subjectH': 'Helmet sponsorship · 2027 season',
-  'msg.hiB': 'Hi Gonçalo, I would like to sponsor your suit and helmet for the 2027 season.', 'msg.subjectB': 'Suit and helmet sponsorship · 2027 season',
+  'msg.subject': (s = '2027') => `Suit sponsorship · ${s} season`,
+  'msg.hiH': (s = '2027') => `Hi Gonçalo, I would like to sponsor your helmet for the ${s} season.`, 'msg.subjectH': (s = '2027') => `Helmet sponsorship · ${s} season`,
+  'msg.hiB': (s = '2027') => `Hi Gonçalo, I would like to sponsor your suit and helmet for the ${s} season.`, 'msg.subjectB': (s = '2027') => `Suit and helmet sponsorship · ${s} season`,
   'on.k': 'Already on the suit', 'on.kH': 'Already on the helmet', 'on.kB': 'Already on the suit and helmet', 'on.helmet': 'Helmet', 'on.both': 'Suit and helmet',
   'helmet.loading': 'Loading the helmet', 'stage.lost': 'Restoring the 3D view', 'toast.helmet': 'Could not open the 3D helmet. The rate card has every spot.',
   'st.until': (d) => `Reserved until ${d}`,
@@ -496,8 +536,18 @@ const EN_JS = {
   'toast.held': (d, k) => (k === 'title' ? `On hold until ${d}. Before you pay, I'll send you the written agreement.` : `On hold until ${d}. I will look out for the proof of payment.`),
   'toast.heldNoMsg': (d, id) => `On hold until ${d}. Please still send me the message with request ${id}.`,
   'msg.req': 'Request', 'msg.hold': (d, k) => (k === 'title' ? `On hold until ${d}. I'll wait for the written agreement before paying.` : `On hold for 48 hours, until ${d}. I will send the proof of payment by then.`),
-  'msg.terms': 'Terms: gocarmo.com/condicoes, updated 26 October 2026',
+  'msg.terms': 'Terms: gocarmo.com/condicoes, updated 28 October 2026',
   'msg.nohold': 'Not on hold on the site: can you confirm it is free? I will send the logo in this chat.', 'msg.open': 'Open request',
+  'msg.period': (r) => `${r.season} season: ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
+  'msg.season': (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, month ${m}): −${enP(bp)}%`,
+  'msg.totalS': (gross, bp, disc) => (bp || disc ? `(${gross}${bp ? ` −${enP(bp)}%` : ''}${disc ? ` −${disc}%` : ''})` : ''),
+  'msg.logo': (r, open) => (open ? `Vector logo: by ${enLong(r.logoBy)}` : 'Logo on the suit and helmet: from the race agreed before payment'),
+  'msg.renew': (r) => `${nextSeason(r)} renewal: first option on the same spot until ${enLong(r.renewBy)}`,
+  'cl.period': (r) => `${r.season} season · ${enShort(r.start)} to ${enShort(r.end)} ${ymd(r.end)[0]}`,
+  'cl.season': (m, bp) => `Mid-season discount: by ${EN_MONTHS[m - 1]}, ${m} of the 12 months have gone; the discount is a quarter of that, ${enP(bp)}%.`,
+  'cl.seasonrow': (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, −${enP(bp)}%)`,
+  'cl.closed': (r) => `Requests for the ${r.season} season closed on ${enLong(r.requestsUntil)}. The ${nextSeason(r)} season opens here once its rate card is ready.`,
+  'pk.season': (bp) => `−${enP(bp)}% mid-season`,
   'rq.net': 'Could not reach the booking service.',
   'rq.lento': 'The booking is taking longer than usual.',
   'rq.lentoSub': 'It may already have gone through. Wait a moment and tap again: the same request is never held twice.',
@@ -538,7 +588,11 @@ const EN_JS = {
   'rcpt.agreeHeld': (d) => `Before you pay, I'll send you the written agreement. The hold runs until ${d}, and I'll extend it if needed.`,
   'rcpt.reqH': 'The request',
   'rcpt.nextH': 'What happens next', 'rcpt.proof': 'Once you pay, send me the proof of payment on WhatsApp or by email.',
-  'rcpt.logo': 'For production, send me the logo as a vector file (SVG, PDF, AI or EPS). If it arrives by 15 February 2027, I expect the kit to be ready for the first triathlon.',
+  'rcpt.logo': (r, open) => (open ? `For production, send me the logo as a vector file (SVG, PDF, AI or EPS). If it arrives by ${enLong(r.logoBy)}, I expect the kit to be ready for the first triathlon.`
+    : 'Your logo goes on the site and in my posts as soon as the payment is confirmed, and on the suit and the helmet from the race I tell you before you pay. For production, send me the logo as a vector file (SVG, PDF, AI or EPS).'),
+  'rcpt.period': 'Period', 'rcpt.periodV': (r) => `${r.season} season, ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
+  'rcpt.season': (m, bp, disc = true) => `Mid-season discount: the request is from ${EN_MONTHS[m - 1]}, when ${m} of the 12 months of the season had gone; the discount is a quarter of that, ${enP(bp)}%. ${disc ? 'The mid-season discount comes first, then the bundle discount, and the total is rounded to the euro.' : 'The total is rounded to the euro.'}`,
+  'rcpt.renew': (r) => `Renewal: you have first option on the same spot in ${nextSeason(r)}, at the ${nextSeason(r)} rate card price. I send you the proposal from ${enLong(r.proposalsFrom)}; if you say yes by ${enLong(r.renewBy)}, the spot stays yours.`,
   'rcpt.terms': 'Sponsorship terms', 'rcpt.ct': 'Contact',
   'rcpt.foot': 'This document is not an invoice or a receipt. It confirms the request and the hold until the date shown. Once you pay, you get a donation receipt.',
   'rcpt.footNo': 'This document is not an invoice or a receipt. It sums up the request you sent me, with no hold on the site. Once you pay, you get a donation receipt.',

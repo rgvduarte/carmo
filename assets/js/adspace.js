@@ -5,6 +5,7 @@
 import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
+import { quote, rulesOf, lisbonDay, salesOpen, logoOpen, TITLE } from './season-rules.js';
 import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, fixable, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE, isIOS, inApp, appName } from './gl3d.js';
 
 // for stats.js (and analytics.js later): a named event the page tracker may count; never personal data
@@ -1041,17 +1042,37 @@ function saveBasket() {
   for (const m of models()) m.setBasket([...basket]);
   if (buyerLogo || previewed.size) previewOnModels();
 }
-// the bundle discount counts suit and helmet spots together
+// The price of the package (season-rules.js quote: one implementation for the site, the Worker and the admin). The
+// bundle discount counts suit and helmet spots together; from February of the season there is the mid-season discount
+// (m/48 of the price, m = the month of the request), counted from the Lisbon day of the request: the held request's
+// (the Worker's day and season month, which stand for as long as it is held; a hold from before they existed, the day
+// it was made), else the day its message went out, else today.
+// list: the spot objects; disc: the bundle discount as a fraction (0.1); m, seasonBp: the season month and its discount
+// in basis points (625 = 6,25%); steps: the two reductions, for the rows (they add up to gross − net)
+function reqDay() {
+  const r = heldReq();
+  if (r && DAY_RE.test(r.day || '')) return { day: r.day, m: Number.isInteger(r.m) ? r.m : undefined };
+  const at = r && Date.parse(r.at);
+  return { day: lisbonDay(at || sentAt || Date.now()) };
+}
 function totals() {
-  if (wantTitle) return { list: [], gross: DATA.title.price, net: DATA.title.price, disc: 0 };
-  const list = [...basket].map(byId).filter(Boolean);
-  const gross = list.reduce((a, s) => a + s.price, 0);
-  const disc = list.length >= DATA.bundle.min ? DATA.bundle.discount : 0;
-  return { list, gross, net: Math.round(gross * (1 - disc)), disc };
+  const list = wantTitle ? [] : [...basket].map(byId).filter(Boolean);
+  const q = quote(DATA, wantTitle ? [TITLE] : list.map((s) => s.id), reqDay());
+  return { list, gross: q.gross, net: q.net, disc: q.discPct / 100, discPct: q.discPct, m: q.m, midSeason: q.midSeason, seasonBp: q.seasonBp, full: q.full, steps: q.steps, day: q.day };
+}
+// the season's rules (data/spots.json → seasonRules), and whether the site still takes a request for it. A package
+// already held, or a request already sent, is never shut out (only step 1 waits for the next season)
+const rules = () => rulesOf(DATA);
+const shut = () => clStep === 1 && !heldReq() && !salesOpen(rules(), lisbonDay());
+// the line that says it, brought on screen and read out (a tap on a send button while the season is closed)
+function closedTap() {
+  const el = $('#cl-closed');
+  say(el.textContent);
+  requestAnimationFrame(() => el.scrollIntoView({ block: 'nearest', behavior: reduce ? 'auto' : 'smooth' }));
 }
 function renderPackage() {
   const pk = $('#package');
-  const { list, gross, net, disc } = totals();
+  const { list, gross, net, disc, midSeason, seasonBp } = totals();
   const on = wantTitle || list.length > 0;
   pk.classList.toggle('on', on);
   document.body.classList.toggle('pk-on', on);
@@ -1063,9 +1084,17 @@ function renderPackage() {
   const part = (cls, txt) => { const el = document.createElement('span'); el.className = cls; el.textContent = txt; line.appendChild(el); };
   part('pk-k', wantTitle ? t('msg.title') : t('pk.spots', list.length));
   // flex items drop a leading space, so the separator leads with a no-break one
-  if (disc) part('pk-d', `\u00a0· ${t('pk.disc', Math.round(disc * 100))} (${money(gross)})`);
+  // (from February: the mid-season discount, «−6,25% de época»)
+  if (midSeason) part('pk-s', `\u00a0· ${t('pk.season', seasonBp)}`);
+  if (disc) {
+    // (the list price in its own span: on a phone it gives way to the season discount, which the dialog explains)
+    part('pk-d', `\u00a0· ${t('pk.disc', Math.round(disc * 100))}`);
+    const g = document.createElement('span'); g.className = 'pk-g'; g.textContent = ` (${money(gross)})`; line.lastChild.appendChild(g);
+  }
   if (!wantTitle) part('pk-names', `\u00a0· ${list.map((s) => pick(s).name).join(', ')}`);
-  line.classList.toggle('has-d', !!disc);
+  // (phones: a discount on the line, bundle or season, and the names give way to it; with both, the list price too)
+  line.classList.toggle('has-d', !!disc || midSeason);
+  line.classList.toggle('has-s', midSeason);
 }
 
 function packageLink() {
@@ -1083,15 +1112,18 @@ function kindKey() {
 // one text for WhatsApp, email and Instagram: the spots with their sizes, the total, who is asking, the CARMO code.
 // sizes / extra: only the email ever drops the sizes or passes a shortened message of the buyer's own (see mailFit)
 function message({ sizes = true, extra = null } = {}) {
-  const { list, net, gross, disc } = totals();
+  const { list, net, gross, discPct, midSeason, m, seasonBp, day } = totals(), R = rules();
   const brand = $('#cl-brand').value.trim(), name = $('#cl-name').value.trim(), nif = $('#cl-nif').value.trim();
   extra ??= $('#cl-msg').value.trim();
-  const lines = [t(`msg.hi${kindKey()}`), ''];
-  if (wantTitle) lines.push(`${t('msg.title')}: ${money(net)}`);
+  const lines = [t(`msg.hi${kindKey()}`, R.season), ''];
+  // the amount to pay first, then how it was reached: «Total: 928 € (1 100 € −6,25% −10%)» (the admin page reads the
+  // first amount of the line); with no season discount exactly as before it existed («Total: 990 € (1 100 € −10%)»)
+  const br = t('msg.totalS', money(gross), midSeason ? seasonBp : 0, discPct), how = br ? ` ${br}` : '';
+  if (wantTitle) lines.push(`${t('msg.title')}: ${money(net)}${how}`);
   else {
     lines.push(`${t('msg.spots')}:`);
     for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name}${sizes ? ` (${sizeOf(s, '×')})` : ''} · ${money(s.price)}`);
-    lines.push(`${t('msg.total')}: ${money(net)}${disc ? ` (${money(gross)} −${Math.round(disc * 100)}%)` : ''}`);
+    lines.push(`${t('msg.total')}: ${money(net)}${how}`);
   }
   if (brand) lines.push(`${t('msg.brand')}: ${brand}`);
   if (name) lines.push(`${t('msg.name')}: ${name}`);
@@ -1108,6 +1140,12 @@ function message({ sizes = true, extra = null } = {}) {
   else if (API && rqMode === 'msg') lines.push(openReq ? `${t('msg.open')}: ${openReq}` : t('msg.nohold'));
   // the terms the request accepts, with their date: the proof of which version the brand took (/condicoes/)
   lines.push(t('msg.terms'));
+  // the season: its period, the mid-season discount («Desconto de época (março, mês 3): −6,25%», read back by the admin
+  // page: admin-core.js LINE.season), the logo deadline (or, after it, from which race the logo is on the kit) and the
+  // renewal preference
+  lines.push(t('msg.period', R));
+  if (midSeason) lines.push(t('msg.season', m, seasonBp));
+  lines.push(t('msg.logo', R, logoOpen(R, day)), t('msg.renew', R));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -1120,7 +1158,7 @@ function message({ sizes = true, extra = null } = {}) {
 // field tells the buyer before they send (WhatsApp and Instagram always carry the whole text).
 const MAIL_MAX = 2000;
 function mailFit() {
-  const url = (o) => `mailto:${SITE.email}?subject=${encodeURIComponent(t(`msg.subject${kindKey()}`))}&body=${encodeURIComponent(message(o))}`;
+  const url = (o) => `mailto:${SITE.email}?subject=${encodeURIComponent(t(`msg.subject${kindKey()}`, rules().season))}&body=${encodeURIComponent(message(o))}`;
   const own = $('#cl-msg').value.trim();
   let u = url();
   if (u.length <= MAIL_MAX) return { url: u, cut: false };
@@ -1229,7 +1267,7 @@ function goStep(n, { focus = true } = {}) {
 }
 
 function renderClaim() {
-  const { list, gross, net, disc } = totals();
+  const { list, gross, net, disc, midSeason, m, seasonBp, steps } = totals(), R = rules();
   $('#claim').dataset.step = clStep;
   $('#cl-h').textContent = t(clStep === 1 ? 'cl.h1' : 'cl.h2');
   $('#cl-step').textContent = t('cl.step', clStep);
@@ -1237,14 +1275,27 @@ function renderClaim() {
   $('#cl-what').textContent = wantTitle ? t('cl.title') : list.length === 1 ? pick(list[0]).name : t('pk.spots', list.length);
   $('#cl-tot').textContent = money(net);
   const items = $('#cl-items'), more = $('#cl-more');
-  more.hidden = wantTitle || list.length < 2;
+  // (a mid-season discount lists what it is taken from even for one spot or the whole suit)
+  more.hidden = !(midSeason || (!wantTitle && list.length >= 2));
   if (more.hidden) items.hidden = true;
   more.textContent = t(items.hidden ? 'cl.more' : 'cl.less');
   more.setAttribute('aria-expanded', String(!items.hidden));
   items.textContent = '';
   const li = (k, v, cls = '') => { const el = document.createElement('li'); if (cls) el.className = cls; const a = document.createElement('span'), b = document.createElement('span'); a.textContent = k; b.textContent = v; el.append(a, b); items.appendChild(el); };
-  if (!wantTitle) for (const s of list) li(`${pad2(s.n)} ${pick(s).name}`, money(s.price));
-  if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`, 'save');
+  if (wantTitle) li(t('cl.title'), money(gross));
+  else for (const s of list) li(`${pad2(s.n)} ${pick(s).name}`, money(s.price));
+  // the order of the sum: the season discount first, then the bundle discount (the rows add up to the total)
+  if (midSeason) li(t('cl.seasonrow', m, seasonBp), `−${money(steps.season)}`, 'save');
+  if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(steps.bundle)}`, 'save');
+  // the season the spot is for, always; the mid-season discount and why, from February
+  $('#cl-period').textContent = t('cl.period', R);
+  const se = $('#cl-season');
+  se.hidden = !midSeason;
+  se.textContent = midSeason ? t('cl.season', m, seasonBp) : '';
+  // after the season's last day for requests: the note, and the send actions on hold (renderNeed)
+  const closed = shut(), cn = $('#cl-closed');
+  cn.hidden = !closed;
+  cn.textContent = closed ? t('cl.closed', R) : '';
   if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t(brandErrKey);
   // the request: a package already held from this tab says so; the logo field, its error, what is missing, the note
   const r = heldReq(), k = kOf();
@@ -1254,7 +1305,7 @@ function renderClaim() {
   if (r) h1.textContent = t('cl.held1', longDay(r.until), r.id, msgOut);
   // «Já enviei o pedido» goes straight to the payment: with the Worker, only once the package is held (or the dialog is
   // back to sending the message only), never around the hold and the logo
-  $('#cl-sent').closest('.cl-foot').hidden = !!API && rqMode === 'api' && !r;
+  $('#cl-sent').closest('.cl-foot').hidden = (!!API && rqMode === 'api' && !r) || closed;
   if (logoErrKey) $('#cl-logo-err').textContent = t(logoErrKey);
   renderLogo(); renderNeed(); renderNote();
   // «Pagar por» MB WAY | Transferência: MB WAY off above its limit, with the reason on one line under it (and no choice
@@ -1721,11 +1772,14 @@ function renderNeed() {
     const b = !$('#cl-brand').value.trim(), l = !buyerLogo && !heldReq();
     text = b && l ? t('cl.needBL') : b ? t('cl.needB') : l ? t('cl.needL') : '';
   }
+  // the season closed for requests: the note above the buttons says why (#cl-closed), and nothing more is asked for
+  const closed = shut();
+  if (closed) text = '';
   need.hidden = !text; need.textContent = text;
   // they look on hold but still answer a tap, with the field to fill and why (a disabled button would say nothing)
   for (const a of acts) {
-    a.classList.toggle('wait', !!text);
-    if (text) a.setAttribute('aria-describedby', 'cl-need'); else a.removeAttribute('aria-describedby');
+    a.classList.toggle('wait', !!text || closed);
+    if (text || closed) a.setAttribute('aria-describedby', closed ? 'cl-closed' : 'cl-need'); else a.removeAttribute('aria-describedby');
   }
 }
 // the spots that left the package since it was put together, said in the dialog (false: nothing to say)
@@ -1790,6 +1844,7 @@ async function postReq(body) {
 async function book(by) {
   const key = pkKey(), { list, net } = totals();
   if (!key) { setNote(() => t('rq.pick')); return; }
+  if (shut()) { closedTap(); return; }
   if (!wantTitle && list.length > MAX_ITEMS) { toMsg(() => t('rq.muitos', MAX_ITEMS)); return; }
   setNote(null);
   const body = {
@@ -1810,13 +1865,19 @@ async function book(by) {
   if (!res.timeout) try { sessionStorage.removeItem(PENDING); } catch (_) {}
   const j = res.json && typeof res.json === 'object' ? res.json : {};
   const r = { ids: body.items || [], title: !!body.title, brand: body.brand, pay: body.pay, channel: body.channel, at: new Date().toISOString(), out: false };
-  if (res.status === 201 && ID_RE.test(j.id) && DAY_RE.test(j.until)) return held(by, key, { ...r, id: j.id, until: j.until, total: typeof j.total === 'number' && j.total > 0 ? j.total : net });
+  if (res.status === 201 && ID_RE.test(j.id) && DAY_RE.test(j.until)) return held(by, key, { ...r, id: j.id, until: j.until, total: typeof j.total === 'number' && j.total > 0 ? j.total : net, ...priced(j) });
   // «aberto» with this brand's open request is this package's own hold only when it holds exactly this package (a lost
   // answer, a reload while it was on its way, the buyer's other tab): the same address and brand may have another
   // request open, for other spots, and that one goes to failed()
   const same = body.title ? j.title === true : Array.isArray(j.items) && j.items.length === body.items.length && body.items.every((id) => j.items.includes(id));
-  if (res.status === 429 && j.error === 'aberto' && ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') && same) return held(by, key, { ...r, id: j.id, until: j.until, total: net });
+  if (res.status === 429 && j.error === 'aberto' && ID_RE.test(j.id || '') && DAY_RE.test(j.until || '') && same) return held(by, key, { ...r, id: j.id, until: j.until, total: typeof j.total === 'number' && j.total > 0 ? j.total : net, ...priced(j) });
   failed(res, j, by, r);
+}
+// the Worker's price day and season month (POST /pedido 201, and the open request of a 429 «aberto»): the dialog, the
+// message and the comprovativo follow them while the request is held (totals). Nothing when the answer has none.
+function priced(j) {
+  const ok = DAY_RE.test(j.day || '') && Number.isInteger(j.m) && j.m >= 0 && j.m <= 11;
+  return ok ? { day: j.day, m: j.m, seasonBp: Number.isInteger(j.seasonBp) ? j.seasonBp : undefined } : {};
 }
 function held(by, key, r) {
   keepReq(key, r);
@@ -1848,7 +1909,7 @@ function failed(res, j, by, r) {
       if (!(ID_RE.test(j.id || '') && DAY_RE.test(j.until || ''))) { toMsg(() => t('rq.abertoX')); return; }
       // this package already shows held by that request (the buyer's other tab sent it, and Pages has the commit)
       const xs = wantTitle ? [DATA.title] : totals().list;
-      if (xs.length && xs.every((x) => x.status === 'reserved' && x.request === j.id)) { held(by, pkKey(), { ...r, id: j.id, until: j.until, total: totals().net }); return; }
+      if (xs.length && xs.every((x) => x.status === 'reserved' && x.request === j.id)) { held(by, pkKey(), { ...r, id: j.id, until: j.until, total: typeof j.total === 'number' && j.total > 0 ? j.total : totals().net, ...priced(j) }); return; }
       // another request of this buyer, for other spots: this package goes as a message only, and the message names it
       rqMode = 'msg'; openReq = j.id;
       setNote(() => t('rq.aberto', j.id, longDay(j.until), j.title ? 'title' : 0), () => t('rq.abertoSub'));
@@ -1866,6 +1927,8 @@ function failed(res, j, by, r) {
     case 'logo': logoErr('rq.logo', { focus: true }); return;
     case 'logo-grande': case 'tamanho': logoErr('rq.logoGrande', { focus: true }); return;
     case 'turnstile': setNote(() => t('rq.turnstile')); return;
+    // the Worker's clock is past the season's last day for requests (a device clock behind it): as the closed dialog
+    case 'epoca': setNote(() => t('cl.closed', rules())); return;
     // origem, json, lingua, canal, recusado: nothing the buyer can change here
     default: toMsg(() => t('rq.geral'));
   }
@@ -1932,16 +1995,17 @@ function atLisbon(d) {
   } catch (_) { return d.toISOString().slice(0, 16).replace('T', ' '); }
 }
 function rcptModel() {
-  const { list, gross, net, disc } = totals(), r = heldReq(), k = kOf(), id = r ? r.id : '';
+  const { list, gross, net, disc, midSeason, m: sm, seasonBp, steps, day: qDay } = totals(), r = heldReq(), k = kOf(), id = r ? r.id : '', R = rules();
   // the amount to pay is the dialog's (the one the Worker held it for); the total is the message's
   const amt = r && r.total > 0 ? r.total : net, mb = mbwayOk(amt);
   // the request's time: the hold's (gc.claim.req), or when its message went out (gc.claim.at); without either (only «Já
   // enviei o pedido» here), the row says it is this summary's own time
   const at = (r && Date.parse(r.at)) || sentAt, when = new Date(at || Date.now()), day = r ? longDay(r.until, true) : '';
-  const rows = [[t(at ? 'rcpt.date' : 'rcpt.dateNow'), atLisbon(when)], [t('msg.brand'), (r && r.brand) || $('#cl-brand').value.trim()]];
+  // (the season's period right under the date: what the request is for)
+  const rows = [[t(at ? 'rcpt.date' : 'rcpt.dateNow'), atLisbon(when)], [t('rcpt.period'), t('rcpt.periodV', R)], [t('msg.brand'), (r && r.brand) || $('#cl-brand').value.trim()]];
   for (const [key, q] of [['msg.name', '#cl-name'], ['msg.nif', '#cl-nif']]) { const v = $(q).value.trim(); if (v) rows.push([t(key), v]); }
   if (!r && openReq) rows.push([t('msg.open'), openReq]);
-  const items = wantTitle ? [{ n: '', name: t('msg.title'), model: t('z.suit'), price: money(net) }]
+  const items = wantTitle ? [{ n: '', name: t('msg.title'), model: t('z.suit'), price: money(gross) }]
     : list.map((s) => ({ n: pad2(s.n), name: pick(s).name, model: t(itemOf(s) === 'helmet' ? 'z.helmet' : 'z.suit'), price: money(s.price) }));
   // the whole suit: the written agreement before any payment (as step 2 says), so no account details; its reference, as
   // the message and the terms give it (CARMO FATO, bank transfer only)
@@ -1952,7 +2016,9 @@ function rcptModel() {
     cap: SITE.mbway && !mb ? t('cl.mbmax', money(SITE.mbwayMax || 0)) : '', hint: t('rcpt.hint', mb),
   };
   // (step 2's lines, with the hold's day written in: on paper they sit far from «Reservado até …»)
-  const next = !r ? [t('rcpt.proof'), t('rcpt.logo')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k), t('rcpt.logo')] : [t('rcpt.payBy', day), t('cl.payHeld', k), t('rcpt.logo')];
+  // then the season: the logo deadline (or, after it, from which race), the mid-season discount, the renewal preference
+  const season = [t('rcpt.logo', R, logoOpen(R, qDay)), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R)];
+  const next = [...(!r ? [t('rcpt.proof')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k)] : [t('rcpt.payBy', day), t('cl.payHeld', k)]), ...season];
   return {
     lang: getLang(),
     file: `gocarmo-pedido-${id || `resumo-${when.toISOString().slice(0, 10)}`}.pdf`,
@@ -1960,7 +2026,8 @@ function rcptModel() {
     head: { name: SITE.name, site: 'gocarmo.com' },
     status: r ? { h: t('cl.heldH', day), k: t('msg.req'), id } : { h: t('rcpt.noholdH'), p: t('rcpt.nohold', k) },
     reqH: t('rcpt.reqH'), rows, cols: [t('rcpt.spot'), t('rcpt.kit'), t('rcpt.price')], items,
-    disc: disc ? [t('cl.save', Math.round(disc * 100)), `−${money(gross - net)}`] : null,
+    season: midSeason ? [t('cl.seasonrow', sm, seasonBp), `−${money(steps.season)}`] : null,
+    disc: disc ? [t('cl.save', Math.round(disc * 100)), `−${money(steps.bundle)}`] : null,
     total: [t('msg.total'), money(net)],
     pay, next: { h: t('rcpt.nextH'), items: next },
     // the message's own terms line, date included, under the document's label
@@ -2269,6 +2336,7 @@ function bindUI() {
   // With the Worker, the first tap sends the request (book): the app opens once the spots are held. A request on its way
   // takes no second tap.
   $('#cl-wa').addEventListener('click', (e) => {
+    if (shut()) { e.preventDefault(); closedTap(); return; }
     if (rqBusy || !brandOk()) { e.preventDefault(); return; }
     if (needsPost()) { e.preventDefault(); book('wa'); return; }
     const a = e.currentTarget;
@@ -2282,6 +2350,7 @@ function bindUI() {
   // Instagram: the message goes to the clipboard, and step 2 says so and how to use it before the buyer leaves. Both live
   // in step 1 and, after a WhatsApp link that did not open, at the top of step 2.
   $$('#claim [data-send="mail"]').forEach((a) => a.addEventListener('click', (e) => {
+    if (shut()) { e.preventDefault(); closedTap(); return; }
     if (rqBusy || !brandOk()) { e.preventDefault(); return; }
     if (needsPost()) { e.preventDefault(); book('mail'); return; }
     e.currentTarget.href = mailUrl();
@@ -2290,6 +2359,7 @@ function bindUI() {
   $$('#claim [data-send="ig"]').forEach((b) => b.addEventListener('click', async (e) => {
     // (refused, or held back for the Worker: like the two links, the tap is marked, so analytics.js does not count it
     // as sent)
+    if (shut()) { e.preventDefault(); closedTap(); return; }
     if (rqBusy || !brandOk()) { e.preventDefault(); return; }
     if (needsPost()) { e.preventDefault(); book('ig'); return; }
     const text = message();
@@ -2351,7 +2421,7 @@ function bindUI() {
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
   // (hidden while a request still has to hold the package: renderClaim)
-  $('#cl-sent').addEventListener('click', () => { if (API && rqMode === 'api' && !heldReq()) return; sent(''); goStep(2); });
+  $('#cl-sent').addEventListener('click', () => { if (shut() || (API && rqMode === 'api' && !heldReq())) return; sent(''); goStep(2); });
   $('#cl-back').addEventListener('click', () => goStep(1));
   // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it),
   // and the draft goes (name, NIF, message, logo). The bar's «Reservar» goes with it, so focus moves on to the rate card

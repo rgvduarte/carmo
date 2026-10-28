@@ -3,6 +3,7 @@
 // browser only). The page then waits until gocarmo.com serves the new data/spots.json. The rules (what each action
 // writes, and when it is allowed) live in admin-core.js, which is tested against the issue-form bot.
 import * as C from './admin-core.js';
+import { lisbonDay } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -262,8 +263,8 @@ function updateBar() {
   document.documentElement.style.setProperty('--bar-h', bar.hidden ? '0px' : `${bar.offsetHeight}px`);
   if (bar.hidden) return;
   $('#bar-n').textContent = ids[0] === C.TITLE ? 'Fato completo' : plural(ids.length, 'selecionado', 'selecionados');
-  const t = C.totals(base.data, ids);
-  $('#bar-total').textContent = t.disc ? `${C.money(t.net)} (${C.money(t.gross)} −${Math.round(t.disc * 100)}%)` : C.money(t.net);
+  const t = C.totals(base.data, ids), note = C.totalNote(t);
+  $('#bar-total').textContent = note ? `${C.money(t.net)} ${note}` : C.money(t.net);
   const now = Date.now();
   $$('[data-act]').forEach((b) => { const g = C.guard(base.data, now, ids, b.dataset.act); b.setAttribute('aria-disabled', String(g.blocked.length > 0)); });
 }
@@ -302,7 +303,8 @@ function onRef() {
     out.classList.add('ok');
     const t = C.totals(base.data, r.ids);
     const names = r.ids.map((id) => shortName(base.data, id));
-    out.append(`${r.ids[0] === C.TITLE ? '' : `${plural(r.ids.length, 'espaço', 'espaços')}: `}${names.join(', ')} · Total esperado ${C.money(t.net)}${t.disc ? ` (${C.money(t.gross)} −${Math.round(t.disc * 100)}%)` : ''}`);
+    const note = C.totalNote(t);
+    out.append(`${r.ids[0] === C.TITLE ? '' : `${plural(r.ids.length, 'espaço', 'espaços')}: `}${names.join(', ')} · Total esperado ${C.money(t.net)}${note ? ` ${note}` : ''}`);
   }
   const extra = [];
   if (r.unknown.length) extra.push(`Não conheço ${r.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(r.unknown.map(String))}.`);
@@ -361,7 +363,8 @@ function refBox(r) {
 function showPaste(p) {
   const out = $('#ref-out'), box = $('#paste'), raw = base.data, now = Date.now();
   pasted = p;
-  const ids = p.ids, t = ids.length ? C.totals(raw, ids) : null;
+  // the price of the message's own month (its «Desconto de época (…, mês N)» line), else the full price
+  const ids = p.ids, t = ids.length ? C.totals(raw, ids, { m: p.m ?? 0 }) : null;
   out.classList.toggle('ok', ids.length > 0);
   out.textContent = !ids.length ? (p.kind === 'link' ? 'Este link não tem espaços que eu conheça.' : 'Li o pedido, mas não encontrei os espaços.')
     : `${p.kind === 'link' ? 'Link do pedido' : 'Pedido'}: ${ids[0] === C.TITLE ? 'fato completo' : plural(ids.length, 'espaço', 'espaços')} · Total ${C.money(t.net)}`;
@@ -373,6 +376,7 @@ function showPaste(p) {
   row('NIF', p.nif ? `${p.nif}${p.nifOk === true ? ' ✓' : p.nifOk === false ? ' · não confere' : ''}` : '', p.nifOk === false ? 'bad' : '');
   row('Pagamento', C.PAY_LABEL[p.pay] || '');
   row('Referência', p.ref);
+  if (p.m) row('Época', C.seasonLine(p.m));
   if (t) {
     const said = p.stated;
     row('Total', said === null ? `${C.money(t.net)} (o pedido não diz)` : said === t.net ? `${C.money(t.net)} ✓ confere` : `${C.money(t.net)} · o pedido diz ${C.money(said)}`, said !== null && said !== t.net ? 'bad' : '');
@@ -479,7 +483,7 @@ const reqApi = () => String(SITE.requestsApi || '').trim().replace(/\/+$/, '');
 const reqIds = (r) => (r.title ? [C.TITLE] : Array.isArray(r.items) ? r.items : []);
 const inboxFind = (id) => (id && inbox.list ? inbox.list.find((r) => r.id === id) || null : null);
 const inboxOn = () => !$('#inbox').hidden && $('#inbox-off').hidden;   // the Pedidos list works on this page
-class ReqError extends Error { constructor(status, code) { super(code || `pedidos ${status}`); this.status = status; this.code = code || ''; } }
+class ReqError extends Error { constructor(status, code, campo = '') { super(code || `pedidos ${status}`); this.status = status; this.code = code || ''; this.campo = campo || ''; } }
 
 function readReqKey() { try { return sessionStorage.getItem(REQ_KEY) || ''; } catch (_) { return ''; } }
 function keepReqKey(k) { try { sessionStorage.setItem(REQ_KEY, k); } catch (_) {} }
@@ -525,7 +529,7 @@ async function reqCall(method, path, body, { blob = false } = {}) {
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (_) { throw new ReqError(0, 'rede'); }
-  if (!res.ok) { let j = null; try { j = await res.json(); } catch (_) {} throw new ReqError(res.status, j && typeof j.error === 'string' ? j.error : ''); }
+  if (!res.ok) { let j = null; try { j = await res.json(); } catch (_) {} throw new ReqError(res.status, j && typeof j.error === 'string' ? j.error : '', j && typeof j.campo === 'string' ? j.campo : ''); }
   return blob ? res.blob() : res.json();
 }
 function reqErrText(e) {
@@ -536,7 +540,10 @@ function reqErrText(e) {
   if (e.code === 'estado') return 'Este pedido já está fechado.';
   if (e.code === 'ocupado') return 'Os espaços deste pedido já não estão reservados por ele.';
   if (e.code === 'config') return 'Os pedidos ainda não estão prontos no Cloudflare (falta um secret). Vê worker/README.md.';
+  if (e.code === 'campos' && e.campo === 'paidAt') return 'Os pedidos não aceitaram a data do pagamento (de 1 jan. 2026 a amanhã).';
+  if (e.code === 'campos' && e.campo === 'amount') return 'Os pedidos não aceitaram o montante (euros, sem cêntimos, até 100 000 €).';
   if (e.status === 502) return 'O GitHub falhou. Tenta outra vez daqui a pouco.';
+  if (e.code === 'interno' || e.status >= 500) return `O serviço dos pedidos falhou (código ${e.status}). Atualiza a lista para ver em que ficou e tenta outra vez.`;
   if (e.status === 404) return 'Este pedido já não existe.';
   return `Os pedidos responderam com um erro (código ${e.status}).`;
 }
@@ -648,6 +655,8 @@ function reqCard(r) {
   head.append(fig, main, el('p', 'req-total mono', typeof r.total === 'number' ? C.money(r.total) : ''));
   li.appendChild(head);
   li.appendChild(el('p', 'req-meta', [atText(r.at), CHANNEL[r.channel], C.PAY_LABEL[r.pay], r.lang === 'en' ? 'em inglês' : '', `pedido ${r.id}`].filter(Boolean).join(' · ')));
+  const season = reqSeason(r);
+  if (season) li.appendChild(el('p', 'req-season', season));
   const who = [r.name ? `Nome: ${r.name}` : '', r.nif ? `NIF: ${r.nif}${C.nifOk(r.nif) === false ? ' (não confere)' : ''}` : ''].filter(Boolean).join(' · ');
   if (who) li.appendChild(el('p', 'req-who', who));
   if (r.message) li.appendChild(el('p', 'req-msg', r.message));
@@ -656,6 +665,13 @@ function reqCard(r) {
   else if (r.status === 'cancelado') { st.classList.add('expired'); st.appendChild(el('span', null, 'Cancelado')); }
   else { st.classList.add(left.lapsed ? 'expired' : 'reserved'); st.appendChild(el('span', null, left.lapsed ? `${left.text} · o espaço já está livre no site` : left.text)); }
   li.appendChild(st);
+  // a paid request: its sponsor contract (Patrocínios), or a button that registers it (the same confirmar call)
+  if (r.status === 'confirmado') {
+    const line = el('p', 'req-contract');
+    if (r.contract) { line.append('Contrato registado · '); const a = el('a', null, 'Ver em Patrocínios'); a.href = `patrocinios/#${encodeURIComponent(r.contract)}`; line.appendChild(a); }
+    else { const b = el('button', 'btn sm ghost', 'Registar contrato'); b.type = 'button'; b.disabled = inbox.busy.has(r.id); b.addEventListener('click', () => registerReq(r)); line.appendChild(b); }
+    li.appendChild(line);
+  }
   const stand = reqStanding(r);
   if (stand.lines.length) { const n = el('ul', 'notes'); for (const s of stand.lines) n.appendChild(el('li', null, s)); li.appendChild(n); }
   if (open) {
@@ -711,26 +727,97 @@ async function confirmPurchase(r) {
   $('#f-brand').value = r.brand || '';
   sheet.request = r.id;
   const note = $('#sh-req');
-  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo e o pedido fica confirmado. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.`;
+  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.`;
   note.hidden = false;
+  showPaid(r);
   showLogo(logo);
 }
 
-// after a sale saved from «Confirmar compra» (or one that was already there): close the request on the Worker
-async function confirmReq(id) {
+// ---------- the payment of a request: «Pago a» and «Montante recebido» (they go into its sponsor contract) ----------
+// «Desconto de época (março): −6,25%» of a request the Worker priced (its record's m and seasonBp), '' at full price
+const reqSeason = (r) => (Number.isInteger(r.m) && r.m > 0 ? C.seasonLine(r.m, r.seasonBp) : '');
+const reqLines = (r) => reqIds(r).map((id) => (base && C.targetOf(base.data, id) ? C.labelOf(base.data, id) : id)).join(', ');
+// the request's own total (the price of its day) at the top of the sale sheet, and the two fields under its note
+function showPaid(r) {
+  const sum = $('#sh-sum'), season = reqSeason(r);
+  sum.textContent = '';
+  sum.append(`${reqLines(r)} · Total do pedido `);
+  sum.appendChild(el('b', null, typeof r.total === 'number' ? C.money(r.total) : '?'));
+  if (season) sum.append(` · ${season}`);
+  fillPaid('f-paid', r, lisbonDay());
+  $('#sh-paid').hidden = false;
+}
+// the date and amount fields `<prefix>-at`, `<prefix>-amt`: today (or the given day) and the request's total
+function fillPaid(prefix, r, day) {
+  const at = $(`#${prefix}-at`), amt = $(`#${prefix}-amt`);
+  at.value = day; at.min = C.FIRST_PAID; at.max = C.addDays(lisbonDay(), 1);
+  amt.value = typeof r.total === 'number' ? String(r.total) : '';
+}
+function readPaid(prefix, err) {
+  try { return C.normPaid($(`#${prefix}-at`).value, $(`#${prefix}-amt`).value, lisbonDay()); } catch (x) {
+    err.textContent = x.message;
+    $(`#${prefix}-${/montante/i.test(x.message) ? 'amt' : 'at'}`).focus();
+    return null;
+  }
+}
+// the small «Pagamento» dialog (Marcar como confirmado, Registar contrato): { paidAt, amount }, or null when closed
+function askPaid(r, { title, yes, day }) {
+  return new Promise((resolve) => {
+    const d = $('#pay'), form = $('#pay-form'), err = $('#pay-err'), season = reqSeason(r);
+    $('#pay-title').textContent = title;
+    const sum = $('#pay-sum'); sum.textContent = '';
+    sum.append(`${r.brand || 'Sem marca'} · ${reqLines(r)} · Total do pedido `);
+    sum.appendChild(el('b', null, typeof r.total === 'number' ? C.money(r.total) : '?'));
+    if (season) sum.append(` · ${season}`);
+    fillPaid('pay', r, day || lisbonDay());
+    err.textContent = '';
+    $('#pay-go').textContent = yes;
+    const done = (v) => { form.onsubmit = null; $('#pay-no').onclick = null; $('#pay-x').onclick = null; d.removeEventListener('close', onClose); if (d.open) d.close(); resolve(v); };
+    const onClose = () => { if (!d.open) done(null); };
+    form.onsubmit = (e) => { e.preventDefault(); err.textContent = ''; const v = readPaid('pay', err); if (v) done(v); };
+    $('#pay-no').onclick = () => done(null);
+    $('#pay-x').onclick = () => done(null);
+    d.addEventListener('close', onClose);
+    d.showModal();
+    if (matchMedia('(pointer: fine)').matches) $('#pay-amt').focus(); else $('#pay-go').focus();
+  });
+}
+
+// after a sale saved from «Confirmar compra» (or one that was already there): close the request on the Worker, with the
+// payment's date and amount; the Worker also registers the sponsor contract (once)
+async function confirmReq(id, paid = null) {
   step('req', 'on', 'A confirmar o pedido…');
   try {
-    const j = await reqCall('POST', `/pedidos/${id}`, { action: 'confirmar' });
+    const j = await reqCall('POST', `/pedidos/${id}`, { action: 'confirmar', ...(paid || {}) });
     replaceReq(j.pedido); renderInbox();
-    step('req', 'done', 'Pedido confirmado ✓');
+    if (j.contrato && j.contrato.id) {
+      step('req', 'done', 'Pedido confirmado ✓ · Contrato registado');
+      const a = el('a', 'pr-pat', 'Ver em Patrocínios'); a.href = `patrocinios/#${encodeURIComponent(j.contrato.id)}`;
+      $('#pr-req span').append(' · ', a);
+    } else step('req', 'done', 'Pedido confirmado ✓ · Contrato por registar (em Pedidos, «Registar contrato»)');
   } catch (e) {
     step('req', 'fail', `Pedido por confirmar: ${reqErrText(e)} Na lista de Pedidos, carrega em «Marcar como confirmado».`);
     loadInbox({ quiet: true });
   }
 }
+// «Marcar como confirmado» (the spots are sold to the brand already) and «Registar contrato» (a request confirmed
+// before contracts existed, or whose contract the Worker could not write): the payment first, then confirmar
 async function closeReq(r) {
+  const paid = await askPaid(r, { title: 'Pagamento', yes: 'Confirmar' });
+  if (paid) await confirmCall(r, paid, `Pedido de ${r.brand || 'sem marca'} confirmado.`);
+}
+async function registerReq(r) {
+  const t = Date.parse(r.closed || ''), closed = Number.isFinite(t) ? lisbonDay(t) : '';
+  const paid = await askPaid(r, { title: 'Registar contrato', yes: 'Registar', day: closed && closed >= C.FIRST_PAID ? closed : '' });
+  if (paid) await confirmCall(r, paid, `Pedido de ${r.brand || 'sem marca'}:`);
+}
+async function confirmCall(r, paid, head) {
   reqBusy(r.id, true);
-  try { const j = await reqCall('POST', `/pedidos/${r.id}`, { action: 'confirmar' }); replaceReq(j.pedido); toast(`Pedido de ${r.brand} confirmado.`); } catch (e) { toast(reqErrText(e)); }
+  try {
+    const j = await reqCall('POST', `/pedidos/${r.id}`, { action: 'confirmar', ...paid });
+    replaceReq(j.pedido);
+    toast(`${head} ${j.contrato ? 'Contrato registado em Patrocínios.' : 'O contrato ficou por registar: carrega outra vez em «Registar contrato».'}`);
+  } catch (e) { toast(reqErrText(e)); }
   reqBusy(r.id, false);
 }
 async function extendReq(r) {
@@ -809,6 +896,7 @@ function openSheet(action, ids) {
   const raw = base.data, now = Date.now(), today = C.todayUTC(now), d = $('#sheet');
   sheet = { action, ids, snap: C.snapshot(raw, ids), logo: null, untilTouched: false, request: null };
   $('#sh-req').hidden = true; $('#sh-req').textContent = '';
+  $('#sh-paid').hidden = true;
   $('#sh-title').textContent = headFor(action, raw, ids);
   const t = C.totals(raw, ids), sum = $('#sh-sum'); sum.textContent = '';
   sum.append(ids.map((id) => C.labelOf(raw, id)).join(', '), ' · Total esperado ');
@@ -941,7 +1029,7 @@ function onSheetKey(e) {
   const t = e.target;
   if (e.key !== 'Enter' || e.isComposing || !(t instanceof HTMLInputElement) || ['file', 'checkbox', 'radio', 'button', 'submit'].includes(t.type)) return;
   e.preventDefault();
-  const order = sheet && sheet.action === 'reserved' ? ['f-brand', 'f-url', 'f-until'] : ['f-brand', 'f-url', 'f-logo'];
+  const order = sheet && sheet.action === 'reserved' ? ['f-brand', 'f-url', 'f-until'] : [...(sheet && sheet.request ? ['f-paid-at', 'f-paid-amt'] : []), 'f-brand', 'f-url', 'f-logo'];
   const i = order.indexOf(t.id), next = i >= 0 && i < order.length - 1 ? document.getElementById(order[i + 1]) : null;
   if (next && !next.closest('[hidden]')) next.focus(); else t.blur();
 }
@@ -958,6 +1046,9 @@ async function submitSheet(e) {
     ($(/link/i.test(m) ? '#f-url' : /data/i.test(m) ? '#f-until' : '#f-brand')).focus();
     return;
   }
+  // a request's sale: the payment's date and amount go to its contract
+  let paid = null;
+  if (action === 'sold' && sheet.request) { paid = readPaid('f-paid', err); if (!paid) return; }
   const g = C.guard(base.data, Date.now(), ids, action, f.brand, f.until || undefined);
   if (g.blocked.length) { err.textContent = g.blocked.join(' '); return; }
   const confirms = [...g.confirms, ...reqNotes(base.data, ids, action)];
@@ -970,7 +1061,7 @@ async function submitSheet(e) {
     logo = { ext: L.ext, b64: C.bytesToB64(L.bytes), bytes: L.bytes, sha: await C.gitBlobSha(L.bytes) };
   }
   if (!sheet) return;
-  run({ action, ids, f, logo, snap: sheet.snap, request: action === 'sold' ? sheet.request : null });
+  run({ action, ids, f, logo, snap: sheet.snap, request: action === 'sold' ? sheet.request : null, paid: action === 'sold' && sheet.request ? paid : null });
 }
 
 // ---------- save: one commit on gh-pages ----------
@@ -1085,11 +1176,11 @@ async function run(intent) {
     if (r.nothing) {
       step('save', 'done', 'Nada mudou.'); step('pub', '', ''); step('live', '', '');
       prMsg('Os dados já estavam assim; não mudei nada.');
-      if (intent.request) confirmReq(intent.request);
+      if (intent.request) confirmReq(intent.request, intent.paid);
       return;
     }
     step('save', 'done', 'Guardado ✓');
-    if (intent.request) confirmReq(intent.request);
+    if (intent.request) confirmReq(intent.request, intent.paid);
     sel.clear(); $('#ref').value = ''; onRef(); render();
     shown = publish({ ids: intent.ids, data: r.data, commit: r.commit, files: r.writes, bytes: intent.logo ? intent.logo.bytes : null });
     showPublish(shown);
@@ -1111,7 +1202,8 @@ async function run(intent) {
 // a token that stops working mid-save: what the admin typed and picked waits for the next sign-in
 function keepSheet(intent) {
   const s = sheet && sheet.action === intent.action ? sheet : null;
-  stash = { action: intent.action, ids: intent.ids, brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value, untilTouched: !!(s && s.untilTouched), logo: s ? s.logo : null, request: intent.request || null, note: $('#sh-req').textContent };
+  stash = { action: intent.action, ids: intent.ids, brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value, untilTouched: !!(s && s.untilTouched), logo: s ? s.logo : null, request: intent.request || null, note: $('#sh-req').textContent,
+    paid: intent.request && !$('#sh-paid').hidden ? { at: $('#f-paid-at').value, amt: $('#f-paid-amt').value, sum: [...$('#sh-sum').childNodes].map((n) => n.cloneNode(true)) } : null };
   if (s) s.logo = null;   // its preview stays alive for the sheet that comes back
 }
 function restoreStash() {
@@ -1126,6 +1218,10 @@ function restoreStash() {
   $('#f-brand').value = s.brand; $('#f-url').value = s.url;
   if (s.action === 'reserved' && s.untilTouched) { $('#f-until').value = s.until; sheet.untilTouched = true; }
   if (s.request) { sheet.request = s.request; $('#sh-req').textContent = s.note; $('#sh-req').hidden = !s.note; }
+  if (s.request && s.paid) {
+    $('#sh-sum').replaceChildren(...s.paid.sum);
+    $('#f-paid-at').value = s.paid.at; $('#f-paid-amt').value = s.paid.amt; $('#sh-paid').hidden = false;
+  }
   if (s.logo) showLogo(s.logo); else refreshSheet();
   toast('Entraste outra vez. O que escreveste ficou: revê e carrega em Guardar.');
 }

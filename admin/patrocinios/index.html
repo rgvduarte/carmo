@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-R+efzpriifvicx6NHH7c0JEPTClNY6BLoME/LKMRpXM='; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; connect-src 'self' https://gocarmo-pedidos.rgvduarte.workers.dev; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0b0b0c">
+<title>GOCARMO · Patrocínios</title>
+<link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../../assets/img/apple-touch-icon.png">
+<link rel="stylesheet" href="../../assets/css/fonts.css?v=38c3202f">
+<link rel="stylesheet" href="../../assets/css/admin.css?v=af2f69c4">
+<link rel="stylesheet" href="../../assets/css/admin-patrocinios.css?v=ac2e8e2f">
+<script type="importmap">
+{ "imports": {
+  "../../assets/js/admin-3d.js": "../../assets/js/admin-3d.js?v=f6109481",
+  "../../assets/js/admin-analytics-api.js": "../../assets/js/admin-analytics-api.js?v=35971a4d",
+  "../../assets/js/admin-analytics-charts.js": "../../assets/js/admin-analytics-charts.js?v=3b35f743",
+  "../../assets/js/admin-analytics-heat.js": "../../assets/js/admin-analytics-heat.js?v=7321de53",
+  "../../assets/js/admin-analytics-labels.js": "../../assets/js/admin-analytics-labels.js?v=40073038",
+  "../../assets/js/admin-analytics-map.js": "../../assets/js/admin-analytics-map.js?v=a6e8f1b4",
+  "../../assets/js/admin-analytics-panels.js": "../../assets/js/admin-analytics-panels.js?v=d192f4a9",
+  "../../assets/js/admin-analytics.js": "../../assets/js/admin-analytics.js?v=1eb36543",
+  "../../assets/js/admin-confirm-pdf.js": "../../assets/js/admin-confirm-pdf.js?v=fecff3f8",
+  "../../assets/js/admin-contracts.js": "../../assets/js/admin-contracts.js?v=8d7e090a",
+  "../../assets/js/admin-core.js": "../../assets/js/admin-core.js?v=8d4ca3b5",
+  "../../assets/js/admin-patrocinios.js": "../../assets/js/admin-patrocinios.js?v=cc52b94c",
+  "../../assets/js/admin-strava.js": "../../assets/js/admin-strava.js?v=d382a127",
+  "../../assets/js/admin.js": "../../assets/js/admin.js?v=8be6e2f2",
+  "../../assets/js/adspace.js": "../../assets/js/adspace.js?v=1baa65f1",
+  "../../assets/js/analytics.js": "../../assets/js/analytics.js?v=33844efa",
+  "../../assets/js/cartao.js": "../../assets/js/cartao.js?v=3afab20e",
+  "../../assets/js/charts.js": "../../assets/js/charts.js?v=0498e3d5",
+  "../../assets/js/data.js": "../../assets/js/data.js?v=bbf4e22b",
+  "../../assets/js/flow.js": "../../assets/js/flow.js?v=c994a0dc",
+  "../../assets/js/gl3d.js": "../../assets/js/gl3d.js?v=a7737baa",
+  "../../assets/js/gofundme.js": "../../assets/js/gofundme.js?v=23f90aef",
+  "../../assets/js/helmet.js": "../../assets/js/helmet.js?v=df0a53e9",
+  "../../assets/js/i18n.js": "../../assets/js/i18n.js?v=626b55fd",
+  "../../assets/js/internal.js": "../../assets/js/internal.js?v=0e8677cf",
+  "../../assets/js/main.js": "../../assets/js/main.js?v=3843dd80",
+  "../../assets/js/marks.js": "../../assets/js/marks.js?v=fdea7b6c",
+  "../../assets/js/pdf-kit.js": "../../assets/js/pdf-kit.js?v=78100225",
+  "../../assets/js/privacy.js": "../../assets/js/privacy.js?v=95de7df4",
+  "../../assets/js/races.js": "../../assets/js/races.js?v=de409e59",
+  "../../assets/js/receipt.js": "../../assets/js/receipt.js?v=5b6a6dce",
+  "../../assets/js/room.js": "../../assets/js/room.js?v=b0ef85a2",
+  "../../assets/js/season-rules.js": "../../assets/js/season-rules.js?v=95084349",
+  "../../assets/js/stats-fb.js": "../../assets/js/stats-fb.js?v=87cd2e59",
+  "../../assets/js/stats-site.js": "../../assets/js/stats-site.js?v=c1ae9984",
+  "../../assets/js/stats-zones.js": "../../assets/js/stats-zones.js?v=66b2b133",
+  "../../assets/js/stats.js": "../../assets/js/stats.js?v=9d4500c4",
+  "../../assets/js/suit-body.js": "../../assets/js/suit-body.js?v=e86b9edf",
+  "../../assets/js/suit-mesh.js": "../../assets/js/suit-mesh.js?v=b3644acd",
+  "../../assets/js/suit-worker.js": "../../assets/js/suit-worker.js?v=41a4b375",
+  "../../assets/js/suit.js": "../../assets/js/suit.js?v=116c1105"
+} }
+</script>
+<script type="module" src="../../assets/js/admin-patrocinios.js?v=cc52b94c"></script>
+</head>
+<body>
+<div class="banner" id="offline" role="status" hidden>Sem ligação. Nada se guarda até voltar a rede.</div>
+
+<header class="top">
+  <div class="top-in pt-wrap">
+    <span class="mark"><img src="../../assets/img/favicon.svg" alt="" width="22" height="22">GOCARMO<span class="tag">ADMIN</span></span>
+    <a class="link pt-spaces" href="../">Espaços</a>
+    <button class="icon" type="button" id="reload" aria-label="Atualizar os patrocínios" title="Atualizar" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+</header>
+
+<main class="pt-wrap pt-main" id="main">
+  <h1 class="display pt-h1">Patrocínios</h1>
+  <p class="lead pt-lead">Os patrocínios pagos de cada época: o que falta fazer agora, as datas da época e a renovação de cada marca.</p>
+
+  <ul class="notes" id="off" hidden><li class="block" id="off-t"></li></ul>
+
+  <form class="card pt-key" id="key-form" novalidate hidden>
+    <p class="why" id="key-why" role="status" hidden></p>
+    <input type="text" name="username" autocomplete="username" value="pedidos gocarmo" hidden aria-hidden="true" tabindex="-1">
+    <div class="field">
+      <label for="key">Chave dos pedidos</label>
+      <input id="key" name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-describedby="key-hint">
+      <p class="hint" id="key-hint">A mesma chave dos Pedidos, em Espaços (a ADMIN_KEY). Fica só neste separador.</p>
+    </div>
+    <button class="btn gold wide" type="submit" id="key-go">Abrir patrocínios</button>
+    <p class="err" id="key-err" role="alert"></p>
+  </form>
+
+  <div id="body" hidden>
+    <p class="meta mono" id="meta" aria-live="polite"></p>
+    <div class="pt-grid">
+      <div class="pt-side">
+        <section class="card pt-now" aria-labelledby="now-h">
+          <h2 id="now-h">Agora</h2>
+          <ul class="now" id="now"></ul>
+          <p class="pt-quiet" id="now-empty" hidden>Nada por fazer agora.</p>
+        </section>
+        <section class="card pt-cal" aria-labelledby="cal-h">
+          <h2 id="cal-h">Calendário</h2>
+          <ol class="cal" id="cal"></ol>
+          <button type="button" class="btn ghost wide" id="ics">Juntar ao calendário</button>
+          <p class="hint">Um ficheiro .ics com estas datas e um lembrete por marca para a proposta. No iPhone, abre-o e carrega em «Adicionar todos».</p>
+        </section>
+      </div>
+      <div class="pt-list">
+        <p class="summary pt-sum" id="summary"></p>
+        <fieldset class="filters" id="filters">
+          <legend class="sr-only">Mostrar</legend>
+        </fieldset>
+        <div class="pt-tools">
+          <div class="field">
+            <label for="season">Época</label>
+            <select id="season"></select>
+          </div>
+          <div class="field">
+            <label for="q">Procurar</label>
+            <input id="q" type="search" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="Marca" enterkeyhint="search">
+          </div>
+        </div>
+        <ul class="cts" id="list"></ul>
+        <p class="empty" id="empty" hidden></p>
+      </div>
+    </div>
+    <p class="fine"><button type="button" class="link" id="forget">Esquecer a chave</button></p>
+    <p class="fine">Os registos ficam guardados no serviço dos pedidos (Cloudflare) até 31 de dezembro do ano a seguir à época, e depois apagam-se sozinhos. O CSV é a tua cópia.</p>
+  </div>
+</main>
+
+<div class="bar pt-bar" id="bar" hidden>
+  <div class="bar-in pt-wrap">
+    <button type="button" class="btn gold" id="new">Novo patrocínio</button>
+    <button type="button" class="btn ghost" id="csv">Exportar CSV</button>
+  </div>
+</div>
+
+<!-- Novo / editar -->
+<dialog class="sheet pt-sheet" id="sheet" aria-labelledby="sh-title">
+  <div class="sh-head">
+    <h2 id="sh-title">Novo patrocínio</h2>
+    <button type="button" class="x" id="sh-x" aria-label="Fechar">×</button>
+  </div>
+  <form id="sh-form" novalidate>
+    <p class="sh-req" id="sh-kind" hidden></p>
+    <div class="field">
+      <label for="c-brand">Marca</label>
+      <input id="c-brand" type="text" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
+    </div>
+    <fieldset class="field pt-spots">
+      <legend class="lbl">Espaços</legend>
+      <div class="pt-chips" id="c-spots"></div>
+      <div class="pt-label" id="c-label-box" hidden>
+        <label for="c-label" class="sr-only">Descrição</label>
+        <input id="c-label" type="text" maxlength="80" autocomplete="off" placeholder="Descrição (ex.: equipamento de treino)" enterkeyhint="next">
+      </div>
+    </fieldset>
+    <div class="pt-two">
+      <div class="field">
+        <label for="c-season">Época</label>
+        <select id="c-season"></select>
+      </div>
+      <div class="field">
+        <label for="c-paid">Data do pagamento</label>
+        <input id="c-paid" type="date" enterkeyhint="next">
+      </div>
+    </div>
+    <div class="field">
+      <label for="c-amount">Montante pago</label>
+      <input id="c-amount" type="text" inputmode="numeric" autocomplete="off" placeholder="€" enterkeyhint="next" aria-describedby="c-table">
+      <p class="hint" id="c-table"></p>
+      <button type="button" class="link" id="c-use" hidden>Usar o valor da tabela</button>
+    </div>
+    <div class="pt-two">
+      <div class="field">
+        <label for="c-pay">Forma</label>
+        <select id="c-pay">
+          <option value="tr">Transferência</option>
+          <option value="mb">MB WAY</option>
+          <option value="produto">Em produto</option>
+          <option value="outro">Outra</option>
+        </select>
+      </div>
+      <div class="field" id="c-inkind-box" hidden>
+        <label for="c-inkind">Descrição</label>
+        <input id="c-inkind" type="text" maxlength="200" autocomplete="off" placeholder="O que deu" enterkeyhint="next">
+      </div>
+    </div>
+    <div class="field">
+      <label for="c-url">Link da marca <span class="opt">(opcional)</span></label>
+      <input id="c-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://marca.pt ou @marca" enterkeyhint="next">
+    </div>
+    <fieldset class="field pt-contact">
+      <legend class="lbl">Contacto <span class="opt">(opcional)</span></legend>
+      <div class="pt-two">
+        <div class="field"><label for="c-cname">Nome</label><input id="c-cname" type="text" maxlength="80" autocomplete="off" enterkeyhint="next"></div>
+        <div class="field"><label for="c-channel">Canal</label>
+          <select id="c-channel">
+            <option value="">Sem canal</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">Email</option>
+            <option value="instagram">Instagram</option>
+            <option value="telefone">Telefone</option>
+            <option value="pessoal">Em pessoa</option>
+            <option value="site">Site</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="field"><label for="c-email">Email</label><input id="c-email" type="email" maxlength="120" autocapitalize="off" autocomplete="off" spellcheck="false" enterkeyhint="next"></div>
+        <div class="field"><label for="c-phone">Telefone</label><input id="c-phone" type="tel" maxlength="30" autocomplete="off" enterkeyhint="next"></div>
+      </div>
+      <div class="field"><label for="c-handle">Conta (Instagram)</label><input id="c-handle" type="text" maxlength="60" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="@marca" enterkeyhint="next"></div>
+    </fieldset>
+    <div class="pt-two">
+      <div class="field">
+        <label for="c-nif">NIF <span class="opt">(se o deu)</span></label>
+        <input id="c-nif" type="text" maxlength="20" inputmode="numeric" autocomplete="off" enterkeyhint="next">
+        <p class="hint" id="c-nif-hint"></p>
+      </div>
+      <fieldset class="field pt-lang">
+        <legend class="lbl">Língua</legend>
+        <div class="pt-seg">
+          <label class="chip"><input type="radio" name="c-lang" value="pt" checked>PT</label>
+          <label class="chip"><input type="radio" name="c-lang" value="en">EN</label>
+        </div>
+      </fieldset>
+    </div>
+    <label class="check"><input type="checkbox" id="c-vector"><span>Logótipo em vetor recebido</span></label>
+    <div class="field" id="c-race-box" hidden>
+      <label for="c-race">A partir da prova</label>
+      <input id="c-race" type="text" maxlength="80" autocomplete="off" placeholder="A prova combinada antes do pagamento" enterkeyhint="next">
+      <p class="hint" id="c-race-hint"></p>
+    </div>
+    <div class="field">
+      <label for="c-notes">Notas <span class="opt">(opcional)</span></label>
+      <textarea id="c-notes" rows="3" maxlength="2000"></textarea>
+    </div>
+    <p class="err" id="sh-err" role="alert"></p>
+    <div class="sh-foot">
+      <button type="button" class="btn ghost" id="sh-cancel">Cancelar</button>
+      <button type="submit" class="btn gold" id="sh-go">Guardar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmação (PDF) -->
+<dialog class="sheet small" id="pdf" aria-labelledby="pdf-title">
+  <div class="sh-head">
+    <h2 id="pdf-title">Confirmação de patrocínio</h2>
+    <button type="button" class="x" id="pdf-x" aria-label="Fechar">×</button>
+  </div>
+  <p class="sh-sum" id="pdf-sum"></p>
+  <fieldset class="field pt-lang">
+    <legend class="lbl">Língua do PDF</legend>
+    <div class="pt-seg">
+      <label class="chip"><input type="radio" name="pdf-lang" value="pt">Português</label>
+      <label class="chip"><input type="radio" name="pdf-lang" value="en">English</label>
+    </div>
+  </fieldset>
+  <p class="hint">Uma página A4 com a marca, os espaços, o montante, o período, o prazo do logótipo e a renovação. Feita neste telemóvel: não sai daqui até a enviares.</p>
+  <p class="err" id="pdf-err" role="alert"></p>
+  <div class="sh-foot">
+    <button type="button" class="btn ghost" id="pdf-no">Fechar</button>
+    <button type="button" class="btn gold" id="pdf-go">Guardar PDF</button>
+  </div>
+</dialog>
+
+<!-- Pagamento de um pedido confirmado sem registo -->
+<dialog class="sheet small" id="pay" aria-labelledby="pay-title">
+  <div class="sh-head">
+    <h2 id="pay-title">Registar contrato</h2>
+    <button type="button" class="x" id="pay-x" aria-label="Fechar">×</button>
+  </div>
+  <form id="pay-form" novalidate>
+    <p class="sh-sum" id="pay-sum"></p>
+    <div class="paid">
+      <div class="field">
+        <label for="pay-at">Pago a</label>
+        <input id="pay-at" type="date" enterkeyhint="next">
+      </div>
+      <div class="field">
+        <label for="pay-amt">Montante recebido</label>
+        <input id="pay-amt" type="text" inputmode="numeric" autocomplete="off" placeholder="€" enterkeyhint="done">
+      </div>
+    </div>
+    <p class="err" id="pay-err" role="alert"></p>
+    <div class="sh-foot">
+      <button type="button" class="btn ghost" id="pay-no">Cancelar</button>
+      <button type="submit" class="btn gold" id="pay-go">Registar</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Confirmar -->
+<dialog class="sheet small" id="confirm" aria-labelledby="cf-title">
+  <div class="sh-head"><h2 id="cf-title"></h2></div>
+  <p class="cf-text" id="cf-text"></p>
+  <div class="sh-foot">
+    <button type="button" class="btn ghost" id="cf-no">Cancelar</button>
+    <button type="button" class="btn gold" id="cf-yes">Confirmar</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

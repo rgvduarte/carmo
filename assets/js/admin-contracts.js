@@ -1,0 +1,384 @@
+// The sponsor contracts of the «Patrocínios» page (admin/patrocinios/): what is due now, the season's calendar, the CSV
+// export, the .ics file for the phone's calendar and the content of the «Confirmação de patrocínio» PDF. Pure: no DOM,
+// no fetch, no storage and no clock (every function takes the Lisbon day or the moment it works for), so Node tests it.
+// The records come from the booking Worker (GET /contratos, KV c:<id>, worker/requests.js); the dates and the price rule
+// from season-rules.js. A record's renewal step is stored by hand ('', 'proposta', 'renova', 'nao-renova'); the state
+// shown is renewalView(contract, day).
+import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, seasonBp, pctText, roundHalfUp, SEASON_DIV } from './season-rules.js';
+
+// ---------- words and dates ----------
+export const PT_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+export const EN_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const PT_MON = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+const ymd = (day) => String(day || '').split('-').map(Number);
+// '15 de janeiro de 2027' / '15 January 2027'
+export const ptLong = (day) => { const [y, m, d] = ymd(day); return `${d} de ${PT_MONTHS[m - 1]} de ${y}`; };
+export const enLong = (day) => { const [y, m, d] = ymd(day); return `${d} ${EN_MONTHS[m - 1]} ${y}`; };
+export const longDate = (day, lang = 'pt') => (lang === 'en' ? enLong(day) : ptLong(day));
+// '15 jan.' or '15 jan. 2027' (the admin's short dates, as admin-core fmtDay)
+export const ptDay = (day, year = false) => { const [y, m, d] = ymd(day); return `${d} ${PT_MON[m - 1]}${year ? ` ${y}` : ''}`; };
+export const monthName = (m, lang = 'pt') => ((lang === 'en' ? EN_MONTHS : PT_MONTHS)[m - 1] || '');
+const EUR = { pt: new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' }), en: new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' }) };
+export const money = (n, lang = 'pt') => EUR[lang === 'en' ? 'en' : 'pt'].format(Number(n) || 0);
+const pad2 = (n) => String(n).padStart(2, '0');
+const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+export const RENEWAL = { ativo: 'Ativo', 'a-propor': 'A propor', proposta: 'Proposta enviada', renova: 'Renova', 'nao-renova': 'Não renova', terminado: 'Terminado' };
+export const OUTCOME = { renova: 'renovou', 'nao-renova': 'não renovou', 'sem-resposta': 'sem resposta' };
+export const PAY = { mb: 'MB WAY', tr: 'Transferência', produto: 'Em produto', outro: 'Outra' };
+const PAY_EN = { mb: 'MB WAY', tr: 'Bank transfer', produto: 'In kind', outro: 'Other' };
+const PAY_PT_LONG = { mb: 'MB WAY', tr: 'Transferência bancária', produto: 'Em produto', outro: 'Outra' };
+export const CHANNEL = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', site: 'Site', telefone: 'Telefone', pessoal: 'Em pessoa', outro: 'Outro', '': '' };
+const LEVELS = { title: { pt: 'Title partner', en: 'Title partner' }, principal: { pt: 'Principal', en: 'Principal' }, oficial: { pt: 'Oficial', en: 'Official' }, fornecedor: { pt: 'Apoio', en: 'Supporter' } };
+// a level's name: the tiers of data/spots.json when given, else the names of today's tiers
+export function levelName(key, lang = 'pt', data = null) {
+  if (!key) return '';
+  const t = Array.isArray(data?.tiers) ? data.tiers.find((x) => x.key === key) : null;
+  if (t) return (lang === 'en' ? t.en : t.pt) || t.pt || key;
+  return (LEVELS[key] || {})[lang === 'en' ? 'en' : 'pt'] || key;
+}
+
+// ---------- one contract ----------
+export const isTitle = (c) => !!c && (c.title === true || (Array.isArray(c.spots) && c.spots.some((s) => s && s.id === TITLE)));
+export const idsOf = (c) => (isTitle(c) ? [TITLE] : (Array.isArray(c?.spots) ? c.spots.map((s) => s && s.id).filter(Boolean) : []));
+// the rules of the contract's own season: its stored period and dates, the season's defaults for anything missing
+export function rulesOfContract(c) {
+  const d = defaultRules(c && c.season);
+  return { ...d, start: c?.period?.start || d.start, end: c?.period?.end || d.end, logoBy: c?.dates?.logoBy || d.logoBy, proposalsFrom: c?.dates?.proposalsFrom || d.proposalsFrom, renewBy: c?.dates?.renewBy || d.renewBy, openFrom: c?.dates?.openFrom || d.openFrom };
+}
+// '01 Peito, 21 Topo do capacete', 'Fato completo', or the label of a deal with no spot
+export function spotsText(c, { lang = 'pt', data = null } = {}) {
+  if (isTitle(c)) return lang === 'en' ? 'Whole suit' : 'Fato completo';
+  const xs = Array.isArray(c?.spots) ? c.spots.filter(Boolean).slice().sort((a, b) => (Number(a.n) || 99) - (Number(b.n) || 99)) : [];
+  const name = (s) => { const live = lang === 'en' && Array.isArray(data?.spots) ? data.spots.find((x) => x.id === s.id) : null; return (live && live.en && live.en.name) || s.name || s.id; };
+  const list = xs.map((s) => `${s.n ? `${pad2(s.n)} ` : ''}${name(s)}`).join(', ');
+  return list || c?.label || '';
+}
+// «Desconto de época (março): −6,25%» (the card), from the price the table asked; '' when there was none
+export function seasonText(price) {
+  const m = Number(price?.m) || 0;
+  if (!(m > 0)) return '';
+  return `Desconto de época (${PT_MONTHS[m - 1]}): −${pctText(Number(price.seasonBp) || seasonBp(m))}%`;
+}
+// «março 6,25%» (the CSV's desconto_epoca cell)
+export function seasonCell(price) {
+  const m = Number(price?.m) || 0;
+  return m > 0 ? `${PT_MONTHS[m - 1]} ${pctText(Number(price.seasonBp) || seasonBp(m))}%` : '';
+}
+// the days of the contract still to run on Lisbon day `day`: { n, text } (n: days to the last day, 0 on it, -1 after it)
+export function daysLeft(c, day) {
+  const r = rulesOfContract(c);
+  if (day > r.end) return { n: -1, text: 'acabou' };
+  if (day < r.start) return { n: daysBetween(day, r.end), text: `começa a ${ptDay(r.start)}` };
+  const n = daysBetween(day, r.end);
+  return { n, text: n === 0 ? 'último dia' : n === 1 ? 'falta 1 dia' : `faltam ${n} dias` };
+}
+// the renewal state as shown, with its words: { state, outcome, label }
+export function renewalOf(c, day) {
+  const v = renewalView(c, day);
+  const label = v.state === 'terminado' ? `${RENEWAL.terminado} (${OUTCOME[v.outcome] || OUTCOME['sem-resposta']})`
+    : v.state === 'nao-renova' && v.outcome === 'sem-resposta' ? `${RENEWAL['nao-renova']} (sem resposta)` : RENEWAL[v.state];
+  return { ...v, label };
+}
+// the one-tap steps of a card: [{ state, label }] to send as { action: 'renovacao', state }
+export function renewalActs(c, day) {
+  const v = renewalView(c, day);
+  if (v.state === 'a-propor') return [{ state: 'proposta', label: 'Proposta enviada' }];
+  if (v.state === 'proposta') return [{ state: 'renova', label: 'Renova' }, { state: 'nao-renova', label: 'Não renova' }];
+  const stored = c.renewal?.state || '';
+  if (stored === 'renova' || stored === 'nao-renova') return v.state === 'terminado' ? [] : [{ state: 'proposta', label: 'Desfazer' }];
+  // no answer by the deadline: a late yes (or a no) can still be written down until the season ends
+  if (v.state === 'nao-renova') return [{ state: 'renova', label: 'Renova' }, { state: 'nao-renova', label: 'Não renova' }];
+  return [];
+}
+
+// ---------- the list ----------
+export const FILTERS = [['todos', 'Todos'], ['ativo', 'Ativos'], ['a-propor', 'A propor'], ['proposta', 'Proposta enviada'], ['renova', 'Renova'], ['nao-renova', 'Não renova'], ['terminado', 'Terminados']];
+// f: { state: a FILTERS key, season: '2027' | 'todas', q: words of the brand (accents and case do not count) }
+export function filterContracts(list, f = {}, day) {
+  const state = f.state || 'todos', season = f.season || 'todas', words = fold(f.q).split(/\s+/).filter(Boolean);
+  return (Array.isArray(list) ? list : []).filter((c) => {
+    if (!c || typeof c !== 'object') return false;
+    if (season !== 'todas' && String(c.season) !== String(season)) return false;
+    if (words.length) { const hay = fold(`${c.brand} ${c.label || ''}`); if (!words.every((w) => hay.includes(w))) return false; }
+    return state === 'todos' || renewalView(c, day).state === state;
+  });
+}
+// how many contracts each chip would show (with the season and the search applied)
+export function filterCounts(list, f = {}, day) {
+  const base = filterContracts(list, { ...f, state: 'todos' }, day), out = { todos: base.length };
+  for (const [k] of FILTERS.slice(1)) out[k] = 0;
+  for (const c of base) { const s = renewalView(c, day).state; out[s] = (out[s] || 0) + 1; }
+  return out;
+}
+// «7 patrocínios · 3 250 € recebidos · 2 a propor · 1 sem resposta»
+export function summary(list, day) {
+  const xs = Array.isArray(list) ? list : [];
+  const st = xs.map((c) => renewalView(c, day).state);
+  const got = xs.reduce((a, c) => a + (Number(c.amount) || 0), 0);
+  const aPropor = st.filter((s) => s === 'a-propor').length, waiting = st.filter((s) => s === 'proposta').length;
+  const parts = [`${xs.length} ${xs.length === 1 ? 'patrocínio' : 'patrocínios'}`, `${money(got)} ${got === 1 ? 'recebido' : 'recebidos'}`];
+  if (aPropor) parts.push(`${aPropor} a propor`);
+  if (waiting) parts.push(`${waiting} sem resposta`);
+  return { n: xs.length, received: got, aPropor, waiting, text: parts.join(' · ') };
+}
+
+// ---------- the season's calendar ----------
+export const KEY_LABEL = { inicio: 'Início', logos: 'Logótipos', propostas: 'Propostas', renovacao: 'Renovação', abertos: 'Livres para todos', fim: 'Fim' };
+const KEY_NOTE = {
+  inicio: (r) => `Começa a época ${r.season}.`,
+  logos: () => 'Último dia para o logótipo em vetor do fato e do capacete do primeiro triatlo.',
+  propostas: (r) => `Começa o envio das propostas de ${Number(r.season) + 1}.`,
+  renovacao: (r) => `Último dia para cada marca dizer que renova para ${Number(r.season) + 1}.`,
+  abertos: () => 'Os espaços que não foram renovados ficam livres para todos.',
+  fim: (r) => `Acaba a época ${r.season}.`,
+};
+// [{ key, day, label, date, note, state: 'past' | 'today' | 'next' | 'later', when }]
+export function calendar(rules, day) {
+  let next = false;
+  return keyDates(rules).map((k) => {
+    const n = daysBetween(day, k.day);
+    let state = n < 0 ? 'past' : n === 0 ? 'today' : 'later';
+    if (state === 'later' && !next) { state = 'next'; next = true; }
+    if (state === 'today') next = true;
+    const when = n < 0 ? 'passou' : n === 0 ? 'hoje' : n === 1 ? 'amanhã' : `faltam ${n} dias`;
+    return { key: k.key, day: k.day, label: KEY_LABEL[k.key], date: ptDay(k.day), note: KEY_NOTE[k.key](rules), state, when };
+  });
+}
+
+// ---------- what is due now ----------
+// contracts: GET /contratos; requests: GET /pedidos (or null when not read); data: data/spots.json (or null); rules: the
+// season in force (rulesOf(data)); day: today in Lisbon. Returns [{ key, kind: 'warn' | 'info', text, id?, acts:
+// [{ op, label, state? }] }] in the order of the season. op: 'logo' (the vector logo arrived), 'renovacao' (with state),
+// 'registar' (a confirmed request without a record: confirmar again), 'espacos' (go to /admin/).
+const sameBrand = (a, b) => fold(a).trim().replace(/\s+/g, ' ') === fold(b).trim().replace(/\s+/g, ' ');
+export function dueNow(contracts, requests, data, rules, day) {
+  const out = [], list = (Array.isArray(contracts) ? contracts : []).filter((c) => c && typeof c === 'object');
+  const live = (c) => day <= rulesOfContract(c).end;
+  const add = (x) => out.push({ acts: [], ...x });
+
+  // a request confirmed (paid) with no record: the same confirmar call creates it
+  for (const r of Array.isArray(requests) ? requests : []) {
+    if (!r || r.status !== 'confirmado') continue;
+    if (list.some((c) => c.id === r.id || (c.request && c.request === r.id))) continue;
+    add({ key: `registar:${r.id}`, kind: 'warn', id: r.id, text: `Pedido confirmado sem registo: ${r.brand || 'sem marca'} (pedido ${r.id})`, acts: [{ op: 'registar', label: 'Registar' }], request: r });
+  }
+
+  // the vector logo for the printed suit and helmet: up to the season's deadline, and for a sponsor who paid after it,
+  // in the 30 days after the payment (its logo goes on the kit from a race agreed then); the card keeps saying it after
+  for (const c of list) {
+    if (!live(c) || c.logo?.vector === true || (!idsOf(c).length && !isTitle(c))) continue;
+    const r = rulesOfContract(c);
+    if (!(day <= r.logoBy || (c.paidAt > r.logoBy && day <= addDays(c.paidAt, 30)))) continue;
+    const when = day <= r.logoBy ? `prazo ${ptDay(r.logoBy, r.logoBy.slice(0, 4) !== day.slice(0, 4))}` : c.logo?.fromRace ? `para a prova de ${c.logo.fromRace}` : 'para o fato e o capacete';
+    add({ key: `logo:${c.id}`, kind: day <= r.logoBy && daysBetween(day, r.logoBy) <= 7 ? 'warn' : 'info', id: c.id, text: `Falta o logótipo em vetor: ${c.brand} (${when})`, acts: [{ op: 'logo', label: 'Recebido' }] });
+  }
+
+  // the site against the records: spots sold without a logo, and contracts whose spots the site does not show as theirs
+  if (data && Array.isArray(data.spots)) {
+    const noLogo = new Map();
+    for (const x of [...data.spots, data.title ? { ...data.title, id: TITLE } : null]) {
+      if (!x || x.status !== 'sold' || x.logo) continue;
+      const b = x.brand || 'sem marca';
+      if (!noLogo.has(b)) noLogo.set(b, []);
+      noLogo.get(b).push(x.id === TITLE ? 'Fato completo' : `${pad2(x.n)} ${x.pt?.name || x.id}`);
+    }
+    for (const [b, names] of noLogo) add({ key: `site-logo:${b}`, kind: 'info', text: `Sem logótipo no site: ${b} (${names.join(', ')})`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
+    const season = rulesOf(data).season;
+    for (const c of list) {
+      if (String(c.season) !== season || !live(c) || renewalView(c, day).state === 'nao-renova') continue;
+      for (const id of idsOf(c)) {
+        const x = id === TITLE ? data.title : data.spots.find((s) => s.id === id);
+        if (!x) { add({ key: `site:${c.id}:${id}`, kind: 'warn', id: c.id, text: `O espaço ${id} de ${c.brand} já não existe no site.` }); continue; }
+        if (x.status === 'sold' && sameBrand(x.brand, c.brand)) continue;
+        const label = id === TITLE ? 'o fato completo' : `o ${pad2(x.n)} ${x.pt?.name || id}`;
+        add({ key: `site:${c.id}:${id}`, kind: 'warn', id: c.id, text: `No site, ${label} não está vendido a ${c.brand}${x.status === 'sold' && x.brand ? ` (está vendido a ${x.brand})` : ''}.`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
+      }
+    }
+  }
+
+  // the renewal: proposals to send, answers missing near the deadline, spots to free once it has passed
+  for (const c of list) {
+    const r = rulesOfContract(c), v = renewalView(c, day), next = Number(c.season) + 1;
+    if (v.state === 'a-propor' && day >= r.proposalsFrom && day <= r.renewBy) {
+      add({ key: `propor:${c.id}`, kind: daysBetween(day, r.renewBy) <= 14 ? 'warn' : 'info', id: c.id, text: `Enviar proposta ${next}: ${c.brand}`, acts: [{ op: 'renovacao', state: 'proposta', label: 'Proposta enviada' }] });
+    }
+    if (v.state === 'proposta' && day >= addDays(r.renewBy, -14) && day <= r.renewBy) {
+      add({ key: `resposta:${c.id}`, kind: 'warn', id: c.id, text: `Falta resposta (até ${ptDay(r.renewBy)}): ${c.brand}`, acts: [{ op: 'renovacao', state: 'renova', label: 'Renova' }, { op: 'renovacao', state: 'nao-renova', label: 'Não renova' }] });
+    }
+    if (v.state === 'nao-renova' && day >= r.openFrom && day <= r.end) {
+      // only while the site still shows the spots as the brand's (or when the site is not known)
+      const ids = idsOf(c);
+      const held = !data || !Array.isArray(data.spots) ? ids : ids.filter((id) => { const x = id === TITLE ? data.title : data.spots.find((s) => s.id === id); return x && x.status !== 'available' && sameBrand(x.brand, c.brand); });
+      if (held.length) add({ key: `libertar:${c.id}`, kind: 'info', id: c.id, text: `Libertar para ${next}: ${c.brand}, ${spotsText({ ...c, spots: (c.spots || []).filter((s) => held.includes(s.id)) })}`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
+    }
+  }
+
+  // the end of the season
+  const ending = list.filter((c) => { const r = rulesOfContract(c); return day <= r.end && day >= addDays(r.end, -30); });
+  if (ending.length) {
+    const end = rulesOfContract(ending[0]).end;
+    add({ key: 'fim', kind: 'info', text: `Contratos a acabar a ${ptDay(end)}: ${ending.length}` });
+  }
+  return out;
+}
+
+// ---------- CSV (Excel in Portuguese: UTF-8 with BOM, «;», CRLF) ----------
+export const CSV_COLS = ['id', 'epoca', 'marca', 'nivel', 'espacos', 'montante', 'desconto_epoca', 'pago_a', 'forma', 'inicio', 'fim', 'dias_restantes', 'renovacao', 'prazo_logotipo', 'logotipo_vetor', 'contacto', 'canal', 'email', 'telefone', 'conta', 'nif', 'pedido', 'notas'];
+// every cell quoted, «"» doubled; a cell that a spreadsheet would take for a formula starts with «'»
+export function csvCell(v) {
+  let s = v === null || v === undefined ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return `"${s.replace(/"/g, '""')}"`;
+}
+export function csvRow(c, day, data = null) {
+  const r = rulesOfContract(c), left = daysLeft(c, day);
+  const pay = c.pay === 'produto' && c.inKind ? `${PAY.produto}: ${c.inKind}` : PAY[c.pay] || '';
+  return [c.id, c.season, c.brand, levelName(c.level, 'pt', data), spotsText(c), Number(c.amount) || 0, seasonCell(c.price), c.paidAt || '', pay, r.start, r.end,
+    Math.max(0, left.n), renewalOf(c, day).label, r.logoBy, c.logo?.vector ? 'sim' : 'não', c.contact?.name || '', CHANNEL[c.contact?.channel || ''] || c.contact?.channel || '',
+    c.contact?.email || '', c.contact?.phone || '', c.contact?.handle || '', c.nif || '', c.request || '', c.notes || ''];
+}
+export function toCsv(contracts, day, data = null) {
+  const lines = [CSV_COLS, ...(Array.isArray(contracts) ? contracts : []).map((c) => csvRow(c, day, data))].map((row) => row.map(csvCell).join(';'));
+  return `\uFEFF${lines.join('\r\n')}\r\n`;
+}
+export const csvName = (season, day) => `gocarmo-patrocinios-${season && season !== 'todas' ? season : 'todas'}-${String(day).replace(/-/g, '')}.csv`;
+
+// ---------- .ics (RFC 5545), for the phone's calendar ----------
+// only brand and spot names go in it: no contact, no NIF, no amount
+export const icsText = (s) => String(s ?? '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r\n|\r|\n/g, '\\n');
+// a content line folded at 75 octets (UTF-8), never inside a character; each continuation starts with one space
+export function icsFold(line) {
+  const enc = new TextEncoder(), out = [];
+  let cur = '', size = 0, max = 75;
+  for (const ch of line) {
+    const n = enc.encode(ch).length;
+    if (size + n > max) { out.push(cur); cur = ' '; size = 1; max = 75; }
+    cur += ch; size += n;
+  }
+  out.push(cur);
+  return out.join('\r\n');
+}
+const icsDate = (day) => day.replace(/-/g, '');
+const icsStamp = (now) => new Date(now).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+function icsEvent({ uid, day, summary, description, stamp, alarms }) {
+  const lines = ['BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${icsDate(day)}`, `DTEND;VALUE=DATE:${icsDate(addDays(day, 1))}`,
+    `SUMMARY:${icsText(summary)}`, ...(description ? [`DESCRIPTION:${icsText(description)}`] : []), 'TRANSP:TRANSPARENT'];
+  for (const trigger of alarms) lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${icsText(summary)}`, `TRIGGER;RELATED=START:${trigger}`, 'END:VALARM');
+  lines.push('END:VEVENT');
+  return lines;
+}
+export const icsName = (season) => `gocarmo-patrocinios-${season}.ics`;
+// the season's key dates and one reminder per sponsor of that season whose proposal is still to send. now: the moment
+// (Date or ms) of the export; the reminders go on the later of proposalsFrom and that Lisbon day.
+export function toIcs(contracts, rules, now) {
+  const ms = now instanceof Date ? now.getTime() : Number(now);
+  const stamp = icsStamp(ms), y = rules.season, next = Number(y) + 1, day = lisbonDay(ms);
+  const AT9 = 'PT9H', WEEK = '-P6DT15H';   // 9:00 on the day; 9:00 a week before
+  const ev = [
+    { key: 'logos', summary: 'Logótipos em vetor: prazo', description: `Último dia para o logótipo em vetor de cada marca, para o fato e o capacete do primeiro triatlo da época ${y}.` },
+    { key: 'propostas', summary: `Propostas ${next}: começar`, description: `A partir de hoje, envia a cada patrocinador a proposta de ${next} para o mesmo espaço. Resposta até ${ptLong(rules.renewBy)}.` },
+    { key: 'renovacao', summary: 'Renovações: último dia', description: `Último dia para cada patrocinador dizer que renova para ${next}. A partir de ${ptLong(rules.openFrom)}, os espaços não renovados ficam livres.`, week: true },
+    { key: 'abertos', summary: 'Espaços não renovados livres', description: `Os espaços que não foram renovados para ${next} ficam livres para todos. Liberta-os em Espaços.` },
+    { key: 'fim', summary: `Fim da época ${y}`, description: `Acaba a época ${y}.` },
+  ];
+  const at = Object.fromEntries(keyDates(rules).map((k) => [k.key, k.day]));
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//gocarmo.com//Patrocinios//PT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${icsText(`GOCARMO patrocínios ${y}`)}`];
+  for (const e of ev) lines.push(...icsEvent({ uid: `gocarmo-${y}-${e.key}@gocarmo.com`, day: at[e.key], summary: e.summary, description: e.description, stamp, alarms: e.week ? [AT9, WEEK] : [AT9] }));
+  const on = day > rules.proposalsFrom ? day : rules.proposalsFrom;
+  if (on <= rules.renewBy) {
+    for (const c of Array.isArray(contracts) ? contracts : []) {
+      if (!c || String(c.season) !== String(y)) continue;
+      const st = renewalView(c, on).state;
+      if (st !== 'ativo' && st !== 'a-propor') continue;
+      const what = spotsText(c);
+      lines.push(...icsEvent({ uid: `gocarmo-${y}-c-${c.id}@gocarmo.com`, day: on, summary: `Proposta ${next}: ${c.brand}${what ? ` (${what})` : ''}`,
+        description: `Envia a proposta de ${next} para o mesmo espaço. Resposta até ${ptLong(rules.renewBy)}.`, stamp, alarms: [AT9] }));
+    }
+  }
+  lines.push('END:VCALENDAR');
+  return `${lines.map(icsFold).join('\r\n')}\r\n`;
+}
+
+// ---------- the «Confirmação de patrocínio» (the PDF Gonçalo sends after the payment) ----------
+// The rows of the price follow the comprovativo (i18n.js cl.seasonrow, cl.save): the mid-season discount, then the bundle
+// discount, then the amount. They are shown only when the amount paid is the price the table asked (price.total); a
+// negotiated or in-kind deal shows only what was paid.
+const L = {
+  pt: {
+    title: 'Confirmação de patrocínio', doc: (b) => `Confirmação de patrocínio · ${b}`, file: 'confirmacao',
+    seasonH: (y) => `Patrocinador da época ${y}`, thanks: (b) => `Obrigado, ${b}. O patrocínio está confirmado.`,
+    brand: 'Marca', level: 'Nível', period: 'Período', periodV: (r) => `Época ${r.season}, de ${ptLong(r.start).replace(/ de \d{4}$/, '')} a ${ptLong(r.end)}`,
+    paidAt: 'Pago a', pay: 'Pagamento', nif: 'NIF', ref: 'Registo',
+    cols: ['Espaço', 'Onde', 'Preço'], suit: 'Fato', helmet: 'Capacete', whole: 'Fato completo (Title partner)',
+    seasonRow: (m, bp) => `Desconto de época (${PT_MONTHS[m - 1]}, −${pctText(bp, ',')}%)`, bundleRow: (p) => `Desconto de pacote (−${p}%)`, paid: 'Montante pago',
+    nextH: 'Prazos e renovação',
+    logoOpen: (r, got) => `O logótipo entra no site e nas minhas publicações a partir de agora. Para o fato e o capacete, o logótipo em vetor (SVG, PDF, AI ou EPS) tem de chegar até ${ptLong(r.logoBy)}, para estar no equipamento do primeiro triatlo.${got ? ' Já o recebi.' : ''}`,
+    logoLate: (race, got) => `O logótipo entra no site e nas minhas publicações a partir de agora e, no fato e no capacete, a partir da prova que combinámos antes do pagamento${race ? ` (${race})` : ''}.${got ? ' Já recebi o logótipo em vetor.' : ' Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).'}`,
+    renew: (r, w) => `Renovação: tens preferência ${w[0]} em ${Number(r.season) + 1}, ao preço da tabela de ${Number(r.season) + 1}. Envio-te a proposta a partir de ${ptLong(r.proposalsFrom)}; se me disseres que sim até ${ptLong(r.renewBy)}, ${w[1]}. A partir de ${ptLong(r.openFrom)}, o que não for renovado fica livre para todos.`,
+    renewWhat: { one: ['no mesmo espaço', 'o espaço continua teu'], many: ['nos mesmos espaços', 'os espaços continuam teus'], title: ['no fato completo', 'o fato completo continua teu'], none: ['na renovação', 'o patrocínio continua'] },
+    terms: (d) => `As condições do patrocínio estão em gocarmo.com/condicoes${d ? ` (atualizadas a ${ptLong(d)})` : ''}.`,
+    ct: 'Contacto', foot: 'Esta confirmação não é uma fatura nem um recibo. O recibo de donativo segue à parte.',
+    pays: PAY_PT_LONG, inKind: (x) => `Em produto: ${x}`,
+  },
+  en: {
+    title: 'Sponsorship confirmation', doc: (b) => `Sponsorship confirmation · ${b}`, file: 'confirmation',
+    seasonH: (y) => `${y} season sponsor`, thanks: (b) => `Thank you, ${b}. The sponsorship is confirmed.`,
+    brand: 'Brand', level: 'Level', period: 'Period', periodV: (r) => `${r.season} season, ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
+    paidAt: 'Paid on', pay: 'Payment', nif: 'Tax number (NIF)', ref: 'Record',
+    cols: ['Spot', 'Where', 'Price'], suit: 'Suit', helmet: 'Helmet', whole: 'Whole suit (Title partner)',
+    seasonRow: (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, −${pctText(bp, '.')}%)`, bundleRow: (p) => `Bundle discount (−${p}%)`, paid: 'Amount paid',
+    nextH: 'Deadlines and renewal',
+    logoOpen: (r, got) => `Your logo goes on the site and in my posts from now on. For the suit and the helmet, the vector logo (SVG, PDF, AI or EPS) has to arrive by ${enLong(r.logoBy)} to be on the kit for the first triathlon.${got ? ' I already have it.' : ''}`,
+    logoLate: (race, got) => `Your logo goes on the site and in my posts from now on, and on the suit and the helmet from the race we agreed before the payment${race ? ` (${race})` : ''}.${got ? ' I already have the vector logo.' : ' For production, send me the logo as a vector file (SVG, PDF, AI or EPS).'}`,
+    renew: (r, w) => `Renewal: you have first option ${w[0]} in ${Number(r.season) + 1}, at the ${Number(r.season) + 1} rate card price. I send you the proposal from ${enLong(r.proposalsFrom)}; if you say yes by ${enLong(r.renewBy)}, ${w[1]}. From ${enLong(r.openFrom)}, anything not renewed is open to everyone.`,
+    renewWhat: { one: ['on the same spot', 'the spot stays yours'], many: ['on the same spots', 'the spots stay yours'], title: ['on the whole suit', 'the whole suit stays yours'], none: ['on renewal', 'the sponsorship carries on'] },
+    terms: (d) => `The sponsorship terms are at gocarmo.com/condicoes${d ? ` (updated ${enLong(d)})` : ''}.`,
+    ct: 'Contact', foot: 'This confirmation is not an invoice or a receipt. The donation receipt is sent separately.',
+    pays: PAY_EN, inKind: (x) => `In kind: ${x}`,
+  },
+};
+const slug = (s) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'marca';
+export const TERMS_URL = 'https://gocarmo.com/condicoes/';
+// the price rows of a contract, from what the table asked (price: { gross, m, seasonBp, discPct, total }); null when
+// the amount paid is not that price, or there is no price
+export function priceRows(c, lang = 'pt') {
+  const p = c && c.price, w = L[lang === 'en' ? 'en' : 'pt'];
+  if (!p || !Number.isFinite(Number(p.gross)) || Number(c.amount) !== Number(p.total)) return null;
+  const gross = Number(p.gross), m = Number(p.m) || 0, disc = Number(p.discPct) || 0;
+  const after = roundHalfUp(gross * (SEASON_DIV - m), SEASON_DIV), net = roundHalfUp(gross * (SEASON_DIV - m) * (100 - disc), SEASON_DIV * 100);
+  if (net !== Number(p.total)) return null;   // a record whose numbers do not add up shows only what was paid
+  return {
+    season: m > 0 ? [w.seasonRow(m, Number(p.seasonBp) || seasonBp(m)), `−${money(gross - after, lang)}`] : null,
+    disc: disc > 0 ? [w.bundleRow(disc), `−${money(after - net, lang)}`] : null,
+  };
+}
+// the model the PDF lays out (admin-confirm-pdf.js). opts.data: data/spots.json, for the spots' English names and the
+// tier names; opts.site: { name, email, whatsapp } of SITE.
+export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {}) {
+  const lg = lang === 'en' ? 'en' : 'pt', w = L[lg], r = { ...rulesOfContract(c), season: String(c.season) };
+  const brand = String(c.brand || '');
+  const title = isTitle(c);
+  const live = (id) => (Array.isArray(data?.spots) ? data.spots.find((x) => x.id === id) : null);
+  const items = title ? [{ n: '', name: w.whole, model: w.suit, price: money((c.spots || []).find((s) => s.id === TITLE)?.price ?? c.price?.gross ?? 0, lg) }]
+    : (c.spots || []).filter(Boolean).slice().sort((a, b) => (Number(a.n) || 99) - (Number(b.n) || 99)).map((s) => ({ n: s.n ? pad2(s.n) : '', name: (lg === 'en' && live(s.id)?.en?.name) || s.name || s.id, model: s.item === 'helmet' ? w.helmet : w.suit, price: money(s.price, lg) }));
+  if (!items.length && c.label) items.push({ n: '', name: c.label, model: '', price: '' });
+  const rows = priceRows(c, lg);
+  const pay = c.pay === 'produto' && c.inKind ? w.inKind(c.inKind) : w.pays[c.pay] || '';
+  const info = [[w.brand, brand], [w.level, levelName(c.level, lg, data)], [w.period, w.periodV(r)], [w.paidAt, c.paidAt ? longDate(c.paidAt, lg) : ''], [w.pay, pay]];
+  if (c.nif) info.push([w.nif, c.nif]);
+  info.push([w.ref, String(c.id || '')]);
+  const ids = idsOf(c), what = title ? w.renewWhat.title : ids.length > 1 ? w.renewWhat.many : ids.length === 1 ? w.renewWhat.one : w.renewWhat.none;
+  const late = c.paidAt && c.paidAt > r.logoBy;
+  const next = [late ? w.logoLate(c.logo?.fromRace || '', c.logo?.vector === true) : w.logoOpen(r, c.logo?.vector === true), w.renew(r, what), w.terms(c.terms || '')];
+  const wa = site.whatsapp ? String(site.whatsapp).replace(/^(\d{3})(\d{3})(\d{3})(\d{3})$/, '+$1 $2 $3 $4') : '+351 916 395 103';
+  return {
+    lang: lg, file: `gocarmo-${w.file}-${slug(brand)}-${c.season}.pdf`, docTitle: `${w.doc(brand)} · ${site.name || 'Gonçalo Carmo'}`,
+    head: { name: site.name || 'Gonçalo Carmo', site: 'gocarmo.com' },
+    title: w.title, box: { k: w.seasonH(c.season), h: w.thanks(brand) },
+    rows: info.filter(([, v]) => v), cols: w.cols, items,
+    season: rows ? rows.season : null, disc: rows ? rows.disc : null, total: [w.paid, money(c.amount, lg)],
+    next: { h: w.nextH, items: next }, link: { text: 'gocarmo.com/condicoes', uri: TERMS_URL },
+    contact: [w.ct, `WhatsApp ${wa} · ${site.email || 'allez@gocarmo.com'}`], foot: w.foot,
+  };
+}

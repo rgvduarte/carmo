@@ -10,8 +10,8 @@
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="../assets/css/style.css?v=ede62741">
-<link rel="stylesheet" href="../assets/css/privacy.css?v=d6ee2ceb">
+<link rel="stylesheet" href="../assets/css/style.css?v=921732d7">
+<link rel="stylesheet" href="../assets/css/privacy.css?v=f1927f64">
 <script type="importmap">
 { "imports": {
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
@@ -22,10 +22,13 @@
   "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=a6e8f1b4",
   "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=d192f4a9",
   "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=1eb36543",
-  "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=1a6b1eda",
+  "../assets/js/admin-confirm-pdf.js": "../assets/js/admin-confirm-pdf.js?v=fecff3f8",
+  "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=8d7e090a",
+  "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=8d4ca3b5",
+  "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=cc52b94c",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
-  "../assets/js/admin.js": "../assets/js/admin.js?v=629edca2",
-  "../assets/js/adspace.js": "../assets/js/adspace.js?v=45e71b41",
+  "../assets/js/admin.js": "../assets/js/admin.js?v=8be6e2f2",
+  "../assets/js/adspace.js": "../assets/js/adspace.js?v=1baa65f1",
   "../assets/js/analytics.js": "../assets/js/analytics.js?v=33844efa",
   "../assets/js/cartao.js": "../assets/js/cartao.js?v=3afab20e",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
@@ -34,14 +37,16 @@
   "../assets/js/gl3d.js": "../assets/js/gl3d.js?v=a7737baa",
   "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=df0a53e9",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=dc407430",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=626b55fd",
   "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
   "../assets/js/main.js": "../assets/js/main.js?v=3843dd80",
   "../assets/js/marks.js": "../assets/js/marks.js?v=fdea7b6c",
+  "../assets/js/pdf-kit.js": "../assets/js/pdf-kit.js?v=78100225",
   "../assets/js/privacy.js": "../assets/js/privacy.js?v=95de7df4",
   "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
-  "../assets/js/receipt.js": "../assets/js/receipt.js?v=d54cc0c9",
+  "../assets/js/receipt.js": "../assets/js/receipt.js?v=5b6a6dce",
   "../assets/js/room.js": "../assets/js/room.js?v=b0ef85a2",
+  "../assets/js/season-rules.js": "../assets/js/season-rules.js?v=95084349",
   "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=87cd2e59",
   "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=c1ae9984",
   "../assets/js/stats-zones.js": "../assets/js/stats-zones.js?v=66b2b133",
@@ -89,8 +94,15 @@
     gocarmo.com/condicoes, atualizadas a …», e o passo 1 do pedido mostra a mesma data. O serviço de reservas apaga o
     pedido ao fim de 180 dias.
   - Se mudares o texto, muda a data «Atualizada a» nas duas línguas e, no mesmo dia, a data de cl.terms (index.html e,
-    em inglês, assets/js/i18n.js) e de msg.terms (assets/js/i18n.js, PT_JS e EN_JS). As decisões D1 a D18 foram aceites
-    a 26.10.2026.
+    em inglês, assets/js/i18n.js), de msg.terms (assets/js/i18n.js, PT_JS e EN_JS) e seasonRules.termsDate em
+    data/spots.json. «node scripts/stamp.mjs --check» recusa publicar enquanto estas datas não baterem certo. As decisões
+    D1 a D18 foram aceites a 26.10.2026; as da época (ano civil, desconto de época, prazo do logótipo a 15 de janeiro,
+    preferência na renovação para todos os níveis, registo dos patrocínios) a 28.10.2026.
+  - Datas da época: vêm de "seasonRules" em data/spots.json, que o site, o comprovativo, o admin e o Worker usam. A secção
+    «Duração, prazos e renovação» escreve-as à mão nas duas línguas, e a tabela do desconto de época (table.season-disc)
+    também: o stamp.mjs compara-as com seasonRules e com assets/js/season-rules.js e recusa publicar se não baterem.
+    Na época 2028, muda primeiro seasonRules e os preços, depois as datas e a tabela desta página (README, «Mudar de
+    época»).
 -->
 <main id="main" class="wrap legal" tabindex="-1">
 
@@ -98,12 +110,13 @@
   <p class="eyebrow gold">Condições do patrocínio</p>
   <h1 class="display legal-h">O que inclui um espaço</h1>
   <p class="lead">O que recebes em 2027, o que fica de fora, como reservas e pagas, e o que se combina à parte.</p>
-  <p class="legal-date">Atualizada a 26 de outubro de 2026</p>
+  <p class="legal-date">Atualizada a 28 de outubro de 2026</p>
 
   <section class="legal-sum" aria-labelledby="sum-pt">
     <h2 id="sum-pt">Em resumo</h2>
     <ul>
-      <li>Um espaço é para a época 2027 inteira, em todos os triatlos que eu fizer, salvo nas provas com parceiro de prova ou em que tenha de usar outro equipamento (mais abaixo). O fato vai também aos treinos.</li>
+      <li>Um espaço é para a época 2027 inteira, de 1 de janeiro a 31 de dezembro de 2027, em todos os triatlos que eu fizer, salvo nas provas com parceiro de prova ou em que tenha de usar outro equipamento (mais abaixo). O fato vai também aos treinos.</li>
+      <li>Se entrares a meio da época, a partir de fevereiro de 2027, tens um desconto de época, até 20,83% em outubro. Quem patrocina em 2027 tem preferência no mesmo espaço em 2028, se me disser que sim até 31 de outubro de 2027.</li>
       <li>Recebes o que o teu nível inclui. Não garanto resultados nem alcance.</li>
       <li>Exclusividade de setor, só com o fato completo ou por acordo escrito. A minha imagem em anúncios, só por escrito.</li>
       <li>Numa prova do calendário por época, no máximo, e em Kona, se ganhar a vaga, uma empresa pode ser parceiro de prova. Nessas provas corro com o fato dela, não com o da época, e aviso-te antes.</li>
@@ -127,7 +140,7 @@
     <li>A marca identificada nas minhas publicações de cada prova (numa prova com parceiro de prova, ver mais abaixo).</li>
   </ul>
   <p><strong>Oficial</strong> (espaços a partir de 150&nbsp;€), mais: publicação de apresentação e story no Instagram, fotografias com o logótipo para as redes da marca e relatórios a meio e no fim da época.</p>
-  <p><strong>Principal</strong> (a partir de 400&nbsp;€), tudo o que o Oficial inclui e ainda: três publicações dedicadas por mês, o logótipo no equipamento de treino, uma t-shirt GOCARMO, uma página de relatório por mês e a primeira hipótese de ficar com o mesmo espaço em 2028, ao preço da tabela de 2028, se me disseres que sim até 31 de outubro de 2027.</p>
+  <p><strong>Principal</strong> (a partir de 400&nbsp;€), tudo o que o Oficial inclui e ainda: três publicações dedicadas por mês, o logótipo no equipamento de treino, uma t-shirt GOCARMO e uma página de relatório por mês.</p>
   <p><strong>Fato completo</strong>, o title partner (3&nbsp;000&nbsp;€), tudo o que o Principal e o Oficial incluem e ainda: os 20 espaços do fato, «Gonçalo Carmo × Marca» na bio, no media kit e no material de imprensa, exclusividade no teu setor e uma presença por época num evento da marca.</p>
   <p>Com vários espaços, ficas no nível do mais caro.</p>
 
@@ -163,17 +176,47 @@
 
   <h2>Reservar e pagar</h2>
   <ul>
-    <li>Envias o pedido com a marca e o logótipo, e o espaço fica reservado durante 48 horas. O site mostra até quando. Se o site não conseguir reservar, confirmo eu por mensagem. A partir de três espaços, tens 10% de desconto.</li>
+    <li>Envias o pedido com a marca e o logótipo, e o espaço fica reservado durante 48 horas. O site mostra até quando. Se o site não conseguir reservar, confirmo eu por mensagem. A partir de três espaços, tens 10% de desconto. Depois de 31 de janeiro de 2027, há também um desconto de época para quem entra a meio da época (em <a href="#duracao">«Duração, prazos e renovação»</a>).</li>
     <li>Pagas por transferência, ou por MB WAY até 2&nbsp;000&nbsp;€, com a referência dos espaços no descritivo (por exemplo, CARMO 01 21; no fato completo, CARMO FATO, só por transferência), e envias-me o comprovativo nessas 48 horas. Sem ele, a reserva acaba sozinha.</li>
     <li>Quando o pagamento entra, o espaço é teu e a marca aparece no site. Recebes um recibo de donativo, com o NIF, se o puseres no pedido.</li>
     <li>Se outra marca fechar o espaço antes de ti, devolvo-te o dinheiro no mesmo dia. Se desistires até 14 dias depois de pagares, devolvo tudo, desde que eu ainda não tenha mandado produzir o teu logótipo (aviso-te quando mando). Depois disso não há devolução, mas podes passar o espaço a outra marca, com o meu acordo.</li>
   </ul>
 
-  <h2>O logótipo e a produção</h2>
+  <h2 id="duracao">Duração, prazos e renovação</h2>
+  <ul>
+    <li>A época é o ano civil. Um espaço da época 2027 vale de 1 de janeiro a 31 de dezembro de 2027, seja qual for o dia em que pagas. O logótipo entra no site e nas minhas publicações logo que confirmo o pagamento.</li>
+    <li>Até 31 de janeiro de 2027, e nos pedidos feitos em 2026, pagas o preço da tabela. A partir de 1 de fevereiro de 2027, quem entra a meio da época tem um desconto de época: um quarto da parte da época que já passou, contando o mês do pedido (na hora de Lisboa) como passado. Em março já passaram 3 de 12 meses; o desconto é um quarto disso, 6,25%.</li>
+    <li>O desconto por mês do pedido, e o que fica a pagar por um espaço de 100&nbsp;€ e por um de 600&nbsp;€:
+      <table class="season-disc">
+        <thead><tr><th scope="col">Mês do pedido</th><th scope="col">Desconto</th><th scope="col">100&nbsp;€</th><th scope="col">600&nbsp;€</th></tr></thead>
+        <tbody>
+          <tr><td>Até janeiro</td><td>0%</td><td>100&nbsp;€</td><td>600&nbsp;€</td></tr>
+          <tr><td>Fevereiro</td><td>4,17%</td><td>96&nbsp;€</td><td>575&nbsp;€</td></tr>
+          <tr><td>Março</td><td>6,25%</td><td>94&nbsp;€</td><td>563&nbsp;€</td></tr>
+          <tr><td>Abril</td><td>8,33%</td><td>92&nbsp;€</td><td>550&nbsp;€</td></tr>
+          <tr><td>Maio</td><td>10,42%</td><td>90&nbsp;€</td><td>538&nbsp;€</td></tr>
+          <tr><td>Junho</td><td>12,5%</td><td>88&nbsp;€</td><td>525&nbsp;€</td></tr>
+          <tr><td>Julho</td><td>14,58%</td><td>85&nbsp;€</td><td>513&nbsp;€</td></tr>
+          <tr><td>Agosto</td><td>16,67%</td><td>83&nbsp;€</td><td>500&nbsp;€</td></tr>
+          <tr><td>Setembro</td><td>18,75%</td><td>81&nbsp;€</td><td>488&nbsp;€</td></tr>
+          <tr><td>Outubro</td><td>20,83%</td><td>79&nbsp;€</td><td>475&nbsp;€</td></tr>
+        </tbody>
+      </table>
+    </li>
+    <li>A conta segue esta ordem: primeiro o desconto de época, depois o desconto de pacote (três ou mais espaços, 10%) e, no fim, o total arredonda ao euro (50 cêntimos arredondam para cima). O fato completo tem o mesmo desconto de época, sem desconto de pacote. Por exemplo, o Peito, o Topo das costas e a Clavícula esquerda (1&nbsp;100&nbsp;€) pedidos em março ficam em 928&nbsp;€: 1&nbsp;100&nbsp;€ menos 6,25% são 1&nbsp;031,25&nbsp;€, menos 10% são 928,13&nbsp;€, que arredonda para 928&nbsp;€.</li>
+    <li>Vale o preço do dia do pedido, se pagares dentro da reserva (48 horas, ou até ao dia para que eu a prolongar).</li>
+    <li>O logótipo em vetor para o fato e o capacete tem prazo até 15 de janeiro de 2027 (em <a href="#logotipo">«O logótipo e a produção»</a>).</li>
+    <li>Todos os patrocinadores da época 2027, de qualquer nível, têm preferência no mesmo espaço em 2028, ao preço da tabela de 2028. Envio-te a proposta a partir de 1 de setembro de 2027. Se me disseres que sim até 31 de outubro de 2027, o espaço continua teu. A partir de 1 de novembro de 2027, os espaços que não forem renovados ficam livres para todos.</li>
+    <li>Os pedidos para a época 2027 fecham a 31 de outubro de 2027. A época 2028 abre no site quando a tabela de 2028 estiver publicada.</li>
+    <li>Quando devolvo a parte da época que falta, contada por meses (em <a href="#lesao">«Lesão, doença ou prova cancelada»</a> e em <a href="#conduta">«Conduta, nos dois sentidos»</a>), a conta é esta: o que pagaste, a dividir pelos meses que contam, vezes os meses completos que faltam. Contam os meses do mês do teu pedido a dezembro, os dois incluídos (12 nos pedidos até 31 de janeiro de 2027). Faltam os meses depois do mês em que paro ou em que o patrocínio acaba, até dezembro. Por exemplo, se pediste o Peito em março e pagaste 563&nbsp;€, contam 10 meses (março a dezembro); se eu parar em junho, faltam 6 (julho a dezembro), e devolvo 563&nbsp;€ × 6/10 = 337,80&nbsp;€.</li>
+    <li>Depois do pagamento, envio-te uma confirmação do patrocínio, em PDF, com os espaços, o montante, o período, os prazos e a data da renovação.</li>
+  </ul>
+
+  <h2 id="logotipo">O logótipo e a produção</h2>
   <ul>
     <li>A produção está incluída. O logótipo do pedido serve para o site. Para produzir, preciso dele em vetor (SVG, PDF, AI ou EPS).</li>
     <li>Antes de produzir, envio-te uma imagem de como fica, para aprovares em 3 dias úteis. Se não responderes, lembro-te uma vez e, sem resposta 2 dias úteis depois, avanço com essa imagem.</li>
-    <li>Se o logótipo em vetor chegar até 15 de fevereiro de 2027, conto ter o fato e o capacete prontos para o primeiro triatlo. Se o fornecedor atrasar, aviso-te, e até o equipamento chegar a tua marca continua nas publicações das provas. Se comprares depois dessa data, digo-te antes de pagares em que prova o logótipo entra.</li>
+    <li>Se o logótipo em vetor chegar até 15 de janeiro de 2027, conto ter o fato e o capacete prontos para o primeiro triatlo. Se o fornecedor atrasar, aviso-te, e até o equipamento chegar a tua marca continua nas publicações das provas. Se comprares depois dessa data, o logótipo entra logo no site e nas publicações e, no fato e no capacete, a partir da prova que te digo antes de pagares.</li>
     <li>Garantes que o logótipo é teu e que o podes usar, e autorizas-me a usá-lo no fato, no capacete, no site, nas publicações e nos relatórios de 2027. As publicações já feitas ficam online depois da época.</li>
   </ul>
 
@@ -182,15 +225,15 @@
   <p>O dorsal pode tapar em parte o abdómen, na corrida, e a lombar e o meio das costas, na bicicleta. A ficha de cada espaço no site avisa antes da compra, por isso não conta como logótipo tapado.</p>
   <p>O fato pode levar também os logótipos da minha equipa, a LB Squad Portugal, se a equipa o pedir. Se a equipa não aceitar marcas de um setor, eu também não aceito, e aviso-te antes de pagares. Se a equipa ou as regras de uma prova me obrigarem a usar outro equipamento, como o da equipa ou o da seleção nacional, o fato da época não vai a essa prova, e aviso-te antes, como numa prova com parceiro de prova.</p>
 
-  <h2>Lesão, doença ou prova cancelada</h2>
+  <h2 id="lesao">Lesão, doença ou prova cancelada</h2>
   <p>Não contam como falha. O logótipo continua no site, a tua marca continua nas minhas publicações e o fato volta aos treinos logo que eu possa treinar. O conteúdo passa para as provas seguintes ou, no fim da época, para publicações de treino. Se eu falhar uma publicação ou um relatório por culpa minha, faço outro de valor igual.</p>
-  <p>Se, por uma destas razões, eu não fizer nenhum triatlo na época, escolhes entre o mesmo espaço em 2028, sem pagar, e a devolução de metade do que pagaste. Se eu deixar de competir na época por decisão minha, devolvo a parte da época que falta, contada por meses. Fora destes casos, lesão, doença ou prova cancelada não dão devolução.</p>
+  <p>Se, por uma destas razões, eu não fizer nenhum triatlo na época, escolhes entre o mesmo espaço em 2028, sem pagar, e a devolução de metade do que pagaste. Se eu deixar de competir na época por decisão minha, devolvo a parte da época que falta, contada por meses como em <a href="#duracao">«Duração, prazos e renovação»</a>. Fora destes casos, lesão, doença ou prova cancelada não dão devolução.</p>
 
-  <h2>Conduta, nos dois sentidos</h2>
+  <h2 id="conduta">Conduta, nos dois sentidos</h2>
   <ul>
     <li>As publicações com a tua marca levam #PUB no início, ou a etiqueta de parceria paga da rede.</li>
     <li>Não aceito marcas de álcool, apostas ou tabaco. Suplementos, só com garantia escrita de que não têm substâncias proibidas no desporto.</li>
-    <li>Se um de nós tiver uma conduta grave e pública que prejudique o nome do outro, o outro pode terminar o patrocínio, com aviso por escrito. Por exemplo: uma violação das regras antidopagem confirmada, uma condenação por crime, discurso de ódio, ou a tua marca passar a vender produtos de um setor excluído. Se for por causa minha, devolvo a parte da época que falta, contada por meses. Se for por causa da tua marca, o logótipo sai a partir da prova seguinte, sem devolução.</li>
+    <li>Se um de nós tiver uma conduta grave e pública que prejudique o nome do outro, o outro pode terminar o patrocínio, com aviso por escrito. Por exemplo: uma violação das regras antidopagem confirmada, uma condenação por crime, discurso de ódio, ou a tua marca passar a vender produtos de um setor excluído. Se for por causa minha, devolvo a parte da época que falta, contada por meses como em <a href="#duracao">«Duração, prazos e renovação»</a>. Se for por causa da tua marca, o logótipo sai a partir da prova seguinte, sem devolução.</li>
   </ul>
 
   <h2>Mudanças a esta página</h2>
@@ -205,12 +248,13 @@
   <p class="eyebrow gold">Sponsorship terms</p>
   <h1 class="display legal-h">What a spot includes</h1>
   <p class="lead">What you get in 2027, what's left out, how booking and payment work, and what we agree separately.</p>
-  <p class="legal-date">Updated 26 October 2026</p>
+  <p class="legal-date">Updated 28 October 2026</p>
 
   <section class="legal-sum" aria-labelledby="sum-en">
     <h2 id="sum-en">At a glance</h2>
     <ul>
-      <li>A spot covers the whole 2027 season, at every triathlon I race, except at races with a race partner or where I have to wear other kit (see below). I wear the suit in training too.</li>
+      <li>A spot covers the whole 2027 season, 1 January to 31 December 2027, at every triathlon I race, except at races with a race partner or where I have to wear other kit (see below). I wear the suit in training too.</li>
+      <li>If you join mid-season, from February 2027, you get a mid-season discount, up to 20.83% in October. Every 2027 sponsor has first option on the same spot in 2028, if they say yes by 31 October 2027.</li>
       <li>You get what your level includes. I don't guarantee results or reach.</li>
       <li>Category exclusivity only comes with the whole suit or a written agreement. Using my image in your ads needs a written agreement.</li>
       <li>At one calendar race a season at most, and at Kona if I qualify, a company can be the race partner. At those races I wear its suit, not the season suit, and I'll tell you beforehand.</li>
@@ -234,7 +278,7 @@
     <li>Your brand tagged in my posts for every race (for a race with a race partner, see below).</li>
   </ul>
   <p><strong>Official</strong> (spots from €150), plus: an announcement post and story on Instagram, photos with your logo for your brand's channels, and mid-season and end-of-season reports.</p>
-  <p><strong>Principal</strong> (from €400), everything in Official, plus: three dedicated posts a month, your logo on my training kit, a GOCARMO T-shirt, a one-page report every month, and first option on the same spot for 2028, at the 2028 rate card price, if you say yes by 31 October 2027.</p>
+  <p><strong>Principal</strong> (from €400), everything in Official, plus: three dedicated posts a month, your logo on my training kit, a GOCARMO T-shirt and a one-page report every month.</p>
   <p><strong>Whole suit</strong>, the title partner (€3,000), everything in Principal and Official, plus: all 20 suit spots, “Gonçalo Carmo × Brand” in my bios, the media kit and press materials, category exclusivity and one appearance a season at a brand event.</p>
   <p>If you take several spots, you get the level of the most expensive one.</p>
 
@@ -270,17 +314,47 @@
 
   <h2>Booking and payment</h2>
   <ul>
-    <li>Send the request with the brand name and the logo, and the spot is held for 48 hours. The site shows you until when. If the site can't hold it, I'll confirm by message. Three or more spots get 10% off.</li>
+    <li>Send the request with the brand name and the logo, and the spot is held for 48 hours. The site shows you until when. If the site can't hold it, I'll confirm by message. Three or more spots get 10% off. After 31 January 2027, there is also a mid-season discount if you join mid-season (see <a href="#duration">“Duration, deadlines and renewal”</a>).</li>
     <li>Pay by bank transfer, or by MB WAY up to €2,000, with the spot numbers as the reference (for example, CARMO 01 21; for the whole suit, CARMO FATO, bank transfer only), and send me the proof of payment within those 48 hours. Without it, the hold ends on its own.</li>
     <li>Once the payment lands, the spot is yours and your brand appears on the site. You get a donation receipt, with your tax number (NIF) if you give it in the request.</li>
     <li>If another brand closes the spot before you, I refund you the same day. If you change your mind within 14 days of paying, I refund you in full, as long as I haven't yet sent your logo to production (I tell you when I do). After that there's no refund, but you can pass the spot to another brand, with my agreement.</li>
   </ul>
 
-  <h2>Your logo and production</h2>
+  <h2 id="duration">Duration, deadlines and renewal</h2>
+  <ul>
+    <li>The season is the calendar year. A 2027 spot runs from 1 January to 31 December 2027, whatever day you pay. Your logo goes on the site and in my posts as soon as I confirm the payment.</li>
+    <li>Until 31 January 2027, and for requests made in 2026, you pay the rate card price. From 1 February 2027, if you join mid-season you get a mid-season discount: a quarter of the part of the season already gone, counting the month of the request (Lisbon time) as gone. By March, 3 of the 12 months have gone; the discount is a quarter of that, 6.25%.</li>
+    <li>The discount by month of the request, and what you pay for a €100 and a €600 spot:
+      <table class="season-disc">
+        <thead><tr><th scope="col">Month of request</th><th scope="col">Discount</th><th scope="col">€100</th><th scope="col">€600</th></tr></thead>
+        <tbody>
+          <tr><td>Until January</td><td>0%</td><td>€100</td><td>€600</td></tr>
+          <tr><td>February</td><td>4.17%</td><td>€96</td><td>€575</td></tr>
+          <tr><td>March</td><td>6.25%</td><td>€94</td><td>€563</td></tr>
+          <tr><td>April</td><td>8.33%</td><td>€92</td><td>€550</td></tr>
+          <tr><td>May</td><td>10.42%</td><td>€90</td><td>€538</td></tr>
+          <tr><td>June</td><td>12.5%</td><td>€88</td><td>€525</td></tr>
+          <tr><td>July</td><td>14.58%</td><td>€85</td><td>€513</td></tr>
+          <tr><td>August</td><td>16.67%</td><td>€83</td><td>€500</td></tr>
+          <tr><td>September</td><td>18.75%</td><td>€81</td><td>€488</td></tr>
+          <tr><td>October</td><td>20.83%</td><td>€79</td><td>€475</td></tr>
+        </tbody>
+      </table>
+    </li>
+    <li>The order is: the mid-season discount first, then the bundle discount (three or more spots, 10%), and the total is rounded to the nearest euro (50 cents round up). The whole suit gets the same mid-season discount, with no bundle discount. For example, the Chest, the Upper back and the Left collarbone (€1,100) requested in March come to €928: €1,100 less 6.25% is €1,031.25, less 10% is €928.13, which rounds to €928.</li>
+    <li>The price of the request day stands if you pay within the hold (48 hours, or the day I extend it to).</li>
+    <li>The vector logo for the suit and helmet is due by 15 January 2027 (see <a href="#logo">“Your logo and production”</a>).</li>
+    <li>Every 2027 sponsor, at any level, has first option on the same spot in 2028, at the 2028 rate card price. I send you the proposal from 1 September 2027. If you say yes by 31 October 2027, the spot stays yours. From 1 November 2027, the spots not renewed are open to everyone.</li>
+    <li>Requests for the 2027 season close on 31 October 2027. The 2028 season opens on the site once the 2028 rate card is published.</li>
+    <li>When I refund the part of the season still to come, counted by months (under <a href="#injury">“Injury, illness or a cancelled race”</a> and <a href="#conduct">“Conduct, both ways”</a>), the sum is: what you paid, divided by the months that count, times the whole months left. The months that count run from the month of your request to December, both included (12 for requests up to 31 January 2027). The months left are those after the month in which I stop or the sponsorship ends, up to December. For example, if you requested the Chest in March and paid €563, 10 months count (March to December); if I stop in June, 6 are left (July to December), and I refund €563 × 6/10 = €337.80.</li>
+    <li>After you pay, I send you a sponsorship confirmation, as a PDF, with the spots, the amount, the period, the deadlines and the renewal date.</li>
+  </ul>
+
+  <h2 id="logo">Your logo and production</h2>
   <ul>
     <li>Production is included. The logo in your request is for the site. For production, I need it as a vector file (SVG, PDF, AI or EPS).</li>
     <li>Before production, I send you a proof and you have 3 working days to approve it. If I don't hear back, I remind you once, and with no answer 2 working days later I go ahead with that proof.</li>
-    <li>If the vector logo arrives by 15 February 2027, I expect the suit and the helmet to be ready for the first triathlon. If the supplier runs late, I'll tell you, and until the kit arrives your brand stays in my race posts. If you buy after that date, I tell you before you pay which race your logo starts at.</li>
+    <li>If the vector logo arrives by 15 January 2027, I expect the suit and the helmet to be ready for the first triathlon. If the supplier runs late, I'll tell you, and until the kit arrives your brand stays in my race posts. If you buy after that date, your logo goes on the site and in my posts straight away, and on the suit and the helmet from the race I tell you before you pay.</li>
     <li>You confirm the logo is yours and that you have the right to use it, and you let me use it on the suit, the helmet, the site, my posts and the 2027 reports. Posts already published stay online after the season.</li>
   </ul>
 
@@ -289,15 +363,15 @@
   <p>The race number can partly cover the abdomen on the run, and the lower back and mid back on the bike. Each spot's description on the site says so before you buy, so it doesn't count as a covered logo.</p>
   <p>The suit may also carry the logos of my team, LB Squad Portugal, if the team asks. If the team doesn't accept brands from a sector, I don't either, and I tell you before you pay. If the team or a race's rules make me wear other kit, such as the team kit or the national team kit, the season suit doesn't go to that race, and I tell you beforehand, as with a race with a race partner.</p>
 
-  <h2>Injury, illness or a cancelled race</h2>
+  <h2 id="injury">Injury, illness or a cancelled race</h2>
   <p>None of these counts as a breach. Your logo stays on the site, your brand stays in my posts, and the suit is back in training as soon as I am. Content moves to the next races or, at the end of the season, to training posts. If I miss a post or a report through my own fault, I make another of equal value.</p>
-  <p>If, for one of these reasons, I don't race a single triathlon all season, you choose between the same spot in 2028 at no cost and a refund of half what you paid. If I stop racing this season by my own choice, I refund the part of the season still to come, counted by months. Otherwise, injury, illness or a cancelled race don't lead to a refund.</p>
+  <p>If, for one of these reasons, I don't race a single triathlon all season, you choose between the same spot in 2028 at no cost and a refund of half what you paid. If I stop racing this season by my own choice, I refund the part of the season still to come, counted by months, as in <a href="#duration">“Duration, deadlines and renewal”</a>. Otherwise, injury, illness or a cancelled race don't lead to a refund.</p>
 
-  <h2>Conduct, both ways</h2>
+  <h2 id="conduct">Conduct, both ways</h2>
   <ul>
     <li>Posts featuring your brand carry #PUB at the start, or the platform's paid-partnership label.</li>
     <li>I don't work with alcohol, betting or tobacco brands. I take supplement brands only with a written guarantee that their products contain no substances banned in sport.</li>
-    <li>If either of us does something serious and public that damages the other's name, the other can end the sponsorship, with written notice. For example: a confirmed anti-doping rule violation, a criminal conviction, hate speech, or your brand starting to sell products from an excluded sector. If it's because of me, I refund the part of the season still to come, counted by months. If it's because of your brand, the logo comes off from the next race, with no refund.</li>
+    <li>If either of us does something serious and public that damages the other's name, the other can end the sponsorship, with written notice. For example: a confirmed anti-doping rule violation, a criminal conviction, hate speech, or your brand starting to sell products from an excluded sector. If it's because of me, I refund the part of the season still to come, counted by months, as in <a href="#duration">“Duration, deadlines and renewal”</a>. If it's because of your brand, the logo comes off from the next race, with no refund.</li>
   </ul>
 
   <h2>Changes to this page</h2>

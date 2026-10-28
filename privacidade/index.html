@@ -10,8 +10,8 @@
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="../assets/css/style.css?v=ede62741">
-<link rel="stylesheet" href="../assets/css/privacy.css?v=d6ee2ceb">
+<link rel="stylesheet" href="../assets/css/style.css?v=921732d7">
+<link rel="stylesheet" href="../assets/css/privacy.css?v=f1927f64">
 <script type="importmap">
 { "imports": {
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
@@ -22,10 +22,13 @@
   "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=a6e8f1b4",
   "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=d192f4a9",
   "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=1eb36543",
-  "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=1a6b1eda",
+  "../assets/js/admin-confirm-pdf.js": "../assets/js/admin-confirm-pdf.js?v=fecff3f8",
+  "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=8d7e090a",
+  "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=8d4ca3b5",
+  "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=cc52b94c",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
-  "../assets/js/admin.js": "../assets/js/admin.js?v=629edca2",
-  "../assets/js/adspace.js": "../assets/js/adspace.js?v=45e71b41",
+  "../assets/js/admin.js": "../assets/js/admin.js?v=8be6e2f2",
+  "../assets/js/adspace.js": "../assets/js/adspace.js?v=1baa65f1",
   "../assets/js/analytics.js": "../assets/js/analytics.js?v=33844efa",
   "../assets/js/cartao.js": "../assets/js/cartao.js?v=3afab20e",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
@@ -34,14 +37,16 @@
   "../assets/js/gl3d.js": "../assets/js/gl3d.js?v=a7737baa",
   "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=df0a53e9",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=dc407430",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=626b55fd",
   "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
   "../assets/js/main.js": "../assets/js/main.js?v=3843dd80",
   "../assets/js/marks.js": "../assets/js/marks.js?v=fdea7b6c",
+  "../assets/js/pdf-kit.js": "../assets/js/pdf-kit.js?v=78100225",
   "../assets/js/privacy.js": "../assets/js/privacy.js?v=95de7df4",
   "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
-  "../assets/js/receipt.js": "../assets/js/receipt.js?v=d54cc0c9",
+  "../assets/js/receipt.js": "../assets/js/receipt.js?v=5b6a6dce",
   "../assets/js/room.js": "../assets/js/room.js?v=b0ef85a2",
+  "../assets/js/season-rules.js": "../assets/js/season-rules.js?v=95084349",
   "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=87cd2e59",
   "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=c1ae9984",
   "../assets/js/stats-zones.js": "../assets/js/stats-zones.js?v=66b2b133",
@@ -86,6 +91,11 @@
     GitHub, Inc. and Cloudflare, Inc. certified). Check dataprivacyframework.gov if the framework is ever struck down.
   - Booking requests and their logos are deleted from the Worker after 180 days (KEEP_S in worker/requests.js). If
     180 days is not what you want, set another period there and change "180 dias" / "180 days" on this page with it.
+  - Sponsorship records (KV keys c:<id> of the same Worker, created by «confirmar» or by hand in /admin/patrocinios/)
+    expire at contractExpiry(season) in assets/js/season-rules.js: the end of 31 December of the year after the season
+    (31 December 2028 for 2027). If that changes, change "31 de dezembro do ano seguinte" / "31 December of the year
+    after" on this page with it. The CSV export of the Patrocínios page is a copy of those records on your own device:
+    delete the old exports by the same date (the page says the copy stays with you only).
   - How long booking messages and donation receipts are kept: "while needed for the sponsorship and the receipts" is
     honest but vague; put a period here once the accountant confirms the tax rules that apply.
   - Turnstile is off (no TURNSTILE_SECRET). If it is ever switched on, this page must say so: a Cloudflare script then
@@ -99,7 +109,7 @@
   <p class="eyebrow gold">Privacidade</p>
   <h1 class="display legal-h">O que o site sabe de ti</h1>
   <p class="lead">Muito pouco. Aqui está o que fica guardado, porquê, durante quanto tempo e como mudas de ideias.</p>
-  <p class="legal-date">Atualizada a 27 de outubro de 2026</p>
+  <p class="legal-date">Atualizada a 28 de outubro de 2026</p>
 
   <h2>Quem é o responsável</h2>
   <p>Gonçalo Carmo, o atleta deste site. Para qualquer pedido sobre os teus dados, escreve para <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a>.</p>
@@ -145,7 +155,7 @@
     <div><dt>gc.package.2027</dt><dd>Os espaços que juntaste ao pacote.</dd></div>
     <div><dt>gc.claim.draft</dt><dd>O que escreveste no pedido (marca, nome, NIF, mensagem) e o logótipo, para não se perderem se a página recarregar. Apaga-se quando carregas em «Feito» ou fechas o separador, e passadas seis horas já não é usado.</dd></div>
     <div><dt>gc.claim.pending</dt><dd>Que um pedido vai a caminho e ainda não teve resposta. Conta durante 10 minutos, no máximo, e apaga-se quando fechas o separador.</dd></div>
-    <div><dt>gc.claim.req</dt><dd>O número, a marca, os espaços, a forma de pagar, o total, a hora e o último dia de cada pedido que fizeste, para o mesmo pedido não ir duas vezes e para o comprovativo voltar se a página recarregar. Deixa de contar quando a reserva acaba e apaga-se quando fechas o separador.</dd></div>
+    <div><dt>gc.claim.req</dt><dd>O número, a marca, os espaços, a forma de pagar, o total (com o desconto de época, se houver), o dia, a hora e o último dia de cada pedido que fizeste, para o mesmo pedido não ir duas vezes e para o comprovativo voltar se a página recarregar. Deixa de contar quando a reserva acaba e apaga-se quando fechas o separador.</dd></div>
     <div><dt>gc.claim.sent, gc.claim.at, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>Que já enviaste o pedido e a que horas, a forma de pagar e se o WhatsApp abriu, para o passo do pagamento e o comprovativo voltarem se a página recarregar. Até fechares o separador.</dd></div>
     <div><dt>gc.3d.up, gc.3d.lite, gc.3d.hp, gc.debug3d</dt><dd>Se a vista 3D está a funcionar e, depois de uma falha, a versão que funcionou neste aparelho, para a página não repetir o que falhou quando recarrega. gc.debug3d só existe se abriste o painel de diagnóstico com ?debug3d. Até fechares o separador.</dd></div>
     <div data-stats-ui hidden><dt>gc.optout</dt><dd>Que pediste para não contar as tuas visitas neste browser («Não contar as minhas visitas», em «Contagem de visitas»). Fica até carregares em «Voltar a contar» ou apagares os dados do site.</dd></div>
@@ -166,6 +176,7 @@
   <p>O serviço reserva os espaços durante 48 horas. Ao reservar, escreve a marca, o último dia da reserva e o número do pedido no ficheiro público dos espaços deste site. Ficam lá até esse espaço mudar outra vez, mesmo depois de a reserva acabar. Esse ficheiro está no GitHub, que guarda o histórico de cada mudança. Se comprares, a marca e o logótipo passam a aparecer no site.</p>
   <p>Depois, o site prepara a mensagem e abre o WhatsApp, o email ou o Instagram, à tua escolha, e és tu que a envias. A mensagem chega-me por esse serviço, que tem a sua própria política de privacidade. Se o serviço de reservas não responder ou não puder reservar, o pedido vai só nessa mensagem.</p>
   <p>O serviço de reservas guarda o pedido e o logótipo durante 180 dias e depois apaga-os sozinho. Só eu os consigo ler. O nome e o NIF servem para o recibo de donativo. A mensagem que me envias pelo WhatsApp, email ou Instagram, guardo-a enquanto for precisa para tratar do patrocínio e dos recibos.</p>
+  <p>Quando confirmo o pagamento, guardo no mesmo serviço um registo do patrocínio: a marca, os espaços e os preços, o montante e a data do pagamento, a época e o período, o prazo do logótipo, o estado da renovação, o contacto que me deste (nome, app, email, telefone ou conta de Instagram), o NIF, se o deste, as minhas notas e o número do pedido. Faço o mesmo registo à mão para os patrocínios combinados por email, WhatsApp ou em produto. Serve para cumprir o patrocínio, os prazos e a preferência na renovação. Fica guardado até 31 de dezembro do ano seguinte ao da época (para a época 2027, até 31 de dezembro de 2028) e depois apaga-se sozinho. Só eu o consigo ler. Posso exportar estes registos para uma folha de cálculo, como cópia de segurança, que fica só comigo. A base legal é a execução do patrocínio (artigo 6.º, n.º 1, alínea b), do RGPD). A confirmação do patrocínio que te envio em PDF é feita no meu telemóvel, a partir desse registo.</p>
   <p>A base legal é preparar e cumprir o patrocínio que me pedes (artigo 6.º, n.º 1, alínea b), do RGPD). Nos recibos, é a lei fiscal, que obriga a passá-los e guardá-los (alínea c)).</p>
   <p>O serviço não guarda o teu endereço IP, só um código feito a partir dele com uma chave secreta. Serve para limitar os pedidos de cada endereço e para bloquear quem faz pedidos falsos. Fica no pedido até a compra ser confirmada, ou até o pedido se apagar, e nos contadores apaga-se ao fim de 30 dias, no máximo. A base legal é o interesse legítimo em proteger as reservas de abusos (artigo 6.º, n.º 1, alínea f), do RGPD).</p>
   <p>A Cloudflare, Inc. trata estes dados por minha conta, como subcontratante. Fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework.</p>
@@ -189,7 +200,7 @@
   <p class="eyebrow gold">Privacy</p>
   <h1 class="display legal-h">What this site knows about you</h1>
   <p class="lead">Very little. Here is what is stored, why, for how long and how to change your mind.</p>
-  <p class="legal-date">Updated 27 October 2026</p>
+  <p class="legal-date">Updated 28 October 2026</p>
 
   <h2>Who is responsible</h2>
   <p>Gonçalo Carmo, the athlete behind this site. For anything about your data, write to <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a>.</p>
@@ -235,7 +246,7 @@
     <div><dt>gc.package.2027</dt><dd>The spots you added to your package.</dd></div>
     <div><dt>gc.claim.draft</dt><dd>What you typed in the request (brand, name, tax number, message) and the logo, so nothing is lost if the page reloads. It goes when you tap “Done” or close the tab, and after six hours it is no longer used.</dd></div>
     <div><dt>gc.claim.pending</dt><dd>That a request is on its way and has had no answer yet. It counts for 10 minutes at most and goes when you close the tab.</dd></div>
-    <div><dt>gc.claim.req</dt><dd>The number, brand, spots, how you will pay, total, time and last day of each request you made, so the same request is not sent twice and the confirmation comes back if the page reloads. It stops counting when the hold ends and goes when you close the tab.</dd></div>
+    <div><dt>gc.claim.req</dt><dd>The number, brand, spots, how you will pay, total (with the mid-season discount, if any), day, time and last day of each request you made, so the same request is not sent twice and the confirmation comes back if the page reloads. It stops counting when the hold ends and goes when you close the tab.</dd></div>
     <div><dt>gc.claim.sent, gc.claim.at, gc.claim.pay, gc.claim.tab, gc.claim.wa</dt><dd>That you have sent your request and at what time, how you will pay and whether WhatsApp opened, so the payment step and the confirmation come back if the page reloads. Until you close the tab.</dd></div>
     <div><dt>gc.3d.up, gc.3d.lite, gc.3d.hp, gc.debug3d</dt><dd>Whether the 3D view is running and, after a failure, the version that worked on this device, so a reload does not repeat what failed. gc.debug3d is there only if you opened the diagnostics panel with ?debug3d. Until you close the tab.</dd></div>
     <div data-stats-ui hidden><dt>gc.optout</dt><dd>That you asked for your visits not to be counted in this browser (“Don't count my visits”, under “Visit counting”). It stays until you choose “Count them again” or clear the site's data.</dd></div>
@@ -256,6 +267,7 @@
   <p>The service holds the spots for 48 hours. When it does, it writes the brand, the last day of the hold and the request number in this site's public spots file. They stay there until the spot changes again, even after the hold ends. That file is on GitHub, which keeps the history of every change. If you buy, the brand and the logo appear on the site.</p>
   <p>Then the site writes the message and opens WhatsApp, email or Instagram, whichever you choose, and you send it yourself. The message reaches me through that service, which has its own privacy policy. If the booking service does not answer or cannot hold the spots, the request goes in that message only.</p>
   <p>The booking service keeps the request and the logo for 180 days and then deletes them on its own. Only I can read them. The name and the tax number are for the donation receipt. I keep the message you send me by WhatsApp, email or Instagram for as long as I need it to handle the sponsorship and the receipts.</p>
+  <p>When I confirm the payment, I keep a record of the sponsorship in the same service: the brand, the spots and their prices, the amount and date of payment, the season and its period, the logo deadline, the renewal status, the contact you gave me (name, app, email, phone or Instagram account), your tax number (NIF) if you gave it, my notes and the request number. I keep the same record, entered by hand, for sponsorships agreed by email, WhatsApp or in kind. It is used to carry out the sponsorship, its deadlines and the renewal option. It is kept until 31 December of the year after the season (for the 2027 season, until 31 December 2028) and then deleted on its own. Only I can read it. I may export these records to a spreadsheet, as a backup that stays with me only. The legal basis is carrying out the sponsorship (Article 6(1)(b) GDPR). The sponsorship confirmation I send you as a PDF is made on my phone, from that record.</p>
   <p>The legal basis for the request is preparing and carrying out the sponsorship you ask for (Article 6(1)(b) GDPR). For receipts, it is tax law, which requires me to issue and keep them (Article 6(1)(c)).</p>
   <p>The service does not keep your IP address, only a code made from it with a secret key. It is used to limit the requests from each address and to block people who send fake ones. It stays with the request until the purchase is confirmed, or until the request is deleted, and in the counters it is deleted after 30 days at most. The legal basis is the legitimate interest in protecting the bookings from abuse (Article 6(1)(f) GDPR).</p>
   <p>Cloudflare, Inc. processes this data on my behalf, as a processor. It is based in the United States and certified under the EU-US Data Privacy Framework.</p>

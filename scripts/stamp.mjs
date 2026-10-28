@@ -11,6 +11,12 @@
 // 3. A page with a Content-Security-Policy runs an inline script (the import map) only if script-src lists its sha256,
 //    so every rewrite also recomputes those hashes from the inline scripts the page now holds; the admin pages'
 //    connect-src also get the booking Worker's origin (SITE.requestsApi) and the statistics Worker's (SITE.stats.url).
+// 4. Checks the season's rules (data/spots.json "seasonRules", assets/js/season-rules.js checkRules) and that the dates
+//    the sponsorship terms print agree with them: the «Atualizada a» date of /condicoes/ (PT and EN), of the booking
+//    dialog (index.html) and of the message (i18n.js) is seasonRules.termsDate; each article of /condicoes/ names every
+//    date of the season; and its mid-season discount table (table.season-disc) has, for each month, the percent and the
+//    prices season-rules.js gives. A mismatch stops it (also with --check): the terms cannot drift from the code, and a
+//    new season is not published before its terms carry its dates.
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -28,6 +34,65 @@ if (bad.length) {
   process.exit(1);
 }
 const races = racesBlock(RESULTS, { t: i18n.t, pick: i18n.pick, numFmt: i18n.numFmt, fmtDay: i18n.fmtDay, lang: 'pt' });
+
+// ---------- the season's rules and the dates of the terms ----------
+const SR = await load('assets/js/season-rules.js');
+const SPOTS = JSON.parse(readFileSync('data/spots.json', 'utf8'));
+const ruleProblems = SR.checkRules(SPOTS);
+if (ruleProblems.length) {
+  console.error(`data/spots.json "seasonRules" (assets/js/season-rules.js checkRules):\n  ${ruleProblems.join('\n  ')}`);
+  process.exit(1);
+}
+const termProblems = checkTerms(SR.rulesOf(SPOTS));
+if (termProblems.length) {
+  console.error(`The printed terms do not agree with data/spots.json "seasonRules":\n  ${termProblems.join('\n  ')}`);
+  process.exit(1);
+}
+function checkTerms(R) {
+  const PT_M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const EN_M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const ymd = (d) => d.split('-').map(Number);
+  const pt = (d) => { const [y, m, n] = ymd(d); return `${n} de ${PT_M[m - 1]} de ${y}`; };
+  const en = (d) => { const [y, m, n] = ymd(d); return `${n} ${EN_M[m - 1]} ${y}`; };
+  // the period is written «de 1 de janeiro a 31 de dezembro de 2027» / «1 January to 31 December 2027»
+  const ptRange = () => { const [, m, n] = ymd(R.start); return `${n} de ${PT_M[m - 1]} a ${pt(R.end)}`; };
+  const enRange = () => { const [, m, n] = ymd(R.start); return `${n} ${EN_M[m - 1]} to ${en(R.end)}`; };
+  const plain = (html) => html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#xa0;/gi, ' ').replace(/&amp;/g, '&')
+    .replace(/[\u00a0\u202f\u2009]/g, ' ').replace(/\s+/g, ' ');
+  const out = [], need = (ok, msg) => { if (!ok) out.push(msg); };
+  const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom'];
+  const C = readFileSync('condicoes/index.html', 'utf8');
+  const first = SR.monthIndex(R.fullPriceUntil) - SR.monthIndex(R.start) + 2, last = SR.monthIndex(R.requestsUntil) - SR.monthIndex(R.start) + 1;
+  // the price of a spot of `price` euros in season month m, as quote() works it out
+  const priceIn = (price, m) => SR.quote({ season: R.season, seasonRules: SPOTS.seasonRules, bundle: { min: 99, discount: 0 }, spots: [{ id: 'x', n: 1, price }], title: { price: 0 } }, ['x'], { m }).net;
+  for (const [l, long, range, Ms, upd, dec, eur] of [['pt', pt, ptRange, PT_M, (d) => `Atualizada a ${pt(d)}`, ',', (n) => `${n} €`], ['en', en, enRange, EN_M, (d) => `Updated ${en(d)}`, '.', (n) => `€${n}`]]) {
+    const a = C.match(new RegExp(`<article\\b[^>]*data-l="${l}"[^>]*>([\\s\\S]*?)</article>`));
+    if (!a) { out.push(`condicoes/index.html: no <article data-l="${l}">`); continue; }
+    const html = a[1], text = plain(html);
+    need(text.includes(upd(R.termsDate)), `condicoes/index.html (${l}): «${upd(R.termsDate)}» (seasonRules.termsDate)`);
+    for (const k of KEYS) {
+      const ok = text.includes(long(R[k])) || (k === 'start' && text.includes(range()));
+      need(ok, `condicoes/index.html (${l}): no «${k === 'start' ? range() : long(R[k])}» (seasonRules.${k})`);
+    }
+    const t = html.match(/<table\b[^>]*class="[^"]*\bseason-disc\b[^"]*"[^>]*>([\s\S]*?)<\/table>/);
+    if (!t) { out.push(`condicoes/index.html (${l}): no <table class="season-disc"> (the mid-season discount by month)`); continue; }
+    const rows = [...t[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/g)].map((r) => [...r[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/g)].map((c) => plain(c[1]).trim()));
+    const byMonth = new Map();
+    for (const r of rows) { const i = Ms.findIndex((x) => x.toLowerCase() === String(r[0] || '').toLowerCase()); if (i >= 0) byMonth.set(i + 1, r); }
+    for (let m = first; m <= last; m++) {
+      const r = byMonth.get(m), want = [Ms[m - 1], `${SR.pctText(SR.seasonBp(m), dec)}%`, eur(priceIn(100, m)), eur(priceIn(600, m))];
+      if (!r) { out.push(`condicoes/index.html (${l}): table.season-disc has no row for ${Ms[m - 1]} (want ${want.join(' | ')})`); continue; }
+      need(r.slice(1, 4).join(' | ') === want.slice(1).join(' | '), `condicoes/index.html (${l}): table.season-disc, ${Ms[m - 1]}: «${r.slice(1, 4).join(' | ')}», want «${want.slice(1).join(' | ')}»`);
+    }
+    for (const m of byMonth.keys()) need(m >= first && m <= last, `condicoes/index.html (${l}): table.season-disc has a row for ${Ms[m - 1]}, a month with no mid-season discount or no sales`);
+  }
+  const ix = plain(readFileSync('index.html', 'utf8'));
+  need(ix.includes(`atualizadas a ${pt(R.termsDate)}`), `index.html: «atualizadas a ${pt(R.termsDate)}» (cl.terms, seasonRules.termsDate)`);
+  const js = readFileSync('assets/js/i18n.js', 'utf8').replace(/\s+/g, ' ');
+  need(js.includes(`atualizadas a ${pt(R.termsDate)}`), `assets/js/i18n.js: «atualizadas a ${pt(R.termsDate)}» (msg.terms, seasonRules.termsDate)`);
+  need(js.includes(`updated ${en(R.termsDate)}`), `assets/js/i18n.js: «updated ${en(R.termsDate)}» (msg.terms and cl.terms, seasonRules.termsDate)`);
+  return out;
+}
 
 // <!-- bake:name -->…<!-- /bake:name -->: an inline part on one line, a list one item per line at the marker's indent
 function bake(s) {
@@ -122,10 +187,12 @@ const stats = origin('SITE.stats', /^\s*stats:\s*\{\s*url:\s*'([^']*)'/m);
 const CONNECT = {
   'admin/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker, stats],
   'admin/analytics/index.html': ["'self'", stats],
+  // - SITE.requestsApi also: /admin/patrocinios/ (the sponsor contracts are kept by the same Worker)
+  'admin/patrocinios/index.html': ["'self'", worker],
 };
 const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
 
-for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false]]) {
+for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false]]) {
   const was = readFileSync(page, 'utf8');
   let now = stamp(withRaces ? bake(was) : was, base);
   if (CONNECT[page]) {
@@ -140,6 +207,6 @@ if (check) {
   if (stale.length) { console.error(`out of date: ${stale.join(', ')}. Run node scripts/stamp.mjs`); process.exit(1); }
   console.log(`up to date: ${RESULTS.length} races, ${modules.length} modules`);
 } else {
-  const reach = [worker && `the admin page may reach ${worker}`, stats ? `the admin pages may reach ${stats}` : 'the statistics reach no Worker yet (SITE.stats.url is empty)'].filter(Boolean);
+  const reach = [worker && `the admin and Patrocínios pages may reach ${worker}`, stats ? `the admin pages may reach ${stats}` : 'the statistics reach no Worker yet (SITE.stats.url is empty)'].filter(Boolean);
   console.log(`stamped ${modules.length} modules, baked ${races.cards.length} race cards${stale.length ? ` (${stale.join(', ')} updated)` : ''}; ${reach.join('; ')}`);
 }

@@ -851,6 +851,8 @@ section { position: relative; }
 #pk-list > span { flex: none; }
 #pk-list .pk-d { color: var(--gold-ink); }
 #pk-list .pk-names { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* «−6,25% de época» (the mid-season discount): gives way only once the names have gone */
+#pk-list .pk-s { flex: 0 0.001 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--gold-ink); }
 .package .btn { --b: #111; --f: #f2f1ec; }
 .package .btn.ghost { color: #111; border-color: rgba(0,0,0,0.2); background: transparent; }
 /* phones: total and buttons on one row, the count and discount line under the whole bar */
@@ -862,6 +864,10 @@ section { position: relative; }
   #pk-go { grid-area: 1 / 3; }
   #pk-list { grid-area: 2 / 1 / 3 / -1; margin-top: 0; }
   #pk-list.has-d .pk-names { display: none; }
+  /* the season discount and the bundle on one line: the list price goes (the dialog has it), and on the narrowest
+     screens the season part ends in an ellipsis rather than run past the bar */
+  #pk-list.has-s .pk-g { display: none; }
+  #pk-list.has-s .pk-s { flex: 0 1 auto; }
   /* the bar opens the booking: its two buttons get the same 44 px thumb target as everything in the dialog */
   .package .btn { min-height: 44px; }
   .package .btn.ghost { padding: 0 12px; }
@@ -1045,6 +1051,11 @@ dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4p
 .cl-items li { display: flex; justify-content: space-between; gap: 12px; }
 .cl-items li span:last-child { flex: none; color: var(--ink); }
 .cl-items .save, .cl-items .save span:last-child { color: var(--gold); }
+/* the season the spot is for (always), and the mid-season discount from February */
+.cl-period { margin: -6px 8px 10px 0; font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
+.cl-season { margin: -4px 8px 12px 0; font-size: 13px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+/* after the season's last day for requests: a quiet note in the place of the send actions' reason */
+.cl-closed { margin: -6px 0 0; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.08); font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
 .cl-fields, .cl-extra { display: grid; gap: 14px; }
 .cl-add { justify-self: start; margin: -6px 0; }
 .field { display: grid; gap: 6px; }

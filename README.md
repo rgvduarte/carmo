@@ -30,12 +30,17 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   ligadas, explica a contagem de visitas sem cookies e tem o botão «Não contar as minhas visitas». Com o Google
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
-  pedido, «Ao enviar, aceitas as condições do patrocínio (atualizadas a 26 de outubro de 2026).»): o que inclui um espaço, o que fica de fora, como se reserva
-  e paga, o parceiro de prova e o que se combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
+  pedido, «Ao enviar, aceitas as condições do patrocínio (atualizadas a 28 de outubro de 2026).»): o que inclui um espaço, o que fica de fora, como se reserva
+  e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
+  prazo do logótipo, a preferência na renovação e a conta das devoluções por meses), o parceiro de prova e o que se
+  combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
   sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. No mesmo dia muda também a data das
   chaves `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `msg.terms` (a linha
   «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`;
-  o comprovativo do pedido usa esta mesma linha, por isso não há mais nenhuma data para mudar).
+  o comprovativo do pedido usa esta mesma linha) e `seasonRules.termsDate` em `data/spots.json`, que o Worker e os
+  registos dos patrocínios guardam. `node scripts/stamp.mjs --check` falha enquanto estas quatro datas não forem a
+  mesma, e também se as datas da época ou a tabela do desconto de época da página não baterem com `seasonRules` (ver
+  «Época, prazos e renovação», mais abaixo).
   As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 - **Cartão de contacto** (`/cartao/`, para o Gonçalo mostrar e partilhar): foto, contactos, «Guardar contacto», o QR
   do cartão e, depois de ligado, «Adicionar à Apple Wallet». Ver «Cartão de contacto», mais abaixo.
@@ -48,6 +53,8 @@ PT e EN (botão no topo; a língua também segue o browser).
 |---|---|
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
+| Datas da época (período, prazo do logótipo, desconto de época, fim dos pedidos, renovação) | `data/spots.json` → `seasonRules` (ver «Época, prazos e renovação»; as mesmas datas estão escritas em `condicoes/index.html`) |
+| Patrocínios pagos (contratos, renovações) | página `/admin/patrocinios/`, guardados no Worker dos pedidos (ver «Patrocínios») |
 | Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
 | Estatísticas do site (o endereço do Worker `gocarmo-api` e o modo) | `assets/js/data.js` → `SITE.stats` (`url` vazio = não mede nada; depois de mudar, `node scripts/stamp.mjs`; ver «Estatísticas do site») |
 | Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem Google Analytics e sem aviso de cookies; ver «Google Analytics») |
@@ -191,10 +198,14 @@ chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a ch
 GitHub não mostra a `ADMIN_KEY` outra vez: guarda-a nas Palavras-passe do telemóvel, que a preenchem sozinhas. Cada
 pedido mostra o logótipo, a marca, os espaços, o total, a data, o canal, a forma de pagamento, o nome e o NIF, a
 mensagem e quanto tempo falta para a reserva acabar.
-- **Confirmar compra**: abre a venda com a marca e o logótipo do pedido. Ao guardar, é uma venda como as outras (um
-  commit com o teu token, o logótipo vai para o site) e o pedido fica confirmado. Se os espaços já estiverem
-  vendidos a essa marca, o botão é **Marcar como confirmado**; se foram vendidos sem logótipo, aparece antes
-  **Pôr o logótipo do pedido**.
+- **Confirmar compra**: abre a venda com a marca e o logótipo do pedido, com «Pago a» (hoje, por defeito) e
+  «Montante recebido» (o total do pedido, por defeito). Ao guardar, é uma venda como as outras (um commit com o teu
+  token, o logótipo vai para o site), o pedido fica confirmado e o Worker regista o patrocínio, que aparece em
+  **Patrocínios** (ver mais abaixo). Se o registo falhar, o pedido diz «Contrato por registar» e o mesmo botão
+  tenta outra vez; nunca regista duas vezes. Se os espaços já estiverem
+  vendidos a essa marca, o botão é **Marcar como confirmado**, que pede as mesmas duas coisas; se foram vendidos sem
+  logótipo, aparece antes **Pôr o logótipo do pedido**. Um pedido fechado sem registo mostra **Registar contrato**.
+  Um pedido com desconto de época mostra «Desconto de época (março): −6,25%» ao lado do total.
 - **Prolongar 48 h**: mais dois dias de reserva, no site também.
 - **Cancelar**: depois de confirmares, os espaços que ainda estão reservados por esse pedido voltam a ficar livres.
   O pedido fica em «Fechados». Num pedido falso, marca «bloquear quem o fez durante 30 dias».
@@ -273,11 +284,13 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    qualquer leitor de PDF e o emblema GOCARMO desenhado), `gocarmo-pedido-<número>.pdf`. No telemóvel abre a folha de
    partilha (Ficheiros, WhatsApp, email); no computador descarrega. Leva o cabeçalho GOCARMO, «Comprovativo do pedido
    de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome e o NIF (se os deu),
-   cada espaço com o número, o nome, fato ou capacete e o preço, o desconto de pacote, o total, «Reservado até …», como
+   cada espaço com o número, o nome, fato ou capacete e o preço, o período da época, o desconto de época (a partir de
+   fevereiro de 2027, com o mês e a percentagem), o desconto de pacote, o total, «Reservado até …», como
    pagar (transferência para o IBAN e o titular de `SITE`, MB WAY até `SITE.mbwayMax`, o montante e a referência
    `CARMO`, que numa referência longa passa à linha seguinte sem nunca ser cortada), o que vem a seguir (pagar e
-   enviar o comprovativo do pagamento até ao dia da reserva, escrito na frase; o logótipo em vetor até 15 de fevereiro
-   de 2027), a linha das condições com a data delas (a mesma `msg.terms` da mensagem), o contacto e, no fim, «Este
+   enviar o comprovativo do pagamento até ao dia da reserva, escrito na frase; o logótipo em vetor até 15 de janeiro
+   de 2027, `seasonRules.logoBy`, ou, depois dessa data, a partir de que prova entra no fato; a regra do desconto de
+   época, quando há; a preferência na renovação até 31 de outubro de 2027), a linha das condições com a data delas (a mesma `msg.terms` da mensagem), o contacto e, no fim, «Este
    documento não é uma fatura nem um recibo. …». Os valores são os do passo 2 e da mensagem, tirados das mesmas funções:
    o número, o total, a referência e o dia batem sempre certo. No fato completo não há dados da conta: diz que antes de
    pagar envias o acordo escrito, até quando fica reservado, e a referência `CARMO FATO`, só por transferência. Sem
@@ -324,8 +337,9 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 1. A mensagem chega com `Pedido: <número>`. O pedido também aparece na página de admin, em **Pedidos**, com o
    logótipo e o tempo que falta.
 2. Quando o pagamento entra (e o comprovativo chega), em **Pedidos** carregas em **Confirmar compra** e em
-   **Guardar**: o espaço fica vendido no site com o logótipo da marca e o pedido fica confirmado. Passa o recibo de
-   donativo (nunca uma fatura), com o NIF se o pedido o tiver.
+   **Guardar**, com a data e o montante do pagamento: o espaço fica vendido no site com o logótipo da marca, o pedido
+   fica confirmado e o patrocínio fica registado em **Patrocínios**. Passa o recibo de donativo (nunca uma fatura), com
+   o NIF se o pedido o tiver, e envia à marca a **Confirmação (PDF)** desse patrocínio.
 3. Sem pagamento, a reserva acaba sozinha no fim do último dia. **Prolongar 48 h** dá mais dois dias; **Cancelar**
    liberta já (num pedido falso, com «bloquear»). No fato completo, a marca espera pelo acordo escrito antes de
    pagar: envia-lho e, enquanto não estiver fechado, prolonga a reserva.
@@ -373,10 +387,129 @@ recusar todos os pedidos** (o site diria «A verificação contra spam falhou»)
    deixa 2 pedidos abertos por endereço em vez de 1. Para desligar, apaga o secret e corre a action outra vez.
 
 **Privacidade.** O nome e o NIF servem só para o recibo. Cada pedido fica guardado 180 dias no Cloudflare e depois
-apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. No `data/spots.json`, público, só ficam a marca, o
+apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. O registo de um patrocínio pago fica no mesmo
+serviço até 31 de dezembro do ano a seguir à época (31 de dezembro de 2028 para a época 2027) e depois apaga-se
+sozinho; a página de privacidade diz isto nas duas línguas. Se mudares esse prazo (`contractExpiry` em
+`assets/js/season-rules.js`), muda a página com ele. No `data/spots.json`, público, só ficam a marca, o
 último dia da reserva e o número do pedido. O que a marca escreve no pedido de reserva (e o logótipo) fica no browser
 dela só enquanto o separador estiver aberto. O comprovativo (o PDF e o cartão) faz-se no aparelho dela e não vai para
 lado nenhum.
+
+## Época, prazos e renovação
+
+A época é o ano civil. Todas as datas da época estão num só sítio, o bloco `seasonRules` de `data/spots.json`, que o
+site (o pedido, a mensagem, o comprovativo), a página de admin, a página Patrocínios e o Worker leem. As contas estão
+num só ficheiro, `assets/js/season-rules.js`, que o site, o admin e o Worker importam (o Worker leva-o no
+`wrangler deploy`). Mudar de época é mudar esse bloco, os preços e as datas escritas em `/condicoes/`.
+
+| Chave | Época 2027 | Para quê |
+|---|---|---|
+| `start`, `end` | 2027-01-01, 2027-12-31 | o período escrito em todo o lado: «Época 2027 · 1 jan a 31 dez 2027» |
+| `logoBy` | 2027-01-15 | último dia do logótipo em vetor para o fato e o capacete do primeiro triatlo |
+| `fullPriceUntil` | 2027-01-31 | até este dia (e em todos os pedidos de 2026) paga-se o preço da tabela |
+| `requestsUntil` | 2027-10-31 | último dia em que o site e o Worker aceitam pedidos da época; depois o pedido diz que fechou |
+| `proposalsFrom` | 2027-09-01 | a partir deste dia envias a proposta de 2028 a cada patrocinador |
+| `renewBy` | 2027-10-31 | último dia para o patrocinador dizer que sim e ficar com o espaço |
+| `openFrom` | 2027-11-01 | os espaços não renovados ficam livres para todos |
+| `termsDate` | 2026-10-28 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
+
+O fuso é sempre o de Lisboa. `node scripts/stamp.mjs` recusa um bloco com datas impossíveis (fora da época, fora de
+ordem, `fullPriceUntil` que não seja o último dia de um mês, `requestsUntil` em dezembro). Um `spots.json` sem o
+bloco (uma cópia antiga em cache) usa as datas por defeito da época, por isso o preço nunca falha.
+
+**Desconto de época** (quem entra a meio da época). Até 31 de janeiro de 2027 paga-se a tabela. A partir de 1 de
+fevereiro, o preço desce um quarto da parte da época que já passou, contando como passado o mês do pedido (dia de
+Lisboa): `m` é o número do mês do pedido (fevereiro 2 … outubro 10) e o desconto é `m/48` do preço. Em março já
+passaram 3 de 12 meses; o desconto é um quarto disso, 6,25%. Nunca chega aos 25%: o maior é outubro, 20,83%.
+A conta, sempre pela mesma ordem e só com números inteiros: primeiro o desconto de época, depois o de pacote (3 ou mais
+espaços, 10%, nunca no fato completo) e, no fim, um só arredondamento ao euro, com os 50 cêntimos para cima:
+`total = arredonda(preço × (48 − m) × (100 − desconto de pacote) / 4800)`, com `m = 0` até 31 de janeiro (o total é
+então o de sempre).
+
+| Mês do pedido | fev | mar | abr | mai | jun | jul | ago | set | out |
+|---|---|---|---|---|---|---|---|---|---|
+| Desconto | 4,17% | 6,25% | 8,33% | 10,42% | 12,5% | 14,58% | 16,67% | 18,75% | 20,83% |
+| Espaço de 100 € | 96 € | 94 € | 92 € | 90 € | 88 € | 85 € | 83 € | 81 € | 79 € |
+| Espaço de 600 € | 575 € | 563 € | 550 € | 538 € | 525 € | 513 € | 500 € | 488 € | 475 € |
+
+Outros exemplos: o Abdómen em fevereiro, 144 €; o Peito, o Topo das costas e a Clavícula esquerda (1 100 €) em março,
+928 €, e em outubro, 784 €; o fato completo em fevereiro, 2 875 €. Vale o preço do dia do pedido se for pago dentro
+da reserva (também quando a prolongas para o mês seguinte). Com o Worker, o dia que conta é o do Worker; sem ele, o
+do envio da mensagem. O «um quarto» (`SEASON_DIV = 48`) está no código e não no bloco: é uma condição escrita em
+`/condicoes/`, com a tabela, e mudá-lo é mudar as condições.
+
+Onde aparece: no passo 1 do pedido (o período sempre; a partir de fevereiro, o preço com o desconto e uma linha que o
+explica), na barra do pacote («−6,25% de época»), na mensagem do pedido, no comprovativo, no admin e na confirmação
+do patrocínio. A mensagem leva a linha `Desconto de época (março, mês 3): −6,25%` (em inglês `Mid-season discount
+(March, month 3): −6.25%`): é dela que o admin tira o mês quando colas a mensagem, e avisa se o total ou a percentagem
+não baterem. Uma mensagem sem essa linha conta como `m = 0`. O nome é sempre «desconto de época» ou «entrada a meio da época» (em
+inglês «mid-season discount»).
+
+**Devoluções contadas por meses** (lesão sem nenhum triatlo por decisão minha, conduta): o que a marca pagou, a
+dividir pelos meses do mês do pedido a dezembro (12 nos pedidos até 31 de janeiro), vezes os meses completos depois do
+mês em que o patrocínio acaba. Peito pedido em março, 563 €, paragem em junho: 563 € × 6/10 = 337,80 €.
+
+**Renovação.** Todos os patrocinadores, de qualquer nível, têm preferência no mesmo espaço na época seguinte, ao preço
+da tabela nova: envias a proposta a partir de 1 de setembro de 2027; quem disser que sim até 31 de outubro de 2027
+fica com o espaço; a partir de 1 de novembro de 2027 os não renovados ficam livres. A página Patrocínios lembra cada
+passo.
+
+**Mudar de época (para 2028).** Depois de 1 de novembro de 2027, com a tabela de 2028 pronta:
+1. Em Patrocínios, exporta o CSV de 2027 (é a tua cópia).
+2. Na página de admin, liberta os espaços que não foram renovados (os renovados ficam vendidos à mesma marca).
+3. Em `data/spots.json`: `"season": "2028"`, o bloco `seasonRules` de 2028 (as mesmas datas, um ano depois, e o
+   `termsDate` do dia em que publicas) e os preços de 2028.
+4. Em `/condicoes/`: as datas de 2028 nas duas línguas, a tabela do desconto de época (se os preços de exemplo
+   mudarem) e a data «Atualizada a»; no mesmo dia `cl.terms` e `msg.terms` (ver «Condições do patrocínio», em cima).
+5. `node scripts/stamp.mjs` e `node scripts/stamp.mjs --check`: recusa enquanto as condições não tiverem as datas
+   novas. Depois publica.
+6. Quando cada patrocinador renovado pagar, regista-o como patrocínio de 2028 em Patrocínios («Novo patrocínio»,
+   época 2028).
+O Worker não precisa de ser publicado outra vez: lê `data/spots.json` em cada pedido. Até ao passo 5, o site não
+aceita pedidos (a época 2027 fechou a 31 de outubro de 2027).
+
+## Patrocínios
+
+**Onde.** `gocarmo.com/admin/patrocinios/` (link «Patrocínios» no fim de `/admin/`, das estatísticas e do Strava).
+Só em português, feita para o telemóvel. Usa a mesma chave dos Pedidos (a `ADMIN_KEY`): vindo de `/admin/` no mesmo
+separador já está lá; senão, a página pede-a, e as Palavras-passe do iPhone preenchem-na. Não precisa do token do
+GitHub.
+
+**O registo de cada patrocínio.** Fica no Worker dos pedidos (Cloudflare), nunca num ficheiro público. Nasce quando
+confirmas um pedido pago em **Pedidos** (com a data e o montante) ou à mão, em **Novo patrocínio**, para um acordo
+fechado por email, WhatsApp, em pessoa ou em produto. Guarda a marca, os espaços e os preços desse dia, o desconto de
+época e o de pacote, o montante pago (pode ser outro, num acordo; em produto pode ser 0, com a descrição), a data e a
+forma do pagamento, a época e o período, o estado da renovação, o contacto (nome, canal, email, telefone ou conta, só
+o que houver), o NIF se o deu, a língua, se o logótipo em vetor já chegou, as notas, o número do pedido e o histórico
+das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
+
+**O que a página mostra.**
+- **Agora**: o que há para fazer hoje, cada linha com o seu botão. Até 15 de janeiro, os logótipos em vetor que
+  faltam («Recebido»); um espaço vendido sem logótipo no site; um contrato cujos espaços não estão vendidos a essa
+  marca no site; um pedido confirmado sem registo («Registar»); de 1 de setembro a 31 de outubro, as propostas de
+  2028 por enviar («Proposta enviada»); nas duas últimas semanas antes de 31 de outubro, as respostas que faltam
+  («Renova», «Não renova»); a partir de 1 de novembro, os espaços para libertar; no último mês, os contratos que acabam
+  a 31 de dezembro.
+- **Calendário**: início (1 jan), logótipos (15 jan), propostas (1 set), renovação (31 out), livres para todos (1 nov)
+  e fim (31 dez), cada data com «passou», «hoje» ou quantos dias faltam. **Juntar ao calendário** descarrega um
+  `.ics` com estas datas e um lembrete por marca para a proposta (às 9:00 desse dia; a renovação também uma semana
+  antes). No iPhone, abre o ficheiro e carrega em «Adicionar todos». Abrir um `.ics` novo atualiza os mesmos eventos
+  em vez de os repetir. Só leva o nome das marcas e dos espaços: nem contactos, nem NIF, nem montantes.
+- Um resumo (quantos patrocínios, quanto recebido, quantos a propor, quantos sem resposta), filtros (Todos, Ativos, A
+  propor, Proposta enviada, Renova, Não renova, Terminados), a época e a pesquisa por marca.
+- **Um cartão por patrocínio**: marca e nível, espaços, montante e data do pagamento (com «Desconto de época
+  (março): −6,25%» quando houve), o período e os dias que faltam, o estado da renovação com os toques do passo
+  seguinte (Ativo → A propor a partir de 1 de setembro → Proposta enviada → Renova ou Não renova; «Desfazer» volta à
+  proposta; depois de 31 de dezembro, Terminado; uma proposta sem resposta a 1 de novembro conta como Não renova),
+  o logótipo em vetor (recebido ou em falta), as notas, **Editar**, **Confirmação (PDF)** e **Apagar** (só para um
+  registo feito por engano; pergunta antes).
+- **Exportar CSV**: `gocarmo-patrocinios-<época>-<data>.csv`, separado por `;`, que o Excel em português abre
+  direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas). É a tua
+  cópia de segurança: guarda-a e apaga as antigas até ao fim do prazo dos registos.
+- **Confirmação (PDF)**: a «Confirmação de patrocínio» que envias à marca depois do pagamento, feita no telemóvel como
+  o comprovativo: marca, espaços e preços, desconto de época e de pacote (só quando o montante é o da tabela), montante
+  e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo, e o link para as condições.
+  Em português, ou em inglês se a marca escreveu em inglês (escolhes antes de gerar).
 
 ## GoFundMe
 
@@ -762,9 +895,14 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `admin/patrocinios/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
-Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista.
+Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/` e `/admin/patrocinios/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista.
+
+O script verifica também a época: o bloco `seasonRules` de `data/spots.json` (datas reais e por ordem), a data das
+condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `msg.terms`), as datas da época escritas em
+cada língua de `/condicoes/` e a tabela do desconto de época dessa página, mês a mês, contra `season-rules.js`. Se
+algo não bater, para (também com `--check`) e diz o quê.
 
 O mesmo script escreve em `index.html` os cartões de «Todas as provas» a partir de `RESULTS` (`assets/js/data.js`), com o mesmo código que os desenha na página (`assets/js/races.js`): são eles que aparecem sem JavaScript e no media kit impresso. Pára com uma lista do que falta se uma prova não tiver o que os cartões precisam (um triatlo sem `splits` ou `ag`, uma corrida sem `pace`). `node scripts/stamp.mjs --check` não muda nada e falha se alguma página estiver desatualizada.
 

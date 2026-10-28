@@ -49,3 +49,14 @@
 .legal-list { margin: 0 0 16px; padding-left: 1.2em; max-width: 68ch; color: var(--muted); }
 .legal-list li { margin: 0 0 6px; text-wrap: pretty; }
 .legal .optout-note { color: var(--ink); }
+
+/* the mid-season discount by month (/condicoes/, «Duração, prazos e renovação»): the text column's width, numbers right
+   aligned in even figures, thin rules; four short columns that fit 320 px without sideways scroll */
+.legal table.season-disc { width: 100%; max-width: 30rem; margin: 12px 0 6px; border-collapse: collapse; font-size: 15px; line-height: 1.4; color: var(--muted); font-variant-numeric: tabular-nums; }
+.legal .season-disc th { padding: 0 0 8px; font: 500 11px/1.3 var(--mono); letter-spacing: .05em; text-transform: uppercase; color: var(--dim); text-align: left; vertical-align: bottom; border-bottom: 1px solid var(--line-2); }
+.legal .season-disc td { padding: 7px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.legal .season-disc th + th, .legal .season-disc td + td { padding-left: 10px; text-align: right; }
+.legal .season-disc tbody tr:first-child td { color: var(--ink); }
+@media print {
+  .legal .season-disc { break-inside: avoid; }
+}

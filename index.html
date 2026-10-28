@@ -23,7 +23,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="assets/css/style.css?v=ede62741">
+<link rel="stylesheet" href="assets/css/style.css?v=921732d7">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -67,10 +67,13 @@
   "./assets/js/admin-analytics-map.js": "./assets/js/admin-analytics-map.js?v=a6e8f1b4",
   "./assets/js/admin-analytics-panels.js": "./assets/js/admin-analytics-panels.js?v=d192f4a9",
   "./assets/js/admin-analytics.js": "./assets/js/admin-analytics.js?v=1eb36543",
-  "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=1a6b1eda",
+  "./assets/js/admin-confirm-pdf.js": "./assets/js/admin-confirm-pdf.js?v=fecff3f8",
+  "./assets/js/admin-contracts.js": "./assets/js/admin-contracts.js?v=8d7e090a",
+  "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=8d4ca3b5",
+  "./assets/js/admin-patrocinios.js": "./assets/js/admin-patrocinios.js?v=cc52b94c",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
-  "./assets/js/admin.js": "./assets/js/admin.js?v=629edca2",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=45e71b41",
+  "./assets/js/admin.js": "./assets/js/admin.js?v=8be6e2f2",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=1baa65f1",
   "./assets/js/analytics.js": "./assets/js/analytics.js?v=33844efa",
   "./assets/js/cartao.js": "./assets/js/cartao.js?v=3afab20e",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
@@ -79,14 +82,16 @@
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=dc407430",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=626b55fd",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=3843dd80",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
+  "./assets/js/pdf-kit.js": "./assets/js/pdf-kit.js?v=78100225",
   "./assets/js/privacy.js": "./assets/js/privacy.js?v=95de7df4",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
-  "./assets/js/receipt.js": "./assets/js/receipt.js?v=d54cc0c9",
+  "./assets/js/receipt.js": "./assets/js/receipt.js?v=5b6a6dce",
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
+  "./assets/js/season-rules.js": "./assets/js/season-rules.js?v=95084349",
   "./assets/js/stats-fb.js": "./assets/js/stats-fb.js?v=87cd2e59",
   "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=c1ae9984",
   "./assets/js/stats-zones.js": "./assets/js/stats-zones.js?v=66b2b133",
@@ -627,7 +632,7 @@
       <div class="rv"><b>01</b><h4 data-i18n="sp.h1">Escolhe</h4><p data-i18n="sp.p1">Um ou vários espaços, no fato e no capacete. A partir de três, tens 10% de&nbsp;desconto.</p></div>
       <div class="rv"><b>02</b><h4 data-i18n="sp.h2">Reserva</h4><p data-i18n="sp.p2">Envias o pedido com o logótipo. O espaço fica reservado durante 48 horas, à espera do comprovativo do&nbsp;pagamento.</p></div>
       <div class="rv"><b>03</b><h4 data-i18n="sp.h3">Pagamento</h4><p data-i18n="sp.p3">Por transferência, ou MB WAY até 2&nbsp;000&nbsp;€, com a referência dos espaços no descritivo. Recebes um recibo de&nbsp;donativo.</p></div>
-      <div class="rv"><b>04</b><h4 data-i18n="sp.h4">É teu</h4><p data-i18n="sp.p4">O espaço fecha e a tua marca aparece aqui, no fato ou no capacete. No equipamento real, entra antes do primeiro triatlo da época, se o logótipo chegar até 15 de&nbsp;fevereiro.</p></div>
+      <div class="rv"><b>04</b><h4 data-i18n="sp.h4">É teu</h4><p data-i18n="sp.p4">O espaço fecha e a tua marca aparece aqui, no fato ou no capacete. No equipamento real, entra antes do primeiro triatlo da época, se o logótipo chegar até 15 de&nbsp;janeiro.</p></div>
     </div>
     <div class="rules">
       <div class="rv"><b data-i18n="ru.h1">Uma marca por espaço.</b><span data-i18n="ru.p1">Quando o pagamento entra, o espaço fecha para toda a gente e passa a mostrar a tua marca.</span></div>
@@ -776,6 +781,9 @@
         <div class="cl-sum" id="cl-sum">
           <p class="cl-line"><span class="cl-txt"><span id="cl-what"></span> · <b id="cl-tot"></b></span><button type="button" class="link cl-more" id="cl-more" aria-expanded="false" aria-controls="cl-items" hidden></button></p>
           <ul class="cl-items" id="cl-items" hidden></ul>
+          <!-- the season the spot is for, and, from February, the mid-season discount and why (season-rules.js) -->
+          <p class="cl-period" id="cl-period"></p>
+          <p class="cl-season" id="cl-season" hidden></p>
         </div>
         <!-- this package already holds its spots (a request sent from this tab): the buttons send its message again -->
         <p class="cl-note ok" id="cl-held1" hidden></p>
@@ -812,7 +820,9 @@
         <!-- what went wrong with the request, and what to do; announced as it shows -->
         <div class="cl-note" id="cl-note" role="alert" hidden></div>
         <!-- what sending means: the request follows the sponsorship terms in force that day (/condicoes/) -->
-        <p class="cl-terms" data-i18n-html="cl.terms">Ao enviar, aceitas as <a href="condicoes/" target="_blank" rel="noopener">condições do patrocínio</a> (atualizadas a 26 de outubro de 2026).</p>
+        <p class="cl-terms" data-i18n-html="cl.terms">Ao enviar, aceitas as <a href="condicoes/" target="_blank" rel="noopener">condições do patrocínio</a> (atualizadas a 28 de outubro de 2026).</p>
+        <!-- after the season's last day for requests: nothing is sent until the next season opens -->
+        <p class="cl-closed" id="cl-closed" role="status" hidden></p>
         <div class="cl-acts">
           <a class="btn gold" id="cl-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></a>
           <div class="cl-alt">
