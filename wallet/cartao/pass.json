@@ -61,6 +61,12 @@
         "attributedValue": "<a href='https://www.instagram.com/goncalo.carmo99/'>@goncalo.carmo99</a>"
       },
       {
+        "key": "b-tiktok",
+        "label": "TikTok",
+        "value": "@goncalo.carmo99",
+        "attributedValue": "<a href='https://www.tiktok.com/@goncalo.carmo99'>@goncalo.carmo99</a>"
+      },
+      {
         "key": "b-site",
         "label": "Site",
         "value": "gocarmo.com",
