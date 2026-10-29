@@ -1,5 +1,5 @@
 // Page bootstrap: language, nav, smooth scroll, scroll-driven scenes, data blocks and the sponsor studio.
-import { initLang, onLang, t, pick, money, numFmt, getLang, fmtDay } from './i18n.js';
+import { initLang, onLang, t, pick, money, moneyRange, numFmt, getLang, fmtDay } from './i18n.js';
 import { SITE, RESULTS, SEASON, BUDGET, SOCIAL } from './data.js';
 import { weekMultiples, heatmap } from './charts.js';
 import { racesBlock } from './races.js';
@@ -233,11 +233,13 @@ function renderSeason() {
     d.append(w, h, p, st);
     host.appendChild(d);
   }
-  // the counts are the races on the calendar; Kona is the goal they lead to
+  // the counts are the races on the calendar; Kona (2028) is the goal they lead to. Entries secured: earned on merit
+  // (entry) or paid and confirmed (registered)
   const races = SEASON.filter((r) => r.status !== 'goal');
   const km = races.reduce((a, r) => a + r.km, 0);
   flowSet($('#sk-races'), races.length);
   flowSet($('#sk-km'), Math.round(km / 10) * 10, { prefix: '~' });
+  flowSet($('#sk-entries'), races.filter((r) => r.status === 'entry' || r.status === 'registered').length);
 }
 
 function greatCircleKm(a, b) {
@@ -248,21 +250,28 @@ function greatCircleKm(a, b) {
 }
 
 // ---------- budget ----------
+// a line's eur is a number or a range [low, high]: the bar is solid up to low and lighter from low to high, scaled to the
+// largest high; the total is the range of the sums
+const lo = (b) => (Array.isArray(b.eur) ? b.eur[0] : b.eur);
+const hi = (b) => (Array.isArray(b.eur) ? b.eur[1] : b.eur);
+const eurText = (a, z) => (a === z ? money(a) : moneyRange(a, z));
 function renderBudget() {
   const host = $('#budget-rows');
   host.textContent = '';
-  const max = Math.max(...BUDGET.map((b) => b.eur));
+  const max = Math.max(...BUDGET.map(hi));
   for (const b of BUDGET) {
     const r = document.createElement('div'); r.className = 'row';
     const n = document.createElement('b'); n.textContent = pick(b);
-    const v = document.createElement('span'); v.textContent = money(b.eur);
+    const v = document.createElement('span'); v.textContent = eurText(lo(b), hi(b));
     const tr = document.createElement('div'); tr.className = 'track';
-    const i = document.createElement('i'); i.style.width = `${(b.eur / max) * 100}%`; tr.appendChild(i);
+    const i = document.createElement('i'); i.style.width = `${(lo(b) / max) * 100}%`; tr.appendChild(i);
+    if (hi(b) > lo(b)) { i.className = 'lo'; const u = document.createElement('i'); u.className = 'up'; u.style.width = `${((hi(b) - lo(b)) / max) * 100}%`; tr.appendChild(u); }
     const s = document.createElement('small'); s.textContent = pick(b.note);
     r.append(n, v, tr, s);
     host.appendChild(r);
   }
-  $('#budget-total').textContent = money(BUDGET.reduce((a, b) => a + b.eur, 0));
+  const sum = (f) => BUDGET.reduce((a, b) => a + f(b), 0);
+  $('#budget-total').textContent = eurText(sum(lo), sum(hi));
 }
 
 // ---------- Strava ----------
@@ -492,7 +501,8 @@ function renderSocial() {
   const per = SOCIAL.likesPerPost + SOCIAL.commentsPerPost;
   flowSet($('#ig-followers'), SOCIAL.followers);
   flowSet($('#ig-inter'), Math.round(per / 10) * 10, { prefix: '~' });
-  flowSet($('#ig-rate'), Math.round((per / SOCIAL.followers) * 100));
+  // the rate divides by the followers of the day the posts were read (asOf), never by a later count
+  flowSet($('#ig-rate'), Math.round((per / (SOCIAL.postsFollowers || SOCIAL.followers)) * 100));
   flowSet($('#ig-best'), SOCIAL.bestPost);
 }
 const safe = (f) => { try { f(); } catch (e) { console.error(e); } };

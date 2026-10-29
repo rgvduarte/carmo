@@ -74,26 +74,31 @@ export const RESULTS = [
 ];
 
 
-// Instagram @goncalo.carmo99, read from the platform on 2026-10-22 (12 most recent posts).
-export const SOCIAL = { followers: 1921, likesPerPost: 329, commentsPerPost: 43, bestPost: 881, asOf: '2026-10-22' };
+// Instagram @goncalo.carmo99: followers read on 2026-10-29 (screenshot, followersAsOf); likes, comments and the best
+// post from the 12 most recent posts, read on 2026-10-22 (asOf), when the account had 1 921 followers (postsFollowers,
+// which the engagement rate divides by, so the rate never mixes two dates).
+export const SOCIAL = { followers: 1953, followersAsOf: '2026-10-29', likesPerPost: 329, commentsPerPost: 43, bestPost: 881, postsFollowers: 1921, asOf: '2026-10-22' };
 
-// 2027 season, in date order. status: planned | entry (won on merit) | pending | tbc | goal
+// 2027 season, in date order. status: planned | entry (won on merit) | registered (entry paid and confirmed) | pending |
+// tbc | goal
 export const SEASON = [
   { date: '2027-02-21', pt: 'Maratona de Sevilha', en: 'Seville Marathon', where: { pt: 'Sevilha, Espanha', en: 'Seville, Spain' }, what: { pt: 'Maratona · 42,2 km', en: 'Marathon · 42.2 km' }, km: 42.2, status: 'planned' },
   { date: '2027-04-03', pt: 'IRONMAN 70.3 Vilamoura', en: 'IRONMAN 70.3 Vilamoura', where: { pt: 'Vilamoura, Algarve', en: 'Vilamoura, Algarve' }, what: { pt: 'Meia distância · 1.ª edição', en: 'Middle distance · 1st edition' }, km: 113, status: 'pending' },
   { date: '2027-04-24', pt: 'Mallorca 312', en: 'Mallorca 312', where: { pt: 'Maiorca, Espanha', en: 'Mallorca, Spain' }, what: { pt: 'Ciclismo · 312 km', en: 'Cycling · 312 km' }, km: 312, status: 'pending' },
   { date: '2027-05-02', pt: 'Lidl Setúbal Triathlon', en: 'Lidl Setúbal Triathlon', where: { pt: 'Setúbal, Portugal', en: 'Setúbal, Portugal' }, what: { pt: 'Meia distância', en: 'Middle distance' }, km: 113, status: 'entry' },
-  { date: '2027-05-09', end: '2027-05-14', pt: 'Gravel Birds XL', en: 'Gravel Birds XL', where: { pt: 'Castro Verde, Alentejo', en: 'Castro Verde, Alentejo' }, what: { pt: 'Ultra gravel · ~1 000 km', en: 'Ultra gravel · ~1,000 km' }, km: 1000, status: 'planned' },
-  { date: '2027-07', pt: 'IRONMAN de qualificação', en: 'Qualifying IRONMAN', where: { pt: 'Península Ibérica', en: 'Iberian Peninsula' }, what: { pt: 'Qualificação para Kona', en: 'Kona qualifier' }, km: 226, status: 'tbc' },
+  { date: '2027-05-09', end: '2027-05-14', pt: 'Gravel Birds XL', en: 'Gravel Birds XL', where: { pt: 'Castro Verde, Alentejo', en: 'Castro Verde, Alentejo' }, what: { pt: 'Ultra gravel · ~1 000 km', en: 'Ultra gravel · ~1,000 km' }, km: 1000, status: 'registered' },
+  { date: '2027-09-12', pt: 'IRONMAN Japan South Hokkaido', en: 'IRONMAN Japan South Hokkaido', where: { pt: 'Hokkaido, Japão', en: 'Hokkaido, Japan' }, what: { pt: 'Distância completa · a vaga para Kona (2028)', en: 'Full distance · Kona slot (2028)' }, km: 226, status: 'planned' },
   { date: '2027-09', pt: 'Triatlo de Sines', en: 'Sines Triathlon', where: { pt: 'Sines, Portugal', en: 'Sines, Portugal' }, what: { pt: 'Triatlo · 2 · 80 · 18 km', en: 'Triathlon · 2 · 80 · 18 km' }, km: 100, status: 'entry' },
-  // Kona has no date until the slot is won: it is the goal, not a counted race
-  { date: '', label: { pt: 'Garantindo qualificação', en: 'Once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
+  // Kona is the goal: the IRONMAN World Championship in 2028, once the slot is won in Japan. Never a 2027 race, so never
+  // counted (renderSeason leaves status 'goal' out of the counts) and never in BUDGET; it stays last
+  { date: '', label: { pt: '2028 · garantindo a qualificação', en: '2028 · once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
 ];
 
-// Season budget estimate (EUR). Entry fees from official race pages, Oct 2026.
+// Season budget estimate (EUR): Gonçalo's figures, 29.10.2026. eur is a number or a range [low, high]. Only the seven
+// races of the season: Kona (2028) is not in it.
 export const BUDGET = [
-  { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: 7000, note: { pt: 'Provas em Espanha e em Portugal e, garantindo a qualificação, a viagem a Kona (voos, 10 noites, transporte da bicicleta)', en: 'Races in Spain and Portugal and, once qualified, the trip to Kona (flights, 10 nights, bike transport)' } },
-  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Sete provas e, garantindo a qualificação, Kona. Setúbal e Sines já estão garantidas por mérito.', en: 'Seven races and, once qualified, Kona. Setúbal and Sines already earned on merit.' } },
+  { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: [8000, 9500], note: { pt: 'As sete provas de 2027, com o Japão: voos, alojamento e deslocações', en: 'The seven 2027 races, Japan included: flights, accommodation and local travel' } },
+  { pt: 'Inscrições', en: 'Race entries', eur: [2200, 2500], note: { pt: 'As sete provas. Setúbal e Sines já estão garantidas por mérito e não contam.', en: 'The seven races. Setúbal and Sines are already earned on merit and are not counted.' } },
   { pt: 'Treino, nutrição e saúde', en: 'Coaching, nutrition and health', eur: 3000, note: { pt: 'Treinador, suplementação, fisioterapia e testes', en: 'Coach, nutrition, physio and testing' } },
   { pt: 'Material e manutenção', en: 'Equipment and maintenance', eur: 2500, note: { pt: 'Pneus, transmissão, sapatilhas, fato de neoprene', en: 'Tyres, drivetrain, shoes, wetsuit' } },
 ];

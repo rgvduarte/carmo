@@ -12,7 +12,7 @@ const EN = {
   "hero.alt": "Gonçalo Carmo smiling at the finish line, wearing sunglasses",
   "hero.role": "Triathlete · Lisbon",
   "hero.big": "Every race, every session",
-  "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. Now I want to make triathlon my living, with brands on the team, as I had in motocross. In 2027, Kona is the target race.",
+  "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. Now I want to make triathlon my living, with brands on the team, as I had in motocross. In 2027, I'm going after a Kona slot at IRONMAN Japan South Hokkaido on 12 September.",
   "hero.cta1": "See the suit and helmet",
   "hero.cta2": "Support",
   "hero.t1": "Marathon",
@@ -34,7 +34,7 @@ const EN = {
   "thesis.y3k": "Year 3",
   "thesis.goal": "Goal",
   "thesis.y3h": "Seven races and a slot.",
-  "thesis.y3p": "February to September, in Portugal and Spain, with a qualifying IRONMAN still to be chosen. Once qualified, the season ends in Kona.",
+  "thesis.y3p": "February to September, in Portugal, Spain and Japan, with the Kona slot on the line at IRONMAN Japan South Hokkaido. Once qualified, Kona in 2028.",
   "thesis.k2": "at IRONMAN Portugal-Cascais, 52nd overall of 1,981",
   "thesis.k3": "overall at Setúbal, Sines and IRONMAN Cascais",
   "thesis.k1": "at middle distance, from Caminha 2025 (4:32) to Setúbal 2026 (4:26)",
@@ -93,13 +93,13 @@ const EN = {
   "data.sb": "Open in Strava",
   "season.k": "04 · Goals",
   "season.h": "The 2027<br>season",
-  "season.p": "Seven races in Portugal and Spain, from February to September, including a qualifying IRONMAN for Kona. IRONMAN races have official photographers. Before and after every race, I post with my sponsors tagged. Between races, I train in the suit too.",
+  "season.p": "Seven races in Portugal, Spain and Japan, from February to September, with a Kona slot on the line at IRONMAN Japan South Hokkaido. IRONMAN races have official photographers. Before and after every race, I post with my sponsors tagged. Between races, I train in the suit too.",
   "season.s1": "races",
   "season.s2": "countries",
   "season.s3": "race km",
   "season.s4": "entries secured",
-  "season.tv": "<b>If I qualify, Kona live.</b> In 2025 the World Championship streamed live and free on YouTube, DAZN and the IRONMAN website, with helicopter and drone footage.",
-  "season.note": "Official dates as of 22 October 2026. The qualifying IRONMAN has not been chosen yet. Kona joins the calendar once qualification is secured. Broadcast: IRONMAN 2025 media kit.",
+  "season.tv": "<b>Once qualified, Kona live in 2028.</b> In 2025 the World Championship streamed live and free on YouTube, DAZN and the IRONMAN website, with helicopter and drone footage.",
+  "season.note": "Official dates as of 22 October 2026; the IRONMAN Japan South Hokkaido date is provisional. Broadcast: IRONMAN 2025 media kit.",
   "season.route": "TO THE TARGET RACE",
   "season.from": "LISBON",
   "suit.k": "05 · Sponsorship",
@@ -249,7 +249,8 @@ const EN = {
   "sup.i3p": "Flights, accommodation and bike transport.",
   "bud.h": "Where the support goes",
   "bud.s": "Estimated 2027 season budget, in euros.",
-  "bud.src": "Entry fees are the official prices published in October 2026. Travel and kit figures are estimates.",
+  "bud.kona": "Kona, once qualified, is in 2028 and is not in this budget.",
+  "bud.src": "Estimates as of 29 October 2026.",
   "ct.k": "08 · Contact",
   "ct.h": "Get in touch.",
   "ct.p": "Sponsorship, partnerships and press. In 2027 and the seasons after, I take brands with me.",
@@ -531,8 +532,8 @@ const PT_JS = {
   'pv.kick': (n, years) => `${n === 1 ? '1 prova' : `${n} provas`} · ${years}`, 'pv.all': 'Todas', 'pv.kind.tri': 'Triatlo', 'pv.kind.run': 'Corrida',
   'pv.ag': 'Escalão', 'pv.overall': 'Geral', 'pv.behind': (v) => `${v}% atrás`,
   'pv.status': (i, n, name) => `Prova ${i} de ${n}: ${name}`, 'pv.count': (n) => (n === 1 ? '1 prova' : `${n} provas`),
-  'st.status.planned': 'Planeada', 'st.status.entry': 'Inscrito', 'st.status.pending': 'Por confirmar', 'st.status.tbc': 'A definir', 'st.status.goal': 'Por conquistar',
-  'season.main': 'Prova-alvo',
+  'st.status.planned': 'Planeada', 'st.status.entry': 'Inscrito por mérito', 'st.status.registered': 'Inscrito', 'st.status.pending': 'Por confirmar', 'st.status.tbc': 'A definir', 'st.status.goal': 'Por conquistar',
+  'season.main': 'Objetivo',
   'strava.kpi.hours': 'horas de treino', 'strava.kpi.swim': 'km a nadar', 'strava.kpi.bike': 'km de bicicleta', 'strava.kpi.run': 'km a correr', 'strava.kpi.n': 'sessões',
   'strava.upd': (d) => `Atualizado ${d}`, 'strava.swim': 'Natação', 'strava.bike': 'Ciclismo', 'strava.run': 'Corrida',
   'strava.heat': 'Horas por dia, últimas 52 semanas',
@@ -694,8 +695,8 @@ const EN_JS = {
   'pv.kick': (n, years) => `${n === 1 ? '1 race' : `${n} races`} · ${years}`, 'pv.all': 'All', 'pv.kind.tri': 'Triathlon', 'pv.kind.run': 'Running',
   'pv.ag': 'Age group', 'pv.overall': 'Overall', 'pv.behind': (v) => `${v}% behind`,
   'pv.status': (i, n, name) => `Race ${i} of ${n}: ${name}`, 'pv.count': (n) => (n === 1 ? '1 race' : `${n} races`),
-  'st.status.planned': 'Planned', 'st.status.entry': 'Entered', 'st.status.pending': 'Pending', 'st.status.tbc': 'To be chosen', 'st.status.goal': 'Slot to win',
-  'season.main': 'Target race',
+  'st.status.planned': 'Planned', 'st.status.entry': 'Earned entry', 'st.status.registered': 'Entered', 'st.status.pending': 'Pending', 'st.status.tbc': 'To be chosen', 'st.status.goal': 'Slot to win',
+  'season.main': 'Goal',
   'strava.kpi.hours': 'training hours', 'strava.kpi.swim': 'km swum', 'strava.kpi.bike': 'km ridden', 'strava.kpi.run': 'km run', 'strava.kpi.n': 'sessions',
   'strava.upd': (d) => `Updated ${d}`, 'strava.swim': 'Swim', 'strava.bike': 'Bike', 'strava.run': 'Run',
   'strava.heat': 'Hours per day, last 52 weeks',
@@ -748,6 +749,11 @@ export function money(n) {
 }
 export function numFmt(n, d = 0) {
   return new Intl.NumberFormat(lang === 'en' ? 'en-GB' : 'pt-PT', { maximumFractionDigits: d, minimumFractionDigits: d, useGrouping: 'always' }).format(n);
+}
+// a range of euros in the house style, with an en dash and the sign once: «8 000–9 500 €» / «€8,000–9,500» (not
+// Intl's formatRange, which spaces the dash and repeats the sign)
+export function moneyRange(a, b) {
+  return lang === 'en' ? `${money(a)}–${numFmt(b)}` : `${numFmt(a)}–${money(b)}`;
 }
 
 export function setLang(next, { save = true } = {}) {

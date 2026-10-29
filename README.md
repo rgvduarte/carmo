@@ -13,7 +13,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   recente à mais antiga, com o tempo, o lugar no escalão e na geral e os parciais dos triatlos. No telemóvel desliza-se
   de cartão em cartão; no computador avança-se com as setas. Sem JavaScript e no media kit impresso aparecem todos.
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
-- **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando a qualificação estiver garantida.
+- **Época 2027**: sete provas em Portugal, Espanha e Japão, com a vaga para Kona em jogo no IRONMAN Japan South Hokkaido
+  (12 de setembro de 2027). Kona, garantindo a qualificação, é em 2028: fica no fim do calendário, fora das contas e do
+  orçamento.
 - **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir ao título e ao subtítulo há
   dois cartões grandes, «O fato» e «O capacete», cada um com a imagem do modelo, o número de espaços, o preço mais baixo
   e um botão que leva à sua parte. A introdução, os espaços livres e as marcas que já lá estão vêm depois dos cartões,
@@ -72,7 +74,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Página de privacidade (PT e EN) | `privacidade/index.html` |
 | Condições do patrocínio (PT e EN) | `condicoes/index.html` (se mudares o que um espaço inclui no site, muda também aqui) |
 | IBAN, titular e MB WAY | `assets/js/data.js` → `SITE.iban`, `SITE.payee`, `SITE.mbway`, `SITE.mbwayMax` |
-| Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
+| Resultados, calendário 2027, orçamento, números do Instagram | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`; no orçamento, `eur` é um número ou um intervalo `[mín, máx]`; em `SOCIAL`, os seguidores têm a data deles, `followersAsOf`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rcpt.*`, `cl.rcpt*` e `cl.nag*` (PT e EN; `rc.*` são os da tabela de preços); o desenho do PDF em `assets/js/receipt.js` |
 | Documentos do cofre (kits, guiões, folhetos, manuais) | no computador, `node scripts/docs-publish.mjs` com a configuração em `~/gocarmo-cofre/` (ver «Documentos (o cofre)») |
