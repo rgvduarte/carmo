@@ -205,10 +205,11 @@ visualização nova, a atualização de uma, uma resposta à pergunta rápida), 
 O isolate junta-os como `d:<AAAA-MM-DD>:<k>` e entrega-os na chamada seguinte ao armazém, que só aceita dias entre
 hoje - 2 e amanhã (com `DEV_HOOKS`, qualquer dia). Apagam-se com o resto de `sys` (90 dias). O primeiro dia com
 `l.req` fica em `meta` (`lsince`). Resposta:
-`{ ok, v, today, at, rollupAt, since, dev, days: [14 dias, do mais antigo: { day, counted, req, ok, rej: { origem,
+`{ ok, v, today, at, rollupAt, since, dev, days: [14 dias, do mais antigo: { day, counted, partial, req, ok, rej: { origem,
 tamanho, json, versao, esquema, limite, robo, cheio }, drop: { teto, cheio }, pv: { ext, int }, visits: { ext, int },
 state }], now: { pv, visits, uv: { ext } }, period: { from, to, pv, visits } | null }`. Antes de `since`, `counted` é
-`false` e `req`, `ok`, `rej`, `drop` são `null`, nunca 0. `pv` e `visits` vêm da tabela crua (30 dias), `visits` com a
+`false` e `req`, `ok`, `rej`, `drop` são `null`, nunca 0. `partial` é `true` só no dia `since`: os contadores desse dia
+começam na publicação, as visitas contam o dia todo (o painel diz «contagem desde a publicação»). `pv` e `visits` vêm da tabela crua (30 dias), `visits` com a
 regra de `derive.js`. `state`: `hoje`, `feito`, `refazer` (resumido mas chegaram dados depois: volta a resumir esta
 noite) ou `por-fazer`. `now` e `period` seguem o filtro `dev`; `period` são os dias completos do período pedido (o fim
 cortado em ontem; `null` em `24h`), lidos como os painéis os leem, separados pela coluna `int`: `period.visits.ext` é o

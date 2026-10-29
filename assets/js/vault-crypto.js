@@ -11,8 +11,8 @@
 //   info "gocarmo cofre v1 wrap <purpose>"), AES-GCM with the same string as AAD. purpose is file:<fid> or
 //   manifest:<kid>, so a wrapped key cannot be moved to another file;
 // - files are cut in 8 MiB chunks; each is "GCC1" ‖ IV (12, fresh) ‖ AES-GCM with AAD "gocarmo cofre v1 chunk <fid>
-//   <i> <n>" (a chunk moved to another file or place, or a changed count, fails); the last one is padded with zeros to
-//   a multiple of 64 KiB;
+//   <i> <n> <size>" (a chunk moved to another file or place, a changed count or a changed file size fails); the last
+//   one is padded with zeros to a multiple of 64 KiB, and the padding is checked to be zeros;
 // - the manifest (titles, versions, wrapped file keys) is JSON padded with spaces to a multiple of 4 KiB and sealed
 //   with its own key, AAD "gocarmo cofre v1 manifest <kid>".
 
@@ -135,6 +135,35 @@ export async function fingerprint(pubJwk) {
   if (p.length) throw new VaultError('cofre', p.join('; '));
   const h = new Uint8Array(await subtle().digest('SHA-256', rawOfJwk(pubJwk))).slice(0, 16);
   return hex(h).match(/.{4}/g).join(' ');
+}
+
+// ---------- the passphrase ----------
+// vault.json is public for good, with its salt: anyone can try passphrases on it offline. Beyond the length, the page
+// refuses the ones that are tried first. weakPass(s) -> '' (fine) or 'curta' | 'repetida' (few different characters)
+// | 'do-site' (mostly the site's own words, numbers and signs) | 'poucas-palavras' (under 24 characters and fewer than
+// 3 different words). A famous phrase cannot be caught here: the page offers suggestPass() instead.
+const SITE_WORDS = ['gocarmo', 'goncalo', 'carmo', 'kona', 'cofre', 'ironman', 'triatlo', 'triathlon', 'admin', 'documentos', 'password', 'passphrase', 'passe', 'frase', 'senha'];
+export function weakPass(pass) {
+  const s = String(pass ?? '').normalize('NFC');
+  if ([...s].length < V.PASS_MIN) return 'curta';
+  const folded = s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  if (new Set([...folded.replace(/\s+/g, '')]).size < 6) return 'repetida';
+  let rest = folded;
+  for (const w of SITE_WORDS) rest = rest.split(w).join(' ');
+  if (rest.replace(/[^\p{L}]/gu, '').length < 10) return 'do-site';
+  const words = folded.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if ([...s].length < 24 && new Set(words).size < 3) return 'poucas-palavras';
+  return '';
+}
+// n words drawn uniformly from `words` with crypto.getRandomValues (2048 words: 11 bits each, 5 words about 55 bits)
+export function suggestPass(words, n = 5) {
+  if (!Array.isArray(words) || words.length < 256 || words.length > 65536) throw new VaultError('versao', 'word list');
+  const lim = Math.floor(65536 / words.length) * words.length, out = [], r = new Uint16Array(16);
+  while (out.length < n) {
+    globalThis.crypto.getRandomValues(r);
+    for (const x of r) if (x < lim && out.length < n) out.push(words[x % words.length]);
+  }
+  return out.join(' ');
 }
 
 function passBytes(pass, { check = true } = {}) {
@@ -276,20 +305,28 @@ export const newFid = () => hex(rand(16));
 export const newFileKey = () => rand(32);
 // a file key (32 bytes) as a CryptoKey for encryptChunk/decryptChunk (the publisher; the page gets it from unwrapKey)
 export const fileKey = (bytes, uses = ['encrypt', 'decrypt']) => subtle().importKey('raw', u8(bytes), 'AES-GCM', false, uses);
-const chunkAad = ({ fid, i, n }) => {
+// the file's size is in every chunk's AAD: a manifest that claims another size (more zeros at the end, or a cut file)
+// does not open
+const chunkAad = ({ fid, i, n, size }) => {
   if (!FID_RE.test(String(fid)) || !Number.isInteger(i) || !Number.isInteger(n) || n < 1 || i < 0 || i >= n) throw new VaultError('versao', 'chunk position');
-  return utf8(`gocarmo cofre v1 chunk ${fid} ${i} ${n}`);
+  if (!Number.isInteger(size) || size < 0 || size > Number.MAX_SAFE_INTEGER) throw new VaultError('versao', 'chunk size');
+  if (chunkCount(size) !== n) throw new VaultError('estragado', 'size and chunk count disagree');
+  return utf8(`gocarmo cofre v1 chunk ${fid} ${i} ${n} ${size}`);
 };
 const asKey = async (k, use) => (k instanceof Uint8Array || k instanceof ArrayBuffer ? fileKey(k, [use]) : k);
 
-// one chunk -> "GCC1" ‖ iv ‖ AES-GCM. A chunk before the last holds exactly CHUNK bytes; the last one (any length up
-// to CHUNK) is padded here with zeros to paddedLength (padding it before is fine: the length stays the same).
-export async function encryptChunk(aesKey, plain, { fid, i, n }) {
-  const aad = chunkAad({ fid, i, n });
+// one chunk of a file of `size` bytes -> "GCC1" ‖ iv ‖ AES-GCM. A chunk before the last holds exactly CHUNK bytes; the
+// last one holds the rest of the file and is padded here with zeros to paddedLength (padding it before with zeros is
+// fine: the length stays the same).
+export async function encryptChunk(aesKey, plain, { fid, i, n, size }) {
+  const aad = chunkAad({ fid, i, n, size });
   let p = u8(plain);
   if (!p) throw new VaultError('versao', 'plaintext is not bytes');
   if (i < n - 1 && p.length !== V.CHUNK) throw new VaultError('versao', `chunk ${i} of ${n} must hold ${V.CHUNK} bytes`);
   if (p.length > V.CHUNK) throw new VaultError('versao', 'chunk too big');
+  const want = plainLength(size, i);
+  if (i === n - 1 && p.length !== want && p.length !== paddedLength(want)) throw new VaultError('versao', `the last chunk must hold ${want} bytes`);
+  if (i === n - 1 && p.length !== want) for (let j = want; j < p.length; j++) if (p[j]) throw new VaultError('versao', 'the padding must be zeros');
   const copied = i === n - 1 && p.length !== paddedLength(p.length);
   if (copied) { const q = new Uint8Array(paddedLength(p.length)); q.set(p); p = q; }
   const iv = rand(12);
@@ -298,9 +335,9 @@ export async function encryptChunk(aesKey, plain, { fid, i, n }) {
     return cat(new Uint8Array(MAGIC), iv, ct);
   } finally { if (copied) wipe(p); }
 }
-// "GCC1" ‖ iv ‖ ct -> the plaintext (the last chunk sliced to its real length when `size`, the file's, is given)
+// "GCC1" ‖ iv ‖ ct -> the plaintext (the last chunk sliced to its real length; `size` is the file's)
 export async function decryptChunk(aesKey, bytes, { fid, i, n, size } = {}) {
-  const aad = chunkAad({ fid, i, n });
+  const aad = chunkAad({ fid, i, n, size });
   const b = u8(bytes);
   if (!b || b.length < 4 + 12 + 16) throw new VaultError('estragado', 'chunk too short');
   if (b[0] !== MAGIC[0] || b[1] !== MAGIC[1] || b[2] !== MAGIC[2] || b[3] !== MAGIC[3]) {
@@ -311,10 +348,9 @@ export async function decryptChunk(aesKey, bytes, { fid, i, n, size } = {}) {
   try {
     p = new Uint8Array(await subtle().decrypt({ name: 'AES-GCM', iv: b.subarray(4, 16), additionalData: aad }, await asKey(aesKey, 'decrypt'), b.subarray(16)));
   } catch (_) { throw new VaultError('estragado', `chunk ${i} does not open`); }
-  if (size === undefined) return p;
-  if (chunkCount(size) !== n) throw new VaultError('estragado', 'size and chunk count disagree');
   const len = plainLength(size, i);
   if (len > p.length || (i === n - 1 ? p.length !== paddedLength(len) : p.length !== V.CHUNK)) throw new VaultError('estragado', `chunk ${i} has the wrong length`);
+  for (let j = len; j < p.length; j++) if (p[j]) throw new VaultError('estragado', `chunk ${i} has bytes after the end`);
   return len === p.length ? p : p.subarray(0, len);
 }
 
@@ -353,6 +389,21 @@ export async function openManifest(privateKey, pub, env) {
   return obj;
 }
 
+// ---------- the branch's README (written by the page when it creates the branch, and by the publisher) ----------
+export const BRANCH_README = `# Cofre de documentos
+
+Este ramo guarda, cifrados, os documentos que fazemos para o Gonçalo Carmo. Só abrem em
+https://gocarmo.com/admin/documentos/ com a frase-passe do cofre. Sem ela não se leem os ficheiros, os títulos, as
+versões nem as datas dos documentos; as datas das publicações (as dos commits) são públicas.
+
+- \`vault.json\`: a chave pública do cofre e a chave privada fechada com a frase-passe (escrito pela página).
+- \`manifest.json\`: a lista dos documentos e das versões, cifrada (escrita pelo publicador).
+- \`f/<id>/<n>.bin\`: os ficheiros, cifrados em partes de 8 MiB, com nomes que não dizem nada.
+
+Não mexas aqui à mão: é reescrito em cada publicação (\`scripts/docs-publish.mjs\`, ver o README do site,
+«Documentos (o cofre)»).
+`;
+
 // ---------- small helpers ----------
 // SHA-256 of bytes, lowercase hex
 export async function sha256hex(bytes) { return hex(new Uint8Array(await subtle().digest('SHA-256', u8(bytes)))); }
@@ -361,8 +412,8 @@ export async function keyMatches(privateKey, vault) {
   try {
     const pub = await importPublic(vault), probe = newFileKey(), fid = newFid();
     const k = await unwrapKey(privateKey, pub, await wrapKey(pub, probe, `file:${fid}`), `file:${fid}`);
-    const sample = await encryptChunk(probe, new Uint8Array(1), { fid, i: 0, n: 1 });
-    await decryptChunk(k, sample, { fid, i: 0, n: 1 });
+    const sample = await encryptChunk(probe, new Uint8Array(1), { fid, i: 0, n: 1, size: 1 });
+    await decryptChunk(k, sample, { fid, i: 0, n: 1, size: 1 });
     return true;
   } catch (_) { return false; }
 }

@@ -9,7 +9,7 @@
 // month and the sponsor list's views) and montra (a brand's showcase per month and product). Never in it: the booking
 // funnel, anything with today, the sum of visitors over days, a number of people.
 import { sameBrand } from './admin-montra-core.js';
-import { T, fmt, fill, country, channel, device, refName, CHANNEL_ORDER } from './admin-report-text.js';
+import { T, fmt, fill, country, channel, device, refName, placeName, CHANNEL_ORDER } from './admin-report-text.js';
 
 // ---------- days ----------
 export const addDays = (d, n) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -49,6 +49,22 @@ export function periods(today, rules = {}) {
 export function customOk(from, to, today) {
   const yday = addDays(today, -1);
   return validDay(from) && validDay(to) && from <= to && to <= yday && from >= addDays(today, -CUSTOM_BACK) && dayDiff(from, to) <= CUSTOM_BACK;
+}
+
+// A period that starts before the counter's first day starts on that day instead: the averages then divide by the days
+// that have data, and the cover says where the report starts. -> { from, to, asked } or { error: 'before', oldest }
+// when the whole period is before the first day.
+export function clampToData(from, to, oldest) {
+  if (!validDay(oldest) || from >= oldest) return { from, to, asked: from };
+  if (to < oldest) return { error: 'before', oldest };
+  return { from: oldest, to, asked: from };
+}
+
+// a month `ym` as the period sees it: the days it holds, and whether the period cuts it
+export function monthPart(ym, from, to) {
+  const a = `${ym}-01`, b = monthEnd(a);
+  const lo = from > a ? from : a, hi = to < b ? to : b;
+  return { from: lo, to: hi, cut: lo !== a || hi !== b };
 }
 
 // ---------- the trend: buckets by day (≤ 62 days), ISO week (≤ 183) or month ----------
@@ -143,10 +159,12 @@ export function fileName(lang, from, to, brand) {
 
 // ---------- the model ----------
 const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const K_PLACES = 3;   // the Worker's K: a place below 3 visitor-days is never named
 const share = (a, b) => (b > 0 ? a / b : 0);
 
-// buildModel({ lang, from, to, today, oldest, now, brand, data: { overview, audience, content, studio, sponsors, montra },
-//   spotsJson, montraJson }) -> { lang, file, title, subject, author, foot, pages: [[block]] }
+// buildModel({ lang, from, to, asked, today, oldest, now, brand, data: { overview, audience, content, studio, sponsors,
+//   montra }, spotsJson, montraJson }) -> { lang, file, title, subject, author, foot, pages: [[block]] }
+// from..to: the period of the numbers (clampToData() already applied); asked: the first day chosen, when earlier.
 // brand: an entry of brandsFor() or null. data.sponsors: the answer, or null when the endpoint is not there yet (the
 // logo block is then left out). Every string in the model is final text in the chosen language.
 export function buildModel(o) {
@@ -165,7 +183,7 @@ export function buildModel(o) {
   const title = brand ? fill(t.docBrand, { brand: brand.name }) : t.docSite;
   const p1 = [];
   const notes = [fill(t.made, { day: f.day(o.today || addDays(to, 1)) })];
-  if (o.oldest && from < o.oldest) notes.push(fill(t.starts, { day: f.day(o.oldest) }));
+  if ((o.asked && o.asked < from) || (o.oldest && from < o.oldest)) notes.push(fill(t.starts, { day: f.day(o.oldest && o.oldest > from ? o.oldest : from) }));
   p1.push({ t: 'cover', kicker: t.kicker, h: title, sub: period, notes });
 
   const cmp = comparable(ov.range || { days }, ov.prev, o.oldest);
@@ -198,11 +216,13 @@ export function buildModel(o) {
   const unit = unitFor(days);
   const bk = bucket(sx, sv, unit);
   const crossYear = from.slice(0, 4) !== to.slice(0, 4);
+  // a month bucket the period cuts says its days («1-14 mar.»), so a short month never reads as a bad one
+  const cutMonth = (b) => unit === 'month' && (b.from !== monthStart(b.from) || b.to !== monthEnd(b.from));
   const label = (b, i) => (unit === 'day' ? f.dayShort(b.from) : unit === 'week' ? f.dayShort(b.from)
-    : f.mon3(b.key, crossYear && (i === 0 || b.key.endsWith('-01'))));
+    : cutMonth(b) ? f.rangeShort(b.from, b.to, crossYear && (i === 0 || b.key.endsWith('-01'))) : f.mon3(b.key, crossYear && (i === 0 || b.key.endsWith('-01'))));
   if (visits > 0 && bk.length) {
     const top = bk.reduce((a, b) => (b.v > a.v ? b : a), bk[0]);
-    const at = unit === 'month' ? f.month(top.key) : f.day(top.from);
+    const at = unit === 'month' ? (cutMonth(top) ? f.range(top.from, top.to) : f.month(top.key)) : f.day(top.from);
     const summary = [fill(t.trendAvg, { v: f.dec1(Math.round((visits / days) * 10) / 10) }), fill(t.trendTop[unit], { at, v: f.int(top.v) })];
     if (unit === 'week') summary.push(t.trendWeek);
     p1.push({ t: bk.length >= 3 ? 'line' : 'cols', title: t.trend[unit], points: bk.map((b, i) => ({ label: label(b, i), v: b.v, text: f.int(b.v) })), top: bk.indexOf(top), summary });
@@ -217,37 +237,44 @@ export function buildModel(o) {
   for (const r of chanRows) { const key = CHANNEL_ORDER.includes(r.k) ? r.k : 'outros'; chanMap.set(key, (chanMap.get(key) || 0) + num(r.x)); }
   const chan = [...chanMap].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1] || CHANNEL_ORDER.indexOf(a[0]) - CHANNEL_ORDER.indexOf(b[0]))
     .map(([key, v]) => ({ label: channel(key, lang), v, text: `${f.pct(share(v, chanSum))}  ·  ${f.int(v)}` }));
-  p2.push(chan.length ? { t: 'bars', title: t.chan, rows: chan, note: chanMap.has('direto') ? t.chanNote : '' } : { t: 'sec', title: t.chan, text: t.nothing });
+  const chanBlock = chan.length ? { t: 'bars', title: t.chan, rows: chan, note: chanMap.has('direto') ? t.chanNote : '' } : { t: 'sec', title: t.chan, text: t.nothing };
+  // without a comparison the summary is only the tiles and the trend: the kinds of source fill its page
+  const anyDelta = p1.some((b) => b.t === 'tiles' && b.items.some((x) => x.delta));
+  if (anyDelta) p2.push(chanBlock); else p1.push(chanBlock);
 
-  // referrers: top 6 by page views, everything else in «Outros sites», last; the same name merged (Instagram's hosts)
+  // referrers: top 6 by visits (as every block of this page), everything else in «Outros sites», last; the same name
+  // merged (Instagram's hosts). The Worker folds them by visitors (u), not by this number.
   const refRows = (au.ref && au.ref.rows) || [];
   const merged = new Map();
-  for (const r of refRows) { const n = refName(r.k, lang); merged.set(n, (merged.get(n) || 0) + num(r.n)); }
+  for (const r of refRows) { const n = refName(r.k, lang); merged.set(n, (merged.get(n) || 0) + num(r.x)); }
   const otherName = refName('outros sites', lang);
   let otherRef = merged.get(otherName) || 0;
   merged.delete(otherName);
-  if (au.ref && au.ref.other) otherRef += num(au.ref.other.n);
-  const refList = [...merged].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  if (au.ref && au.ref.other) otherRef += num(au.ref.other.x);
+  const refList = [...merged].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   for (const [, v] of refList.slice(6)) otherRef += v;
   const sites = refList.slice(0, 6).map(([n, v]) => [n, f.int(v)]);
   if (otherRef > 0) sites.push([otherName, f.int(otherRef)]);
   const sitesBlock = sites.length ? { t: 'table', title: t.sites, head: t.sitesCol, rows: sites, align: ['l', 'r'] } : { t: 'sec', title: t.sites, text: t.nothing };
 
-  // countries: top 8 by visits, the rest as «Outros países»
+  // countries: top 8 by visits, the rest as «Outros países». A document for a third party keeps the min-3 rule for
+  // places: a country with fewer than 3 visitors (counted day by day) goes into «Outros países» too.
   const ccRows = ((au.geo && au.geo.cc && au.geo.cc.rows) || []).slice().sort((a, b) => num(b.x) - num(a.x) || String(a.k).localeCompare(String(b.k)));
   const ccSum = ccRows.reduce((s, r) => s + num(r.x), 0) + num(au.geo && au.geo.cc && au.geo.cc.other && au.geo.cc.other.x);
-  const ccTop = ccRows.slice(0, 8).filter((r) => num(r.x) > 0);
+  const ccTop = ccRows.filter((r) => num(r.u) >= K_PLACES).slice(0, 8).filter((r) => num(r.x) > 0);
   const ccRest = ccSum - ccTop.reduce((s, r) => s + num(r.x), 0);
   const ccBars = ccTop.map((r) => ({ label: country(r.k, lang), v: num(r.x), text: `${f.pct(share(num(r.x), ccSum))}  ·  ${f.int(r.x)}` }));
   if (ccRest > 0) ccBars.push({ label: t.otherCountries, v: ccRest, text: `${f.pct(share(ccRest, ccSum))}  ·  ${f.int(ccRest)}`, other: true });
   const ccBlock = ccBars.length ? { t: 'bars', title: t.countries, rows: ccBars, narrow: true } : { t: 'sec', title: t.countries, text: t.nothing };
   p2.push({ t: 'two', left: ccBlock, right: sitesBlock });
 
-  // cities: only the ones the Worker shows (≥ 3 visitor-days), top 10 by page views; the rest as «Outras localidades»
+  // cities: only the ones the Worker shows (≥ 3 visitor-days), top 10 by page views; the rest as «Outras localidades»,
+  // with the regions the Worker returns (small cities it moved into their region): the rows add up to the countries'
   const cities = ((au.geo && au.geo.cities) || []).slice().sort((a, b) => num(b.n) - num(a.n) || String(a.city).localeCompare(String(b.city)));
   const multiCc = new Set(cities.slice(0, 10).map((c) => c.cc)).size > 1;
-  const cityRows = cities.slice(0, 10).map((c) => [multiCc ? `${c.city} (${country(c.cc, lang)})` : c.city, f.int(c.n)]);
+  const cityRows = cities.slice(0, 10).map((c) => [multiCc ? `${placeName(c.city, lang)} (${country(c.cc, lang)})` : placeName(c.city, lang), f.int(c.n)]);
   let otherPl = ((au.geo && au.geo.otherPlaces) || []).reduce((s, r) => s + num(r.n), 0);
+  for (const r of (au.geo && au.geo.regions) || []) otherPl += num(r.n);
   for (const c of cities.slice(10)) otherPl += num(c.n);
   if (otherPl > 0) cityRows.push([t.otherPlaces, f.int(otherPl)]);
   const cityBlock = cityRows.length ? { t: 'table', title: t.cities, head: t.citiesCol, rows: cityRows, align: ['l', 'r'], note: t.citiesNote } : { t: 'sec', title: t.cities, text: t.nothing };
@@ -307,7 +334,10 @@ export function buildModel(o) {
     if (facts.length) p4.push({ t: 'facts', rows: facts });
 
     const months = monthsIn(from, to);
-    const mlabel = (m, i) => f.mon3(m, crossYear && (i === 0 || m.endsWith('-01')));
+    // a month the period cuts says its days, in the tables and on the charts («1 a 14 de março de 2027», «1-14 mar.»)
+    const mpart = (m) => monthPart(m, from, to);
+    const mlabel = (m, i) => { const p = mpart(m), y = crossYear && (i === 0 || m.endsWith('-01')); return p.cut ? f.rangeShort(p.from, p.to, y) : f.mon3(m, y); };
+    const mrow = (m) => { const p = mpart(m); return p.cut ? f.range(p.from, p.to) : f.month(m); };
     if (brand.hosts.length && d.sponsors) {
       const sp = d.sponsors;
       const byMonth = new Map(months.map((m) => [m, 0]));
@@ -315,7 +345,7 @@ export function buildModel(o) {
       const views = new Map((sp.list || []).map((x) => [x.month, num(x.views)]));
       const total = [...byMonth.values()].reduce((s, v) => s + v, 0);
       const vTotal = months.reduce((s, m) => s + (views.get(m) || 0), 0);
-      const rows = months.map((m) => [f.month(m), f.int(byMonth.get(m)), f.int(views.get(m) || 0)]);
+      const rows = months.map((m) => [mrow(m), f.int(byMonth.get(m)), f.int(views.get(m) || 0)]);
       if (months.length > 1) rows.push([t.total, f.int(total), f.int(vTotal)]);
       // a chart only when there is more than one month to compare; the table always
       if (months.length > 1) {
@@ -350,7 +380,7 @@ export function buildModel(o) {
           p4.push({ t: 'grouped', title: t.montra, lead: t.montraNote, legend: t.montraLegend,
             groups: months.map((m, i) => ({ label: mlabel(m, i), vals: byM.get(m) })) });
         }
-        const rows = months.map((m) => [f.month(m), ...byM.get(m).map(f.int)]);
+        const rows = months.map((m) => [mrow(m), ...byM.get(m).map(f.int)]);
         if (months.length > 1) rows.push([t.total, ...tot.map(f.int)]);
         p4.push({ t: 'table', ...(months.length > 1 ? {} : { title: t.montra, lead: t.montraNote }), head: t.montraCols, rows, align: ['l', 'r', 'r', 'r'], totalRow: months.length > 1 });
         // a product no longer in data/montra.json: its id without the brand, said to be gone

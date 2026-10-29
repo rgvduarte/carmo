@@ -12,6 +12,7 @@
 // the page only ever writes vault.json (and README.md when it creates the branch).
 import { gh, getToken, setToken, GhError, UiError, transient } from './admin-gh.js';
 import { REPO } from './admin-core.js';
+import { BRANCH_README } from './vault-crypto.js';
 
 export const BRANCH = 'docs';
 export const API = `https://api.github.com/repos/${REPO}`;
@@ -21,18 +22,8 @@ export class Missing extends Error { constructor(path) { super(`${path} is not t
 
 export const vaultText = (vault) => `${JSON.stringify(vault, null, 2)}\n`;
 
-export const README = `# Cofre de documentos
-
-Este ramo guarda, cifrados, os documentos que fazemos para o Gonçalo Carmo (gocarmo.com/admin/documentos/).
-Sem a frase-passe do dono não se lê nada: nem os ficheiros, nem os títulos, nem as datas.
-
-- vault.json: a chave pública do cofre e a chave privada fechada com a frase-passe (PBKDF2-SHA-256 e AES-256-GCM).
-- manifest.json: a lista dos documentos e das versões, cifrada.
-- f/<id>/<n>.bin: os ficheiros, cifrados em partes de 8 MiB.
-
-Não mexas aqui à mão: é reescrito em cada publicação (scripts/docs-publish.mjs, no ramo gh-pages). Vê o README do site,
-secção «Documentos».
-`;
+// the same text the publisher writes (vault-crypto.js): one README for the branch, whoever writes it
+export const README = BRANCH_README;
 
 // ---------- reading ----------
 const plainGet = { credentials: 'omit', referrerPolicy: 'no-referrer', mode: 'cors' };
@@ -168,3 +159,12 @@ export const rememberKey = (kid, key) => tx('readwrite', (s) => s.put({ kid, key
 export const recallKey = async (kid) => { const r = await tx('readonly', (s) => s.get(kid)); return r && r.key instanceof CryptoKey ? r : null; };
 export const forgetKey = (kid) => tx('readwrite', (s) => s.delete(kid));
 export const forgetAllKeys = () => tx('readwrite', (s) => s.clear());
+// every remembered key but the one of `kid` (a key of an older vault still opens what was published with it, and those
+// copies stay public): deleted as soon as the page sees the vault it belongs to is gone
+export const forgetOtherKeys = (kid) => tx('readwrite', (s) => {
+  const r = s.openCursor();
+  r.onsuccess = () => { const c = r.result; if (!c) return; if (c.key !== kid) c.delete(); c.continue(); };
+  return null;
+});
+// the kids this browser remembers a key for (the tests use it; the page only deletes)
+export const rememberedKids = () => tx('readonly', (s) => s.getAllKeys());

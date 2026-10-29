@@ -80,7 +80,13 @@ export function fmt(lang) {
     if (a.m !== b.m) return `${a.d} de ${MON.pt[a.m - 1]} a ${b.d} de ${MON.pt[b.m - 1]} de ${b.y}`;
     return `${a.d} a ${b.d} de ${MON.pt[b.m - 1]} de ${b.y}`;
   };
-  return { lang: L, int, dec1, pct, signed, dur, day, dayShort, month, monthName, mon3, range };
+  // a month cut by the period, short, for a chart: «1-14 mar.», «28 mar.» (EN «1-14 Mar»; a no-break space, as day())
+  const rangeShort = (from, to, withYear = false) => {
+    const a = parts(from), b = parts(to);
+    const tail = `${MON3[L][b.m - 1]}${withYear ? ` ${b.y}` : ''}`;
+    return from === to ? `${a.d} ${tail}` : `${a.d}-${b.d} ${tail}`;
+  };
+  return { lang: L, int, dec1, pct, signed, dur, day, dayShort, month, monthName, mon3, range, rangeShort };
 }
 
 // countries: Intl.DisplayNames in the report's language, the code when it has no name
@@ -92,6 +98,19 @@ export function country(cc, lang) {
     return name || code;
   } catch (_) { return code; }
 }
+
+// Cloudflare gives English place names; the report in Portuguese says the common ones in Portuguese, as the dashboard
+// does (a copy of PLACE in admin-analytics-labels.js; keep the two the same). In English, the name as it comes.
+const PLACE_PT = {
+  Lisbon: 'Lisboa', Oporto: 'Porto', Porto: 'Porto', Setubal: 'Setúbal', 'Setúbal': 'Setúbal', Braga: 'Braga', Coimbra: 'Coimbra',
+  Faro: 'Faro', Leiria: 'Leiria', Aveiro: 'Aveiro', Funchal: 'Funchal', 'Ponta Delgada': 'Ponta Delgada', Madeira: 'Madeira',
+  Azores: 'Açores', Evora: 'Évora', 'Évora': 'Évora', Santarem: 'Santarém', Viseu: 'Viseu', 'Viana do Castelo': 'Viana do Castelo',
+  'Vila Real': 'Vila Real', Braganca: 'Bragança', Guarda: 'Guarda', 'Castelo Branco': 'Castelo Branco', Portalegre: 'Portalegre',
+  Beja: 'Beja', Cascais: 'Cascais', Sintra: 'Sintra', Amadora: 'Amadora', Almada: 'Almada', Oeiras: 'Oeiras', Matosinhos: 'Matosinhos',
+  'Vila Nova de Gaia': 'Vila Nova de Gaia', Guimaraes: 'Guimarães', Madrid: 'Madrid', London: 'Londres', Seville: 'Sevilha', Paris: 'Paris',
+  'Sao Paulo': 'São Paulo', 'Rio de Janeiro': 'Rio de Janeiro', England: 'Inglaterra', Hawaii: 'Havai',
+};
+export const placeName = (s, lang) => (lang === 'en' ? String(s || '') : PLACE_PT[s] || String(s || ''));
 
 // ---------- channels, devices, referrer hosts ----------
 export const CHANNEL_ORDER = ['social', 'mensagens', 'pesquisa', 'direto', 'desporto', 'ia', 'outros'];
@@ -135,7 +154,7 @@ export const T = {
     docBrand: 'Relatório para {brand}',
     kicker: 'Números do site gocarmo.com',
     made: 'Feito a {day}, com o contador do próprio site.',
-    starts: 'Os números começam a {day}, o primeiro dia com dados.',
+    starts: 'O relatório começa a {day}, o primeiro dia com dados.',
     foot: 'gocarmo.com · Relatório {period} · página {i} de {n}',
     p1: 'Resumo',
     tiles: {
@@ -154,17 +173,17 @@ export const T = {
     noVisits: 'Não houve visitas neste período.',
     noData: 'sem dados',
     p2: 'De onde chegam as visitas',
-    chan: 'Por tipo de origem',
+    chan: 'Por tipo de origem (visitas)',
     chanNote: 'Diretas: endereço escrito à mão, favoritos ou aplicações que não dizem de onde vêm.',
-    sites: 'Sites que trazem visitas',
-    sitesCol: ['Site', 'Visualizações'],
-    countries: 'Países',
+    sites: 'Sites de onde chegam (visitas)',
+    sitesCol: ['Site', 'Visitas'],
+    countries: 'Países (visitas)',
     otherCountries: 'Outros países',
-    cities: 'Cidades',
+    cities: 'Cidades (visualizações)',
     citiesCol: ['Cidade', 'Visualizações'],
     otherPlaces: 'Outras localidades',
-    citiesNote: 'Cidades com muito poucas visitas aparecem juntas em «Outras localidades».',
-    devices: 'Aparelhos',
+    citiesNote: 'Cidades com menos de 3 visitantes no período, contados dia a dia, aparecem juntas em «Outras localidades».',
+    devices: 'Aparelhos (visitas)',
     nothing: 'Sem dados neste período.',
     sharedOf: '{p} das visitas',
     p3: 'O que fazem no site',
@@ -181,14 +200,14 @@ export const T = {
     studioRows: { suit: 'Fato 3D', helmet: 'Capacete 3D' },
     studioCell: '{v} visualizações',
     studioTouch: '{v} ({p})',
-    tour: 'A visita guiada ao fato começou {v} vezes.',
-    tour1: 'A visita guiada ao fato começou 1 vez.',
+    tour: 'A visita guiada ao fato começou em {v} visualizações.',
+    tour1: 'A visita guiada ao fato começou em 1 visualização.',
     p4: 'A tua marca no site',
     onSuit: 'No fato: {list}.',
     onHelmet: 'No capacete: {list}.',
     wholeSuit: 'O fato completo, com o nome da marca ao lado do meu.',
-    logo: 'Cliques no logótipo ou no link',
-    logoNote: 'Na lista de patrocinadores do site («Já no fato»), cada logótipo leva ao site da marca ({hosts}). Contamos os cliques por mês.',
+    logo: 'Cliques no link da marca',
+    logoNote: 'Na lista de patrocinadores do site («Já no fato» / «Já no capacete»), o nome de cada marca é um link para o site dela ({hosts}). Contamos os cliques por mês.',
     logoCols: ['Mês', 'Cliques', 'Lista no ecrã'],
     logoTotal: 'No período, {v} cliques. A lista de patrocinadores esteve no ecrã em {views} visualizações.',
     logoTotal1: 'No período, 1 clique. A lista de patrocinadores esteve no ecrã em {views} visualizações.',
@@ -204,7 +223,7 @@ export const T = {
     montraEmpty: 'Neste período a montra não teve cartões vistos nem cliques para esta marca.',
     total: 'Total',
     methodsH: 'Como contamos',
-    methods: 'O contador do site é meu e não usa cookies. Uma visita é uma chegada ao site, vinda de fora; uma visualização é cada página aberta. Para não contar duas vezes o mesmo visitante no mesmo dia, o contador junta o endereço e o browser num código que muda todos os dias: os visitantes contam-se por dia e não se somam ao longo do mês. Não contam as minhas visitas, os robôs, nem quem pede ao browser para não ser seguido. Cidades e sites com menos de 3 visitantes no período, contados dia a dia, aparecem juntos. Dias completos, hora de Lisboa.',
+    methods: 'O contador do site é meu e não usa cookies. Uma visita é uma chegada ao site, vinda de fora; uma visualização é cada página aberta. Para não contar duas vezes o mesmo visitante no mesmo dia, o contador junta o endereço e o browser num código que muda todos os dias: os visitantes contam-se por dia e não se somam ao longo do mês. Não contam as minhas visitas, os robôs conhecidos, nem quem pede ao browser para não ser seguido. Países, cidades e sites pequenos com menos de 3 visitantes no período, contados dia a dia, aparecem juntos (as grandes plataformas, como o Google ou o Instagram, aparecem sempre pelo nome). Dias completos, hora de Lisboa.',
     file: 'gocarmo-relatorio',
     subject: 'Visitas, visualizações e cliques de gocarmo.com, {period}',
   },
@@ -214,7 +233,7 @@ export const T = {
     docBrand: 'Report for {brand}',
     kicker: 'Figures from the gocarmo.com site',
     made: 'Made on {day}, from the site’s own counter.',
-    starts: 'The figures start on {day}, the first day with data.',
+    starts: 'The report starts on {day}, the first day with data.',
     foot: 'gocarmo.com · Report {period} · page {i} of {n}',
     p1: 'Summary',
     tiles: {
@@ -233,17 +252,17 @@ export const T = {
     noVisits: 'There were no visits in this period.',
     noData: 'no data',
     p2: 'Where the visits come from',
-    chan: 'By kind of source',
+    chan: 'By kind of source (visits)',
     chanNote: 'Direct: a typed address, a bookmark or an app that does not say where the visit came from.',
-    sites: 'Sites that send visits',
-    sitesCol: ['Site', 'Page views'],
-    countries: 'Countries',
+    sites: 'Referring sites (visits)',
+    sitesCol: ['Site', 'Visits'],
+    countries: 'Countries (visits)',
     otherCountries: 'Other countries',
-    cities: 'Cities',
+    cities: 'Cities (page views)',
     citiesCol: ['City', 'Page views'],
     otherPlaces: 'Other places',
-    citiesNote: 'Cities with very few visits are grouped under “Other places”.',
-    devices: 'Devices',
+    citiesNote: 'Cities with fewer than 3 visitors in the period, counted day by day, are grouped under “Other places”.',
+    devices: 'Devices (visits)',
     nothing: 'No data in this period.',
     sharedOf: '{p} of visits',
     p3: 'What visits do on the site',
@@ -260,14 +279,14 @@ export const T = {
     studioRows: { suit: '3D suit', helmet: '3D helmet' },
     studioCell: '{v} page views',
     studioTouch: '{v} ({p})',
-    tour: 'The guided tour of the suit started {v} times.',
-    tour1: 'The guided tour of the suit started once.',
+    tour: 'The guided tour of the suit was started in {v} page views.',
+    tour1: 'The guided tour of the suit was started in 1 page view.',
     p4: 'Your brand on the site',
     onSuit: 'On the suit: {list}.',
     onHelmet: 'On the helmet: {list}.',
     wholeSuit: 'The whole suit, with the brand’s name next to mine.',
-    logo: 'Clicks on the logo or link',
-    logoNote: 'In the site’s sponsor list (“Already on the suit”), each logo links to the brand’s site ({hosts}). Clicks are counted per month.',
+    logo: 'Clicks on the brand’s link',
+    logoNote: 'In the site’s sponsor list (“Already on the suit” / “Already on the helmet”), each brand’s name links to its site ({hosts}). Clicks are counted per month.',
     logoCols: ['Month', 'Clicks', 'List on screen'],
     logoTotal: 'In the period, {v} clicks. The sponsor list was on screen in {views} page views.',
     logoTotal1: 'In the period, 1 click. The sponsor list was on screen in {views} page views.',
@@ -283,7 +302,7 @@ export const T = {
     montraEmpty: 'In this period the showcase had no cards seen and no clicks for this brand.',
     total: 'Total',
     methodsH: 'How the counting works',
-    methods: 'The site’s counter is my own and uses no cookies. A visit is an arrival on the site from elsewhere; a page view is each page opened. To avoid counting the same visitor twice in one day, the counter turns the address and browser into a code that changes every day, so visitors are counted per day and never added up over a month. My own visits, bots and browsers that ask not to be tracked are not counted. Cities and sites with fewer than 3 visitors in the period, counted day by day, are grouped. Whole days, Lisbon time.',
+    methods: 'The site’s counter is my own and uses no cookies. A visit is an arrival on the site from elsewhere; a page view is each page opened. To avoid counting the same visitor twice in one day, the counter turns the address and browser into a code that changes every day, so visitors are counted per day and never added up over a month. My own visits, known bots and browsers that ask not to be tracked are not counted. Countries, cities and small sites with fewer than 3 visitors in the period, counted day by day, are grouped (the big platforms, such as Google or Instagram, are always shown by name). Whole days, Lisbon time.',
     file: 'gocarmo-report',
     subject: 'Visits, page views and clicks of gocarmo.com, {period}',
   },
@@ -299,22 +318,25 @@ export const UI = {
   range: '{range}: {n} dias completos.',
   range1: '{range}: 1 dia completo.',
   customBad: 'Escolhe «De» e «Até» com «De» antes de «Até», até ontem e não antes de {min}.',
-  before: 'O contador só tem dados desde {day}: o PDF diz que os números começam aí.',
+  before: 'O contador só tem dados desde {day}: o PDF começa nesse dia, e as médias contam só os dias com dados.',
+  noDataYet: 'O contador só tem dados desde {day}: escolhe um período que acabe nesse dia ou depois.',
   brandSite: 'Só o site',
   noBrands: 'Ainda não há marcas com espaços vendidos.',
-  brandHosts: 'Cliques no logótipo contados para {hosts}.',
-  brandShared: 'O link desta marca é do {net}: os cliques no logótipo juntam-se aos de outras marcas e não entram no relatório.',
-  brandNoSpots: 'Esta marca não tem espaços vendidos nesta época: o relatório não tem cliques no logótipo.',
+  brandHosts: 'Cliques no link contados para {hosts}.',
+  brandShared: 'O link desta marca é do {net}: os cliques juntam-se aos de outras marcas e não entram no relatório.',
+  brandNoSpots: 'Esta marca não tem espaços vendidos nesta época: o relatório não tem cliques no link.',
+  brandNoLink: 'Esta marca não tem link no site (o nome aparece sem ligação): o relatório não tem cliques no link.',
   brandMontra: 'Montra: cartões vistos, cliques na loja e códigos copiados, por mês e por produto.',
   brandNoMontra: 'Sem produtos na montra.',
   go: 'Fazer o PDF', again: 'Fazer na mesma',
   step: 'A juntar os números ({i} de {n})',
+  stepShort: 'A juntar {i} de {n}…',
   writing: 'A fazer o PDF',
   empty: 'Não há visitas neste período.',
   ready: 'PDF pronto: {name} ({size}).',
   save: 'Guardar o PDF', share: 'Guardar ou partilhar',
   saved: 'Guardado.',
-  noSponsors: 'Os cliques no logótipo por mês só ficam disponíveis depois de publicares a versão nova do contador.',
+  noSponsors: 'Os cliques no link por mês só ficam disponíveis depois de publicares a versão nova do contador.',
   failed: 'Não consegui fazer o PDF. Tenta outra vez.',
   files: 'Não consegui ler os ficheiros dos espaços e da montra. Verifica a rede e tenta outra vez.',
 };

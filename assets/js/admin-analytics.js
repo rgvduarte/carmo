@@ -302,9 +302,11 @@ function refilter() {
 }
 
 // ---------- under the range: «Hoje até agora» and the internal visits hidden by the switch (GET diag) ----------
-// The period views (7, 30, 90 days, a custom period that ends before today) end yesterday: this line gives today's
-// partial count, and with «Mostrar visitas internas» off, how many of the period's visits are mine (hidden). Never on
-// «24 h» (today is in its numbers). On a 404 (the Worker without diag) or any error, the line is simply not there.
+// The period views (7, 30, 90 days, a custom period that ends yesterday) end yesterday: this line gives today's partial
+// count (with «Mostrar visitas internas» off, also how many of today's visits are mine, hidden), and how many of the
+// period's visits are mine. A custom period that ended before yesterday gets only that last part: its panels end on its
+// own last day. Never on «24 h» (today is in its numbers). On a 404 (the Worker without diag) or any error, the line is
+// simply not there.
 let todayEl = null, todayAt = 0, todaySeq = 0;
 const plural = (n, one, many) => `${fmt.n(n)} ${n === 1 ? one : many}`;
 function todayLine() {
@@ -328,14 +330,20 @@ async function paintToday() {
   todayAt = Date.now();
   const inc = !!state.int;
   const v = d.now.visits.ext + (inc ? d.now.visits.int : 0), pv = d.now.pv.ext + (inc ? d.now.pv.int : 0);
+  const yday = (() => { const t = new Date(`${d.today || ctx.today}T12:00:00Z`); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); })();
+  const old = state.p === 'custom' && state.to && state.to < yday;
   el.replaceChildren();
-  H('span', 'l', `Hoje até agora (às ${d.at}): ${plural(v, 'visita', 'visitas')}, ${plural(pv, 'visualização', 'visualizações')}. Os números dos painéis vão até ontem.`, el);
+  if (!old) {
+    const mineNow = !inc && d.now.visits.int > 0 ? ` (mais ${plural(d.now.visits.int, 'visita tua', 'visitas tuas')}, ${d.now.visits.int === 1 ? 'escondida' : 'escondidas'})` : '';
+    H('span', 'l', `Hoje até agora (às ${d.at}): ${plural(v, 'visita', 'visitas')}, ${plural(pv, 'visualização', 'visualizações')}${mineNow}. Os números dos painéis vão até ontem.`, el);
+  }
   const pi = d.period && d.period.visits ? d.period.visits.int : 0;
   if (pi > 0) {
     const ext = d.period.visits.ext;
     H('span', 'l', inc ? `Inclui ${plural(pi, 'visita tua', 'visitas tuas')}.`
       : `Visitas no período: ${plural(ext, 'pública', 'públicas')} · ${plural(pi, 'tua', 'tuas')} (as tuas estão escondidas).`, el);
   }
+  if (!el.childNodes.length) { off(); return; }
   el.hidden = false;
 }
 

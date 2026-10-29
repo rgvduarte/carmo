@@ -837,7 +837,7 @@ const SEM = 'sem contagem';
 function rejWords(rej) {
   const by = new Map();
   for (const [k, n] of Object.entries(rej || {})) if (n > 0) by.set(L.REJWHY[k] || k, (by.get(L.REJWHY[k] || k) || 0) + n);
-  return [...by].sort((a, b) => b[1] - a[1]).map(([w, n]) => `${fmt.n(n)} ${w}`).join(' · ');
+  return [...by].sort((a, b) => b[1] - a[1]).map(([w, n]) => `${fmt.n(n)} ${L.rejWhy(w, n)}`).join(' · ');
 }
 function dropWords(drop) {
   const out = [];
@@ -846,6 +846,14 @@ function dropWords(drop) {
   return out.length ? `não guardados: ${out.join(' · ')}` : '';
 }
 const rejTotal = (rej) => sum(Object.values(rej || {}));
+// the first counted day (the one the new Worker was published on) has its counters only from that moment
+const PART = 'contagem desde a publicação, não do dia todo';
+// a day worth showing on a phone without opening «Ver os outros dias»: today, yesterday, or anything out of the ordinary.
+// Robots, other sites and bursts are refused every day (the counter doing its job): they do not make a day odd; signals
+// refused for being malformed, too big, of another version or over the daily limit, or dropped, do.
+const ODD_REJ = ['json', 'versao', 'esquema', 'tamanho', 'cheio'];
+const odd = (x, dg) => !!(x.partial || L.diagLate(x, dg) || x.state === 'refazer' || (x.visits && x.visits.ext === 0 && x.visits.int > 0)
+  || (x.counted && (ODD_REJ.some((k) => x.rej && x.rej[k] > 0) || (x.drop && (x.drop.teto > 0 || x.drop.cheio > 0)))));
 function diagCard(dg, ctx) {
   const c = card('Diagnóstico: últimos 14 dias', 'Para perceber um zero. Por dia, em hora de Lisboa: os sinais que chegaram ao contador, os que guardou, os que recusou e porquê, e as visitas de fora e as tuas. Quem tem o Global Privacy Control, o Do Not Track ou «Não contar» ligado não envia nada, por isso não aparece aqui.');
   c.classList.add('ga-diag');
@@ -857,29 +865,41 @@ function diagCard(dg, ctx) {
     return c;
   }
   const days = (dg.days || []).slice().reverse();
-  const stateText = (x) => (L.DIAGSTATE[x.state] || (() => x.state))(dg.rollupAt);
+  const stateText = (x) => (L.DIAGSTATE[x.state] || (() => x.state))(dg.rollupAt, L.diagLate(x, dg));
   const dayText = (x) => `${fmt.day(x.day)}${x.day === dg.today ? ' (hoje)' : ''}`;
   const cell = (main, small) => { const f = document.createDocumentFragment(); H('span', null, main, f); if (small) H('small', 'ga-diag-why', small, f); return f; };
-  // phones and tablets: two lines per day
-  const ul = H('ul', 'ga-diag-list', null, c);
-  for (const x of days) {
+  // phones and tablets: two lines per day; today, yesterday and the days out of the ordinary first, the quiet ones
+  // behind «Ver os outros dias» (a normal fortnight would be 14 rows above the quotas)
+  const item = (x, ul) => {
+    const late = L.diagLate(x, dg);
     const li = H('li', x.state === 'hoje' ? 'today' : null, null, ul);
+    li.dataset.day = x.day;
     const l1 = H('p', 'l1', null, li);
     H('b', null, dayText(x), l1);
-    H('span', `st st-${x.state}`, stateText(x), l1);
+    H('span', `st st-${late ? 'atrasado' : x.state}`, stateText(x), l1);
     const l2 = H('p', 'l2', null, li);
     if (x.counted) {
       const rt = rejTotal(x.rej);
       H('span', null, `Chegaram ${fmt.n(x.req)} · guardados ${fmt.n(x.ok)} · recusados ${fmt.n(rt)}`, l2);
-      const why = [rt ? rejWords(x.rej) : '', dropWords(x.drop)].filter(Boolean).join('; ');
+      const why = [x.partial ? PART : '', rt ? rejWords(x.rej) : '', dropWords(x.drop)].filter(Boolean).join('; ');
       if (why) H('small', 'ga-diag-why', why, l2);
     } else H('span', 'sem', `Sinais: ${SEM}`, l2);
     H('span', 'vis', `Visitas ${fmt.n(x.visits.ext)} de fora · ${fmt.n(x.visits.int)} ${x.visits.int === 1 ? 'tua' : 'tuas'}`, l2);
+  };
+  const yday = days.find((x) => x.day < dg.today);
+  const first = days.filter((x) => x.day === dg.today || x === yday || odd(x, dg)), rest = days.filter((x) => !first.includes(x));
+  const ul = H('ul', 'ga-diag-list', null, c);
+  for (const x of first) item(x, ul);
+  if (rest.length) {
+    const more = H('details', 'ga-diag-more', null, c);
+    H('summary', null, rest.length === 1 ? 'Ver o outro dia' : `Ver os outros ${rest.length} dias`, more);
+    const ul2 = H('ul', 'ga-diag-list', null, more);
+    for (const x of rest) item(x, ul2);
   }
   // from 900 px: a real table
   const tw = table({ caption: 'Diagnóstico por dia, hora de Lisboa', sort: false, rows: days, cols: [
     { l: 'Dia', k: 'day', fmt: (v, x) => dayText(x) },
-    { l: 'Chegaram', k: 'req', num: true, fmt: (v, x) => (x.counted ? fmt.n(v) : SEM) },
+    { l: 'Chegaram', k: 'req', num: true, node: (x) => (x.counted ? cell(fmt.n(x.req), x.partial ? PART : '') : cell(SEM)) },
     { l: 'Guardados', k: 'ok', num: true, node: (x) => (x.counted ? cell(fmt.n(x.ok), dropWords(x.drop)) : cell(SEM)) },
     { l: 'Recusados', k: 'rej', num: true, node: (x) => (x.counted ? cell(fmt.n(rejTotal(x.rej)), rejWords(x.rej)) : cell(SEM)) },
     { l: 'Visitas (de fora · tuas)', s: 'Visitas', k: 'visits', num: true, fmt: (v) => `${fmt.n(v.ext)} · ${fmt.n(v.int)}` },
@@ -895,6 +915,7 @@ function diagCard(dg, ctx) {
   H('b', null, 'Leitura: ', lead);
   lead.append(r.text);
   H('p', 'ga-fine', `Atualizado às ${dg.at}. Os gráficos dos limites e dos pedidos recusados, mais abaixo, contam dias UTC (como o Cloudflare); este conta dias de Lisboa, como o resto do painel.`, c);
+  H('p', 'ga-fine', 'Os recusados chegam ao contador com o sinal seguinte do mesmo servidor: podem aparecer mais tarde ou faltar alguns.', c);
   void ctx;
   return c;
 }

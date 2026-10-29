@@ -532,7 +532,8 @@ export class Store extends DurableObject {
     const out = days.map((d) => {
       const v = counts.get(d), counted = !!since && d >= since;
       return {
-        day: d, counted,
+        // partial: the first counted day (the deploy day) has its counters from the deploy on, its visits for the whole day
+        day: d, counted, partial: counted && d === since,
         req: counted ? got(d, 'req') : null,
         ok: counted ? got(d, 'ok') : null,
         rej: counted ? Object.fromEntries(REJ_CODES.map((k) => [k, got(d, `rej.${k}`)])) : null,

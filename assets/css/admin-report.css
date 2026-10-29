@@ -22,6 +22,11 @@
 .rp-sheet .msg.ok { color: var(--ok); }
 .rp-note { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line-2); }
 .rp-sheet .sh-foot { margin-top: 14px; }
+/* the status and the error live in the sticky footer, above the two buttons: a phone always sees them */
+.rp-live { grid-column: 1 / -1; display: grid; gap: 4px; background: var(--bg-2); border-radius: 10px; }
+.rp-live:not(:has(:not(:empty))) { display: none; }
+.rp-live .msg, .rp-live .err { margin: 0; font-size: 14px; line-height: 1.4; }
+.rp-live .err:empty { display: none; }
 
 @media (min-width: 760px) {
   dialog.rp-sheet { inset: 0; margin: auto; width: 560px; max-height: min(90vh, 860px); height: fit-content; border: 1px solid var(--line-2); border-radius: 22px; padding: 0 24px 20px; }

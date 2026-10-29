@@ -481,6 +481,10 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-diag-list .l1 b { font-weight: 600; color: var(--text); }
 .ga-diag-list .st { color: var(--text-2); font-size: 13px; text-align: right; }
 .ga-diag-list .st-por-fazer, .ga-diag-list .st-refazer { color: var(--text); }
+.ga-diag-list .st-atrasado { color: var(--bad-text); font-weight: 600; }
+.ga-diag-more { margin: 2px 0 0; }
+.ga-diag-more summary { display: flex; align-items: center; min-height: 44px; cursor: pointer; color: var(--text-2); font-size: 14px; font-weight: 600; }
+.ga-diag-more[open] summary { border-bottom: 1px solid var(--border); }
 .ga-diag-list .l2 { margin-top: 3px; color: var(--text-2); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .ga-diag-list .l2 > span { display: block; }
 .ga-diag-why { display: block; font-size: 12.5px; line-height: 1.35; color: var(--text-2); font-weight: 400; overflow-wrap: anywhere; }
@@ -489,6 +493,6 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-diag-read { margin: 12px 0 0; font-size: 14px; line-height: 1.45; color: var(--text); }
 .ga-diag-read b { font-weight: 600; }
 @media (min-width: 900px) {
-  .ga-diag-list { display: none; }
+  .ga-diag-list, .ga-diag-more { display: none; }
   .ga-diag-tw { display: block; }
 }

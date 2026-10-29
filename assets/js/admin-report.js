@@ -6,7 +6,7 @@
 // with its own params (whole days, internal visits out, every device), and reads data/spots.json and data/montra.json
 // from the site itself. The numbers become words in admin-report-model.js and a file in admin-report-pdf.js.
 import { UI, fill, fmt } from './admin-report-text.js';
-import { periods, customOk, brandsFor, buildModel, addDays, dayDiff } from './admin-report-model.js';
+import { periods, customOk, brandsFor, buildModel, clampToData, dayDiff } from './admin-report-model.js';
 import { reportPdf } from './admin-report-pdf.js';
 import { MSG } from './admin-analytics-api.js';
 
@@ -21,6 +21,7 @@ let built = null;          // { bytes, name } ready to save
 let busy = false;
 
 const dlg = () => $('#report');
+// status and error sit in the sticky footer, above the buttons, so a phone always shows them
 const say = (s, cls = '') => { const p = $('#rp-status'); p.textContent = s || ''; p.className = `msg${cls ? ` ${cls}` : ''}`; };
 const err = (s) => { $('#rp-err').textContent = s || ''; };
 const shareable = (file) => { try { return typeof navigator.share === 'function' && !!navigator.canShare && matchMedia('(pointer: coarse)').matches && navigator.canShare({ files: [file] }); } catch (_) { return false; } };
@@ -60,6 +61,11 @@ function chosen() {
   if (!p || p.off) return { error: offText(kind, p) };
   return { from: p.from, to: p.to };
 }
+// the period the numbers cover: from the counter's first day at the earliest (clampToData)
+function numbersOf(per) {
+  const c = clampToData(per.from, per.to, gc.oldest);
+  return c.error ? { error: fill(UI.noDataYet, { day: F.day(c.oldest) }) } : c;
+}
 function offText(kind, p) {
   if (kind === 'month') return UI.monthOff;
   if (kind === 'season') return p && p.off === 'before' ? fill(UI.seasonOff, { season: files.spots.season, day: F.range(p.start, p.start) }) : UI.seasonNone;
@@ -85,7 +91,8 @@ function paintPeriod() {
   line.classList.remove('bad');
   const days = dayDiff(c.from, c.to) + 1;
   let s = days === 1 ? fill(UI.range1, { range: F.range(c.from, c.to) }) : fill(UI.range, { range: F.range(c.from, c.to), n: F.int(days) });
-  if (gc.oldest && c.from < gc.oldest) s += ` ${fill(UI.before, { day: F.day(gc.oldest) })}`;
+  if (gc.oldest && c.to < gc.oldest) s += ` ${fill(UI.noDataYet, { day: F.day(gc.oldest) })}`;
+  else if (gc.oldest && c.from < gc.oldest) s += ` ${fill(UI.before, { day: F.day(gc.oldest) })}`;
   line.textContent = s;
 }
 
@@ -105,6 +112,7 @@ function paintBrandNote() {
   else if (b) {
     if (b.hosts.length) lines.push(fill(UI.brandHosts, { hosts: b.hosts.join(' e ') }));
     else if (b.shared) lines.push(fill(UI.brandShared, { net: b.shared }));
+    else if (b.spots.length || b.title) lines.push(UI.brandNoLink);
     else lines.push(UI.brandNoSpots);
     lines.push(b.montraIds.length ? UI.brandMontra : UI.brandNoMontra);
   }
@@ -119,7 +127,9 @@ function reset() {
   if (!busy) { $('#rp-go').textContent = UI.go; say(''); err(''); }
 }
 async function make(force) {
-  const per = chosen();
+  const asked = chosen();
+  if (asked.error) { err(asked.error); return; }
+  const per = numbersOf(asked);
   if (per.error) { err(per.error); return; }
   const brand = chosenBrand(), lang = ($('input[name="rp-lang"]:checked') || {}).value === 'en' ? 'en' : 'pt';
   const key = JSON.stringify([per.from, per.to, brand ? brand.name : '']);
@@ -135,6 +145,7 @@ async function make(force) {
       let noSponsors = false;
       for (const [i, [ep, params]] of steps.entries()) {
         say(fill(UI.step, { i: i + 1, n }));
+        $('#rp-go').textContent = fill(UI.stepShort, { i: i + 1, n });
         try { d[ep] = await gc.api.get(ep, params); } catch (e) {
           if (ep === 'sponsors' && e && e.status === 404) { d.sponsors = null; noSponsors = true; continue; }
           throw e;
@@ -146,8 +157,9 @@ async function make(force) {
     const visits = Number(data.d.overview && data.d.overview.kpi && data.d.overview.kpi.visits && data.d.overview.kpi.visits.v) || 0;
     if (!visits && !force) { say(UI.empty, 'warn'); $('#rp-go').textContent = UI.again; $('#rp-go').dataset.again = '1'; return; }
     say(UI.writing);
+    $('#rp-go').textContent = `${UI.writing}…`;
     await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-    const model = buildModel({ lang, from: per.from, to: per.to, today: gc.today, oldest: gc.oldest, brand, data: data.d, spotsJson: files.spots, montraJson: files.montra });
+    const model = buildModel({ lang, from: per.from, to: per.to, asked: per.asked, today: gc.today, oldest: gc.oldest, brand, data: data.d, spotsJson: files.spots, montraJson: files.montra });
     const bytes = reportPdf(model, new Date());
     built = { bytes, name: model.file };
     const probe = new File([bytes], model.file, { type: 'application/pdf' });
@@ -156,6 +168,7 @@ async function make(force) {
   } catch (e) {
     data = null;
     say('');
+    $('#rp-go').textContent = UI.go;
     err((e && e.text) || (e && e.code ? MSG.server : UI.failed));
   } finally {
     busy = false; $('#rp-go').disabled = false;

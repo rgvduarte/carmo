@@ -42,20 +42,10 @@ const MIME = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  txt: 'text/plain', md: 'text/markdown', html: 'text/html',
+  txt: 'text/plain',
 };
-const BRANCH_README = `# Cofre de documentos
-
-Este ramo guarda, cifrados, os documentos que fazemos para o Gonçalo Carmo. Só abrem em
-https://gocarmo.com/admin/documentos/ com a frase-passe do cofre.
-
-- \`vault.json\`: a chave pública do cofre e a chave privada fechada com a frase-passe (escrito pela página).
-- \`manifest.json\`: a lista dos documentos e das versões, cifrada (escrita pelo publicador).
-- \`f/<id>/<n>.bin\`: os ficheiros, cifrados em partes de 8 MiB, com nomes que não dizem nada.
-
-Não mexas aqui à mão: é reescrito em cada publicação (\`scripts/docs-publish.mjs\`, ver o README do site,
-«Documentos (o cofre)»).
-`;
+// no html, svg or markdown type: the page saves files through a blob: URL of gocarmo.com, and a type a browser renders
+// with scripts must never get there (an .html document goes as application/octet-stream)
 const HELP = `Publica os documentos do cofre (gocarmo.com/admin/documentos/) no ramo «docs», cifrados.
 
   node scripts/docs-publish.mjs [opções]
@@ -221,8 +211,10 @@ async function readJson(file, what) {
   try { return JSON.parse(text); } catch (e) { throw new Refusal(`${what} (${file}) não é JSON válido: ${e.message}`); }
 }
 
+// the temporary file is named so that the .gitignore line «docs-publish.state.json*» covers it too, and main() checks it
+const tmpOf = (file) => `${file}.tmp-${process.pid}`;
 async function writeAtomic(file, text) {
-  const tmp = `${file}.tmp-${process.pid}`;
+  const tmp = tmpOf(file);
   await writeFile(tmp, text, { mode: 0o600 });
   await rename(tmp, file);
 }
@@ -288,7 +280,7 @@ async function main() {
       + '(fora do repositório), põe os caminhos dos ficheiros e tira a linha "example". Vê --help.');
   }
   checkConfig(cfg, configPath);
-  await checkOutsideRepos(dir, [configPath, statePath, `${cache}/`]);
+  await checkOutsideRepos(dir, [configPath, statePath, tmpOf(statePath), `${cache}/`]);
 
   // the shared crypto, the same file the page uses (it imports nothing, so a data: URL loads it)
   const vcPath = join(REPO, 'assets', 'js', 'vault-crypto.js');
@@ -515,7 +507,7 @@ async function main() {
         h.update(buf.subarray(0, len));
         let plain = buf.subarray(0, len);
         if (i === v.n - 1) { const padded = VC.paddedLength(len); buf.fill(0, len, padded); plain = buf.subarray(0, padded); }
-        const ct = await VC.encryptChunk(aes, plain, { fid: v.fid, i, n: v.n });
+        const ct = await VC.encryptChunk(aes, plain, { fid: v.fid, i, n: v.n, size: p.size });
         newChunks.set(`f/${v.fid}/${i}.bin`, await GO(['hash-object', '-w', '--stdin'], { input: ct }));
         collect();
         process.stdout.write(`\r  a cifrar «${d.title}»: parte ${i + 1} de ${v.n}`);
@@ -533,14 +525,16 @@ async function main() {
   const manifest = { v: 1, kid, published: now, categories: cfg.categories.map(({ id, title }) => ({ id, title })), docs };
   const envelope = await VC.sealManifest(pub, kid, manifest);
   const manifestBlob = await GO(['hash-object', '-w', '--stdin'], { input: `${JSON.stringify(envelope)}\n` });
-  const readmeBlob = await GO(['hash-object', '-w', '--stdin'], { input: BRANCH_README });
+  const readmeBlob = await GO(['hash-object', '-w', '--stdin'], { input: VC.BRANCH_README });
   const work = await mkdtemp(join(tmpdir(), 'gocarmo-cofre-'));
   const date = `${Math.floor(Date.now() / 1000)} +0000`;
   const env = {
     GIT_AUTHOR_NAME: IDENTITY.name, GIT_AUTHOR_EMAIL: IDENTITY.email, GIT_AUTHOR_DATE: date,
     GIT_COMMITTER_NAME: IDENTITY.name, GIT_COMMITTER_EMAIL: IDENTITY.email, GIT_COMMITTER_DATE: date,
   };
-  const message = `Cofre: ${plural(docs.length, 'documento', 'documentos')}, ${plural(nVersions, 'versão', 'versões')}`;
+  // always the same message: the number of documents is not to be read on the public branch (the tree shows only one
+  // folder per version); the counts are said on this terminal only
+  const message = 'Cofre: publicação';
   async function commitFor(vaultBlob) {
     const entries = [['README.md', readmeBlob], ['vault.json', vaultBlob], ['manifest.json', manifestBlob]];
     for (const d of docs) {
@@ -595,7 +589,10 @@ async function main() {
     docs: Object.fromEntries(docs.map((d) => [d.id, { title: d.title, category: d.category, note: d.note, versions: d.versions }])),
   };
   await writeAtomic(statePath, `${JSON.stringify(nextState, null, 2)}\n`);
-  say(`Publicado: ${commit.slice(0, 12)} (${message.slice(7)}).`);
+  say(`Publicado: ${commit.slice(0, 12)} (${plural(docs.length, 'documento', 'documentos')}, ${plural(nVersions, 'versão', 'versões')}).`);
+  if (args.stateFrom) {
+    say(`Apaga agora o índice ${resolve(args.stateFrom)}: tem os títulos e as alterações em claro, e o estado novo já está em ${statePath}.`);
+  }
   say(`Abre ${PAGE} (a lista atualiza em 1 a 2 minutos).`);
   return 0;
 }

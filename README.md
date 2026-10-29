@@ -685,8 +685,12 @@ pelo repositório em claro. Os pormenores estão no início de `assets/js/vault-
 
 ### Criar o cofre (uma vez, no telemóvel)
 
-Abre a página, escreve uma frase-passe de pelo menos 16 caracteres (quatro ou mais palavras ao acaso; guarda-a nas
-Palavras-passe do telemóvel) e carrega em «Criar o cofre». A página pede o token do GitHub (o mesmo de Espaços), cria a
+Abre a página, escreve uma frase-passe de pelo menos 16 caracteres e carrega em «Criar o cofre». O `vault.json` é
+público para sempre, e quem o tiver pode tentar frases-passe no computador dele, por isso a página recusa as que se
+tentam primeiro: os mesmos caracteres repetidos, quase só palavras do site (gocarmo, Gonçalo, Kona, cofre…) com números,
+ou menos de 3 palavras diferentes em menos de 24 caracteres. «Sugerir uma frase-passe» escolhe 5 palavras ao acaso,
+neste aparelho, de uma lista de 2048 (cerca de 55 bits); «Mostrar» mostra o que escreveste. Guarda-a logo nas
+Palavras-passe do aparelho. A página pede o token do GitHub (o mesmo de Espaços), cria a
 chave do cofre neste browser e guarda no ramo `docs` o `vault.json`. Mostra a impressão digital do cofre (8 grupos de 4
 caracteres): é ela que o computador pede na primeira publicação.
 
@@ -694,13 +698,17 @@ caracteres): é ela que o computador pede na primeira publicação.
 
 Escreve a frase-passe (num telemóvel antigo, abrir pode levar 2 a 4 segundos: «A abrir o cofre…»). «Lembrar neste
 aparelho» guarda neste browser uma chave que não se pode copiar para fora; quem tiver o telemóvel desbloqueado abre o
-cofre. «Esquecer neste aparelho» apaga-a; «Bloquear» fecha o cofre até à próxima vez. No iPhone, o Safari pode apagar a
+cofre. «Esquecer» apaga-a (e a de um cofre antigo, se ainda lá estiver; a página também a apaga sozinha quando vê que
+o cofre mudou); «Bloquear» fecha o cofre até à próxima vez. No iPhone, o Safari pode apagar a
 chave lembrada ao fim de 7 dias sem abrir o gocarmo.com; a frase-passe abre sempre. Apagar os dados do site no browser
 também a apaga (e a marca de visitas internas).
 
 «Descarregar» traz o ficheiro aos bocados, decifra-o no telemóvel e depois mostra «Guardar» (no iPhone «Guardar ou
-partilhar», e «Guardar em Ficheiros»): dois toques, porque a folha de partilha só abre com um toque novo. Ficheiros
-grandes (perto de 100 MB) podem ser demais para um telemóvel antigo: divide os zips grandes.
+partilhar», e «Guardar em Ficheiros»): dois toques, porque a folha de partilha só abre com um toque novo. Um ficheiro
+de cada vez. Se a rede cair a meio (ou o separador for para segundo plano), as partes que já chegaram ficam:
+«Continuar (parte 9 de 10)» segue dali; «Fechar» larga-as. Mantém a página aberta até acabar. Ficheiros grandes (perto
+de 100 MB) podem ser demais para um telemóvel antigo: divide os zips grandes. Um `.html` ou um `.svg` sai sempre como
+ficheiro para guardar, nunca aberto no browser: abrir-se-ia no endereço gocarmo.com, onde estão o token e a chave.
 
 ### Publicar no computador
 
@@ -742,23 +750,29 @@ documento que não mudou não é cifrado outra vez; se nada mudou, não envia na
 
 **Onde ficam as coisas.** Ao lado da configuração ficam `docs-publish.state.json` (a memória do que está no cofre:
 títulos e mudanças em claro, chaves só fechadas) e `docs-publish.cache.git/` (uma cópia do ramo, só com ficheiros
-cifrados). Nenhum pode entrar no repositório: o `.gitignore` tem os três nomes, e o script recusa-se a correr se
-estiverem dentro de um repositório sem estarem ignorados. Outra pasta: `--config <ficheiro>` ou a variável
+cifrados). Nenhum pode entrar no repositório: o `.gitignore` tem os três nomes (com `*` no fim, para apanhar também o
+ficheiro temporário `docs-publish.state.json.tmp-<n>` que fica se o script parar a meio), e o script recusa-se a correr
+se estiverem dentro de um repositório sem estarem ignorados. O commit do ramo diz sempre só «Cofre: publicação»; os
+números de documentos e versões aparecem só no teu terminal. Outra pasta: `--config <ficheiro>` ou a variável
 `GOCARMO_COFRE`. Ajuda: `node scripts/docs-publish.mjs --help`. Saídas: 0 feito (ou nada a fazer), 1 recusado com a
 explicação, 2 erro do git ou de um ficheiro.
 
 **Se o estado se perder** (outro computador, pasta apagada), o script para: não sabe o que está no cofre, porque não o
 consegue abrir. Na página, Documentos → Mais → Descarregar o índice, e depois
 `node scripts/docs-publish.mjs --accept-vault "…" --state-from ~/Downloads/<índice>.json`; as versões anteriores ficam.
-Sem o índice, `--reset` publica só as versões atuais e as anteriores perdem-se.
+**Depois de usar, apaga o índice** (e tira-o do lixo e da pasta sincronizada, se for o caso): tem os títulos, os nomes
+dos ficheiros e as mudanças em claro. O script lembra-o no fim. Sem o índice, `--reset` publica só as versões atuais e
+as anteriores perdem-se.
 
 ### Mudar a frase-passe e frase-passe perdida
 
 **Mudar a frase-passe:** Mais → Mudar a frase-passe. A chave do cofre fica a mesma: tudo continua a abrir, a chave
 lembrada também, e o computador aceita o `vault.json` novo sem perguntar nada (se mudar enquanto publicas, o script lê o
-novo e publica com ele).
+novo e publica com ele). **Mudar a frase-passe não fecha a antiga:** o `vault.json` antigo fica em cópias públicas (o
+GitHub guarda-o pelo seu sha, e há clones e forks) e abre com ela. Se alguém pode saber a frase-passe, não chega mudá-la:
+cria um cofre novo (Mais → Criar um cofre novo) e publica outra vez, como para uma frase-passe perdida.
 
-**Perdi a frase-passe.** Ninguém a recupera. A saída é **um cofre novo e publicar outra vez; as versões antigas deixam
+**Perdi a frase-passe (ou alguém pode sabê-la).** Ninguém a recupera. A saída é **um cofre novo e publicar outra vez; as versões antigas deixam
 de abrir.** Na página, Mais → Criar um cofre novo (escreve CRIAR): cria outra chave. No computador, publica com
 `--accept-vault "<impressão digital nova>"`; só entram as versões atuais, as anteriores saem.
 
@@ -769,7 +783,9 @@ Se o script disser que o cofre mudou e não foste tu, não publiques: alguém co
 
 Que há um cofre, a chave pública, a chave privada fechada com a frase-passe (pode tentar adivinhá-la no computador dele,
 por isso tem de ser comprida), quantos ficheiros e partes há e o tamanho aproximado de cada um, e quando se publica.
-Não vê títulos, nomes de ficheiros, versões, datas, mudanças nem o conteúdo. O que foi publicado fica para sempre em
+Não vê títulos, nomes de ficheiros, versões, datas dos documentos, mudanças nem o conteúdo (nem quantos documentos há:
+o commit diz sempre «Cofre: publicação»). O tamanho de cada ficheiro está em todas as partes dele, cifrado e
+autenticado: um manifest com outro tamanho não abre. O que foi publicado fica para sempre em
 clones, forks e cópias antigas mesmo depois de sair do ramo: se a frase-passe um dia for descoberta, essas cópias abrem,
 e um cofre novo protege só o que vier depois. A integridade depende do acesso de escrita ao GitHub, como as outras
 páginas de admin: quem pudesse escrever no repositório podia pôr lá ficheiros ou trocar o `vault.json` (o computador
@@ -1017,7 +1033,7 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
   Cada marca recebe só os totais dela, por mês; nunca de onde vieram, onde estão ou que aparelho usam.
 - Às marcas que patrocinam pode ir um relatório com os totais do site (visitas, visualizações, visitantes por dia em
   média, tipos de origem, países e cidades com as pequenas juntas, aparelhos, tempo e até onde se lê) e os cliques
-  delas por mês (logótipo, link, montra). Nunca o funil dos pedidos, nunca menos do que um mês nos cliques de uma marca
+  delas por mês (link, montra). Nunca o funil dos pedidos, nunca menos do que um mês nos cliques de uma marca
   (ver «Relatório PDF para marcas», em baixo, e o `[CONFIRMAR]` de `privacidade/index.html`).
 - 30 dias de registos de cada visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Quem tem Global Privacy Control ou Do Not Track ligado não é contado, nem quem carrega em «Não contar as minhas
@@ -1040,7 +1056,8 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
 mostrar a uma marca. Escolhes:
 - **Período**: este mês (do dia 1 até ontem), mês passado, a época 2027 até hoje (de 1 de janeiro até ontem, depois de
   a época começar) ou outro (de/até, dias completos até ontem, até 25 meses para trás). O relatório nunca tem o dia de
-  hoje. Se o período começar antes do primeiro dia com dados, o PDF diz onde começam os números.
+  hoje. Se o período começar antes do primeiro dia com dados, o PDF começa nesse dia (e diz porquê): as médias dividem
+  só pelos dias com dados. Um mês cortado pelo período aparece com os dias («1 a 14 de março de 2027»).
 - **Marca** (opcional): só o site, ou uma marca com espaços vendidos nesta época (`data/spots.json`) ou com produtos na
   montra (`data/montra.json`).
 - **Língua**: português ou inglês.
@@ -1050,32 +1067,44 @@ aparelho; depois «Guardar o PDF» (no telemóvel, «Guardar ou partilhar»). No
 (EN `gocarmo-report-…`).
 
 O que tem: visitas, visualizações, visitantes por dia (média), tempo ativo (mediana) e a evolução; de onde chegam as
-visitas (tipos de origem, sites, países, cidades com as pequenas juntas, aparelhos); o que fazem no site (tempo ativo,
+visitas (tipos de origem, sites, países e aparelhos em visitas; cidades em visualizações, com o nome em português no PDF
+em português; países, cidades e sites com menos de 3 visitantes no período juntos); o que fazem no site (tempo ativo,
 até onde descem, quantas visualizações chegam ao capítulo do patrocínio, o estúdio 3D); com uma marca, os espaços dela,
-os cliques no logótipo ou no link dela por mês (na lista «Já no fato») e a montra por mês e por produto; no fim, «Como
-contamos». **Nunca tem o funil dos pedidos, nem «pessoas», «alcance» ou «únicos»**: o contador não usa cookies e o
+os cliques no link dela por mês (o nome da marca na lista «Já no fato» / «Já no capacete» é um link) e a montra por mês
+e por produto; no fim, «Como contamos». Cada bloco diz a unidade no título («Países (visitas)», «Cidades
+(visualizações)»). Sem comparação com o período anterior, «Por tipo de origem» passa para a primeira página. **Nunca tem o funil dos pedidos, nem «pessoas», «alcance» ou «únicos»**: o contador não usa cookies e o
 código de cada visitante muda todos os dias, por isso conta visitas, visualizações e visitantes por dia, nunca pessoas
 num mês. Um teste verifica estas palavras no texto do PDF. A página de privacidade (PT e EN) diz que os totais do site
 podem ser mostrados às marcas que patrocinam; publica-a antes de enviar o primeiro relatório.
 
-Os cliques no logótipo contam-se pelo endereço do link da marca (e subdomínios), com `GET /admin/v1/sponsors`. Uma marca
+Os cliques no link contam-se pelo endereço do link da marca (e subdomínios), com `GET /admin/v1/sponsors`. Uma marca
 cujo link é do Instagram (ou de outra rede) não tem cliques próprios: os cliques nessa rede juntam-se aos de outras
-marcas, e o diálogo e o PDF dizem-no. Os cliques no logótipo por mês precisam da versão nova do contador; até
-publicares, o PDF sai sem esse bloco e o diálogo explica porquê.
+marcas, e o diálogo e o PDF dizem-no; uma marca vendida sem link não tem cliques, e o diálogo diz isso. Os cliques por
+mês precisam da versão nova do contador; até publicares, o PDF sai sem esse bloco e o diálogo explica porquê. No
+telemóvel, o estado («A juntar os números (2 de 6)», «PDF pronto», um erro) fica por cima dos botões, e o botão mostra o
+passo.
 
 **Quando um número parece errado (zero, ou baixo demais).** O separador «Dados» começa com o cartão **Diagnóstico:
 últimos 14 dias**, por dia de Lisboa: quantos sinais chegaram ao contador, quantos guardou, quantos recusou e porquê
 («5 de robôs», «2 de outros sites»), os que não guardou por causa de um limite, as visitas de fora e as tuas, e se o dia
-já foi resumido («resumido», «por resumir: esta noite às 00:20», «a refazer esta noite: chegaram dados depois do
-resumo»). Por baixo, uma «Leitura» numa frase: nada chega ao contador desde ontem (vê `SITE.stats.url` e o modo), tudo
-é recusado (e porquê), o limite gratuito do dia acabou, um dia só teve visitas tuas, ou «Tudo normal». Os dias antes de
-o contador novo começar a contar mostram «sem contagem», nunca 0. Quem tem Global Privacy Control, Do Not Track ou «Não
+já foi resumido («resumido», «por resumir: esta noite às 00:20» só para ontem antes do resumo, «atrasado: o resumo da
+noite não correu» para um dia que já devia estar resumido, «a refazer esta noite: chegaram dados depois do resumo»).
+No telemóvel aparecem hoje, ontem e os dias fora do normal; os outros ficam em «Ver os outros dias». Por baixo, uma
+«Leitura» numa frase: nada chega ao contador desde ontem (vê `SITE.stats.url` e o modo), tudo é recusado (e porquê), o
+limite gratuito do dia acabou, sinais do mesmo sítio passaram o limite por endereço e não ficaram guardados, o resumo
+da noite não correu (o painel conta esses dias a partir dos registos de cada visita, que se apagam ao fim de 30 dias),
+um dia só teve visitas tuas, ou «Tudo normal» (só quando nenhum dia perdeu nada). Os dias antes de o contador novo
+começar a contar mostram «sem contagem», nunca 0; o primeiro dia contado diz «contagem desde a publicação», porque os
+contadores começam a meio do dia. Os recusados são um mínimo: chegam ao contador com o sinal seguinte do mesmo
+servidor, por isso podem aparecer mais tarde ou faltar alguns. Quem tem Global Privacy Control, Do Not Track ou «Não
 contar» ligado não envia nada, por isso não aparece. Os outros gráficos de «Dados» (limites, recusados) contam dias UTC,
 como o Cloudflare.
 
-Nos períodos de 7, 30 e 90 dias (e num período à escolha que acabe antes de hoje), que vão sempre até ontem, há uma
-linha debaixo das datas: «Hoje até agora (às 14:32): 12 visitas, 37 visualizações.» e, com «Mostrar visitas internas»
-desligado, «Visitas no período: 0 públicas · 12 tuas (as tuas estão escondidas).» (ligado: «Inclui 12 visitas tuas.»).
+Nos períodos de 7, 30 e 90 dias (e num período à escolha que acabe ontem), que vão sempre até ontem, há uma linha
+debaixo das datas: «Hoje até agora (às 14:32): 12 visitas, 37 visualizações.» (com «Mostrar visitas internas»
+desligado e visitas tuas hoje: «… (mais 3 visitas tuas, escondidas).») e, desligado, «Visitas no período: 0 públicas ·
+12 tuas (as tuas estão escondidas).» (ligado: «Inclui 12 visitas tuas.»). Num período à escolha que acabou antes de
+ontem fica só a parte das visitas tuas: os painéis vão até ao último dia dele.
 Atualiza a cada minuto enquanto o «Resumo» está aberto. Antes de publicares a versão nova do contador
 (`GET /admin/v1/diag`), o cartão diz que precisa dela e a linha não aparece; o resto do painel funciona na mesma.
 

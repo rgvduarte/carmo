@@ -209,7 +209,8 @@ test('shape: day totals only, nothing by place, source, device or hour', async (
   const d = await diag(mf, 'p=7d');
   assert.deepEqual(Object.keys(d).sort(), ['at', 'days', 'dev', 'now', 'ok', 'period', 'rollupAt', 'since', 'today', 'v']);
   for (const x of d.days) {
-    assert.deepEqual(Object.keys(x).sort(), ['counted', 'day', 'drop', 'ok', 'pv', 'rej', 'req', 'state', 'visits']);
+    assert.deepEqual(Object.keys(x).sort(), ['counted', 'day', 'drop', 'ok', 'partial', 'pv', 'rej', 'req', 'state', 'visits']);
+    assert.equal(x.partial, x.counted && x.day === d.since, `partial only on the first counted day (${x.day})`);
     assert.ok(['hoje', 'feito', 'refazer', 'por-fazer'].includes(x.state));
     if (x.rej) assert.deepEqual(Object.keys(x.rej), ['origem', 'tamanho', 'json', 'versao', 'esquema', 'limite', 'robo', 'cheio']);
   }

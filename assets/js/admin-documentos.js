@@ -3,7 +3,8 @@
 // vault.json sealed with the owner's passphrase, and, with «Lembrar neste aparelho», as a non-extractable CryptoKey in
 // IndexedDB. The computer (scripts/docs-publish.mjs) only ever has the public key. README, «Documentos».
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
-import { V, VaultError, checkVault, fingerprint, newVault, unlockVault, rewrapVault, importPublic, unwrapKey, decryptChunk, openManifest, chunkCount, keyMatches } from './vault-crypto.js';
+import { V, VaultError, checkVault, fingerprint, newVault, unlockVault, rewrapVault, importPublic, unwrapKey, decryptChunk, openManifest, chunkCount, keyMatches, weakPass, suggestPass } from './vault-crypto.js';
+import { WORDS } from './vault-words.js';
 import * as store from './admin-documentos-store.js';
 import { getToken, setToken, readToken, keepToken, forgetToken, checkToken, errText, signInText, UiError, GhError } from './admin-gh.js';
 
@@ -23,6 +24,12 @@ const T = {
   noCrypto: 'Este browser não consegue abrir o cofre. Usa o Safari ou o Chrome atualizados.',
   badPass: 'A frase-passe não abre o cofre. Confirma maiúsculas e espaços.',
   short: `A frase-passe tem de ter pelo menos ${V.PASS_MIN} caracteres.`,
+  // weakPass() codes: the vault.json is public, so a passphrase that is tried first must not get in
+  weak: {
+    repetida: 'A frase-passe repete quase sempre os mesmos caracteres. Usa palavras diferentes, ou «Sugerir uma frase-passe».',
+    'do-site': 'A frase-passe é quase só palavras do site (gocarmo, Gonçalo, Kona, cofre…), números e sinais: é das primeiras a ser tentada. Usa outras palavras, ou «Sugerir uma frase-passe».',
+    'poucas-palavras': 'Com menos de 24 caracteres, usa pelo menos três palavras diferentes, ou «Sugerir uma frase-passe».',
+  },
   differ: 'As duas frases-passe não são iguais.',
   broken: 'Este ficheiro chegou estragado ou foi mudado no GitHub. Tenta outra vez; se repetir, publica de novo no computador.',
   moved: 'O cofre mudou entretanto. A lista está atualizada: tenta outra vez.',
@@ -75,6 +82,7 @@ function busy(btn, on, label) {
 }
 const SCREENS = ['create', 'created', 'unlock', 'open'];
 function show(which) {
+  hideAll();
   for (const id of SCREENS) $(`#${id}`).hidden = id !== which;
   $('#status').hidden = true;
   $('#problem').hidden = true;
@@ -104,7 +112,38 @@ async function copy(text) {
   try { await navigator.clipboard.writeText(text); toast('Copiado'); } catch (_) { toast('Não deu para copiar. Seleciona o texto e copia à mão.'); }
 }
 const passOf = (input) => input.value.normalize('NFC');
-const longEnough = (s) => [...s].length >= V.PASS_MIN;
+// '' when the new passphrase is good enough, else the sentence that says why not
+const passProblem = (p) => { const why = weakPass(p); return why ? (why === 'curta' ? T.short : T.weak[why]) : ''; };
+
+// «Mostrar» next to every passphrase field (typed twice on a phone keyboard: a typo must be seen), and «Sugerir uma
+// frase-passe»: five words drawn here from vault-words.js
+function addShow(input) {
+  const wrap = h('div', { class: 'dc-pw' });
+  input.replaceWith(wrap);
+  wrap.append(input);
+  const b = h('button', { class: 'btn sm ghost dc-show', type: 'button', 'aria-pressed': 'false', 'aria-controls': input.id }, 'Mostrar');
+  b.addEventListener('click', () => { reveal(input, input.type === 'password'); input.focus(); });
+  wrap.append(b);
+}
+function reveal(input, on) {
+  input.type = on ? 'text' : 'password';
+  const b = input.parentElement && input.parentElement.querySelector('.dc-show');
+  if (b) b.setAttribute('aria-pressed', String(on));
+}
+const hideAll = () => { for (const i of document.querySelectorAll('.dc-pw input')) reveal(i, false); };
+for (const d of document.querySelectorAll('dialog')) d.addEventListener('close', hideAll);
+for (const i of document.querySelectorAll('input[type="password"]')) addShow(i);
+for (const b of document.querySelectorAll('[data-suggest]')) {
+  b.addEventListener('click', () => {
+    const input = $(`#${b.dataset.suggest}`), again = $(`#${b.dataset.again}`);
+    input.value = suggestPass(WORDS);
+    input.dispatchEvent(new Event('input'));
+    reveal(input, true);
+    again.value = '';
+    again.focus();
+    toast('Escreve-a outra vez no campo de baixo e guarda-a já nas Palavras-passe do aparelho.');
+  });
+}
 
 // ---------- state ----------
 const S = {
@@ -161,6 +200,8 @@ async function boot({ keepOpen = false } = {}) {
   if (why.length) { S.vault = null; S.vaultText = b.vaultText; problem(T.badVault(why.join('; ')), { newVault: true }); return; }
   const kidChanged = S.vault && S.vault.kid !== b.vault.kid;
   S.vault = b.vault; S.vaultText = b.vaultText;
+  // a key remembered for an older vault still opens what was published with it (and those copies stay public): out
+  try { await store.forgetOtherKeys(S.vault.kid); } catch (_) {}
   S.pub = await importPublic(S.vault);
   S.fp = await fingerprint(S.vault.pub);
   if (kidChanged) S.priv = null;
@@ -188,7 +229,8 @@ $('#create').addEventListener('submit', async (e) => {
   const err = $('#c-err'), btn = $('#c-go');
   err.textContent = '';
   const p = passOf($('#c-pass')), p2 = passOf($('#c-pass2'));
-  if (!longEnough(p)) { err.textContent = T.short; $('#c-pass').focus(); return; }
+  const weak = passProblem(p);
+  if (weak) { err.textContent = weak; $('#c-pass').focus(); return; }
   if (p !== p2) { err.textContent = T.differ; $('#c-pass2').focus(); return; }
   if (!(await ensureToken())) { err.textContent = 'Sem o token do GitHub não consigo guardar o cofre.'; return; }
   await createVault({ pass: p, remember: $('#c-remember').checked, expect: null, btn, err, message: 'Cofre: criado' });
@@ -233,7 +275,8 @@ async function remember_(key) {
 }
 $('#forget').addEventListener('click', () => $('#d-forget').showModal());
 $('#forget-go').addEventListener('click', async () => {
-  try { await store.forgetKey(S.vault.kid); } catch (_) {}
+  // every key this browser remembers, also one of an older vault
+  try { await store.forgetAllKeys(); } catch (_) {}
   S.remembered = false;
   $('#d-forget').close();
   $('#forget').hidden = true;
@@ -326,7 +369,7 @@ function docCard(d) {
 function verBlock(d, v, isLatest) {
   const box = h('div', { class: `dc-ver${isLatest ? ' dc-latest' : ''}`, 'data-vid': v.vid || v.fid });
   box.append(
-    h('p', { class: 'dc-ver-h' }, isLatest ? h('span', { class: 'dc-badge', text: 'mais recente' }) : null, h('b', { text: v.label || '' }), v.date ? ` · ${fmtDay(v.date)}` : ''),
+    h('p', { class: 'dc-ver-h' }, isLatest ? h('span', { class: 'dc-badge', text: 'mais recente' }) : null, h('b', { text: v.label || '' }), v.date ? h('span', { class: 'dc-date', text: `· ${fmtDay(v.date)}` }) : null),
     h('p', { class: 'dc-size' }, h('span', { text: fmtSize(v.size) }), v.name ? h('span', { class: 'dc-name', text: v.name }) : null),
     Array.isArray(v.changes) && v.changes.length ? h('ul', { class: 'dc-changes' }, v.changes.map((c) => h('li', { text: c }))) : null,
   );
@@ -337,60 +380,97 @@ function verBlock(d, v, isLatest) {
 }
 
 // ---------- 5. download ----------
+// One file at a time (a phone keeps one in memory), and a download that stops half way (no network, the tab put in the
+// background, «Cancelar») keeps the parts it has: «Continuar (parte 9 de 10)» goes on from there. «Fechar» drops them.
+const held = new Map();     // fid -> { parts, next }
+let running = null;         // the fid being downloaded
+const BIG = 16e6;           // from this size, «Mantém esta página aberta até acabar.»
 function idle(dl, d, v, msg = '') {
-  dl.replaceChildren(h('button', { class: 'btn sm', type: 'button', onclick: () => download(dl, d, v) }, 'Descarregar'));
+  dl.dataset.idle = '1';
+  dl._idle = () => idle(dl, d, v, msg);
+  const had = held.get(v.fid);
+  const go = h('button', { class: 'btn sm dc-get', type: 'button', onclick: () => download(dl, d, v) }, had ? `Continuar (parte ${had.next + 1} de ${v.n})` : 'Descarregar');
+  dl.replaceChildren(go);
+  if (had) dl.append(h('button', { class: 'btn sm ghost', type: 'button', onclick: () => { held.delete(v.fid); msg = ''; idle(dl, d, v); } }, 'Fechar'));
   if (msg) dl.append(h('p', { class: 'err dc-dl-err', role: 'alert', text: msg }));
+  if (running && running !== v.fid) {
+    go.disabled = true;
+    dl.append(h('p', { class: 'hint dc-wait', text: 'Espera que acabe o outro ficheiro.' }));
+  }
 }
+// the other «Descarregar» buttons follow `running`
+const others = () => { for (const el of document.querySelectorAll('.dc-dl[data-idle]')) if (el._idle) el._idle(); };
 const verOk = (v) => /^[0-9a-f]{32}$/.test(String(v.fid)) && Number.isInteger(v.size) && v.size >= 0 && v.n === chunkCount(v.size) && (v.chunk === undefined || v.chunk === V.CHUNK) && typeof v.key === 'string';
 async function download(dl, d, v) {
+  if (running) return;
   if (!verOk(v)) { idle(dl, d, v, v.chunk && v.chunk !== V.CHUNK ? T.newer : T.broken); return; }
+  const had = held.get(v.fid);
+  held.delete(v.fid);
+  const parts = had ? had.parts : [];
+  delete dl.dataset.idle;
+  running = v.fid;
+  others();
   const ac = new AbortController();
-  const text = h('p', { class: 'dc-prog-t', text: `A descarregar: parte 1 de ${v.n}` });
-  const bar = h('progress', { max: String(v.n), value: '0', 'aria-label': 'Progresso' });
+  const text = h('p', { class: 'dc-prog-t', text: `A descarregar: parte ${parts.length + 1} de ${v.n}` });
+  const bar = h('progress', { max: String(v.n), value: String(parts.length), 'aria-label': 'Progresso' });
+  const stay = v.size > BIG ? h('p', { class: 'hint dc-stay', text: 'Mantém esta página aberta até acabar.' }) : null;
   const cancel = h('button', { class: 'btn sm ghost', type: 'button', onclick: () => ac.abort() }, 'Cancelar');
-  dl.replaceChildren(h('div', { class: 'dc-prog' }, text, bar), cancel);
+  dl.replaceChildren(h('div', { class: 'dc-prog' }, text, bar, stay), cancel);
   const ref = S.branch.ref;
+  const keep = () => { if (parts.length) held.set(v.fid, { parts, next: parts.length }); };
   try {
     const key = await unwrapKey(S.priv, S.pub, v.key, `file:${v.fid}`);
-    const parts = [];
-    for (let i = 0; i < v.n; i++) {
+    for (let i = parts.length; i < v.n; i++) {
       text.textContent = `A descarregar: parte ${i + 1} de ${v.n}`;
       const ct = await store.readRaw(ref, `f/${v.fid}/${i}.bin`, { signal: ac.signal });
       // each part becomes a Blob at once: the browser may keep it outside the page's memory
       parts.push(new Blob([await decryptChunk(key, ct, { fid: v.fid, i, n: v.n, size: v.size })]));
       bar.value = i + 1;
     }
-    const file = new File(parts, safeName(v.name), { type: v.type || 'application/octet-stream' });
-    ready(dl, d, v, file);
+    running = null;
+    ready(dl, d, v, parts);
   } catch (x) {
-    if (x && x.name === 'AbortError') { idle(dl, d, v); return; }
+    running = null;
+    if (x && x.name === 'AbortError') { keep(); idle(dl, d, v); return; }
     if (x instanceof store.Missing) { await boot({ keepOpen: true }); toast(T.moved); if (S.manifest) openNote(T.moved); return; }
     if (x instanceof VaultError) { idle(dl, d, v, x.code === 'versao' ? T.newer : T.broken); return; }
+    keep();
     idle(dl, d, v, errText(x));
-  }
+  } finally { running = null; others(); }
 }
 // a share sheet needs a fresh tap: the file is ready, the next tap saves it
-function ready(dl, d, v, file) {
+function ready(dl, d, v, parts) {
+  const file = new File(parts, safeName(v.name), { type: v.type || 'application/octet-stream' });
   const label = S.shareFiles ? 'Guardar ou partilhar' : 'Guardar';
-  const done = h('p', { class: 'dc-saved', role: 'status' });
+  const done = h('p', { class: 'dc-saved', role: 'status', text: `Pronto (${fmtSize(v.size)}): carrega em «${label}».` });
   const save = h('button', { class: 'btn sm gold', type: 'button', onclick: async () => {
     const r = await saveFile(file);
-    if (r === 'ok') done.textContent = 'Guardado';
+    if (r === 'shared') done.textContent = 'Feito.';
+    else if (r === 'link') done.textContent = 'Descarregado: vê nas Transferências.';
   } }, label);
   dl.replaceChildren(save, h('button', { class: 'btn sm ghost', type: 'button', onclick: () => idle(dl, d, v) }, 'Fechar'), done);
   save.focus();
 }
+// Through a blob: URL of this page only a type no browser runs scripts in keeps its type; anything else (an .html of an
+// older publisher, an svg) goes as application/octet-stream, so a webview that ignores «download» cannot open it here,
+// where the GitHub token and the remembered key are. The share sheet gets the real type (no URL is made).
+const SAFE_TYPES = new Set(['application/pdf', 'application/zip', 'application/json', 'text/plain', 'image/png', 'image/jpeg', 'image/webp', 'image/gif',
+  'video/mp4', 'video/quicktime', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet']);
+const linkType = (type) => (SAFE_TYPES.has(String(type || '').toLowerCase()) ? String(type).toLowerCase() : 'application/octet-stream');
+// -> 'shared' | 'link' | 'cancel'
 async function saveFile(file) {
   if (S.shareFiles && navigator.canShare && navigator.canShare({ files: [file] })) {
-    try { await navigator.share({ files: [file] }); return 'ok'; } catch (e) {
+    try { await navigator.share({ files: [file] }); return 'shared'; } catch (e) {
       if (e && e.name === 'AbortError') return 'cancel';   // the sheet was closed: not an error
     }
   }
-  const url = URL.createObjectURL(file);
-  const a = h('a', { href: url, download: file.name, hidden: true });
+  const safe = linkType(file.type) === file.type ? file : new File([file], file.name, { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(safe);
+  const a = h('a', { href: url, download: safe.name, hidden: true });
   document.body.append(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
-  return 'ok';
+  return 'link';
 }
 
 // ---------- Mais ----------
@@ -408,7 +488,7 @@ $('#m-index').addEventListener('click', async () => {
   if (!S.manifest) { toast('Ainda não há índice: nada foi publicado com este cofre.'); return; }
   const day = new Date().toISOString().slice(0, 10);
   const file = new File([`${JSON.stringify({ ...S.manifest, export: 'gocarmo-cofre-indice' }, null, 2)}\n`], `gocarmo-cofre-indice-${day}.json`, { type: 'application/json' });
-  await saveFile(file);
+  if ((await saveFile(file)) !== 'cancel') toast('Depois de o usar no computador, apaga o índice: tem os títulos em claro.');
 });
 $('#m-reload').addEventListener('click', async () => { $('#d-more').close(); await boot({ keepOpen: true }); });
 $('#m-pass').addEventListener('click', () => {
@@ -423,7 +503,8 @@ $('#pass-form').addEventListener('submit', async (e) => {
   err.textContent = '';
   const old = $('#p-old').value, p = passOf($('#p-new')), p2 = passOf($('#p-new2'));
   if (!old) { err.textContent = 'Escreve a frase-passe atual.'; return; }
-  if (!longEnough(p)) { err.textContent = T.short; return; }
+  const weak = passProblem(p);
+  if (weak) { err.textContent = weak; return; }
   if (p !== p2) { err.textContent = T.differ; return; }
   if (!(await ensureToken())) { err.textContent = 'Sem o token do GitHub não consigo guardar a frase-passe nova.'; return; }
   busy(btn, true, 'A mudar…');
@@ -443,7 +524,7 @@ $('#pass-form').addEventListener('submit', async (e) => {
   } finally { busy(btn, false); }
 });
 
-// ---------- 7. a new key pair (the passphrase was lost) ----------
+// ---------- 7. a new key pair (the passphrase was lost, or someone may know it) ----------
 function openNew() {
   $('#d-more').close();
   for (const id of ['#n-pass', '#n-pass2', '#n-word']) $(id).value = '';
@@ -459,7 +540,8 @@ $('#new-form').addEventListener('submit', async (e) => {
   err.textContent = '';
   const p = passOf($('#n-pass')), p2 = passOf($('#n-pass2'));
   if ($('#n-word').value.trim().toUpperCase() !== 'CRIAR') { err.textContent = 'Escreve CRIAR para confirmar.'; return; }
-  if (!longEnough(p)) { err.textContent = T.short; return; }
+  const weak = passProblem(p);
+  if (weak) { err.textContent = weak; return; }
   if (p !== p2) { err.textContent = T.differ; return; }
   if (!(await ensureToken())) { err.textContent = 'Sem o token do GitHub não consigo guardar o cofre novo.'; return; }
   await createVault({ pass: p, remember: $('#n-remember').checked, expect: S.vaultText, btn: $('#n-go'), err, message: 'Cofre: chave nova' });
