@@ -34,6 +34,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   `data/montra.json` tem um produto ativo; sem nenhum (o estado publicado), a página, o menu, o media kit impresso e a
   página sem JavaScript ficam iguais, sem rasto da secção. Ver «Montra «O meu material»», mais abaixo.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
+- **Imprensa** (`/imprensa`, em inglês `/press`, ligada no rodapé): bios de 50 e 150 palavras com botão de copiar,
+  ficha, resultados, fotografias para descarga com legenda, logótipos e contactos, mais o kit de imprensa em
+  PDF (PT e EN) e um ZIP com tudo. Página estática: não carrega os scripts do 3D e funciona sem JavaScript.
 - **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com as estatísticas do site
   ligadas, explica a contagem de visitas sem cookies e tem o botão «Não contar as minhas visitas». Com o Google
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
@@ -78,6 +81,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rcpt.*`, `cl.rcpt*` e `cl.nag*` (PT e EN; `rc.*` são os da tabela de preços); o desenho do PDF em `assets/js/receipt.js` |
 | Documentos do cofre (kits, guiões, folhetos, manuais) | no computador, `node scripts/docs-publish.mjs` com a configuração em `~/gocarmo-cofre/` (ver «Documentos (o cofre)») |
+| Página de imprensa | `imprensa/index.html` (PT), `press/index.html` (EN), `assets/css/press.css`; os ficheiros para descarga (PDF, ZIP, fotografias, logótipos, textos) em `imprensa/files/`. As fotografias são do Gonçalo e não levam crédito (`imprensa/files/fotos/USO.txt` diz como podem ser usadas). As páginas e os ficheiros saem do gerador do kit de imprensa (`kit/out/press/_tools/`): depois de os refazer, `node scripts/stamp.mjs` |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px; as da montra em `assets/img/montra/`, feitas pelo editor, 600/1200 px) |
 | Cartão de contacto (página, vCard, QR, Apple Wallet) | `cartao/`, `wallet/cartao/pass.json` e `python3 scripts/cartao.py` (ver «Cartão de contacto») |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
