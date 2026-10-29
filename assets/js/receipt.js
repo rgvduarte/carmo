@@ -3,8 +3,12 @@
 // « » and € show), the GOCARMO emblem drawn as paths and the file itself. adspace.js builds the content (rcptModel) from
 // the same values as the dialog and the WhatsApp message; this file only lays it out and never works out a price, a
 // date or a reference. Loaded with import() on the first press of «Guardar comprovativo». receiptPdf(model) -> Uint8Array.
+// After page 1 (as it always was), the annex: the full sponsorship terms of the request's version, in its language
+// (pdf-annex.js lays out terms-text.js, which loads with this file, so only when a PDF is made).
 
 import { W, H, M, CW, win, width, wrap, INK, MUTED, GOLD_INK, LINE, TINT, BAND, emblem, draw, pdfFile } from './pdf-kit.js';
+import { annexPages, annexOutline, linkOver } from './pdf-annex.js';
+import { TERMS, TERMS_DATE, TERMS_URL } from './terms-text.js';
 
 // ---------- drawing ----------
 function page(m, s) {
@@ -170,5 +174,13 @@ export function receiptPdf(m, now = new Date()) {
   // everything on one page: a long list (a package sent as a message only can have many spots) makes the type smaller
   let out = null;
   for (let s = 1; s >= 0.69; s -= 0.04) { out = page(m, s); if (out.fits) break; }
-  return pdfFile({ content: out.ops.join('\n'), lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now });
+  const info = { lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now };
+  // the annex: only the version the request named (a page loaded before a terms update and still open names the old
+  // date: no annex then, never another version's text), in the language of the request
+  const lg = m.annex && m.annex.lang === 'en' ? 'en' : 'pt';
+  if (!m.annex || m.annex.date !== TERMS_DATE || !TERMS[lg]) return pdfFile({ content: out.ops.join('\n'), ...info });
+  const annex = annexPages({ lang: lg, doc: m.annex.doc || 'rcpt', date: TERMS_DATE, terms: TERMS[lg], url: TERMS_URL[lg] }, 1);
+  // page 1 as before; its terms address becomes a link to the page (an annotation: the drawing does not change)
+  const pages = [{ content: out.ops.join('\n'), links: linkOver(out.ops, 'gocarmo.com/condicoes', TERMS_URL[lg]) }, ...annex.map((p) => ({ content: p.ops.join('\n'), links: p.links }))];
+  return pdfFile({ pages, outline: [{ title: m.title, page: 0 }, { title: annexOutline(lg), page: 1 }], ...info });
 }

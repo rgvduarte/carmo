@@ -159,8 +159,8 @@ function checkTerms(R) {
   const IX = readFileSync('index.html', 'utf8'), ix = plain(IX);
   need(ix.includes(`atualizadas a ${pt(R.termsDate)}`), `index.html: «atualizadas a ${pt(R.termsDate)}» (cl.terms, seasonRules.termsDate)`);
   const js = readFileSync('assets/js/i18n.js', 'utf8').replace(/\s+/g, ' ');
-  need(js.includes(`atualizadas a ${pt(R.termsDate)}`), `assets/js/i18n.js: «atualizadas a ${pt(R.termsDate)}» (msg.terms, seasonRules.termsDate)`);
-  need(js.includes(`updated ${en(R.termsDate)}`), `assets/js/i18n.js: «updated ${en(R.termsDate)}» (msg.terms and cl.terms, seasonRules.termsDate)`);
+  need(i18n.t('msg.terms', R.termsDate) === `Condições do patrocínio (versão de ${R.termsDate.split('-').reverse().join('.')}): https://gocarmo.com/condicoes/`, `assets/js/i18n.js: msg.terms(termsDate) is «${i18n.t('msg.terms', R.termsDate)}» (the request message's terms line)`);
+  need(js.includes(`updated ${en(R.termsDate)}`), `assets/js/i18n.js: «updated ${en(R.termsDate)}» (cl.terms, seasonRules.termsDate)`);
   // the home page's season copy: the period (ru.p2), the logo deadline of the page without JS (#sp-p4; adspace.js
   // writes it from the rules), the renewal preference of every level (of.a4)
   const next = String(Number(R.season) + 1), dm = (d, M, l) => { const [, m, n] = ymd(d); return l === 'pt' ? `${n} de ${M[m - 1]}` : `${n} ${M[m - 1]}`; };
@@ -226,6 +226,11 @@ function pin(file, dep) {
 }
 pin('suit-mesh.js', 'suit-body.js');
 pin('suit-worker.js', 'suit-mesh.js');
+// the sponsorship terms as data for the PDFs' annex (scripts/terms-text.mjs): the page, assets/js/terms-text.js and
+// seasonRules.termsDate agree, nothing of the page is left out, a changed text has a new date, old versions are kept
+const terms = await (await import('./terms-text.mjs')).termsText({ check, rules: SR.rulesOf(SPOTS), today: process.env.STAMP_TODAY || SR.lisbonDay() });
+if (terms.problems.length) { console.error(`The sponsorship terms (condicoes/index.html, assets/js/terms-text.js, data/terms/):\n  ${terms.problems.join('\n  ')}`); process.exit(1); }
+stale.push(...terms.stale);
 
 // script types the browser runs (and CSP checks); a data block such as application/ld+json never runs
 const RUNS = /^(|module|importmap|text\/javascript|application\/javascript)$/i;

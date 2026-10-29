@@ -598,12 +598,33 @@ function download(file) {
   setTimeout(() => URL.revokeObjectURL(url), 60000);
   return true;
 }
+// The annex of the confirmation: the text of the sponsorship terms in the contract's version (c.terms, the request day's
+// or the agreement's), from the module of the version in force or from data/terms/<date>.json for an older one. Starts
+// loading when the dialog opens, so «Guardar PDF» on a phone is not slowed before the share sheet. -> { date, pt, en } or null
+const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || ''));
+const dotDay = (d) => String(d).split('-').reverse().join('.');
+function loadAnnex(c) {
+  const d = isDay(c.terms) ? c.terms : '';
+  if (!d) return Promise.resolve(null);
+  const ok = (x) => (x && x.date === d && x.pt && x.en && Array.isArray(x.pt.blocks) && Array.isArray(x.en.blocks) ? x : null);
+  const old = () => fetch(`../../data/terms/${d}.json`, { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)).then(ok);
+  const now = S.data ? rulesOf(S.data).termsDate : '';
+  return (d === now ? import('./terms-text.js').then((T) => (T.TERMS_DATE === d ? ok({ date: d, ...T.TERMS }) : old())) : old()).catch(() => null);
+}
 function openPdf(c) {
   const d = $('#pdf');
   S.pdf = c.id;
   $('#pdf-sum').textContent = `${c.brand} · ${A.spotsText(c)} · ${A.money(c.amount)}`;
   $$('input[name="pdf-lang"]').forEach((i) => { i.checked = i.value === (c.lang === 'en' ? 'en' : 'pt'); });
   $('#pdf-err').textContent = '';
+  // the annex: which version goes with the PDF (the request's, or the written agreement's), or why none does
+  const line = $('#pdf-annex'), id = c.id, of = c.history?.[0]?.from === 'manual' ? 'a do acordo' : 'a do pedido';
+  line.textContent = isDay(c.terms) ? `A preparar o anexo com as condições na versão de ${dotDay(c.terms)}…` : 'Sem anexo: este registo não diz a versão das condições que aceitou.';
+  S.annex = { id, p: loadAnnex(c) };
+  S.annex.p.then((x) => {
+    if (S.pdf !== id || !isDay(c.terms)) return;
+    line.textContent = x ? `Leva em anexo as condições na versão de ${dotDay(c.terms)}, ${of}.` : `Sem anexo: o texto das condições da versão de ${dotDay(c.terms)} não está no site.`;
+  });
   d.showModal();
   $('#pdf-go').focus();
 }
@@ -615,7 +636,9 @@ async function savePdf() {
   const lang = $$('input[name="pdf-lang"]').find((i) => i.checked)?.value === 'en' ? 'en' : 'pt';
   try {
     const m = A.confirmationModel(c, lang, { data: S.data, site: { name: SITE.name, email: SITE.email, whatsapp: SITE.whatsapp } });
-    const { confirmationPdf } = await import('./admin-confirm-pdf.js');
+    const [{ confirmationPdf }, terms] = await Promise.all([import('./admin-confirm-pdf.js'), S.annex && S.annex.id === c.id ? S.annex.p : loadAnnex(c)]);
+    // the annex follows the PDF's language
+    if (terms) m.annex = { lang, doc: 'conf', date: terms.date, terms: terms[lang], url: lang === 'en' ? `${A.TERMS_URL}?lang=en` : A.TERMS_URL };
     const file = new File([confirmationPdf(m)], m.file, { type: 'application/pdf' });
     if (await deliver(file)) { $('#pdf').close(); toast(`Confirmação de ${c.brand} pronta: envia-a à marca.`); }
   } catch (e) { console.error(e); $('#pdf-err').textContent = 'Não consegui fazer o PDF neste aparelho.'; }

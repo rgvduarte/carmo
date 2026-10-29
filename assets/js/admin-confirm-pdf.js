@@ -3,7 +3,10 @@
 // fonts every PDF reader has, WinAnsi text, the GOCARMO emblem and the file. The content comes from
 // admin-contracts.js confirmationModel(); this file only lays it out and never works out a price or a date. The link
 // to the terms is a real link (a URI annotation over its text). confirmationPdf(model, now) -> Uint8Array.
+// After page 1 (as it always was), when model.annex carries the text of the contract's terms version (the Patrocínios page
+// loads it: terms-text.js or data/terms/<date>.json), the annex with the full sponsorship terms (pdf-annex.js).
 import { W, H, M, CW, win, width, wrap, INK, MUTED, GOLD_INK, LINE, TINT, emblem, draw, pdfFile } from './pdf-kit.js';
+import { annexPages, annexOutline } from './pdf-annex.js';
 
 function page(m, s) {
   const ops = [], links = [], { z, text, para, rule, box, later, small, over } = draw(ops, s);
@@ -106,5 +109,11 @@ function page(m, s) {
 export function confirmationPdf(m, now = new Date()) {
   let out = null;
   for (let s = 1; s >= 0.69; s -= 0.04) { out = page(m, s); if (out.fits) break; }
-  return pdfFile({ content: out.ops.join('\n'), lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now, links: out.links });
+  const info = { lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now };
+  // annex: { lang, doc: 'conf', date, terms: { title, h1, lead, updated, blocks }, url }; none: one page, as before
+  const a = m.annex;
+  if (!a || !a.date || !a.terms || !Array.isArray(a.terms.blocks)) return pdfFile({ content: out.ops.join('\n'), ...info, links: out.links });
+  const annex = annexPages({ lang: a.lang, doc: a.doc || 'conf', date: a.date, terms: a.terms, url: a.url }, 1);
+  const pages = [{ content: out.ops.join('\n'), links: out.links }, ...annex.map((p) => ({ content: p.ops.join('\n'), links: p.links }))];
+  return pdfFile({ pages, outline: [{ title: m.title, page: 0 }, { title: annexOutline(a.lang), page: 1 }], ...info });
 }

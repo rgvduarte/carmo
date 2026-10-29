@@ -888,9 +888,17 @@ section { position: relative; }
 .rules { margin-top: 40px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 .rules div { font-size: 14px; color: var(--muted); text-wrap: pretty; }
 .rules b { display: block; color: var(--ink); font: 650 16px/1.3 var(--sans); margin-bottom: 6px; }
-/* the link to /condicoes/ under the rules */
-.terms-line { margin: 32px 0 0; padding-top: 18px; border-top: 1px solid var(--line); max-width: 72ch; font-size: 14px; color: var(--muted); text-wrap: pretty; }
-.terms-line a { display: inline-block; padding: 12px 0; margin: -12px 0; color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+/* the sponsorship terms (/condicoes/, in a new tab) next to what people decide on: the block after the level cards, the
+   foot of each price table, the whole suit card and the spot sheet. Secondary buttons, never gold, with the document icon */
+.terms-cta { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px 28px; }
+.terms-cta h3 { margin: 0 0 4px; font: 650 17px/1.3 var(--sans); }
+.terms-cta p { margin: 0; font-size: 14px; color: var(--muted); max-width: 64ch; text-wrap: pretty; }
+.rc-foot { margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.tp-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.sd-terms { position: relative; display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 0 12px; min-height: 32px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ink); font: 600 12.5px/1 var(--sans); letter-spacing: 0; text-decoration: none; transition: border-color .3s; }
+.sd-terms::after { content: ""; position: absolute; inset: -7px -5px; }   /* a 44 px tap target round the 32 px pill */
+.sd-terms:hover { border-color: var(--ink); }
+.sd-terms svg { flex: none; width: 14px; height: 14px; }
 @media (max-width: 1080px) {
   .studio { grid-template-columns: minmax(0, 1fr); }
   .stage-wrap { top: var(--nav-h); z-index: 4; background: var(--bg); padding: 6px 0 8px; margin: 0 calc(var(--gutter) * -1); padding-left: var(--gutter); padding-right: var(--gutter); }
@@ -904,6 +912,8 @@ section { position: relative; }
 }
 @media (max-width: 640px) {
   .offer, .rules { grid-template-columns: 1fr; }
+  .terms-cta { grid-template-columns: minmax(0, 1fr); }
+  .terms-cta .btn { width: 100%; }
   .steps { grid-template-columns: 1fr; }
   .steps > div + div { padding-left: 0; border-left: 0; }
   .stage-ui { inset: 10px 10px auto 10px; }
@@ -1413,7 +1423,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   @page { size: A4; margin: 12mm; }
   :root { color-scheme: light; --ink: #111; --muted: #555; --dim: #666; --line: rgba(0,0,0,.14); --line-2: rgba(0,0,0,.25); --bg: #fff; --bg-2: #fff; --bg-3: #f4f4f4; --gold: var(--gold-ink); }
   body { background: #fff; color: #111; font-size: 10.5pt; }
-  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .terms-line, .budget .track, .contact-media, #strava-live, .chapters, .pv-nav, .pv-filter, .strava-card, .season-title .hib { display: none !important; }
+  .skip, .scroll-cue, .nav, .meter, .topbar, .flight, .marks-track, .part, .entry-cta, .package, .hero-cta, .lang, footer, dialog, .toast, .media-grid, .tele-grid .chart, .support .cta, .contact .cta, .give-cp, .story-media, .years, .route, .offer, .steps, .rules, .terms-cta, .budget .track, .contact-media, #strava-live, .chapters, .pv-nav, .pv-filter, .strava-card, .season-title .hib { display: none !important; }
   .section, .marks { padding: 14pt 0; }
   .card, .race, .pv-card, .kpi, .contact-list li, .budget .row, .year, .give, .entry-card { break-inside: avoid; }
   .entry-card { border-color: rgba(0,0,0,.2); background: #fff; }
@@ -1595,6 +1605,8 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .spot-card .price small { margin-top: 0; }
   .spot-card .price small span { display: inline; }
   .spot-card .price small .t2::before { content: " · "; }
+  .spot-card .price { flex-wrap: wrap; }
+  .spot-card .price .sd-terms { margin-top: 0; }
   /* small phones: a tighter rate card row, so the helmet's names («Lado esquerdo») keep to one line */
   .card.ratecard { padding-left: 14px; padding-right: 14px; }
   .rc-row { grid-template-columns: 10px 22px minmax(0, 1fr) auto 36px; gap: 0 7px; }

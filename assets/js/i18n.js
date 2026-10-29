@@ -166,6 +166,14 @@ const EN = {
   "tp.p": "All 20 suit spots, your brand next to my name in my bios, the media kit and press materials, and category exclusivity for 2027. Before you pay, we put it all in a written agreement.",
   "tp.s": "per season",
   "tp.b": "Request the whole suit",
+  "tb.h": "Sponsorship terms",
+  "tb.p": "What each level includes, what it doesn't, how booking and payment work, and when a race can have a race partner.",
+  "tb.b": "Read the sponsorship terms",
+  "tb.rc": "Sponsorship terms",
+  "tb.tp": "Read the terms",
+  "tb.sd": "Terms",
+  "tb.new": " (opens in a new tab)",
+  "tb.href": "condicoes/?lang=en",
   "rc.h": "Rate card",
   "rc.area": "By area",
   "rc.price": "By price",
@@ -173,7 +181,7 @@ const EN = {
   "a.tiers": "Price tiers",
   "of.k1": "Every spot",
   "of.h1": "Included",
-  "of.a1": "Logo on the suit or helmet at every 2027 triathlon, except as set out in the <a href=\"condicoes/\">terms</a> (the suit in training too)",
+  "of.a1": "Logo on the suit or helmet at every 2027 triathlon, except as set out in the <a href=\"condicoes/?lang=en\" target=\"_blank\" rel=\"noopener\">terms</a> (the suit in training too)",
   "of.a2": "Logo and link on this page",
   "of.a3": "Tagged in every race post",
   "of.a4": "First option on the same spot in 2028, if you say yes by 31 October 2027",
@@ -206,12 +214,11 @@ const EN = {
   "ru.h1": "One brand per spot.",
   "ru.p1": "Once the payment lands, the spot closes for everyone and shows your brand.",
   "ru.h2": "Full season.",
-  "ru.p2": "January to December 2027, at every triathlon, except at a race with a race partner or where I have to wear other kit (<a href=\"condicoes/\">terms</a>). The suit in training too.",
+  "ru.p2": "January to December 2027, at every triathlon, except at a race with a race partner or where I have to wear other kit (<a href=\"condicoes/?lang=en\" target=\"_blank\" rel=\"noopener\">terms</a>). The suit in training too.",
   "ru.h3": "Production included.",
   "ru.p3": "Send your logo as a vector file and I'll handle production.",
   "ru.h4": "Excluded sectors.",
   "ru.p4": "I don't work with alcohol, betting or tobacco brands. Supplement brands only with a written guarantee that their products contain no substances banned in sport.",
-  "ru.terms": "<a href=\"condicoes/\">Sponsorship terms</a>. What a spot includes, what it doesn't, and when a race can have a race partner.",
   "media.k": "06 · Media",
   "media.h": "What<br>I post",
   "media.p": "I post every race and parts of my training on Instagram and TikTok.",
@@ -296,7 +303,7 @@ const EN = {
   "cl.nagH": "You haven't saved the confirmation yet.",
   "cl.nagClose": "Close without saving",
   "cl.back": "Back",
-  "cl.terms": "By sending, you accept the <a href=\"condicoes/\" target=\"_blank\" rel=\"noopener\">sponsorship terms</a> (updated 29 October 2026).",
+  "cl.terms": "By sending, you accept the <a href=\"condicoes/?lang=en\" target=\"_blank\" rel=\"noopener\">sponsorship terms</a> (updated 29 October 2026).",
   "pay.tr": "Bank transfer",
   "pay.payee": "Account holder",
   "pay.name": "Name",
@@ -328,6 +335,8 @@ const ymd = (day) => String(day || '').split('-').map(Number);
 // '15 de janeiro de 2027' / '15 January 2027'
 const ptLong = (day) => { const [y, m, d] = ymd(day); return `${d} de ${PT_MONTHS[m - 1]} de ${y}`; };
 const enLong = (day) => { const [y, m, d] = ymd(day); return `${d} ${EN_MONTHS[m - 1]} ${y}`; };
+// '29.10.2026': the version of the terms, as the message and the PDFs' annex name it
+const dotDate = (day) => String(day || '').split('-').reverse().join('.');
 // '1 jan' / '1 Jan' (no dot, as the period line is written)
 const ptShort = (day) => { const [, m, d] = ymd(day); return `${d} ${PT_SHORT[m - 1]}`; };
 const enShort = (day) => { const [, m, d] = ymd(day); return `${d} ${EN_MONTHS[m - 1].slice(0, 3)}`; };
@@ -418,8 +427,9 @@ const PT_JS = {
   'toast.held': (d, k) => (k === 'title' ? `Reservado até ${d}. Antes de pagares, envio-te o acordo escrito.` : `Reservado até ${d}. Fico à espera do comprovativo do pagamento.`),
   'toast.heldNoMsg': (d, id) => `Reservado até ${d}. Falta enviares-me a mensagem com o pedido ${id}.`,
   'msg.req': 'Pedido', 'msg.hold': (d, k) => (k === 'title' ? `Reservado até ${d}. Antes de pagar, fico à espera do acordo escrito.` : `Reservado durante 48 horas, até ${d}. Envio o comprovativo do pagamento até lá.`),
-  // which terms the request accepts: when /condicoes/ changes, this date changes with its «Atualizada a» (and cl.terms)
-  'msg.terms': 'Condições: gocarmo.com/condicoes, atualizadas a 29 de outubro de 2026',
+  // which terms the request accepts: the version of /condicoes/ in force, seasonRules.termsDate (stamp: the page's
+  // «Atualizada a» is that date), and the address of the page
+  'msg.terms': (d) => `Condições do patrocínio (versão de ${dotDate(d)}): https://gocarmo.com/condicoes/`,
   'msg.nohold': 'Sem reserva no site: confirmas se está livre? Envio o logótipo nesta conversa.', 'msg.open': 'Pedido aberto',
   // the season (r: season-rules.js rulesOf; m, bp: the season month and its discount in basis points): its period, the
   // mid-season discount from February, the logo deadline and the renewal preference
@@ -517,7 +527,7 @@ const PT_JS = {
     if (day && day >= r.proposalsFrom) return `${head} Como entras a partir de ${ptLong(r.proposalsFrom)}, envio-te a proposta com a confirmação do pagamento; tens até ${ptLong(r.renewBy)} para me dizer que sim. ${pay}`;
     return `${head} Envio-te a proposta a partir de ${ptLong(r.proposalsFrom)}; se me disseres que sim até ${ptLong(r.renewBy)}, ${w[1]}. ${pay}`;
   },
-  'rcpt.terms': 'Condições do patrocínio', 'rcpt.ct': 'Contacto',
+  'rcpt.terms': 'Condições do patrocínio', 'rcpt.termsV': (d) => `gocarmo.com/condicoes, atualizadas a ${ptLong(d)}`, 'rcpt.ct': 'Contacto',
   'rcpt.foot': 'Este documento não é uma fatura nem um recibo. Confirma o pedido e a reserva até à data indicada. Depois do pagamento, recebes um recibo de donativo.',
   'rcpt.footNo': 'Este documento não é uma fatura nem um recibo. Resume o pedido que me enviaste, sem reserva no site. Depois do pagamento, recebes um recibo de donativo.',
   'chart.time': 'Tempo final', 'chart.place': 'Lugar', 'chart.top': 'top', 'chart.pace': 'Ritmo', 'chart.race': 'Prova', 'chart.week': 'Semana', 'chart.hours': 'Horas',
@@ -605,7 +615,7 @@ const EN_JS = {
   'toast.held': (d, k) => (k === 'title' ? `On hold until ${d}. Before you pay, I'll send you the written agreement.` : `On hold until ${d}. I will look out for the proof of payment.`),
   'toast.heldNoMsg': (d, id) => `On hold until ${d}. Please still send me the message with request ${id}.`,
   'msg.req': 'Request', 'msg.hold': (d, k) => (k === 'title' ? `On hold until ${d}. I'll wait for the written agreement before paying.` : `On hold for 48 hours, until ${d}. I will send the proof of payment by then.`),
-  'msg.terms': 'Terms: gocarmo.com/condicoes, updated 29 October 2026',
+  'msg.terms': (d) => `Sponsorship terms (version of ${enLong(d)}): https://gocarmo.com/condicoes/?lang=en`,
   'msg.nohold': 'Not on hold on the site: can you confirm it is free? I will send the logo in this chat.', 'msg.open': 'Open request',
   'msg.period': (r) => `${r.season} season: ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
   'msg.season': (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, month ${m}): −${enP(bp)}%`,
@@ -681,7 +691,7 @@ const EN_JS = {
     if (day && day >= r.proposalsFrom) return `${head} As you join from ${enLong(r.proposalsFrom)}, I send you the proposal with the payment confirmation; you have until ${enLong(r.renewBy)} to say yes. ${pay}`;
     return `${head} I send you the proposal from ${enLong(r.proposalsFrom)}; if you say yes by ${enLong(r.renewBy)}, ${w[1]}. ${pay}`;
   },
-  'rcpt.terms': 'Sponsorship terms', 'rcpt.ct': 'Contact',
+  'rcpt.terms': 'Sponsorship terms', 'rcpt.termsV': (d) => `gocarmo.com/condicoes, updated ${enLong(d)}`, 'rcpt.ct': 'Contact',
   'rcpt.foot': 'This document is not an invoice or a receipt. It confirms the request and the hold until the date shown. Once you pay, you get a donation receipt.',
   'rcpt.footNo': 'This document is not an invoice or a receipt. It sums up the request you sent me, with no hold on the site. Once you pay, you get a donation receipt.',
   'chart.time': 'Finish time', 'chart.place': 'Place', 'chart.top': 'top', 'chart.pace': 'Pace', 'chart.race': 'Race', 'chart.week': 'Week', 'chart.hours': 'Hours',

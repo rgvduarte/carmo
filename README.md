@@ -35,18 +35,19 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com as estatísticas do site
   ligadas, explica a contagem de visitas sem cookies e tem o botão «Não contar as minhas visitas». Com o Google
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
-- **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
-  pedido, «Ao enviar, aceitas as condições do patrocínio (atualizadas a 29 de outubro de 2026).»): o que inclui um espaço, o que fica de fora, como se reserva
+- **Condições do patrocínio** (`/condicoes/`, num botão depois dos níveis, na ficha de cada espaço, no cartão do fato
+  completo e no fim das tabelas de preços, no rodapé e no passo 1 do pedido, «Ao enviar, aceitas as condições do
+  patrocínio (atualizadas a 29 de outubro de 2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
   prazo do logótipo, a preferência na renovação, o preço de 2027 na renovação do Principal e do fato completo, o
   pagamento da renovação até 15 de janeiro, o aviso de outubro, já sem triatlos, e a conta das devoluções por meses),
   a montra do site («A montra do site», com os produtos por nível), o parceiro de prova e o que se combina num acordo
   escrito. A data «Atualizada a», nas duas línguas, muda
-  sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. No mesmo dia muda também a data das
-  chaves `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `msg.terms` (a linha
-  «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`;
-  o comprovativo do pedido usa esta mesma linha) e `seasonRules.termsDate` em `data/spots.json`, que o Worker e os
-  registos dos patrocínios guardam. `node scripts/stamp.mjs --check` falha enquanto estas quatro datas não forem a
+  sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. No mesmo dia muda também a data da
+  chave `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `seasonRules.termsDate` em
+  `data/spots.json`, que o Worker e os registos dos patrocínios guardam. A linha «Condições do patrocínio (versão de
+  …): https://gocarmo.com/condicoes/» da mensagem do pedido (`msg.terms`) e a do comprovativo saem sozinhas de
+  `seasonRules.termsDate`. `node scripts/stamp.mjs --check` falha enquanto estas três datas não forem a
   mesma, e também se as datas da época ou a tabela do desconto de época da página não baterem com `seasonRules` (ver
   «Época, prazos e renovação», mais abaixo), ou se os números de produtos da montra por nível não forem os de `LIMIT`
   (`assets/js/montra-core.js`).
@@ -300,8 +301,10 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    `CARMO`, que numa referência longa passa à linha seguinte sem nunca ser cortada), o que vem a seguir (pagar e
    enviar o comprovativo do pagamento até ao dia da reserva, escrito na frase; o logótipo em vetor até 15 de janeiro
    de 2027, `seasonRules.logoBy`, ou, depois dessa data, a partir de que prova entra no fato; a regra do desconto de
-   época, quando há; a preferência na renovação até 31 de outubro de 2027), a linha das condições com a data delas (a mesma `msg.terms` da mensagem), o contacto e, no fim, «Este
-   documento não é uma fatura nem um recibo. …». Os valores são os do passo 2 e da mensagem, tirados das mesmas funções:
+   época, quando há; a preferência na renovação até 31 de outubro de 2027), a linha das condições com a data delas
+   (`rcpt.termsV`, da mesma `seasonRules.termsDate` da mensagem), o contacto e, no fim, «Este
+   documento não é uma fatura nem um recibo. …». A seguir, em anexo, as condições na versão do pedido (ver «Condições
+   do patrocínio nos pedidos e nos PDF»). Os valores são os do passo 2 e da mensagem, tirados das mesmas funções:
    o número, o total, a referência e o dia batem sempre certo. No fato completo não há dados da conta: diz que antes de
    pagar envias o acordo escrito, até quando fica reservado, e a referência `CARMO FATO`, só por transferência. Sem
    reserva (o Worker em baixo, mais de 6 espaços, ou sem Worker) é um «Resumo do pedido de reserva», sem número, que
@@ -404,6 +407,31 @@ sozinho; a página de privacidade diz isto nas duas línguas. Se mudares esse pr
 último dia da reserva e o número do pedido. O que a marca escreve no pedido de reserva (e o logótipo) fica no browser
 dela só enquanto o separador estiver aberto. O comprovativo (o PDF e o cartão) faz-se no aparelho dela e não vai para
 lado nenhum.
+
+## Condições do patrocínio nos pedidos e nos PDF
+
+- **Os botões.** No capítulo 05, «Ler as condições do patrocínio» (EN «Read the sponsorship terms») num bloco logo
+  depois dos quatro níveis; «Condições» na ficha de cada espaço, por baixo do preço (quem chega por um link direto,
+  `#fato/peito`); «Ler as condições» ao lado de «Pedir o fato completo»; «Condições do patrocínio» no fim de cada
+  tabela de preços (fato e capacete). Todos abrem `/condicoes/` noutro separador (o 3D, a ficha e o pacote ficam como
+  estavam), em inglês `condicoes/?lang=en`. O passo 1 do pedido mantém a frase «Ao enviar, aceitas…» com o link; o
+  rodapé abre no mesmo separador.
+- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 29.10.2026):
+  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 29 October 2026): …?lang=en»), feita de
+  `seasonRules.termsDate`.
+- **Os PDF.** O comprovativo do pedido e a confirmação do patrocínio têm a primeira página igual à de antes e, a
+  seguir, «Anexo · Condições do patrocínio · versão de 29.10.2026»: o texto inteiro da página, na língua do documento,
+  com títulos, listas, a tabela do desconto de época, «Página 2 de 7» e links (a página no ar, Privacidade, email,
+  WhatsApp). O comprovativo leva a versão do dia do pedido; a confirmação, a do contrato (`terms` do registo). Uma
+  versão sem texto guardado (antes de 26.10.2026) vai sem anexo, e a janela da confirmação diz isso.
+- **De onde vem o texto.** `assets/js/terms-text.js` é escrito por `node scripts/stamp.mjs` (`scripts/terms-text.mjs`) a
+  partir dos dois `<article>` de `condicoes/index.html`: nunca o edites à mão. Só carrega quando se faz um PDF. Quando
+  `seasonRules.termsDate` muda, o stamp guarda o texto da versão anterior em `data/terms/<data>.json` (já lá estão
+  26.10.2026 e 28.10.2026), que nunca se reescreve.
+- **O que o stamp recusa:** uma marcação na página que o anexo não sabe desenhar (um `<em>`, um `<ol>`, um `<br>`: ensina
+  `scripts/terms-text.mjs` e `assets/js/pdf-annex.js`), texto da página que não chegue ao anexo, o módulo desatualizado,
+  datas que não batem, e o texto mudado depois do próprio dia sem data nova (muda a data no mesmo dia em que mudas o
+  texto).
 
 ## Época, prazos e renovação
 
@@ -572,7 +600,8 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   o comprovativo: marca, espaços e preços, desconto de época e de pacote (só quando o montante é o da tabela), montante
   e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo (no Principal e no fato
   completo, com o preço de 2027), o prazo do pagamento da renovação (15 de janeiro de 2028) e o link para as condições.
-  Em português, ou em inglês se a marca escreveu em inglês (escolhes antes de gerar).
+  Em português, ou em inglês se a marca escreveu em inglês (escolhes antes de gerar). A seguir, em anexo, as condições
+  na versão do contrato; a janela diz qual, ou que vai sem anexo (ver «Condições do patrocínio nos pedidos e nos PDF»).
 
 ## Montra «O meu material»
 
@@ -1059,7 +1088,9 @@ O script põe no endereço de cada ficheiro uma versão calculada a partir do co
 Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/` e `/admin/patrocinios/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar.
 
 O script verifica também a época: o bloco `seasonRules` de `data/spots.json` (datas reais e por ordem), a data das
-condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `msg.terms`), as datas da época escritas em
+condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `seasonRules.termsDate`; a linha `msg.terms`
+sai dela), o texto das condições para o anexo dos PDF (escreve `assets/js/terms-text.js` e guarda a versão anterior em
+`data/terms/`, ver «Condições do patrocínio nos pedidos e nos PDF»), as datas da época escritas em
 cada língua de `/condicoes/` (também `racesUntil` e `renewPayBy`) e a tabela do desconto de época dessa página, mês a
 mês, contra `season-rules.js`; que só os cartões dos níveis com o preço de 2027 na renovação (Principal e fato
 completo) o dizem, com estas palavras: «O preço da tabela de 2027 em 2028, se renovares até 31 de outubro de 2027» (a

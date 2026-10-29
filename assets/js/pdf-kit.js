@@ -1,6 +1,7 @@
 // The PDF primitives of the site's documents, written in the browser with no library and nothing fetched: the standard
 // Helvetica fonts every PDF reader has (no font file), WinAnsi text (so the accents, « » and € show), the GOCARMO emblem
-// drawn as paths, the drawing helpers bound to one page, and the file itself (one A4 page). receipt.js (the booking
+// drawn as paths, the drawing helpers bound to one page, and the file itself (one A4 page, or several: the documents'
+// annex with the sponsorship terms, pdf-annex.js). receipt.js (the booking
 // comprovativo) and admin-confirm-pdf.js (the sponsorship confirmation) lay their pages out with it; neither works out a
 // price or a date here. Moved out of receipt.js unchanged: for the same model the comprovativo's bytes are the same.
 
@@ -122,8 +123,9 @@ function fnv(s, seed) { let h = seed >>> 0; for (let i = 0; i < s.length; i++) {
 // One A4 page: catalog, pages, the page, Helvetica and Helvetica-Bold (WinAnsi), the contents, the document information,
 // the cross-reference table and the trailer. content: the page's operators; title, subject, author: the information
 // (any character); links: [{ rect: [x0, y0, x1, y1], uri }] become link annotations on the page (none: the same bytes as
-// before links existed).
-export function pdfFile({ content, lang, title, subject, author, now = new Date(), links = [] }) {
+// before links existed). Several pages: pages: [{ content, links }] in place of content and links (see pdfPages).
+export function pdfFile({ content, pages, lang, title, subject, author, now = new Date(), links = [], outline = [] }) {
+  if (Array.isArray(pages) && pages.length) return pdfPages({ pages, lang, title, subject, author, now, outline });
   const annots = (links || []).filter((l) => l && Array.isArray(l.rect) && l.rect.length === 4 && /^https?:\/\//.test(String(l.uri || '')));
   const objs = [
     `<< /Type /Catalog /Pages 2 0 R /Lang ${lit(lang === 'en' ? 'en' : 'pt-PT')} /ViewerPreferences << /DisplayDocTitle true >> >>`,
@@ -141,6 +143,46 @@ export function pdfFile({ content, lang, title, subject, author, now = new Date(
   const xref = pdf.length, id = fnv(content, 2166136261) + fnv(content, 16777619) + fnv(title, 2166136261) + fnv(pdfDate(now), 99991);
   pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${at.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
   pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info 7 0 R /ID [<${id}> <${id}>] >>\nstartxref\n${xref}\n%%EOF\n`;
+  const bytes = new Uint8Array(pdf.length);
+  for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+  return bytes;
+}
+
+// A4 pages: catalog, pages, the two fonts (shared), the document information, then for each page its contents, its link
+// annotations (https: and mailto:) and the page; outline: [{ title, page }] (page: its index) becomes the bookmarks a
+// reader shows beside the document (the document itself, then its annex, one tap away).
+const linkOk = (l) => l && Array.isArray(l.rect) && l.rect.length === 4 && /^(https?:\/\/|mailto:)/.test(String(l.uri || ''));
+function pdfPages({ pages, lang, title, subject, author, now, outline }) {
+  const objs = [], add = (o) => { objs.push(o); return objs.length; };
+  add(''); add('');
+  add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  const info = add(`<< /Title ${u16(title)} /Author ${u16(author)} /Subject ${u16(subject)} /Creator (gocarmo.com) /Producer (gocarmo.com) /CreationDate (${pdfDate(now)}) >>`);
+  const kids = [];
+  for (const pg of pages) {
+    const c = add(`<< /Length ${pg.content.length} >>\nstream\n${pg.content}\nendstream`);
+    const an = (pg.links || []).filter(linkOk).map((l) => add(`<< /Type /Annot /Subtype /Link /Rect [${l.rect.map(n).join(' ')}] /Border [0 0 0] /A << /Type /Action /S /URI /URI ${lit(win(l.uri))} >> >>`));
+    kids.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${n(W)} ${n(H)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /ProcSet [/PDF /Text] >> /Contents ${c} 0 R${an.length ? ` /Annots [${an.map((x) => `${x} 0 R`).join(' ')}]` : ''} >>`));
+  }
+  const marks = (outline || []).filter((o) => o && o.title && kids[o.page]);
+  let outlines = 0;
+  if (marks.length) {
+    outlines = add('');
+    const ids = marks.map(() => add(''));
+    marks.forEach((o, i) => {
+      objs[ids[i] - 1] = `<< /Title ${u16(o.title)} /Parent ${outlines} 0 R${i ? ` /Prev ${ids[i - 1]} 0 R` : ''}${i < ids.length - 1 ? ` /Next ${ids[i + 1]} 0 R` : ''} /Dest [${kids[o.page]} 0 R /XYZ null null null] >>`;
+    });
+    objs[outlines - 1] = `<< /Type /Outlines /First ${ids[0]} 0 R /Last ${ids.at(-1)} 0 R /Count ${ids.length} >>`;
+  }
+  objs[0] = `<< /Type /Catalog /Pages 2 0 R /Lang ${lit(lang === 'en' ? 'en' : 'pt-PT')} /ViewerPreferences << /DisplayDocTitle true >>${outlines ? ` /Outlines ${outlines} 0 R` : ''} >>`;
+  objs[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
+  let pdf = '%PDF-1.4\n%\xe2\xe3\xcf\xd3\n';
+  const at = [];
+  objs.forEach((o, i) => { at.push(pdf.length); pdf += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const all = pages.map((p) => p.content).join('\n');
+  const xref = pdf.length, id = fnv(all, 2166136261) + fnv(all, 16777619) + fnv(title, 2166136261) + fnv(pdfDate(now), 99991);
+  pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${at.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`;
+  pdf += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R /Info ${info} 0 R /ID [<${id}> <${id}>] >>\nstartxref\n${xref}\n%%EOF\n`;
   const bytes = new Uint8Array(pdf.length);
   for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
   return bytes;

@@ -1154,8 +1154,9 @@ function message({ sizes = true, extra = null } = {}) {
   const r = heldReq();
   if (r) lines.push(`${t('msg.req')}: ${r.id}`, t('msg.hold', longDay(r.until), kOf()));
   else if (API && rqMode === 'msg') lines.push(openReq ? `${t('msg.open')}: ${openReq}` : t('msg.nohold'));
-  // the terms the request accepts, with their date: the proof of which version the brand took (/condicoes/)
-  lines.push(t('msg.terms'));
+  // the terms the request accepts, their version (seasonRules.termsDate) and their address: the proof of which version
+  // the brand took (/condicoes/)
+  lines.push(t('msg.terms', R.termsDate));
   // the season: its period, the mid-season discount («Desconto de época (março, mês 3): −6,25%», read back by the admin
   // page: admin-core.js LINE.season), the logo deadline (or, after it, from which race the logo is on the kit) and the
   // renewal preference
@@ -2065,8 +2066,11 @@ function rcptModel() {
     disc: disc ? [t('cl.save', Math.round(disc * 100)), `−${money(steps.bundle)}`] : null,
     total: [t('msg.total'), money(net)],
     pay, next: { h: t('rcpt.nextH'), items: next },
-    // the message's own terms line, date included, under the document's label
-    terms: `${t('rcpt.terms')}: ${t('msg.terms').replace(/^[^:]*:\s*/, '')}`,
+    // the terms the request took, with their date (the words of page 1 as before the message line changed)
+    terms: `${t('rcpt.terms')}: ${t('rcpt.termsV', R.termsDate)}`,
+    // after page 1, the full text of that version in the language on screen (receipt.js lays it out from terms-text.js,
+    // and leaves it out when the page loaded here names another version than the module)
+    annex: { lang: getLang(), doc: 'rcpt', date: R.termsDate },
     contact: [t('rcpt.ct'), `WhatsApp ${waShown()} · ${SITE.email}`],
     foot: t(r ? 'rcpt.foot' : 'rcpt.footNo'),
   };
@@ -2119,7 +2123,15 @@ function drawRcpt(m) {
   card.textContent = '';
   // on screen, what one screenshot must hold comes first: the hold and its number, then the amount, the reference and
   // where to pay; then the request itself, and the rest in smaller type (the PDF keeps the order of a document)
-  card.append(top, h, st, pay, req, next, el('p', 'cl-card-terms', m.terms), ct, el('p', 'cl-card-foot', m.foot));
+  // the terms line, its address a real link to the page (in a new tab, as step 1's)
+  const terms = el('p', 'cl-card-terms'), at = m.terms.indexOf('gocarmo.com/condicoes');
+  if (at < 0) terms.textContent = m.terms;
+  else {
+    const a = el('a', '', 'gocarmo.com/condicoes');
+    a.href = getLang() === 'en' ? 'condicoes/?lang=en' : 'condicoes/'; a.target = '_blank'; a.rel = 'noopener';
+    terms.append(m.terms.slice(0, at), a, m.terms.slice(at + 'gocarmo.com/condicoes'.length));
+  }
+  card.append(top, h, st, pay, req, next, terms, ct, el('p', 'cl-card-foot', m.foot));
   card.setAttribute('aria-labelledby', 'cl-card-h');
 }
 function renderRcpt() {
