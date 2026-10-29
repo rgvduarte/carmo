@@ -60,6 +60,13 @@ export function addDays(day, n) { const d = new Date(`${day}T00:00:00Z`); d.setU
 
 export const uuid = () => crypto.randomUUID();
 
+// the rate limits (Miniflare's and Cloudflare's) count in windows aligned to the wall-clock minute: a test that fills a
+// limit waits for a fresh minute when fewer than 15 s are left, so its burst never straddles two windows
+export async function freshMinute(need = 15000) {
+  const left = 60000 - (Date.now() % 60000);
+  if (left < need) await new Promise((r) => setTimeout(r, left + 50));
+}
+
 // the page fields every beacon carries
 export function page(over = {}) {
   return { v: 1, pv: uuid(), f: 1, t: 's', vis: 1, path: '/', lang: 'pt', bl: 'pt', ref: 'direto', vw: 'm', vh: 800, nav: 'navigate', pc: 1, b: '033e031d', ...over };

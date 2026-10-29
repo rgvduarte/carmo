@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-s+xZvD7+jD0szck3AaFjq73ACVy+sisxRkttJEC+g4c='; connect-src 'self' https://api.github.com https://gocarmo.com https://gocarmo-pedidos.rgvduarte.workers.dev https://gocarmo-api.rgvduarte.workers.dev; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-5DngUVjTM3ol1PrSG9cowgdBH4jQGB3RaA8Y1RpgAw8='; connect-src 'self' https://api.github.com https://gocarmo.com https://gocarmo-pedidos.rgvduarte.workers.dev https://gocarmo-api.rgvduarte.workers.dev; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -17,21 +17,27 @@
   "three": "../assets/vendor/three@0.170.0/build/three.module.min.js",
   "three/addons/": "../assets/vendor/three@0.170.0/examples/jsm/",
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
-  "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=35971a4d",
+  "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=77a1a92a",
   "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=3b35f743",
   "../assets/js/admin-analytics-heat.js": "../assets/js/admin-analytics-heat.js?v=7321de53",
-  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=89fe3451",
+  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=37cc6df4",
   "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=a6e8f1b4",
-  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=4d3bfc69",
-  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=910c5272",
+  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=7b54e2bb",
+  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=65a73629",
   "../assets/js/admin-confirm-pdf.js": "../assets/js/admin-confirm-pdf.js?v=4c9d7f83",
   "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=2a861450",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=8d4ca3b5",
+  "../assets/js/admin-documentos-store.js": "../assets/js/admin-documentos-store.js?v=95823a00",
+  "../assets/js/admin-documentos.js": "../assets/js/admin-documentos.js?v=d399c3d7",
   "../assets/js/admin-gh.js": "../assets/js/admin-gh.js?v=aac86619",
   "../assets/js/admin-montra-core.js": "../assets/js/admin-montra-core.js?v=65ac1320",
   "../assets/js/admin-montra.js": "../assets/js/admin-montra.js?v=b8a5f267",
   "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=c382a62b",
   "../assets/js/admin-photo.js": "../assets/js/admin-photo.js?v=534d6c65",
+  "../assets/js/admin-report-model.js": "../assets/js/admin-report-model.js?v=858f77a3",
+  "../assets/js/admin-report-pdf.js": "../assets/js/admin-report-pdf.js?v=3ade1f26",
+  "../assets/js/admin-report-text.js": "../assets/js/admin-report-text.js?v=2da9f491",
+  "../assets/js/admin-report.js": "../assets/js/admin-report.js?v=9bb7f896",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
   "../assets/js/admin.js": "../assets/js/admin.js?v=e6854a42",
   "../assets/js/adspace.js": "../assets/js/adspace.js?v=0225baf6",
@@ -64,7 +70,9 @@
   "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=b3644acd",
   "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=41a4b375",
   "../assets/js/suit.js": "../assets/js/suit.js?v=116c1105",
-  "../assets/js/terms-text.js": "../assets/js/terms-text.js?v=0d550f6c"
+  "../assets/js/terms-text.js": "../assets/js/terms-text.js?v=0d550f6c",
+  "../assets/js/vault-crypto.js": "../assets/js/vault-crypto.js?v=8654ebd4",
+  "../assets/js/vault-words.js": "../assets/js/vault-words.js?v=db8927d5"
 } }
 </script>
 <script type="module" src="../assets/js/admin.js?v=e6854a42"></script>
@@ -107,6 +115,7 @@
   <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a> (uma vez, sem token).</p>
   <p class="fine">Visitas e mapas de calor: <a href="analytics/">Estatísticas do site</a>.</p>
   <p class="fine">Patrocínios: <a href="patrocinios/">contratos e renovações</a>.</p>
+  <p class="fine">Documentos: <a href="documentos/">o cofre</a>.</p>
 </main>
 
 <!-- 2. Lista -->
@@ -173,6 +182,7 @@
     <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a>.</p>
     <p class="fine">Visitas e mapas de calor: <a href="analytics/">Estatísticas do site</a>.</p>
     <p class="fine">Patrocínios: <a href="patrocinios/">contratos e renovações</a>.</p>
+    <p class="fine">Documentos: <a href="documentos/">o cofre</a>.</p>
   </main>
 
   <div class="bar" id="bar" hidden>

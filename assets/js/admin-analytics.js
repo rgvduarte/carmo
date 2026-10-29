@@ -90,6 +90,10 @@ function logout(msg) {
   for (const k of Object.keys(loaded)) delete loaded[k];
   for (const p of $$('.ga-panel')) { forget(p); p.replaceChildren(); }
   heat = null;
+  paintToday();
+  // the «Relatório PDF» (admin-report.js) hides its button
+  globalThis.gcAnalytics = null;
+  document.dispatchEvent(new CustomEvent('gc:analytics', { detail: null }));
   showLogin(msg);
 }
 function makeApi(key) {
@@ -140,6 +144,10 @@ function startApp() {
   $('#login').hidden = true;
   $('#app').hidden = false;
   ctx.today = ping && ping.today ? ping.today : '';
+  // the «Relatório PDF» (admin-report.js, its own module) reads the API through this, with its own parameters
+  const gc = { api, today: ctx.today, oldest: ping && ping.oldest, base };
+  globalThis.gcAnalytics = gc;
+  document.dispatchEvent(new CustomEvent('gc:analytics', { detail: gc }));
   if (!state.p) state.p = ping && ping.complete < 2 ? '24h' : '7d';
   for (const r of $$('#period input')) r.checked = r.value === state.p;
   $('#f-dev').value = state.dev;
@@ -151,6 +159,7 @@ function startApp() {
   paintDevice();
   loadPage();
   selectTab(state.t, false);
+  paintToday();
 }
 
 function selectTab(name, focus) {
@@ -258,6 +267,8 @@ async function loadTab(name, force) {
   try {
     const d = {};
     const jobs = tab.endpoints.map(async (ep) => { d[ep] = await api.get(ep, params(), { fresh: force }); });
+    // endpoints a panel can do without (the Worker may not have them yet): { error } instead of failing the tab
+    for (const ep of tab.soft || []) jobs.push(api.get(ep, params(), { fresh: true }).then((v) => { d[ep] = v; }, (e) => { if (e && e.code === 'chave') throw e; d[ep] = { error: e }; }));
     if (tab.live) jobs.push(api.get('now', { int: state.int }, { fresh: true }).then((v) => { d.now = v; }, () => { d.now = null; }));
     if (tab.spots) jobs.push(spots());
     if (tab.montra) jobs.push(montraNames().then((n) => { d.names = n; }));
@@ -287,6 +298,53 @@ function refilter() {
   for (const k of Object.keys(loaded)) delete loaded[k];
   if (state.t === 'calor') loadTab('calor');
   else { if (heat) heat.refresh(); loadTab(state.t); }
+  paintToday();
+}
+
+// ---------- under the range: «Hoje até agora» and the internal visits hidden by the switch (GET diag) ----------
+// The period views (7, 30, 90 days, a custom period that ends yesterday) end yesterday: this line gives today's partial
+// count (with «Mostrar visitas internas» off, also how many of today's visits are mine, hidden), and how many of the
+// period's visits are mine. A custom period that ended before yesterday gets only that last part: its panels end on its
+// own last day. Never on «24 h» (today is in its numbers). On a 404 (the Worker without diag) or any error, the line is
+// simply not there.
+let todayEl = null, todayAt = 0, todaySeq = 0;
+const plural = (n, one, many) => `${fmt.n(n)} ${n === 1 ? one : many}`;
+function todayLine() {
+  if (!todayEl) {
+    todayEl = document.createElement('p');
+    todayEl.className = 'ga-range-now';
+    todayEl.id = 'range-now';
+    todayEl.hidden = true;
+    $('#range').after(todayEl);
+  }
+  return todayEl;
+}
+async function paintToday() {
+  const el = todayLine(), seq = ++todaySeq;
+  const off = () => { el.hidden = true; el.replaceChildren(); };
+  if (!api || !state.p || state.p === '24h' || withToday()) { off(); return; }
+  const key = paramsKey();
+  let d;
+  try { d = await api.get('diag', params(), { fresh: true }); } catch (_) { if (seq === todaySeq) off(); return; }
+  if (seq !== todaySeq || key !== paramsKey() || !api || !d || !d.now) return;
+  todayAt = Date.now();
+  const inc = !!state.int;
+  const v = d.now.visits.ext + (inc ? d.now.visits.int : 0), pv = d.now.pv.ext + (inc ? d.now.pv.int : 0);
+  const yday = (() => { const t = new Date(`${d.today || ctx.today}T12:00:00Z`); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); })();
+  const old = state.p === 'custom' && state.to && state.to < yday;
+  el.replaceChildren();
+  if (!old) {
+    const mineNow = !inc && d.now.visits.int > 0 ? ` (mais ${plural(d.now.visits.int, 'visita tua', 'visitas tuas')}, ${d.now.visits.int === 1 ? 'escondida' : 'escondidas'})` : '';
+    H('span', 'l', `Hoje até agora (às ${d.at}): ${plural(v, 'visita', 'visitas')}, ${plural(pv, 'visualização', 'visualizações')}${mineNow}. Os números dos painéis vão até ontem.`, el);
+  }
+  const pi = d.period && d.period.visits ? d.period.visits.int : 0;
+  if (pi > 0) {
+    const ext = d.period.visits.ext;
+    H('span', 'l', inc ? `Inclui ${plural(pi, 'visita tua', 'visitas tuas')}.`
+      : `Visitas no período: ${plural(ext, 'pública', 'públicas')} · ${plural(pi, 'tua', 'tuas')} (as tuas estão escondidas).`, el);
+  }
+  if (!el.childNodes.length) { off(); return; }
+  el.hidden = false;
 }
 
 // ---------- «Agora no site»: every 30 s while the tab is open and visible; stops after 30 min without input ----------
@@ -311,6 +369,7 @@ async function pollNow(force) {
   try {
     const now = await api.get('now', { int: state.int }, { fresh: true });
     ctx.lastNow = now;
+    if (Date.now() - todayAt > 55000) paintToday();
     ctx.polling = !!pollTimer;
     if (ctx.nowBox && ctx.nowBox.isConnected) renderNow(ctx.nowBox, now, ctx);
   } catch (_) {}

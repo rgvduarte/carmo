@@ -170,8 +170,11 @@ function placeOf(request, env) {
 
 // ---------- POST /v1/e and /v1/f (3.2, 3.4) ----------
 async function beacon(request, env, quiet, max, kind) {
-  const count = (k) => { if (!quiet) bump(k); };
+  // each count also goes on the Lisbon day of the beacon (d:<day>:<k>, the «Diagnóstico» card); GPC / DNT: nowhere
+  const lday = clock(nowOf(request, env)).day;
+  const count = (k) => { if (!quiet) { bump(k); bump(`d:${lday}:${k}`); } };
   if (request.method !== 'POST') return reply(request, env, { error: 'metodo' }, 405);
+  if (!quiet) bump(`d:${lday}:req`);
   const origin = originOf(request, env);
   if (!origin) { count('rej.origem'); return reply(request, env, { error: 'origem' }, 403); }
   if (Number(request.headers.get('Content-Length')) > max) { count('rej.tamanho'); return reply(request, env, { error: 'tamanho' }, 413); }
@@ -275,6 +278,18 @@ async function admin(request, env, url) {
 
   if (path === 'ping') return method === 'GET' ? reply(request, env, await call('adminPing', P)) : reply(request, env, { error: 'metodo' }, 405);
   if (path === 'now') return method === 'GET' ? reply(request, env, await call('now', P)) : reply(request, env, { error: 'metodo' }, 405);
+  // the diagnostic card and the «today so far» line: today allowed (day totals only), never cached
+  if (path === 'diag') {
+    if (method !== 'GET') return reply(request, env, { error: 'metodo' }, 405);
+    if (period(P, c).error) return reply(request, env, { error: 'periodo' }, 400);
+    return reply(request, env, await call('diag', P));
+  }
+  // the sponsors' clicks by month: one host (and its subdomains) or all
+  if (path === 'sponsors' && q.host !== undefined) {
+    const h = String(q.host).toLowerCase().replace(/^www\./, '');
+    if (!/^[a-z0-9.-]{1,64}$/.test(h) || !/[a-z0-9]/.test(h)) return reply(request, env, { error: 'filtro' }, 400);
+    P.host = h;
+  }
   if (path === 'notes') {
     if (method === 'GET') return reply(request, env, await call('notes', 'list', {}));
     if (method !== 'POST') return reply(request, env, { error: 'metodo' }, 405);
@@ -305,7 +320,7 @@ async function admin(request, env, url) {
   if (path.startsWith('dev/')) {
     if (!devOn(env)) return reply(request, env, { error: 'nada' }, 404);
     const op = path.slice(4);
-    if (op === 'dump' && method === 'GET') return reply(request, env, await call('dev', 'dump', { grep: url.searchParams.getAll('grep') }));
+    if (op === 'dump' && method === 'GET') return reply(request, env, await call('dev', 'dump', { grep: url.searchParams.getAll('grep'), day: url.searchParams.get('day') }));
     if (method !== 'POST') return reply(request, env, { error: 'metodo' }, 405);
     let body = {};
     const buf = await readCapped(request, MAX_NOTE);

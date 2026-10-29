@@ -225,3 +225,88 @@ export const mBrands = () => MTR.order.map((id) => ({ id, name: MTR.brands[id] }
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 // 'YYYY-MM' → «outubro de 2026»
 export const month = (m) => (/^\d{4}-\d{2}$/.test(m || '') ? `${MONTHS[Number(m.slice(5)) - 1]} de ${m.slice(0, 4)}` : m || '—');
+
+// «Diagnóstico» (the «Dados» tab): the reasons of a refusal in words («5 de robôs»), the reason behind «Leitura» rule 2,
+// and the rollup state of a day
+export const REJWHY = {
+  origem: 'de outros sites', tamanho: 'grandes demais', json: 'mal formados', versao: 'de outra versão do site', esquema: 'mal formados',
+  limite: 'em rajada', robo: 'de robôs', cheio: 'depois do limite do dia',
+};
+// the words of REJWHY that agree with the number: «1 mal formado», «2 mal formados» (the others take no inflection)
+export const REJWHY_ONE = { 'grandes demais': 'grande demais', 'mal formados': 'mal formado' };
+export const rejWhy = (word, n) => (n === 1 && REJWHY_ONE[word] ? REJWHY_ONE[word] : word);
+export const REJLEAD = {
+  origem: 'de um endereço que não é gocarmo.com', robo: 'de robôs', limite: 'em rajada, do mesmo sítio', cheio: 'depois do limite gratuito do dia',
+  json: 'o site e o contador estão em versões diferentes: publica outra vez', versao: 'o site e o contador estão em versões diferentes: publica outra vez',
+  esquema: 'o site e o contador estão em versões diferentes: publica outra vez', tamanho: 'grandes demais',
+};
+export const DIAGSTATE = {
+  hoje: () => 'hoje, a contar',
+  feito: () => 'resumido',
+  'por-fazer': (at, late) => (late ? 'atrasado: o resumo da noite não correu' : `por resumir: esta noite às ${at || '00:20'}`),
+  refazer: () => 'a refazer esta noite: chegaram dados depois do resumo',
+};
+// a day still «por-fazer» when its night has passed: any day before yesterday, or yesterday from 30 minutes after the
+// rollup time (00:20) on. The panels still count it from the raw records, which are deleted after 30 days.
+const mins = (hm) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(hm || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+export function diagLate(x, dg) {
+  if (!x || x.state !== 'por-fazer' || !dg || !dg.today) return false;
+  const yday = (dg.days || []).filter((y) => y.day < dg.today).map((y) => y.day).pop();
+  if (x.day !== yday) return x.day < dg.today;
+  const at = mins(dg.at), roll = mins(dg.rollupAt || '00:20');
+  return at !== null && roll !== null && at >= roll + 30;
+}
+
+// «Leitura», the one sentence under the diagnostic table: the first rule that applies (DESIGN 3.3), in the order 1, 2,
+// 3, 6, 7, 4, 0, 5. dg = GET diag.
+const MON3 = ['jan.', 'fev.', 'mar.', 'abr.', 'mai.', 'jun.', 'jul.', 'ago.', 'set.', 'out.', 'nov.', 'dez.'];
+const dayShort = (d) => `${Number(d.slice(8))} ${MON3[Number(d.slice(5, 7)) - 1]}`;
+export function diagReading(dg) {
+  const days = (dg && Array.isArray(dg.days) ? dg.days : []).slice();
+  const today = days.find((x) => x.day === dg.today) || null;
+  const yday = days.filter((x) => x.day < dg.today).pop() || null;
+  const newest = days.slice().reverse();
+  const when = (x, cap) => (x.day === dg.today ? (cap ? 'Hoje' : 'hoje') : yday && x.day === yday.day ? (cap ? 'Ontem' : 'ontem') : null);
+  // 1. nothing reaches the counter since yesterday
+  if (today && yday && today.counted && yday.counted && today.req === 0 && yday.req === 0 && (dg.at || '') >= '10:00') {
+    return { rule: 1, text: 'Não chega nada ao contador desde ontem. Vê se SITE.stats.url está preenchido e publicado (assets/js/data.js) e se o modo não é «off».' };
+  }
+  // 2. signals arrive, none is kept
+  for (const x of [today, yday]) {
+    if (!x || !x.counted || !(x.req > 0) || x.ok !== 0) continue;
+    const why = Object.entries({ ...(x.rej || {}), ...(x.drop && x.drop.cheio ? { cheio: (x.rej ? x.rej.cheio : 0) + x.drop.cheio } : {}) })
+      .filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1])[0];
+    const lead = why ? REJLEAD[why[0]] : (x.drop && x.drop.teto ? 'do mesmo sítio, acima do limite de cada dia' : '');
+    return { rule: 2, text: `Chegam sinais mas são todos recusados${lead ? ` (${lead})` : ''}.` };
+  }
+  // 3. the free daily limit ran out
+  const full = newest.find((x) => x.counted && x.drop && x.drop.cheio > 0);
+  if (full) {
+    const w = when(full, true);
+    return { rule: 3, text: `${w || `No dia ${dayShort(full.day)}`} o limite gratuito acabou e as visitas seguintes não ficaram guardadas.` };
+  }
+  // 6. new page views over the per-address cap (a shared network, a robot): some arriving visits were not kept
+  const capped = newest.find((x) => x.counted && x.drop && x.drop.teto > 0);
+  if (capped) {
+    const w = when(capped, true), n = capped.drop.teto;
+    return { rule: 6, text: `${w || `No dia ${dayShort(capped.day)}`}, ${n === 1 ? '1 sinal do mesmo sítio passou o limite por endereço e não ficou guardado' : `${n} sinais do mesmo sítio passaram o limite por endereço e não ficaram guardados`} (uma rede partilhada ou um robô).` };
+  }
+  // 7. the nightly rollup did not run
+  const stuck = days.filter((x) => diagLate(x, dg));
+  if (stuck.length) {
+    return { rule: 7, text: stuck.length === 1
+      ? `O resumo da noite de ${dayShort(stuck[0].day)} não correu. O painel ainda conta esse dia a partir dos registos de cada visita, que se apagam ao fim de 30 dias: vê os registos do Worker no Cloudflare.`
+      : `O resumo da noite não correu em ${stuck.length} dias. O painel ainda os conta a partir dos registos de cada visita, que se apagam ao fim de 30 dias: vê os registos do Worker no Cloudflare.` };
+  }
+  // 4. a day with only my visits
+  const mine = newest.find((x) => x.visits && x.visits.ext === 0 && x.visits.int > 0);
+  if (mine) {
+    const w = when(mine, true);
+    return { rule: 4, text: `${w || `Em ${dayShort(mine.day)}`} só houve visitas tuas. Com «Mostrar visitas internas» desligado, esse dia aparece a 0.` };
+  }
+  if (!dg.since) return { rule: 0, text: 'O contador ainda não contou nenhum sinal por dia: a contagem começa com o primeiro depois de publicares a versão nova.' };
+  // 5: no counted day lost anything (rules 3 and 6 caught any drop). Refusals on a normal day (another site, robots,
+  // malformed): say they are not visits, so «recusados 2» does not read as lost visits next to «Tudo normal»
+  const refused = days.some((x) => x.counted && Object.values(x.rej || {}).some((n) => n > 0));
+  return { rule: 5, text: refused ? 'Tudo normal: as visitas que chegam são guardadas. Os sinais recusados não são visitas do site (o motivo está em cada dia).' : 'Tudo normal: o que chega é guardado.' };
+}
