@@ -15,6 +15,10 @@ export const MSG = {
   panel: 'Não consegui carregar este painel.',
 };
 
+// an endpoint the Worker does not have yet (404 «nada»: the new version is not published): the panels say so and go on
+export const missing = (e) => !!e && e.status === 404 && e.code === 'nada';
+export const MSG_OLD = 'Fica disponível depois de publicares a versão nova do contador (Actions, Deploy stats: corre sozinha num push ao gh-pages que mude stats-worker/).';
+
 export class ApiError extends Error {
   constructor(code, status) { super(code); this.code = code; this.status = status; }
   get text() {

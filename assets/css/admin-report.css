@@ -1,0 +1,29 @@
+/* /admin/analytics/: the «Relatório PDF» button and its dialog (assets/js/admin-report.js), over admin.css and
+   admin-analytics.css (their tokens follow the theme). A bottom sheet on a phone, a centred card from 760 px (as admin.css). */
+
+.rp-bar { display: flex; justify-content: flex-end; margin: -4px 0 12px; }
+.rp-bar[hidden] { display: none; }
+.rp-bar .btn { min-height: 40px; }
+
+.rp-field { border: 0; padding: 0; min-width: 0; }
+.rp-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.rp-opts .chip, .rp-seg .chip { justify-content: center; text-align: center; padding: 0 10px; line-height: 1.2; min-width: 0; }
+.rp-opts .chip:has(input:disabled) { opacity: .45; cursor: not-allowed; }
+.rp-seg { display: flex; gap: 8px; }
+.rp-seg .chip { flex: 1; }
+.rp-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 12px 0 0; }
+.rp-custom label { font-size: 13px; color: var(--muted); }
+.rp-custom input[type="date"] { flex: 1 1 130px; min-width: 0; width: auto; min-height: 44px; padding: 8px 12px; font-size: 15px; }
+.rp-range { color: var(--ink); }
+.rp-range.bad { color: var(--bad); }
+.rp-sheet select { width: 100%; max-width: 100%; }
+.rp-sheet .msg { min-height: 0; margin: 4px 0 0; overflow-wrap: anywhere; }
+.rp-sheet .msg:empty { display: none; }
+.rp-sheet .msg.ok { color: var(--ok); }
+.rp-note { padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line-2); }
+.rp-sheet .sh-foot { margin-top: 14px; }
+
+@media (min-width: 760px) {
+  dialog.rp-sheet { inset: 0; margin: auto; width: 560px; max-height: min(90vh, 860px); height: fit-content; border: 1px solid var(--line-2); border-radius: 22px; padding: 0 24px 20px; }
+  .rp-opts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}

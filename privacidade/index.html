@@ -15,21 +15,27 @@
 <script type="importmap">
 { "imports": {
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
-  "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=35971a4d",
+  "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=77a1a92a",
   "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=3b35f743",
   "../assets/js/admin-analytics-heat.js": "../assets/js/admin-analytics-heat.js?v=7321de53",
-  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=89fe3451",
+  "../assets/js/admin-analytics-labels.js": "../assets/js/admin-analytics-labels.js?v=e5722a0d",
   "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=a6e8f1b4",
-  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=4d3bfc69",
-  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=910c5272",
+  "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=6d3a3d6f",
+  "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=ee9c1f44",
   "../assets/js/admin-confirm-pdf.js": "../assets/js/admin-confirm-pdf.js?v=fecff3f8",
   "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=6f5dfe79",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=8d4ca3b5",
+  "../assets/js/admin-documentos-store.js": "../assets/js/admin-documentos-store.js?v=b3961284",
+  "../assets/js/admin-documentos.js": "../assets/js/admin-documentos.js?v=5f71a05c",
   "../assets/js/admin-gh.js": "../assets/js/admin-gh.js?v=aac86619",
   "../assets/js/admin-montra-core.js": "../assets/js/admin-montra-core.js?v=65ac1320",
   "../assets/js/admin-montra.js": "../assets/js/admin-montra.js?v=b8a5f267",
   "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=db2065df",
   "../assets/js/admin-photo.js": "../assets/js/admin-photo.js?v=534d6c65",
+  "../assets/js/admin-report-model.js": "../assets/js/admin-report-model.js?v=45c95612",
+  "../assets/js/admin-report-pdf.js": "../assets/js/admin-report-pdf.js?v=3ade1f26",
+  "../assets/js/admin-report-text.js": "../assets/js/admin-report-text.js?v=335d5e86",
+  "../assets/js/admin-report.js": "../assets/js/admin-report.js?v=82973014",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
   "../assets/js/admin.js": "../assets/js/admin.js?v=e6854a42",
   "../assets/js/adspace.js": "../assets/js/adspace.js?v=ac33c85c",
@@ -60,7 +66,8 @@
   "../assets/js/suit-body.js": "../assets/js/suit-body.js?v=e86b9edf",
   "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=b3644acd",
   "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=41a4b375",
-  "../assets/js/suit.js": "../assets/js/suit.js?v=116c1105"
+  "../assets/js/suit.js": "../assets/js/suit.js?v=116c1105",
+  "../assets/js/vault-crypto.js": "../assets/js/vault-crypto.js?v=1c195fa6"
 } }
 </script>
 <script type="module" src="../assets/js/privacy.js?v=95de7df4"></script>
@@ -101,6 +108,11 @@
     ask for permission»: whether the site works and is understood, and the showcase clicks each sponsor gets as monthly
     totals. If any of this changes (a new event, a new parameter, sending more than totals to a brand, a new purpose),
     change the page with it.
+  - Reports to sponsors (admin/analytics «Relatório PDF», assets/js/admin-report*.js) show site totals and each brand's
+    own logo, link and montra clicks by month; the booking funnel is never in them. Logo and link clicks are counted by
+    the host of the sponsor's link (GET /admin/v1/sponsors); an Instagram-only link is not attributed. If a report ever
+    shows more, or a smaller unit than the month for a brand's clicks, change the page. Publish this page before the
+    first report is sent.
   - Raw visit records 30 days, daily totals 25 months, monthly totals without cities kept: stats-worker/src/store.js.
     If any of those changes, change the page with it.
   - The transfer basis is the EU-US Data Privacy Framework (adequacy decision of 10 July 2023; Google LLC,
@@ -146,11 +158,11 @@
     <li>o dia e a hora da visita, nunca os minutos.</li>
   </ul>
   <p>Nunca lê o que escreves nos campos nem o logótipo que escolhes. De uma ligação que abres guarda só o tipo ou o nome do site (por exemplo WhatsApp, email ou instagram.com), nunca o endereço completo, porque é aí que vai a mensagem do pedido.</p>
-  <p>Cada marca da montra recebe de mim só os totais dos cliques nos produtos dela, por mês (por exemplo, «40 cliques na loja em março»). Quando abres a loja de uma marca, o site junta ao link só a etiqueta gocarmo (o site, a montra, a época e o produto) e não envia à loja nada sobre ti; a loja recebe a visita como qualquer outra (o endereço IP e o browser), e o que acontece lá segue a política de privacidade da marca.</p>
+  <p>Às marcas que me patrocinam posso mostrar um relatório com os totais do site: visitas, páginas vistas, visitantes por dia (em média), de onde chegam as visitas por tipo (por exemplo, redes sociais ou pesquisa), países e cidades (as cidades com muito poucas visitas aparecem juntas), o tipo de aparelho, e quanto tempo e até onde se lê a página. Cada marca vê também os totais por mês dos cliques no logótipo ou no link dela e, na montra, nos produtos dela (por exemplo, «40 cliques na loja em março»). São sempre números de conjunto, sem nada sobre quem visitou. Quando abres a loja de uma marca, o site junta ao link só a etiqueta gocarmo (o site, a montra, a época e o produto) e não envia à loja nada sobre ti; a loja recebe a visita como qualquer outra (o endereço IP e o browser), e o que acontece lá segue a política de privacidade da marca.</p>
   <p>Para não contar a mesma pessoa duas vezes no mesmo dia, o serviço junta o IP (num IPv6, só a primeira metade), o browser e uma chave que muda todos os dias, e fica só com um código. No fim do dia (hora de Lisboa), o código e a chave são apagados. Não te segue de um dia para o outro nem noutros sites, e não guarda nada no teu browser para isso.</p>
   <p>Os registos de cada visita são apagados ao fim de 30 dias. Ficam os totais de cada dia durante 25 meses (por exemplo, «40 visitas de Braga a 3 de março») e, depois disso, só totais por mês, sem cidades, que não identificam ninguém. Eu vejo apenas esses totais, nunca uma visita sozinha, e não os junto aos pedidos de patrocínio nem às mensagens que recebo.</p>
-  <p>O serviço corre no Cloudflare, e os dados ficam em servidores na União Europeia. A Cloudflare, Inc. trata-os por minha conta, como subcontratante; fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework. Os registos de pedidos do próprio Cloudflare estão desligados neste serviço. Não vendo estes dados e só partilho, com cada marca da montra, os totais dos cliques nos produtos dela.</p>
-  <p>Porque não te peço autorização: a lei dispensa-a quando o acesso ao teu browser é estritamente necessário para o serviço que pedes (artigo 5.º, n.º 2, alínea b), da Lei n.º 41/2004). Sigo a leitura das autoridades de proteção de dados de França (CNIL), Espanha e Itália: uma medição feita só por mim, só para este site, que dá apenas números de conjunto, não cruza dados, não te segue e se pode desligar, serve para saber se o site funciona e se se percebe, e, na montra, para contar os cliques que dou a cada marca que me patrocina, que recebe só totais por mês, sem nada sobre quem clicou. A base legal no RGPD é o meu interesse legítimo nestas duas finalidades (artigo 6.º, n.º 1, alínea f)).</p>
+  <p>O serviço corre no Cloudflare, e os dados ficam em servidores na União Europeia. A Cloudflare, Inc. trata-os por minha conta, como subcontratante; fica nos Estados Unidos e está certificada no EU-US Data Privacy Framework. Os registos de pedidos do próprio Cloudflare estão desligados neste serviço. Não vendo estes dados. Às marcas que me patrocinam mostro só totais: os do site e os dos cliques que lhes dou.</p>
+  <p>Porque não te peço autorização: a lei dispensa-a quando o acesso ao teu browser é estritamente necessário para o serviço que pedes (artigo 5.º, n.º 2, alínea b), da Lei n.º 41/2004). Sigo a leitura das autoridades de proteção de dados de França (CNIL), Espanha e Itália: uma medição feita só por mim, só para este site, que dá apenas números de conjunto, não cruza dados, não te segue e se pode desligar, serve para saber se o site funciona e se se percebe, e para mostrar às marcas que me patrocinam os totais do site e os cliques que lhes dou (no logótipo, no link e na montra), só em totais, sem nada sobre quem visitou ou clicou. A base legal no RGPD é o meu interesse legítimo nestas duas finalidades (artigo 6.º, n.º 1, alínea f)).</p>
   <p>Se o teu browser tiver ligado o Global Privacy Control ou o Do Not Track, não é registado nada. Também podes usar o botão abaixo: a escolha fica guardada só neste browser.</p>
   <p class="optout-note" data-optout-signal hidden>O teu browser já pede aos sites que não sigam as tuas visitas, por isso aqui não são contadas.</p>
   <p class="legal-act"><button type="button" class="btn sm" data-optout data-off="Não contar as minhas visitas" data-on="Voltar a contar">Não contar as minhas visitas</button></p>
@@ -239,11 +251,11 @@
     <li>the day and hour of the visit, never the minutes.</li>
   </ul>
   <p>It never reads what you type in the fields or the logo you pick. Of a link you open it keeps only the kind or the site's name (WhatsApp, email or instagram.com, for example), never the full address, because that is where the request's message goes.</p>
-  <p>Each brand in the showcase gets from me only the totals of the clicks on its products, per month (for example, “40 clicks to the shop in March”). When you open a brand's shop, the site adds only the gocarmo tag to the link (the site, the showcase, the season and the product) and sends the shop nothing about you; the shop gets the visit like any other (your IP address and browser), and what happens there follows the brand's privacy policy.</p>
+  <p>I may show the brands that sponsor me a report with the site's totals: visits, page views, visitors per day (on average), where visits come from by kind (social networks or search, for example), countries and cities (cities with very few visits are grouped), the kind of device, and how long and how far the page is read. Each brand also sees the monthly totals of the clicks on its logo or link and, in the showcase, on its products (for example, “40 clicks to the shop in March”). These are always overall numbers, with nothing about who visited. When you open a brand's shop, the site adds only the gocarmo tag to the link (the site, the showcase, the season and the product) and sends the shop nothing about you; the shop gets the visit like any other (your IP address and browser), and what happens there follows the brand's privacy policy.</p>
   <p>So as not to count the same person twice in one day, the service combines your IP address (for IPv6, only its first half), the browser and a key that changes every day, and keeps only a code. At the end of the day (Lisbon time), the code and the key are deleted. It does not follow you from one day to the next or on other sites, and stores nothing in your browser for this.</p>
   <p>The records of each visit are deleted after 30 days. Daily totals stay for 25 months (for example, “40 visits from Braga on 3 March”) and, after that, only monthly totals without cities, which identify no one. I only ever see those totals, never a single visit, and I never match them with sponsorship requests or the messages I receive.</p>
-  <p>The service runs on Cloudflare, and the data stays on servers in the European Union. Cloudflare, Inc. processes it on my behalf, as a processor; it is based in the United States and certified under the EU-US Data Privacy Framework. Cloudflare's own request logs are switched off for this service. I do not sell this data, and I only share with each showcase brand the totals of the clicks on its products.</p>
-  <p>Why I do not ask for permission: the law does not require it when access to your browser is strictly necessary for the service you asked for (Article 5(2)(b) of Portuguese Law 41/2004). I follow the reading of the data protection authorities of France (CNIL), Spain and Italy: measurement done by me alone, for this site alone, that gives only overall numbers, matches no data, does not follow you and can be switched off, is there to find out whether the site works and is understood and, in the showcase, to count the clicks I send to each brand that sponsors me, which gets only monthly totals, with nothing about who clicked. The legal basis under the GDPR is my legitimate interest in these two purposes (Article 6(1)(f)).</p>
+  <p>The service runs on Cloudflare, and the data stays on servers in the European Union. Cloudflare, Inc. processes it on my behalf, as a processor; it is based in the United States and certified under the EU-US Data Privacy Framework. Cloudflare's own request logs are switched off for this service. I do not sell this data. I show the brands that sponsor me totals only: the site's and those of the clicks I send them.</p>
+  <p>Why I do not ask for permission: the law does not require it when access to your browser is strictly necessary for the service you asked for (Article 5(2)(b) of Portuguese Law 41/2004). I follow the reading of the data protection authorities of France (CNIL), Spain and Italy: measurement done by me alone, for this site alone, that gives only overall numbers, matches no data, does not follow you and can be switched off, is there to find out whether the site works and is understood, and to show the brands that sponsor me the site's totals and the clicks I send them (on their logo, their link and the showcase), as totals only, with nothing about who visited or clicked. The legal basis under the GDPR is my legitimate interest in these two purposes (Article 6(1)(f)).</p>
   <p>If your browser has Global Privacy Control or Do Not Track switched on, nothing is recorded. You can also use the button below: the choice is kept in this browser only.</p>
   <p class="optout-note" data-optout-signal hidden>Your browser already asks sites not to track your visits, so they are not counted here.</p>
   <p class="legal-act"><button type="button" class="btn sm" data-optout data-off="Don't count my visits" data-on="Count them again">Don't count my visits</button></p>

@@ -59,6 +59,7 @@ const enc = new TextEncoder();
 const qs = (n) => Array(n).fill('?').join(', ');
 const nul = (v) => (v === undefined ? null : v);
 const SEP = '\u0001';
+const REJ_CODES = ['origem', 'tamanho', 'json', 'versao', 'esquema', 'limite', 'robo', 'cheio'];
 
 export class Store extends DurableObject {
   constructor(ctx, env) {
@@ -82,6 +83,7 @@ export class Store extends DurableObject {
     this.gen = 0;                          // bumped by every write of visitor data
     this.touched = new Map();              // day → gen of its last write (a cached answer older than that is stale)
     this.flags = new Map();                // meta rows (rolled:<day>, late:<day>, cursor, archived:<month>, …)
+    this.diagDays = new Map();             // Lisbon day → { v, gen }: pv and visits split by int (the diagnostic card)
   }
 
   migrate() {
@@ -110,11 +112,35 @@ export class Store extends DurableObject {
     if (!m) this.cnt.set(day, (m = new Map()));
     m.set(k, (m.get(k) || 0) + n);
   }
+  // the Lisbon-day counters of the diagnostic card (l.req, l.ok, l.rej.<code>, l.drop.<why>): same table, written with
+  // the others, but on the Lisbon day of the beacon (the day the dashboard uses)
+  countOn(day, k, n = 1) {
+    if (!n) return;
+    // the first Lisbon day with counters: the card shows «sem contagem» (never 0) before it
+    if (k === 'l.req') { const s = this.flags.get('lsince'); if (!s || day < s) this.setMeta('lsince', day); }
+    let m = this.cnt.get(day);
+    if (!m) this.cnt.set(day, (m = new Map()));
+    m.set(k, (m.get(k) || 0) + n);
+  }
   pendingCounts() { for (const m of this.cnt.values()) if (m.size) return true; return false; }
-  // one DO request; the Worker's isolate counts (req, rej.*) ride along
+  // one DO request; the Worker's isolate counts (req, rej.*, and d:<day>:<k> for the Lisbon days) ride along
   enter(rej) {
     this.count('dor');
-    if (rej && typeof rej === 'object') for (const [k, n] of Object.entries(rej)) if (Number.isInteger(n) && n > 0 && /^(req|rej\.[a-z]+)$/.test(k)) this.count(k, n);
+    if (!rej || typeof rej !== 'object') return;
+    for (const [k, n] of Object.entries(rej)) {
+      if (!Number.isInteger(n) || n <= 0) continue;
+      if (/^(req|rej\.[a-z]+)$/.test(k)) { this.count(k, n); continue; }
+      const d = k.match(/^d:(\d{4}-\d{2}-\d{2}):(req|ok|rej\.[a-z]+|drop\.[a-z]+)$/);
+      if (d && this.dayNear(d[1])) this.countOn(d[1], `l.${d[2]}`, n);
+    }
+  }
+  // a Lisbon day the isolate may count on: today - 2 … today + 1 of this object's clock (the dev clock of the tests and
+  // the simulator moves days anywhere, so under DEV_HOOKS any valid day)
+  dayNear(day) {
+    if (!validDay(day)) return false;
+    if (this.env.DEV_HOOKS === '1') return true;
+    const today = clock(Date.now()).day;
+    return day >= addDays(today, -2) && day <= addDays(today, 1);
   }
   // at most once a minute (and by the alarm, so an idle object that is evicted loses nothing)
   persist(force) {
@@ -191,6 +217,10 @@ export class Store extends DurableObject {
     let r = {};
     this.ctx.storage.transactionSync(() => { r = this.ingestTx(msg, h); });
     if (r.day) { this.touch(r.day); this.touch(msg.day); this.touch(msg.yday); }
+    // the diagnostic card: kept, or dropped by the per-address cap or the day's row budget
+    if (r.day) this.countOn(msg.day, 'l.ok');
+    else if (r.capped) this.countOn(msg.day, 'l.drop.teto');
+    else if (r.full) this.countOn(msg.day, 'l.drop.cheio');
     // in memory only: who is on the page now
     this.live.delete(msg.pv);
     if (msg.vis && r.day) this.live.set(msg.pv, { t: msg.now, int: msg.meta.int });
@@ -279,6 +309,7 @@ export class Store extends DurableObject {
       }
     });
     this.touch(msg.day); this.touch(msg.yday);
+    this.countOn(msg.day, 'l.ok');
     this.persist(false);
     await this.armAlarm();
     return true;
@@ -475,6 +506,104 @@ export class Store extends DurableObject {
     return { ok: true, v: 1, at: `${hh}:${mm}`, now: n, today: { pv: r.n || 0, uv: r.u || 0, visits: r.x || 0 } };
   }
 
+  // «Diagnóstico» (the «Dados» tab) and the line under the period views: GET /admin/v1/diag. Day totals only (no place,
+  // source, device split, hour or event); never kept in `ans`. `days`: the last 14 Lisbon days with the counters of the
+  // beacons (null, never 0, before the first day they were kept) and the page views and visits of the raw table split
+  // external / internal; `now`: today so far; `period`: the whole past days of the asked period, split by `int`, from
+  // the same sources the panels read (so `period.visits.ext` is overview's `kpi.visits.v` with int=0).
+  async diag(P) {
+    this.enter(P.rej);
+    await this.armAlarm();
+    const c = P.clock, today = c.day;
+    const days = daysBetween(addDays(today, -13), today);
+    const val = new Map();
+    for (const r of this.all("SELECT day, k, n FROM sys WHERE day >= ? AND day <= ? AND k >= 'l.' AND k < 'l/'", days[0], today)) val.set(`${r.day}|${r.k}`, r.n);
+    for (const [day, m] of this.cnt) for (const [k, n] of m) if (k.startsWith('l.')) val.set(`${day}|${k}`, (val.get(`${day}|${k}`) || 0) + n);
+    const got = (d, k) => val.get(`${d}|l.${k}`) || 0;
+    const since = this.flags.get('lsince') || null;
+    const counts = this.diagCounts(days, today);
+    const state = (d, v) => {
+      if (d === today) return 'hoje';
+      if (this.flags.has(`late:${d}`)) return 'refazer';
+      if (this.isRolled(d)) return 'feito';
+      return v.pv[0] + v.pv[1] > 0 ? 'por-fazer' : 'feito';       // nothing recorded: nothing to roll up
+    };
+    const split = (a) => ({ ext: a[0], int: a[1] });
+    const out = days.map((d) => {
+      const v = counts.get(d), counted = !!since && d >= since;
+      return {
+        day: d, counted,
+        req: counted ? got(d, 'req') : null,
+        ok: counted ? got(d, 'ok') : null,
+        rej: counted ? Object.fromEntries(REJ_CODES.map((k) => [k, got(d, `rej.${k}`)])) : null,
+        drop: counted ? { teto: got(d, 'drop.teto'), cheio: got(d, 'drop.cheio') } : null,
+        pv: split(v.pv), visits: split(v.visits), state: state(d, v),
+      };
+    });
+    // today so far, with the device filter of the panels
+    let t = counts.get(today);
+    if (P.dev !== 'all') t = this.diagCounts([today], today, P.dev).get(today);
+    const hh = String(c.hr).padStart(2, '0'), mm = String(c.min).padStart(2, '0');
+    return {
+      ok: true, v: 1, today, at: `${hh}:${mm}`, rollupAt: '00:20', since, dev: P.dev, days: out,
+      now: { pv: split(t.pv), visits: split(t.visits), uv: { ext: t.uv } },
+      period: this.diagPeriod(P),
+    };
+  }
+
+  // page views, visits (derive.js's rule) and first visitors of the day (external), by Lisbon day, from the raw table;
+  // past days kept in memory until a write touches them
+  diagCounts(days, today, dev = 'all') {
+    const out = new Map(), missing = [];
+    const now = Date.now();
+    for (const d of days) {
+      const hit = dev === 'all' ? this.diagDays.get(d) : null;
+      if (d !== today && hit && hit.exp > now && this.fresh(hit.gen, d, d)) out.set(d, hit.v); else missing.push(d);
+    }
+    if (!missing.length) return out;
+    const gen = this.gen;
+    for (const d of missing) out.set(d, { pv: [0, 0], visits: [0, 0], uv: 0 });
+    const rows = this.all(`SELECT day, int, count(*) AS n, sum(uv1) AS u,
+      sum(CASE WHEN nav IN ('navigate', 'prerender') AND ref <> 'interno' THEN 1 ELSE 0 END) AS x
+      FROM pv WHERE day IN (${qs(missing.length)}) AND (? = 'all' OR dev = ?) GROUP BY day, int`, ...missing, dev, dev);
+    for (const r of rows) {
+      const v = out.get(r.day), i = r.int ? 1 : 0;
+      v.pv[i] += r.n || 0; v.visits[i] += r.x || 0;
+      if (!i) v.uv += r.u || 0;
+    }
+    if (dev === 'all') {
+      for (const d of missing) if (d !== today) { this.diagDays.delete(d); this.diagDays.set(d, { v: out.get(d), gen, exp: now + 300e3 }); }
+      while (this.diagDays.size > 20) this.diagDays.delete(this.diagDays.keys().next().value);
+    }
+    return out;
+  }
+
+  // the period's whole past days (its end capped at yesterday) split by `int`; null for «24 h» (today is in its numbers)
+  diagPeriod(P) {
+    if (P.p === '24h') return null;
+    const per = period(P, P.clock);
+    if (per.error) return null;
+    const from = per.range.from, to = per.range.to < P.clock.day ? per.range.to : P.clock.yday;
+    if (from > to) return null;
+    const key = `diag|${JSON.stringify({ from, to, dev: P.dev, src: P.src || '', day: P.clock.day })}`;
+    const hit = this.cache.get(key);
+    if (hit && hit.exp > Date.now() && this.fresh(hit.gen, from, to)) return hit.v;
+    const gen = this.gen;
+    const win = [{ name: 'cur', from, to, dev: P.dev, ms: ['c'], split: new Set() }];
+    const a = this.collect(win, { ...P, int: 0 }).cur, b = this.collect(win, { ...P, int: 1 }).cur;
+    const n = (acc, k) => Math.round(acc.c(k));
+    const v = {
+      from, to,
+      pv: { ext: n(a, 'pv'), int: Math.max(0, n(b, 'pv') - n(a, 'pv')) },
+      visits: { ext: n(a, 'visits'), int: Math.max(0, n(b, 'visits') - n(a, 'visits')) },
+    };
+    // whole past days change only at a rollup (which empties this cache) or a late write (which touches the day)
+    this.cache.delete(key);
+    this.cache.set(key, { v, exp: Date.now() + 3600e3, gen, lo: from, hi: to });
+    while (this.cache.size > 200) this.cache.delete(this.cache.keys().next().value);
+    return v;
+  }
+
   async query(endpoint, P) {
     this.enter(P.rej);
     await this.armAlarm();
@@ -528,7 +657,7 @@ export class Store extends DurableObject {
     const windows = plan(endpoint, { period: per, dev: P.dev, int: P.int, vw: P.vw });
     if (!windows) return { error: 'nada' };
     const accs = this.collect(windows, P);
-    const ctx = { range: per.range, prev: per.prev, filters: { dev: P.dev, int: P.int, cmp: P.cmp }, vw: P.vw, today: P.clock.day, notes: [] };
+    const ctx = { range: per.range, prev: per.prev, filters: { dev: P.dev, int: P.int, cmp: P.cmp }, vw: P.vw, today: P.clock.day, notes: [], host: P.host };
     if (endpoint === 'overview' || endpoint === 'system') ctx.notes = this.noteList();
     if (endpoint === 'system') ctx.system = this.systemInfo(P);
     const body = build(endpoint, { ...accs, ctx });
@@ -721,7 +850,9 @@ export class Store extends DurableObject {
         }
         grep[needle] = hits;
       }
-      return { ok: true, tables, grep, flags: Object.fromEntries(this.flags) };
+      // the rows of one day in `agg` (a test of the rollup may run while the alarm rolls up other days)
+      const aggDay = validDay(args.day) ? this.one('SELECT count(*) AS n FROM agg WHERE day = ?', args.day).n : undefined;
+      return { ok: true, tables, grep, flags: Object.fromEntries(this.flags), ...(aggDay !== undefined ? { aggDay } : {}) };
     }
     return { error: 'nada' };
   }

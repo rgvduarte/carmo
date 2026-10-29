@@ -199,8 +199,11 @@ const ENDPOINTS = {
   system: { cur: D('vv') },
   // the showcase, for the brands' monthly reports: every device (a click is never tied to a device, a source or a place)
   montra: { curAll: D('ev', 'z') },
+  // the sponsors' logo and link clicks by month, for the brand reports (whole days, every device)
+  sponsors: { curAll: D('out', 'ev') },
 };
-export const ENDPOINT_NAMES = [...Object.keys(ENDPOINTS), 'heatmap'];
+// diag is answered by the store directly (Store.diag), not through plan() and build()
+export const ENDPOINT_NAMES = [...Object.keys(ENDPOINTS), 'heatmap', 'diag'];
 
 // plan(endpoint, P) → windows to read. P = { period: {range, prev, win, pwin}, dev, int, vw, today }
 export function plan(endpoint, P) {
@@ -591,6 +594,8 @@ const BUILD = {
 
   montra(w) { return montraOf(w.curAll); },
 
+  sponsors(w) { return sponsorsOf(w.curAll, w.ctx.host); },
+
   system(w) {
     const { cur, ctx } = w;
     const tv = new Map(), b = new Map();
@@ -638,6 +643,39 @@ export function montraOf(acc) {
     zone: { reach: int(reach), secs: int(secs), r: rate(reach, acc.c('pv')) ?? 0 },
     months: [...months].sort((a, b) => cmp(a[0], b[0])).map(([month, rows]) => ({ month, rows: out(rows) })),
     totals: out(totals),
+    ignored: ['dev'],
+  };
+}
+
+// The sponsors (GET /admin/v1/sponsors): per calendar month and host, the clicks on links of the sponsor list and the
+// showcase (`out` rows of type patrocinador, keyed by section): `logo` everywhere but the showcase, `shop` in it
+// (#material); and `list`, the page views where the sponsor list came into view (onsuit_view), per month. `host`: only
+// that host and its subdomains.
+export function sponsorsOf(acc, host) {
+  const months = new Map(), totals = new Map(), views = new Map();
+  const mine = (h) => !host || h === host || h.endsWith(`.${host}`);
+  const bump = (map, h, col, v) => { let r = map.get(h); if (!r) map.set(h, (r = { host: h, logo: 0, shop: 0 })); r[col] += v; };
+  for (const slot of acc.slots) {
+    const month = slot.slice(0, 7);
+    for (const [k, a] of acc.slotRows(slot, 'out')) {
+      const [type, sec, h] = splitK(k);
+      if (type !== 'patrocinador' || !h || !mine(h) || !a[0]) continue;
+      const col = sec === 'material' ? 'shop' : 'logo';
+      let m = months.get(month);
+      if (!m) months.set(month, (m = new Map()));
+      bump(m, h, col, a[0]);
+      bump(totals, h, col, a[0]);
+    }
+    let u = 0;
+    for (const [k, a] of acc.slotRows(slot, 'ev')) if (splitK(k)[0] === 'onsuit_view') u += a[1];
+    if (u) views.set(month, (views.get(month) || 0) + u);
+  }
+  const out = (map) => [...map.values()].map((r) => ({ host: r.host, logo: int(r.logo), shop: int(r.shop) })).sort((a, b) => cmp(a.host, b.host));
+  return {
+    months: [...months].sort((a, b) => cmp(a[0], b[0])).map(([month, rows]) => ({ month, rows: out(rows) })),
+    totals: out(totals),
+    list: [...views].sort((a, b) => cmp(a[0], b[0])).map(([month, v]) => ({ month, views: int(v) })),
+    ...(host ? { host } : {}),
     ignored: ['dev'],
   };
 }

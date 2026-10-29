@@ -4,6 +4,7 @@
 import { H, fmt, figure, table, emptyState, hbars, grouped, stack100, funnel, columns, stackCols, line, scatter, statTile, status, meter, legend, textW } from './admin-analytics-charts.js';
 import * as L from './admin-analytics-labels.js';
 import { drawMap } from './admin-analytics-map.js';
+import { missing } from './admin-analytics-api.js';
 
 const ZONES = ['top', 'tese', 'historia', 'prova', 'resultados', 'dados', 'epoca', 'fato-topo', 'o-fato', 'o-capacete', 'fato-termos', 'media', 'apoiar', 'material', 'contacto', 'footer'];
 const ALL_DEV = 'Todos os aparelhos';
@@ -830,7 +831,76 @@ export function opiniao(p, d) {
 }
 
 // ---------- Dados ----------
+// «Diagnóstico: últimos 14 dias» (GET diag): per Lisbon day, the beacons that arrived, were kept or refused (and why),
+// the visits from outside and mine, and the rollup state; a table from 900 px, two-line rows below
+const SEM = 'sem contagem';
+function rejWords(rej) {
+  const by = new Map();
+  for (const [k, n] of Object.entries(rej || {})) if (n > 0) by.set(L.REJWHY[k] || k, (by.get(L.REJWHY[k] || k) || 0) + n);
+  return [...by].sort((a, b) => b[1] - a[1]).map(([w, n]) => `${fmt.n(n)} ${w}`).join(' · ');
+}
+function dropWords(drop) {
+  const out = [];
+  if (drop && drop.cheio) out.push(`${fmt.n(drop.cheio)} depois do limite do dia`);
+  if (drop && drop.teto) out.push(`${fmt.n(drop.teto)} acima do limite por endereço`);
+  return out.length ? `não guardados: ${out.join(' · ')}` : '';
+}
+const rejTotal = (rej) => sum(Object.values(rej || {}));
+function diagCard(dg, ctx) {
+  const c = card('Diagnóstico: últimos 14 dias', 'Para perceber um zero. Por dia, em hora de Lisboa: os sinais que chegaram ao contador, os que guardou, os que recusou e porquê, e as visitas de fora e as tuas. Quem tem o Global Privacy Control, o Do Not Track ou «Não contar» ligado não envia nada, por isso não aparece aqui.');
+  c.classList.add('ga-diag');
+  span(c, 12);
+  if (!dg || dg.error) {
+    const e = dg && dg.error;
+    H('p', 'ga-empty', missing(e) ? 'Este diagnóstico precisa da versão nova do contador. Fica disponível depois de publicares (Actions → Deploy stats corre sozinha num push ao gh-pages que mude stats-worker/).'
+      : `Não consegui ler o diagnóstico. ${(e && e.text) || ''}`.trim(), c);
+    return c;
+  }
+  const days = (dg.days || []).slice().reverse();
+  const stateText = (x) => (L.DIAGSTATE[x.state] || (() => x.state))(dg.rollupAt);
+  const dayText = (x) => `${fmt.day(x.day)}${x.day === dg.today ? ' (hoje)' : ''}`;
+  const cell = (main, small) => { const f = document.createDocumentFragment(); H('span', null, main, f); if (small) H('small', 'ga-diag-why', small, f); return f; };
+  // phones and tablets: two lines per day
+  const ul = H('ul', 'ga-diag-list', null, c);
+  for (const x of days) {
+    const li = H('li', x.state === 'hoje' ? 'today' : null, null, ul);
+    const l1 = H('p', 'l1', null, li);
+    H('b', null, dayText(x), l1);
+    H('span', `st st-${x.state}`, stateText(x), l1);
+    const l2 = H('p', 'l2', null, li);
+    if (x.counted) {
+      const rt = rejTotal(x.rej);
+      H('span', null, `Chegaram ${fmt.n(x.req)} · guardados ${fmt.n(x.ok)} · recusados ${fmt.n(rt)}`, l2);
+      const why = [rt ? rejWords(x.rej) : '', dropWords(x.drop)].filter(Boolean).join('; ');
+      if (why) H('small', 'ga-diag-why', why, l2);
+    } else H('span', 'sem', `Sinais: ${SEM}`, l2);
+    H('span', 'vis', `Visitas ${fmt.n(x.visits.ext)} de fora · ${fmt.n(x.visits.int)} ${x.visits.int === 1 ? 'tua' : 'tuas'}`, l2);
+  }
+  // from 900 px: a real table
+  const tw = table({ caption: 'Diagnóstico por dia, hora de Lisboa', sort: false, rows: days, cols: [
+    { l: 'Dia', k: 'day', fmt: (v, x) => dayText(x) },
+    { l: 'Chegaram', k: 'req', num: true, fmt: (v, x) => (x.counted ? fmt.n(v) : SEM) },
+    { l: 'Guardados', k: 'ok', num: true, node: (x) => (x.counted ? cell(fmt.n(x.ok), dropWords(x.drop)) : cell(SEM)) },
+    { l: 'Recusados', k: 'rej', num: true, node: (x) => (x.counted ? cell(fmt.n(rejTotal(x.rej)), rejWords(x.rej)) : cell(SEM)) },
+    { l: 'Visitas (de fora · tuas)', s: 'Visitas', k: 'visits', num: true, fmt: (v) => `${fmt.n(v.ext)} · ${fmt.n(v.int)}` },
+    { l: 'Resumo', k: 'state', fmt: (v, x) => stateText(x) },
+  ] });
+  tw.classList.add('ga-diag-tw');
+  c.append(tw);
+  if (days.some((x) => !x.counted)) {
+    H('p', 'ga-fine', dg.since ? `Antes de ${fmt.day(dg.since, true)} o contador ainda não contava os sinais por dia.` : 'O contador ainda não contou nenhum sinal por dia: começa com o primeiro sinal depois de publicares a versão nova.', c);
+  }
+  const r = L.diagReading(dg);
+  const lead = H('p', `ga-diag-read r${r.rule}`, null, c);
+  H('b', null, 'Leitura: ', lead);
+  lead.append(r.text);
+  H('p', 'ga-fine', `Atualizado às ${dg.at}. Os gráficos dos limites e dos pedidos recusados, mais abaixo, contam dias UTC (como o Cloudflare); este conta dias de Lisboa, como o resto do painel.`, c);
+  void ctx;
+  return c;
+}
+
 export function dados(p, d, ctx) {
+  p.append(diagCard(d.diag, ctx));
   const s = d.system;
   const qt = s.quota || { x: [], req: [], dor: [], rows: [], dbBytes: 0, limits: {} };
   const last = (a) => (a && a.length ? a[a.length - 1] : 0);
@@ -976,7 +1046,8 @@ export const TABS = {
   contactos: { endpoints: ['contacts'], render: contactos },
   qualidade: { endpoints: ['quality'], render: qualidade },
   opiniao: { endpoints: ['feedback'], render: opiniao },
-  dados: { endpoints: ['system'], render: dados },
+  // diag: soft (the panel still loads when the Worker does not have it yet)
+  dados: { endpoints: ['system'], soft: ['diag'], render: dados },
   montra: { endpoints: ['montra'], render: montra, montra: true },
 };
 export { legend, textW };

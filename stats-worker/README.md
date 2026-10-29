@@ -94,6 +94,15 @@ por mês e no período). É esse que se envia à marca. «Todas as marcas (só p
 montra». Só contam as linhas de um produto que está no ficheiro com essa marca; as outras aparecem à parte, em «Não
 reconhecido». A API também filtra: `export.csv?t=montra&b=<marca>`.
 
+**Dados → Diagnóstico**: os últimos 14 dias de Lisboa, para perceber um zero: os sinais que chegaram, os guardados, os
+recusados por motivo, os que não ficaram guardados por um limite, as visitas de fora e as tuas, e o estado do resumo
+da noite. Nos períodos que acabam ontem, uma linha debaixo das datas dá o «hoje até agora» e as visitas tuas escondidas
+(«0 públicas · 12 tuas»). Vem de `GET /admin/v1/diag` (mais abaixo).
+
+**Relatório PDF** (botão debaixo dos filtros): o relatório para uma marca, feito no browser com os endpoints de baixo
+e com `GET /admin/v1/sponsors` para os cliques no logótipo ou no link por mês. Ver «Estatísticas do site» no README da
+raiz.
+
 **Este aparelho**: ao entrar, o teu navegador fica marcado como interno e as tuas visitas não contam (aparecem só com
 «Mostrar visitas internas»). Em janelas privadas ou noutros navegadores, entra no painel uma vez para os marcar também.
 
@@ -175,7 +184,7 @@ caber nas regras de «O que conta e o que nunca guarda»: entra primeiro na list
 | `POST /v1/e` | `204`. Corpo JSON em `text/plain`, até 16 KB, do site (`Origin`) |
 | `POST /v1/f` | `204`. A resposta à pergunta rápida, até 1 KB |
 | `GET /health` | `{ ok, v, schema, store, eu, salt, admin, limits, dev }`, só verdadeiro ou falso |
-| `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `montra` · `quality` · `feedback` · `system` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap`. Um período com o dia de hoje (`24h`, ou `custom` até hoje) só no `overview` (só totais) e no `system`: os outros respondem `400 periodo` |
+| `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `montra` · `sponsors` · `quality` · `feedback` · `system` · `diag` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap`. Um período com o dia de hoje (`24h`, ou `custom` até hoje) só no `overview` (só totais), no `system` e no `diag`: os outros respondem `400 periodo` |
 | `POST /admin/v1/notes`, `DELETE /admin/v1/notes/<id>` | (admin) anotações no gráfico das visitas |
 | `GET /admin/v1/export.csv?t=<tabela>` | (admin) CSV para o Excel (dias completos só; `t=montra` para os relatórios das marcas, com `b=<marca>` só as linhas dessa marca e dos produtos dela, e o nome do ficheiro com a marca) |
 
@@ -187,6 +196,34 @@ clique em «Ver na loja» conta também como ligação para fora de um patrocina
 `GET /admin/v1/montra` responde `{ pv, zone: { reach, secs, r }, months: [{ month, rows: [{ brand, prod, view, shop,
 code }] }], totals: [...] }`, por mês de calendário dos dias do período, sempre com todos os aparelhos (`ignored:
 ['dev']`), e nunca com o dia de hoje (`400 periodo`).
+
+**Diagnóstico** (`GET /admin/v1/diag`, nunca guardado em cache; aceita o dia de hoje; só totais por dia). Contadores
+novos na tabela `sys`, com o prefixo `l.` e o dia **de Lisboa** do sinal (os de `system` continuam em dias UTC, como o
+Cloudflare conta as quotas): `l.req` (cada `POST /v1/e` ou `/v1/f` que não traz GPC nem DNT), `l.ok` (guardado: uma
+visualização nova, a atualização de uma, uma resposta à pergunta rápida), `l.rej.<motivo>` (os mesmos motivos de
+`rej.*`) e `l.drop.teto` / `l.drop.cheio` (recusados em silêncio pelo limite por endereço ou pelo das linhas do dia).
+O isolate junta-os como `d:<AAAA-MM-DD>:<k>` e entrega-os na chamada seguinte ao armazém, que só aceita dias entre
+hoje - 2 e amanhã (com `DEV_HOOKS`, qualquer dia). Apagam-se com o resto de `sys` (90 dias). O primeiro dia com
+`l.req` fica em `meta` (`lsince`). Resposta:
+`{ ok, v, today, at, rollupAt, since, dev, days: [14 dias, do mais antigo: { day, counted, req, ok, rej: { origem,
+tamanho, json, versao, esquema, limite, robo, cheio }, drop: { teto, cheio }, pv: { ext, int }, visits: { ext, int },
+state }], now: { pv, visits, uv: { ext } }, period: { from, to, pv, visits } | null }`. Antes de `since`, `counted` é
+`false` e `req`, `ok`, `rej`, `drop` são `null`, nunca 0. `pv` e `visits` vêm da tabela crua (30 dias), `visits` com a
+regra de `derive.js`. `state`: `hoje`, `feito`, `refazer` (resumido mas chegaram dados depois: volta a resumir esta
+noite) ou `por-fazer`. `now` e `period` seguem o filtro `dev`; `period` são os dias completos do período pedido (o fim
+cortado em ontem; `null` em `24h`), lidos como os painéis os leem, separados pela coluna `int`: `period.visits.ext` é o
+`kpi.visits.v` do `overview` com `int=0`, e `ext + int` o de `int=1`. Os dias passados ficam em memória até uma escrita
+nesse dia; o período até ao resumo seguinte (o polling de 60 s do painel não lê 14 dias de linhas de cada vez).
+
+**Patrocinadores** (`GET /admin/v1/sponsors`, dias completos só, todos os aparelhos, `int` respeitado, `host=<domínio>`
+opcional: esse domínio e os subdomínios, `www.` tirado). Lê o que já se guardava: as linhas `out` do tipo
+`patrocinador` (ligações dentro de `#onsuit-list` e `#material`, por secção e domínio) e o evento `onsuit_view`.
+Responde `{ months: [{ month, rows: [{ host, logo, shop }] }], totals: [{ host, logo, shop }], list: [{ month, views
+}], ignored: ['dev'] }`: `logo` são os cliques fora da montra (a lista «Já no fato»), `shop` os da montra, `views` as
+visualizações em que a lista apareceu no ecrã. Nada novo é recolhido.
+
+Os dois chegam ao ar só quando o `gh-pages` muda `stats-worker/` (a action **Deploy stats** testa e publica). Até lá
+respondem `404 nada`, e o painel e o relatório dizem que precisam da versão nova.
 
 Os pedidos de admin levam `Authorization: Bearer <ADMIN_KEY>`, com um limite de 120 por minuto por endereço (contado
 antes de a chave ser vista). Os erros são `{ "error": "<código>" }`: `origem` (403),

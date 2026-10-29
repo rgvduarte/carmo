@@ -74,6 +74,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rcpt.*`, `cl.rcpt*` e `cl.nag*` (PT e EN; `rc.*` são os da tabela de preços); o desenho do PDF em `assets/js/receipt.js` |
+| Documentos do cofre (kits, guiões, folhetos, manuais) | no computador, `node scripts/docs-publish.mjs` com a configuração em `~/gocarmo-cofre/` (ver «Documentos (o cofre)») |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px; as da montra em `assets/img/montra/`, feitas pelo editor, 600/1200 px) |
 | Cartão de contacto (página, vCard, QR, Apple Wallet) | `cartao/`, `wallet/cartao/pass.json` e `python3 scripts/cartao.py` (ver «Cartão de contacto») |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
@@ -667,6 +668,115 @@ produto apagado do ficheiro, ou cliques forjados) aparecem à parte, em «Não r
 marcas. Cada marca recebe só os totais dela: por mês a partir do Principal; a meio e no fim da época no Oficial. As
 vendas vê-as a marca, na loja, pela etiqueta `utm_content` ou pelo código.
 
+## Documentos (o cofre)
+
+**https://gocarmo.com/admin/documentos/** guarda tudo o que fazemos para o Gonçalo (kit de patrocínio, guiões da
+semana, pacotes de posts, folheto, cartão de contacto, mapa do site, manual, questionários), com as últimas 3 versões de
+cada documento: a data, o que mudou, o tamanho, e a mais recente marcada «mais recente». O repositório é público, por
+isso os ficheiros vão **cifrados** para o ramo órfão `docs` (nunca para o `gh-pages`) e só abrem nesta página, com a
+frase-passe. A página tem ligação nas outras páginas de admin («Documentos: o cofre»).
+
+**Como funciona, em curto.** A página cria no browser um par de chaves (ECDH P-256; a chave privada fica fechada com a
+frase-passe, PBKDF2-SHA-256 com 1 000 000 de iterações) e guarda no ramo `docs` o `vault.json`: a chave pública e a
+chave privada fechada. O computador só conhece a chave pública: cifra cada ficheiro com uma chave nova (AES-256-GCM, em
+partes de 8 MiB, cada parte com o seu IV), fecha essa chave com a chave pública e envia tudo num só commit sem
+histórico. A lista (títulos, versões, datas, mudanças, tamanhos) também vai cifrada. Nenhum segredo passa pelo chat nem
+pelo repositório em claro. Os pormenores estão no início de `assets/js/vault-crypto.js`.
+
+### Criar o cofre (uma vez, no telemóvel)
+
+Abre a página, escreve uma frase-passe de pelo menos 16 caracteres (quatro ou mais palavras ao acaso; guarda-a nas
+Palavras-passe do telemóvel) e carrega em «Criar o cofre». A página pede o token do GitHub (o mesmo de Espaços), cria a
+chave do cofre neste browser e guarda no ramo `docs` o `vault.json`. Mostra a impressão digital do cofre (8 grupos de 4
+caracteres): é ela que o computador pede na primeira publicação.
+
+### Abrir e descarregar
+
+Escreve a frase-passe (num telemóvel antigo, abrir pode levar 2 a 4 segundos: «A abrir o cofre…»). «Lembrar neste
+aparelho» guarda neste browser uma chave que não se pode copiar para fora; quem tiver o telemóvel desbloqueado abre o
+cofre. «Esquecer neste aparelho» apaga-a; «Bloquear» fecha o cofre até à próxima vez. No iPhone, o Safari pode apagar a
+chave lembrada ao fim de 7 dias sem abrir o gocarmo.com; a frase-passe abre sempre. Apagar os dados do site no browser
+também a apaga (e a marca de visitas internas).
+
+«Descarregar» traz o ficheiro aos bocados, decifra-o no telemóvel e depois mostra «Guardar» (no iPhone «Guardar ou
+partilhar», e «Guardar em Ficheiros»): dois toques, porque a folha de partilha só abre com um toque novo. Ficheiros
+grandes (perto de 100 MB) podem ser demais para um telemóvel antigo: divide os zips grandes.
+
+### Publicar no computador
+
+Os documentos entram no cofre a partir do computador, com `scripts/docs-publish.mjs` (Node 22, sem nada a instalar).
+O script não consegue abrir nada do que publica.
+
+**Preparar (uma vez).**
+1. Cria o cofre na página e anota a impressão digital.
+2. Cria a pasta `~/gocarmo-cofre/` (fora do repositório) e copia para lá `scripts/docs-publish.example.json` com o nome
+   `docs-publish.json`. Tira a linha `"example": true` e põe os caminhos verdadeiros dos ficheiros. O script recusa o
+   exemplo tal como está.
+3. No clone do site, para um `git fetch` normal não descarregar os ficheiros cifrados:
+   `git config --add remote.origin.fetch '^refs/heads/docs'`.
+
+**A configuração.** `categories` dá as secções da página, por esta ordem (`id` e `title`). Cada documento tem `id`
+(minúsculas, algarismos e hífens), `title`, `category`, `file` (o caminho do ficheiro, absoluto ou a partir da pasta da
+configuração), `name` (opcional: o nome com que o ficheiro se guarda no telemóvel, com a versão antes da extensão,
+`gocarmo-kit-patrocinio-v3.zip`), `version` (por exemplo `v3`), `date` (AAAA-MM-DD; sem ela, o dia da publicação) e
+`changes` (1 a 10 linhas: o que mudou). `keep` diz quantas versões ficam por documento (3; de 1 a 5). Um ficheiro pode
+ter até 100 MiB.
+
+**Publicar.** Na raiz do clone:
+```
+node scripts/docs-publish.mjs --dry-run      # mostra o que vai entrar e sair, sem cifrar nem enviar nada
+node scripts/docs-publish.mjs
+```
+Na primeira vez para e mostra a impressão digital do cofre no GitHub. Compara-a com a da página (Documentos → Mais →
+Impressão digital do cofre) e, se for a mesma, corre `node scripts/docs-publish.mjs --accept-vault "xxxx xxxx …"`. Das
+outras vezes publica logo. Envia com as credenciais normais do git (as de um `git push`, com `--force-with-lease`, só no
+ramo `docs`); nunca pede um token.
+
+**Uma versão nova.** Muda o ficheiro, `version` e `changes` na configuração e publica. O mesmo ficheiro com outra
+versão, ou um ficheiro diferente com a mesma versão, é recusado (é quase sempre um engano). Ficam as 3 versões mais
+recentes de cada documento; a mais antiga sai do cofre e o ramo volta a ter um só commit, por isso não cresce. Um
+documento que não mudou não é cifrado outra vez; se nada mudou, não envia nada.
+
+**Tirar um documento.** Tira-o da configuração: fica no cofre, com um aviso. Para o apagar do cofre:
+`node scripts/docs-publish.mjs --prune <id>`.
+
+**Onde ficam as coisas.** Ao lado da configuração ficam `docs-publish.state.json` (a memória do que está no cofre:
+títulos e mudanças em claro, chaves só fechadas) e `docs-publish.cache.git/` (uma cópia do ramo, só com ficheiros
+cifrados). Nenhum pode entrar no repositório: o `.gitignore` tem os três nomes, e o script recusa-se a correr se
+estiverem dentro de um repositório sem estarem ignorados. Outra pasta: `--config <ficheiro>` ou a variável
+`GOCARMO_COFRE`. Ajuda: `node scripts/docs-publish.mjs --help`. Saídas: 0 feito (ou nada a fazer), 1 recusado com a
+explicação, 2 erro do git ou de um ficheiro.
+
+**Se o estado se perder** (outro computador, pasta apagada), o script para: não sabe o que está no cofre, porque não o
+consegue abrir. Na página, Documentos → Mais → Descarregar o índice, e depois
+`node scripts/docs-publish.mjs --accept-vault "…" --state-from ~/Downloads/<índice>.json`; as versões anteriores ficam.
+Sem o índice, `--reset` publica só as versões atuais e as anteriores perdem-se.
+
+### Mudar a frase-passe e frase-passe perdida
+
+**Mudar a frase-passe:** Mais → Mudar a frase-passe. A chave do cofre fica a mesma: tudo continua a abrir, a chave
+lembrada também, e o computador aceita o `vault.json` novo sem perguntar nada (se mudar enquanto publicas, o script lê o
+novo e publica com ele).
+
+**Perdi a frase-passe.** Ninguém a recupera. A saída é **um cofre novo e publicar outra vez; as versões antigas deixam
+de abrir.** Na página, Mais → Criar um cofre novo (escreve CRIAR): cria outra chave. No computador, publica com
+`--accept-vault "<impressão digital nova>"`; só entram as versões atuais, as anteriores saem.
+
+Se o script disser que o cofre mudou e não foste tu, não publiques: alguém com acesso ao repositório trocou o
+`vault.json`. Muda o token do GitHub e cria o cofre outra vez.
+
+### O que um estranho vê no repositório público
+
+Que há um cofre, a chave pública, a chave privada fechada com a frase-passe (pode tentar adivinhá-la no computador dele,
+por isso tem de ser comprida), quantos ficheiros e partes há e o tamanho aproximado de cada um, e quando se publica.
+Não vê títulos, nomes de ficheiros, versões, datas, mudanças nem o conteúdo. O que foi publicado fica para sempre em
+clones, forks e cópias antigas mesmo depois de sair do ramo: se a frase-passe um dia for descoberta, essas cópias abrem,
+e um cofre novo protege só o que vier depois. A integridade depende do acesso de escrita ao GitHub, como as outras
+páginas de admin: quem pudesse escrever no repositório podia pôr lá ficheiros ou trocar o `vault.json` (o computador
+avisa, porque guarda a impressão digital). O mesmo endereço (gocarmo.com) serve as páginas públicas e o cofre: a
+Content-Security-Policy das páginas e a marca de visitas internas (sem Google Analytics no browser do dono) são a
+proteção.
+
 ## GoFundMe
 
 O link da campanha e os números que aparecem em Apoiar estão só em `data/gofundme.json`. Mais nenhum ficheiro tem o link.
@@ -873,7 +983,7 @@ abaixo). Enquanto `SITE.stats.url` estiver vazio, o site não mede nada e o pain
 | Montra | os cliques na loja, os cartões vistos e os códigos copiados, por marca, produto e mês, com um botão por mês e o CSV de uma marca (para o relatório mensal dela); à parte, o que não é de um produto do ficheiro; vazio enquanto a montra não tiver produtos |
 | Qualidade | velocidade (LCP, INP, CLS…), o que atrasa, arranque e falhas do 3D, ficheiros que não carregaram, erros de JavaScript |
 | Opinião | a pergunta rápida «Percebeste como funciona o patrocínio?» (Sim/Não e o que não ficou claro), por língua, largura e secção |
-| Dados | limites gratuitos do Cloudflare, pedidos recusados, resumos diários, anotações no gráfico (uma publicação, uma prova), CSV para o Excel |
+| Dados | diagnóstico dos últimos 14 dias (para perceber um zero; mais abaixo), limites gratuitos do Cloudflare, pedidos recusados, resumos diários, anotações no gráfico (uma publicação, uma prova), CSV para o Excel |
 
 Períodos: 24 h (só no «Resumo», em totais), 7, 30 ou 90 dias (dias completos, até ontem) ou datas à escolha, com a
 comparação com o período anterior (só quando o contador já tinha dados nesse período) e um filtro por aparelho. As tuas visitas não contam: entrar no painel marca o browser como interno
@@ -905,6 +1015,10 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
   sem minutos. As mensagens de erro só ficam quando vêm de um ficheiro do site, sem endereços, números nem emails.
 - Na montra, só os ids públicos da marca e do produto (os de `data/montra.json`), nunca o código nem o link inteiro.
   Cada marca recebe só os totais dela, por mês; nunca de onde vieram, onde estão ou que aparelho usam.
+- Às marcas que patrocinam pode ir um relatório com os totais do site (visitas, visualizações, visitantes por dia em
+  média, tipos de origem, países e cidades com as pequenas juntas, aparelhos, tempo e até onde se lê) e os cliques
+  delas por mês (logótipo, link, montra). Nunca o funil dos pedidos, nunca menos do que um mês nos cliques de uma marca
+  (ver «Relatório PDF para marcas», em baixo, e o `[CONFIRMAR]` de `privacidade/index.html`).
 - 30 dias de registos de cada visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Quem tem Global Privacy Control ou Do Not Track ligado não é contado, nem quem carrega em «Não contar as minhas
   visitas» na página de privacidade (`gc.optout`, só nesse browser). A pergunta rápida também não lhes aparece.
@@ -921,6 +1035,49 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
 - Com o Google Analytics ligado, as duas ferramentas não se misturam: o GA só depois de «Aceitar»; as estatísticas
   próprias continuam sem cookies, e o aviso de cookies diz numa frase que já há uma contagem própria. Dentro do mapa de
   calor (a página num iframe) não corre nenhuma das duas.
+
+**Relatório PDF para marcas.** Em `/admin/analytics/`, debaixo dos filtros, o botão **Relatório PDF** faz um PDF para
+mostrar a uma marca. Escolhes:
+- **Período**: este mês (do dia 1 até ontem), mês passado, a época 2027 até hoje (de 1 de janeiro até ontem, depois de
+  a época começar) ou outro (de/até, dias completos até ontem, até 25 meses para trás). O relatório nunca tem o dia de
+  hoje. Se o período começar antes do primeiro dia com dados, o PDF diz onde começam os números.
+- **Marca** (opcional): só o site, ou uma marca com espaços vendidos nesta época (`data/spots.json`) ou com produtos na
+  montra (`data/montra.json`).
+- **Língua**: português ou inglês.
+
+«Fazer o PDF» junta os números (as visitas internas ficam sempre de fora, todos os aparelhos) e faz o ficheiro neste
+aparelho; depois «Guardar o PDF» (no telemóvel, «Guardar ou partilhar»). Nome: `gocarmo-relatorio-<de>_<até>[-<marca>].pdf`
+(EN `gocarmo-report-…`).
+
+O que tem: visitas, visualizações, visitantes por dia (média), tempo ativo (mediana) e a evolução; de onde chegam as
+visitas (tipos de origem, sites, países, cidades com as pequenas juntas, aparelhos); o que fazem no site (tempo ativo,
+até onde descem, quantas visualizações chegam ao capítulo do patrocínio, o estúdio 3D); com uma marca, os espaços dela,
+os cliques no logótipo ou no link dela por mês (na lista «Já no fato») e a montra por mês e por produto; no fim, «Como
+contamos». **Nunca tem o funil dos pedidos, nem «pessoas», «alcance» ou «únicos»**: o contador não usa cookies e o
+código de cada visitante muda todos os dias, por isso conta visitas, visualizações e visitantes por dia, nunca pessoas
+num mês. Um teste verifica estas palavras no texto do PDF. A página de privacidade (PT e EN) diz que os totais do site
+podem ser mostrados às marcas que patrocinam; publica-a antes de enviar o primeiro relatório.
+
+Os cliques no logótipo contam-se pelo endereço do link da marca (e subdomínios), com `GET /admin/v1/sponsors`. Uma marca
+cujo link é do Instagram (ou de outra rede) não tem cliques próprios: os cliques nessa rede juntam-se aos de outras
+marcas, e o diálogo e o PDF dizem-no. Os cliques no logótipo por mês precisam da versão nova do contador; até
+publicares, o PDF sai sem esse bloco e o diálogo explica porquê.
+
+**Quando um número parece errado (zero, ou baixo demais).** O separador «Dados» começa com o cartão **Diagnóstico:
+últimos 14 dias**, por dia de Lisboa: quantos sinais chegaram ao contador, quantos guardou, quantos recusou e porquê
+(«5 de robôs», «2 de outros sites»), os que não guardou por causa de um limite, as visitas de fora e as tuas, e se o dia
+já foi resumido («resumido», «por resumir: esta noite às 00:20», «a refazer esta noite: chegaram dados depois do
+resumo»). Por baixo, uma «Leitura» numa frase: nada chega ao contador desde ontem (vê `SITE.stats.url` e o modo), tudo
+é recusado (e porquê), o limite gratuito do dia acabou, um dia só teve visitas tuas, ou «Tudo normal». Os dias antes de
+o contador novo começar a contar mostram «sem contagem», nunca 0. Quem tem Global Privacy Control, Do Not Track ou «Não
+contar» ligado não envia nada, por isso não aparece. Os outros gráficos de «Dados» (limites, recusados) contam dias UTC,
+como o Cloudflare.
+
+Nos períodos de 7, 30 e 90 dias (e num período à escolha que acabe antes de hoje), que vão sempre até ontem, há uma
+linha debaixo das datas: «Hoje até agora (às 14:32): 12 visitas, 37 visualizações.» e, com «Mostrar visitas internas»
+desligado, «Visitas no período: 0 públicas · 12 tuas (as tuas estão escondidas).» (ligado: «Inclui 12 visitas tuas.»).
+Atualiza a cada minuto enquanto o «Resumo» está aberto. Antes de publicares a versão nova do contador
+(`GET /admin/v1/diag`), o cartão diz que precisa dela e a linha não aparece; o resto do painel funciona na mesma.
 
 Como funciona por dentro, os limites gratuitos, testar no computador e problemas: `stats-worker/README.md`.
 
@@ -1057,6 +1214,10 @@ node scripts/stamp.mjs
 O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `admin/patrocinios/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
 Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/` e `/admin/patrocinios/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar.
+
+A página do cofre (`/admin/documentos/`) recebe o mesmo mapa de importação, os mesmos hashes e a mesma CSP, e no
+`connect-src` só `'self'`, `https://api.github.com` (o ramo `docs` e os dois commits da página) e
+`https://raw.githubusercontent.com` (os ficheiros cifrados, com pedidos simples, sem cabeçalhos).
 
 O script verifica também a época: o bloco `seasonRules` de `data/spots.json` (datas reais e por ordem), a data das
 condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `msg.terms`), as datas da época escritas em
