@@ -106,9 +106,12 @@ function page(m, s) {
   return { ops, links, fits: y > fTop + 12 && !over() };
 }
 
+// the terms page in the document's language (an annotation only: the page's drawing does not change)
+const langUri = (l, lang) => (lang === 'en' && /^https:\/\/gocarmo\.com\/condicoes\/$/.test(l.uri) ? { ...l, uri: `${l.uri}?lang=en` } : l);
 export function confirmationPdf(m, now = new Date()) {
   let out = null;
   for (let s = 1; s >= 0.69; s -= 0.04) { out = page(m, s); if (out.fits) break; }
+  out.links = out.links.map((l) => langUri(l, m.lang));
   const info = { lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now };
   // annex: { lang, doc: 'conf', date, terms: { title, h1, lead, updated, blocks }, url }; none: one page, as before
   const a = m.annex;

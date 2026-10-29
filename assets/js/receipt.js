@@ -4,7 +4,8 @@
 // the same values as the dialog and the WhatsApp message; this file only lays it out and never works out a price, a
 // date or a reference. Loaded with import() on the first press of «Guardar comprovativo». receiptPdf(model) -> Uint8Array.
 // After page 1 (as it always was), the annex: the full sponsorship terms of the request's version, in its language
-// (pdf-annex.js lays out terms-text.js, which loads with this file, so only when a PDF is made).
+// (pdf-annex.js lays out terms-text.js, which loads with this file, so only when a PDF is made). A page loaded before a
+// terms update names the older version: prepareAnnex(date) fetches its frozen text (data/terms/<date>.json) first.
 
 import { W, H, M, CW, win, width, wrap, INK, MUTED, GOLD_INK, LINE, TINT, BAND, emblem, draw, pdfFile } from './pdf-kit.js';
 import { annexPages, annexOutline, linkOver } from './pdf-annex.js';
@@ -170,16 +171,30 @@ function page(m, s) {
   return { ops, fits: y > fTop + 12 && !over() };
 }
 
+// The text of an older version, for a page loaded before a terms update and still open (GitHub Pages then serves the new
+// terms-text.js whatever ?v= the page asks for): adspace.js calls this as receipt.js loads, so the press that makes the
+// PDF waits for nothing. Never throws: without the file, the comprovativo is page 1 alone, never another version's text.
+const KEPT = new Map();
+export async function prepareAnnex(date) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || '')) || date === TERMS_DATE || KEPT.has(date)) return;
+  try {
+    const r = await fetch(new URL(`../../data/terms/${date}.json`, import.meta.url), { cache: 'no-cache' });
+    const x = r.ok ? await r.json() : null;
+    if (x && x.date === date && ['pt', 'en'].every((l) => x[l] && Array.isArray(x[l].blocks) && x[l].blocks.length)) KEPT.set(date, x);
+  } catch (_) {}
+}
+
 export function receiptPdf(m, now = new Date()) {
   // everything on one page: a long list (a package sent as a message only can have many spots) makes the type smaller
   let out = null;
   for (let s = 1; s >= 0.69; s -= 0.04) { out = page(m, s); if (out.fits) break; }
   const info = { lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now };
-  // the annex: only the version the request named (a page loaded before a terms update and still open names the old
-  // date: no annex then, never another version's text), in the language of the request
-  const lg = m.annex && m.annex.lang === 'en' ? 'en' : 'pt';
-  if (!m.annex || m.annex.date !== TERMS_DATE || !TERMS[lg]) return pdfFile({ content: out.ops.join('\n'), ...info });
-  const annex = annexPages({ lang: lg, doc: m.annex.doc || 'rcpt', date: TERMS_DATE, terms: TERMS[lg], url: TERMS_URL[lg] }, 1);
+  // the annex: only the version the request named (terms-text.js, or the older text prepareAnnex fetched), in the
+  // language of the request; without that text, page 1 alone, never another version's text
+  const lg = m.annex && m.annex.lang === 'en' ? 'en' : 'pt', date = m.annex && m.annex.date;
+  const src = date === TERMS_DATE ? TERMS : KEPT.get(date);
+  if (!src || !src[lg]) return pdfFile({ content: out.ops.join('\n'), ...info });
+  const annex = annexPages({ lang: lg, doc: m.annex.doc || 'rcpt', date, terms: src[lg], url: TERMS_URL[lg] }, 1);
   // page 1 as before; its terms address becomes a link to the page (an annotation: the drawing does not change)
   const pages = [{ content: out.ops.join('\n'), links: linkOver(out.ops, 'gocarmo.com/condicoes', TERMS_URL[lg]) }, ...annex.map((p) => ({ content: p.ops.join('\n'), links: p.links }))];
   return pdfFile({ pages, outline: [{ title: m.title, page: 0 }, { title: annexOutline(lg), page: 1 }], ...info });

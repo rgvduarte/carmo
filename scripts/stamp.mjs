@@ -157,10 +157,10 @@ function checkTerms(R) {
     for (const m of byMonth.keys()) need(m >= first && m <= last, `condicoes/index.html (${l}): table.season-disc has a row for ${Ms[m - 1]}, a month with no mid-season discount or no sales`);
   }
   const IX = readFileSync('index.html', 'utf8'), ix = plain(IX);
-  need(ix.includes(`atualizadas a ${pt(R.termsDate)}`), `index.html: «atualizadas a ${pt(R.termsDate)}» (cl.terms, seasonRules.termsDate)`);
+  need(ix.includes(`(versão de ${R.termsDate.split('-').reverse().join('.')})`), `index.html: «(versão de ${R.termsDate.split('-').reverse().join('.')})» (cl.terms, seasonRules.termsDate)`);
   const js = readFileSync('assets/js/i18n.js', 'utf8').replace(/\s+/g, ' ');
   need(i18n.t('msg.terms', R.termsDate) === `Condições do patrocínio (versão de ${R.termsDate.split('-').reverse().join('.')}): https://gocarmo.com/condicoes/`, `assets/js/i18n.js: msg.terms(termsDate) is «${i18n.t('msg.terms', R.termsDate)}» (the request message's terms line)`);
-  need(js.includes(`updated ${en(R.termsDate)}`), `assets/js/i18n.js: «updated ${en(R.termsDate)}» (cl.terms, seasonRules.termsDate)`);
+  need(js.includes(`(version of ${en(R.termsDate)})`), `assets/js/i18n.js: «(version of ${en(R.termsDate)})» (cl.terms, seasonRules.termsDate)`);
   // the home page's season copy: the period (ru.p2), the logo deadline of the page without JS (#sp-p4; adspace.js
   // writes it from the rules), the renewal preference of every level (of.a4)
   const next = String(Number(R.season) + 1), dm = (d, M, l) => { const [, m, n] = ymd(d); return l === 'pt' ? `${n} de ${M[m - 1]}` : `${n} ${M[m - 1]}`; };

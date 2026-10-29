@@ -37,7 +37,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, num botão depois dos níveis, na ficha de cada espaço, no cartão do fato
   completo e no fim das tabelas de preços, no rodapé e no passo 1 do pedido, «Ao enviar, aceitas as condições do
-  patrocínio (atualizadas a 29 de outubro de 2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
+  patrocínio (versão de 29.10.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
   prazo do logótipo, a preferência na renovação, o preço de 2027 na renovação do Principal e do fato completo, o
   pagamento da renovação até 15 de janeiro, o aviso de outubro, já sem triatlos, e a conta das devoluções por meses),
@@ -411,27 +411,37 @@ lado nenhum.
 ## Condições do patrocínio nos pedidos e nos PDF
 
 - **Os botões.** No capítulo 05, «Ler as condições do patrocínio» (EN «Read the sponsorship terms») num bloco logo
-  depois dos quatro níveis; «Condições» na ficha de cada espaço, por baixo do preço (quem chega por um link direto,
-  `#fato/peito`); «Ler as condições» ao lado de «Pedir o fato completo»; «Condições do patrocínio» no fim de cada
-  tabela de preços (fato e capacete). Todos abrem `/condicoes/` noutro separador (o 3D, a ficha e o pacote ficam como
-  estavam), em inglês `condicoes/?lang=en`. O passo 1 do pedido mantém a frase «Ao enviar, aceitas…» com o link; o
-  rodapé abre no mesmo separador.
+  depois dos quatro níveis e no fim de cada tabela de preços (fato e capacete); «Ler as condições» (EN «Read the
+  terms») na ficha de cada espaço, por baixo do preço (quem chega por um link direto, `#fato/peito`), e ao lado de
+  «Pedir o fato completo». Todos são `.btn.ghost.sm` (o bloco, `.btn.ghost`) e abrem `/condicoes/` noutro separador
+  (o 3D, a ficha e o pacote ficam como estavam), em inglês `condicoes/?lang=en`; os links «condições» do texto do 05
+  também, e todos dizem ao leitor de ecrã «(abre noutro separador)». O passo 1 do pedido diz «Ao enviar, aceitas as
+  condições do patrocínio (versão de 29.10.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
+  no mesmo separador.
 - **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 29.10.2026):
   https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 29 October 2026): …?lang=en»), feita de
   `seasonRules.termsDate`.
 - **Os PDF.** O comprovativo do pedido e a confirmação do patrocínio têm a primeira página igual à de antes e, a
   seguir, «Anexo · Condições do patrocínio · versão de 29.10.2026»: o texto inteiro da página, na língua do documento,
   com títulos, listas, a tabela do desconto de época, «Página 2 de 7» e links (a página no ar, Privacidade, email,
-  WhatsApp). O comprovativo leva a versão do dia do pedido; a confirmação, a do contrato (`terms` do registo). Uma
-  versão sem texto guardado (antes de 26.10.2026) vai sem anexo, e a janela da confirmação diz isso.
+  WhatsApp; o endereço da Privacidade escrito a seguir ao link, para o papel; cada «(em «Duração, prazos e
+  renovação»)» leva a esse título do anexo). Em inglês, o anexo diz que vale o texto português e liga para ele
+  (`condicoes/?lang=pt`); o link da página 1 da confirmação em inglês também vai para `?lang=en`. Se a última página
+  ficar com menos de um quarto, o anexo volta a ser paginado com as linhas um pouco mais juntas, se isso poupar a
+  página. O comprovativo leva a versão do dia do pedido (uma página aberta antes de uma mudança das condições vai
+  buscar o texto dela a `data/terms/<data>.json`); a confirmação, a do contrato (`terms` do registo). Uma versão sem
+  texto guardado (antes de 26.10.2026) vai sem anexo, e a janela da confirmação diz isso.
 - **De onde vem o texto.** `assets/js/terms-text.js` é escrito por `node scripts/stamp.mjs` (`scripts/terms-text.mjs`) a
   partir dos dois `<article>` de `condicoes/index.html`: nunca o edites à mão. Só carrega quando se faz um PDF. Quando
   `seasonRules.termsDate` muda, o stamp guarda o texto da versão anterior em `data/terms/<data>.json` (já lá estão
-  26.10.2026 e 28.10.2026), que nunca se reescreve.
+  26.10.2026 e 28.10.2026) e a soma sha256 dele em `data/terms/SHA256SUMS`; daí em diante confere cada ficheiro com a
+  sua linha, porque as confirmações de contratos antigos anexam esse texto.
 - **O que o stamp recusa:** uma marcação na página que o anexo não sabe desenhar (um `<em>`, um `<ol>`, um `<br>`: ensina
   `scripts/terms-text.mjs` e `assets/js/pdf-annex.js`), texto da página que não chegue ao anexo, o módulo desatualizado,
-  datas que não batem, e o texto mudado depois do próprio dia sem data nova (muda a data no mesmo dia em que mudas o
-  texto).
+  datas que não batem, o texto mudado depois do próprio dia sem data nova (muda a data no mesmo dia em que mudas o
+  texto), um ficheiro de `data/terms/` que não seja o que o `SHA256SUMS` fixou, e um elemento escondido no artigo
+  (`hidden`, `aria-hidden`, `sr-only`: o anexo só imprime o que a página mostra). Uma versão já publicada (o
+  `origin/gh-pages` tem o `terms-text.js` dessa data) não muda de texto, nem no próprio dia: a mudança leva data nova.
 
 ## Época, prazos e renovação
 

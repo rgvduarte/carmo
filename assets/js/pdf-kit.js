@@ -149,21 +149,28 @@ export function pdfFile({ content, pages, lang, title, subject, author, now = ne
 }
 
 // A4 pages: catalog, pages, the two fonts (shared), the document information, then for each page its contents, its link
-// annotations (https: and mailto:) and the page; outline: [{ title, page }] (page: its index) becomes the bookmarks a
-// reader shows beside the document (the document itself, then its annex, one tap away).
-const linkOk = (l) => l && Array.isArray(l.rect) && l.rect.length === 4 && /^(https?:\/\/|mailto:)/.test(String(l.uri || ''));
+// annotations (https: and mailto:, or { page, y }: a place in this document, its page index and height) and the page;
+// outline: [{ title, page }] (page: its index) becomes the bookmarks a reader shows beside the document (the document
+// itself, then its annex, one tap away).
+const linkOk = (l, count) => l && Array.isArray(l.rect) && l.rect.length === 4 && (/^(https?:\/\/|mailto:)/.test(String(l.uri || '')) || (Number.isInteger(l.page) && l.page >= 0 && l.page < count && Number.isFinite(l.y)));
 function pdfPages({ pages, lang, title, subject, author, now, outline }) {
   const objs = [], add = (o) => { objs.push(o); return objs.length; };
   add(''); add('');
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
   const info = add(`<< /Title ${u16(title)} /Author ${u16(author)} /Subject ${u16(subject)} /Creator (gocarmo.com) /Producer (gocarmo.com) /CreationDate (${pdfDate(now)}) >>`);
-  const kids = [];
+  const kids = [], dests = [];
   for (const pg of pages) {
     const c = add(`<< /Length ${pg.content.length} >>\nstream\n${pg.content}\nendstream`);
-    const an = (pg.links || []).filter(linkOk).map((l) => add(`<< /Type /Annot /Subtype /Link /Rect [${l.rect.map(n).join(' ')}] /Border [0 0 0] /A << /Type /Action /S /URI /URI ${lit(win(l.uri))} >> >>`));
+    const an = (pg.links || []).filter((l) => linkOk(l, pages.length)).map((l) => {
+      const rect = `/Rect [${l.rect.map(n).join(' ')}] /Border [0 0 0]`;
+      if (l.uri) return add(`<< /Type /Annot /Subtype /Link ${rect} /A << /Type /Action /S /URI /URI ${lit(win(l.uri))} >> >>`);
+      // a place in this document: its page object is written later, so the annotation is filled in below
+      const id = add(''); dests.push([id, rect, l]); return id;
+    });
     kids.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${n(W)} ${n(H)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /ProcSet [/PDF /Text] >> /Contents ${c} 0 R${an.length ? ` /Annots [${an.map((x) => `${x} 0 R`).join(' ')}]` : ''} >>`));
   }
+  for (const [id, rect, l] of dests) objs[id - 1] = `<< /Type /Annot /Subtype /Link ${rect} /Dest [${kids[l.page]} 0 R /XYZ null ${n(l.y)} null] >>`;
   const marks = (outline || []).filter((o) => o && o.title && kids[o.page]);
   let outlines = 0;
   if (marks.length) {

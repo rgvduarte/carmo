@@ -2013,8 +2013,9 @@ async function igSend(text) {
 // sentAt: when this package's message went out (gc.claim.at, kept with the note of the sent request), 0 when unknown
 let rcptOpen = false, rcptBusy = false, rcptLock = false, rcptMod = null, rcptSaved = '', rcptAsked = '', rcptOk = null, rcptErr = false, sentAt = 0, rcptDrawn = '';
 const rcptKey = () => { const k = pkKey(), r = heldReq(); return !k || clStep !== 2 ? '' : r ? `${k}|${r.id}` : `${k}|msg`; };
+// (with it, the text of the terms version this page names when the site has moved on to a newer one: prepareAnnex)
 const loadRcpt = () => {
-  if (!rcptMod) { const p = import('./receipt.js'); rcptMod = p; p.catch(() => { if (rcptMod === p) rcptMod = null; }); }
+  if (!rcptMod) { const p = import('./receipt.js').then((M) => M.prepareAnnex(rules().termsDate).then(() => M)); rcptMod = p; p.catch(() => { if (rcptMod === p) rcptMod = null; }); }
   return rcptMod;
 };
 // +351 916 395 103, as the contact section writes it; the MB WAY number as the payment rows show it
@@ -2069,7 +2070,7 @@ function rcptModel() {
     // the terms the request took, with their date (the words of page 1 as before the message line changed)
     terms: `${t('rcpt.terms')}: ${t('rcpt.termsV', R.termsDate)}`,
     // after page 1, the full text of that version in the language on screen (receipt.js lays it out from terms-text.js,
-    // and leaves it out when the page loaded here names another version than the module)
+    // or from data/terms/<date>.json when this page loaded before a terms update)
     annex: { lang: getLang(), doc: 'rcpt', date: R.termsDate },
     contact: [t('rcpt.ct'), `WhatsApp ${waShown()} · ${SITE.email}`],
     foot: t(r ? 'rcpt.foot' : 'rcpt.footNo'),

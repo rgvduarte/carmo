@@ -7,21 +7,28 @@
 //   paragraphs, lists and the season discount table, with bold runs, links and in-page references. Loaded only when a
 //   PDF is made (receipt.js imports it; receipt.js itself loads on the first «Guardar comprovativo» press).
 // - data/terms/<date>.json: the text of an older version, frozen here the moment seasonRules.termsDate moves on and
-//   never rewritten. A confirmation follows the version of its request (the contract's «terms» date), not today's.
+//   never rewritten. A confirmation follows the version of its request (the contract's «terms» date), not today's; a
+//   comprovativo made in a page loaded before a terms update too. data/terms/SHA256SUMS pins each file (sha256sum
+//   format): stamp writes its line when it freezes the file and from then on checks every file against it.
 //
 // It stops stamp when: the page holds markup the annex cannot lay out (a new tag is a conscious change: teach this file
 // and pdf-annex.js); a word of the page is missing from the blocks; the page's «Atualizada a» / «Updated» is not
 // seasonRules.termsDate; the text changed after the version's own day without a new date (each sponsorship follows the
-// version of its request day, so one date never names two texts once that day is over); the module on disk has a date
-// after termsDate; an archive file is malformed, is not older than termsDate, or would be overwritten with another text.
+// version of its request day, so one date never names two texts once that day is over); the text of a version already
+// published (origin/gh-pages holds a terms-text.js of the same date) changed, even on its own day; the module on disk has
+// a date after termsDate; an archive file is malformed, is not older than termsDate, would be overwritten with another
+// text, or is not the file its SHA256SUMS line pinned; an element of an article is hidden from its readers.
 //
 //   termsText({ check, rules, today }) -> { problems: [], stale: [] }   (stamp.mjs)
 //   parseTerms(html) -> { pt, en }; plainArticle(html, lang); plainBlocks(doc); moduleSource(doc, date)   (tests)
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 
 export const MODULE = 'assets/js/terms-text.js';
 export const PAGE = 'condicoes/index.html';
 export const ARCHIVE = 'data/terms';
+export const SUMS = `${ARCHIVE}/SHA256SUMS`;
 const SITE = 'https://gocarmo.com/condicoes/';
 export const TERMS_URL = { pt: SITE, en: `${SITE}?lang=en` };
 
@@ -49,6 +56,10 @@ function tree(html, where) {
     }
     if (/\/\s*$/.test(attrs)) throw new Error(`${where}: <${t}/> (a self-closing tag)`);
     const a = Object.fromEntries([...attrs.matchAll(/([a-z-]+)="([^"]*)"/gi)].map((x) => [x[1].toLowerCase(), dec(x[2], where)]));
+    // the annex prints what the page shows: nothing hidden from its readers
+    if (/(^|\s)hidden(\s|=|$)/i.test(attrs.replace(/"[^"]*"/g, '""')) || a['aria-hidden'] === 'true' || /\b(sr-only|visually-hidden)\b/.test(a.class || '')) {
+      throw new Error(`${where}: <${t}> is hidden on the page (hidden, aria-hidden or a visually-hidden class): the annex prints only what the page shows`);
+    }
     const el = { tag: t, a, kids: [] };
     stack.at(-1).kids.push(el); stack.push(el);
   }
@@ -193,6 +204,24 @@ const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const docShape = (d) => d && ['pt', 'en'].every((l) => d[l] && typeof d[l].updated === 'string' && Array.isArray(d[l].blocks) && d[l].blocks.length > 0);
 const loadSource = (src) => import(`data:text/javascript;base64,${Buffer.from(src).toString('base64')}`);
+const sha = (buf) => createHash('sha256').update(buf).digest('hex');
+// data/terms/SHA256SUMS: «<sha256>  <name>» per line, as sha256sum writes it -> Map(name -> sha256)
+function readSums() {
+  const m = new Map();
+  if (!existsSync(SUMS)) return m;
+  for (const line of readFileSync(SUMS, 'utf8').split('\n')) {
+    const x = /^([0-9a-f]{64}) [ *](\S+)$/.exec(line);
+    if (x) m.set(x[2], x[1]); else if (line.trim()) m.set(`?${line}`, '');
+  }
+  return m;
+}
+const sumsSource = (m) => [...m].sort(([a], [b]) => (a < b ? -1 : 1)).map(([f, h]) => `${h}  ${f}\n`).join('');
+// the module the site serves now (origin/gh-pages, when this checkout has it): { TERMS_DATE, TERMS } or null
+async function published() {
+  const r = spawnSync('git', ['show', `origin/gh-pages:${MODULE}`], { encoding: 'utf8' });
+  if (r.status !== 0 || !r.stdout) return null;
+  try { const m = await loadSource(r.stdout); return isDay(m.TERMS_DATE) && m.TERMS ? m : null; } catch (_) { return null; }
+}
 
 export async function termsText({ check = false, rules, today }) {
   const problems = [], stale = [], date = rules && rules.termsDate;
@@ -209,6 +238,12 @@ export async function termsText({ check = false, rules, today }) {
   const src = moduleSource(doc, date), had = existsSync(MODULE) ? readFileSync(MODULE, 'utf8') : null;
   let old = null;
   if (had !== null) { try { old = await loadSource(had); } catch (_) { old = null; } }
+  // a version the site already serves keeps its text: a change, even on its own day, takes a new date
+  const pub = await published();
+  if (pub && pub.TERMS_DATE === date && !same({ pt: pub.TERMS.pt, en: pub.TERMS.en }, doc)) {
+    problems.push(`This version is already published: origin/gh-pages serves the terms of ${dot(date)} with another text. Give the change a new date: seasonRules.termsDate (data/spots.json), «Atualizada a» / «Updated» (${PAGE}, PT and EN) and cl.terms (index.html and, in English, assets/js/i18n.js)`);
+  }
+  const sums = readSums();
   if (old && isDay(old.TERMS_DATE) && old.TERMS) {
     if (old.TERMS_DATE === date) {
       // the same version: its text may change only on its own day
@@ -223,16 +258,29 @@ export async function termsText({ check = false, rules, today }) {
         try { kept = JSON.parse(readFileSync(f, 'utf8')); } catch (_) {}
         if (!kept || !same({ pt: kept.pt, en: kept.en }, { pt: old.TERMS.pt, en: old.TERMS.en })) problems.push(`${f} already holds another text for ${dot(old.TERMS_DATE)}: an archived version is never rewritten`);
       } else {
-        stale.push(f);
-        if (!check) { mkdirSync(ARCHIVE, { recursive: true }); writeFileSync(f, archiveSource(old.TERMS_DATE, old.TERMS)); }
+        stale.push(f, SUMS);
+        if (!check) {
+          // frozen, and pinned: its line in SHA256SUMS
+          const body = archiveSource(old.TERMS_DATE, old.TERMS);
+          mkdirSync(ARCHIVE, { recursive: true }); writeFileSync(f, body);
+          sums.set(`${old.TERMS_DATE}.json`, sha(Buffer.from(body))); writeFileSync(SUMS, sumsSource(sums));
+        }
       }
     } else problems.push(`${MODULE} is version ${dot(old.TERMS_DATE)}, after seasonRules.termsDate ${dot(date)}: a version date never goes back`);
   }
-  // the archive: one file per older version, named by its date, of the module's shape
+  // the archive: one file per older version, named by its date, of the module's shape, pinned by its SHA256SUMS line
+  for (const [name, h] of sums) {
+    if (!h) problems.push(`${SUMS}: «${name.slice(1)}» is not a «<sha256>  <YYYY-MM-DD>.json» line`);
+    else if (!existsSync(`${ARCHIVE}/${name}`)) problems.push(`${SUMS} pins ${name}, which is missing: an archived version is never removed`);
+  }
   if (existsSync(ARCHIVE)) {
     for (const name of readdirSync(ARCHIVE).sort()) {
+      if (name === 'SHA256SUMS') continue;
       const f = `${ARCHIVE}/${name}`, d = name.replace(/\.json$/, '');
       if (!name.endsWith('.json') || !isDay(d)) { problems.push(`${f}: only <YYYY-MM-DD>.json files go in ${ARCHIVE}/`); continue; }
+      const pin = sums.get(name);
+      if (!pin) problems.push(`${f} is not pinned in ${SUMS}: stamp writes its line when it freezes a version`);
+      else if (pin !== sha(readFileSync(f))) problems.push(`${f} is not the file ${SUMS} pinned: an archived version is never rewritten (sponsorships of ${dot(d)} annex it)`);
       let a = null;
       try { a = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { problems.push(`${f}: not JSON (${e.message})`); continue; }
       if (!a || a.date !== d) problems.push(`${f}: its "date" is not ${d}`);
