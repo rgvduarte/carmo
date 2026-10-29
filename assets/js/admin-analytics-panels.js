@@ -535,23 +535,69 @@ export function contactos(p, d) {
 // ---------- Montra ----------
 // The showcase «O meu material», for the brands' monthly reports: per month, brand and product, the cards seen, the
 // taps on the shop link and the codes copied. Totals only, every device (SPEC 3.6, privacy 2.7). d.names: how many
-// products data/montra.json lists (null when it could not be read).
+// products data/montra.json lists (null when it could not be read). Only the rows whose brand and product are in that
+// file, the product being that brand's, count (L.mKnown); the others are listed apart, never in a total or a brand's
+// CSV. A brand's CSV is made here, from what the tab shows, with the names: one brand's rows and nothing else.
 const MT_EMPTY = 'A montra ainda não tem produtos. Quando tiver, os cliques aparecem aqui.';
-const MT_COLS = [['view', 'Cartões vistos', 'Vistos'], ['shop', 'Cliques na loja', 'Loja'], ['code', 'Códigos copiados', 'Códigos']];
+// the shop taps first: the number the monthly report is for
+const MT_COLS = [['shop', 'Cliques na loja', 'Loja'], ['view', 'Cartões vistos', 'Vistos'], ['code', 'Códigos copiados', 'Códigos']];
 const mtSum = (rows, k) => sum(rows.map((r) => r[k]));
+const plural = (n, one, many) => `${fmt.n(n)} ${n === 1 ? one : many}`;
 // per brand, in the order the rows come (brand, then product)
 function mtBrands(rows) {
   const by = new Map();
   for (const r of rows) { const b = by.get(r.brand) || { brand: r.brand, view: 0, shop: 0, code: 0 }; b.view += r.view; b.shop += r.shop; b.code += r.code; by.set(r.brand, b); }
   return [...by.values()];
 }
+// the CSV as the Worker writes it (BOM, «;», never a formula), for Excel in Portuguese
+function csvCell(v) {
+  if (v === null || v === undefined) return '';
+  if (typeof v === 'number') return String(v);
+  let s = String(v);
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+  return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+const toCsv = (header, rows) => `﻿${[header, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n')}\r\n`;
+function saveCsv(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+// the period in a file name: «2026-10» for one calendar month (to yesterday in the current one), else «from-to»
+const mtPeriod = (from, to) => (from && to && from.endsWith('-01') && from.slice(0, 7) === to.slice(0, 7) ? from.slice(0, 7) : `${from}-${to}`);
+// brand: one brand id (its known rows only, with the names), or '' for every row (only for the owner: a column says
+// whether the pair is in data/montra.json)
+export function montraCsv(months, { brand = '', from = '', to = '' } = {}) {
+  const one = !!brand;
+  const header = ['mês', 'marca', 'produto', 'cartões vistos', 'cliques na loja', 'códigos copiados', 'id da marca', 'id do produto', ...(one ? [] : ['na montra'])];
+  const rows = [], all = [];
+  const line = (month, r, prod) => [month, L.mBrand(r.brand), prod, r.view, r.shop, r.code, r.brand, r.prod || '', ...(one ? [] : [r.prod ? (L.mKnown(r.brand, r.prod) ? 'sim' : 'não') : ''])];
+  for (const m of months) {
+    const list = m.rows.filter((r) => (one ? r.brand === brand && L.mKnown(r.brand, r.prod) : true));
+    if (!list.length) continue;
+    for (const r of list) rows.push(line(m.month, r, L.mProd(r.prod)));
+    for (const b of mtBrands(list.filter((r) => L.mKnown(r.brand, r.prod)))) rows.push(line(m.month, { ...b, prod: '' }, 'total da marca'));
+    all.push(...list.filter((r) => L.mKnown(r.brand, r.prod)));
+  }
+  for (const b of mtBrands(all)) rows.push(line(`${from} a ${to}`, { ...b, prod: '' }, 'total do período'));
+  return { text: toCsv(header, rows), name: `gocarmo-montra-${one ? `${brand}-` : 'todas-'}${mtPeriod(from, to)}.csv`, rows: rows.length };
+}
 export function montra(p, d, ctx) {
-  const m = d.montra || {}, totals = m.totals || [], months = m.months || [];
-  if (!totals.length && !d.names) { emptyState(p, d.names === null ? `${MT_EMPTY} (Não consegui ler a lista de produtos do site.)` : MT_EMPTY); return; }
+  const m = d.montra || {}, months0 = m.months || [];
+  const verified = d.names !== null && d.names !== undefined;
+  const known = (r) => !verified || L.mKnown(r.brand, r.prod);
+  const totals = (m.totals || []).filter(known), stray = (m.totals || []).filter((r) => !known(r));
+  const months = months0.map((mo) => ({ month: mo.month, rows: mo.rows.filter(known) })).filter((mo) => mo.rows.length);
+  if (!totals.length && !stray.length && !d.names) { emptyState(p, d.names === null ? `${MT_EMPTY} (Não consegui ler a lista de produtos do site.)` : MT_EMPTY); return; }
   sec(p, 'Montra (O meu material)');
+  if (!verified) H('p', 'ga-fine', 'Não consegui ler data/montra.json: estes números ainda não foram conferidos com a lista de produtos, e o CSV de cada marca fica para quando a lista abrir.', p);
   kpiRow(p, [
-    tile({ label: 'Cartões vistos', value: fmt.n(mtSum(totals, 'view')), sub: 'visualizações em que o cartão de um produto esteve visível, pelo menos metade, durante 1 segundo', prevName: null }),
     tile({ label: 'Cliques na loja', value: fmt.n(mtSum(totals, 'shop')), sub: 'toques em «Ver na loja» (abrem a loja da marca, com a etiqueta gocarmo)', prevName: null }),
+    tile({ label: 'Cartões vistos', value: fmt.n(mtSum(totals, 'view')), sub: 'visualizações em que o cartão de um produto esteve visível, pelo menos metade, durante 1 segundo', prevName: null }),
     tile({ label: 'Códigos copiados', value: fmt.n(mtSum(totals, 'code')), sub: 'toques no botão que copia o código de desconto', prevName: null }),
   ], 'cols3');
   const z = m.zone || { reach: 0, secs: 0, r: 0 };
@@ -559,50 +605,72 @@ export function montra(p, d, ctx) {
 
   const g = grid(p);
   // month shortcuts and the export: what the monthly report needs
-  const rc = card('Relatório do mês', 'Escolhe um mês: o período passa a ser esse mês inteiro (até ontem, se for o mês em curso). Depois exporta o CSV e envia à marca só as linhas dela.');
+  const rc = card('Relatório do mês', 'Escolhe o mês e a marca e exporta: o ficheiro leva só os números dessa marca, com os nomes dos produtos.');
   span(rc, 12);
   const mb = H('div', 'ga-inline ga-months', null, rc);
   mb.setAttribute('role', 'group');
   mb.setAttribute('aria-label', 'Meses com dados da montra');
   H('p', 'ga-fine', 'A procurar os meses com dados…', mb);
-  const ex = H('div', 'ga-inline', null, rc);
+  const ex = H('div', 'ga-inline ga-mt-ex', null, rc);
+  const lab = H('label', null, 'Marca', ex), sel = H('select', null, null, ex);
+  sel.id = 'mt-csv-b'; lab.htmlFor = 'mt-csv-b';
+  for (const b of verified ? L.mBrands() : []) { const o = H('option', null, b.name, sel); o.value = b.id; }
+  const all = H('option', null, 'Todas as marcas (só para ti)', sel); all.value = '';
   const xb = H('button', 'btn sm gold', 'Exportar CSV', ex);
   xb.type = 'button';
   const xmsg = H('p', 'ga-fine', null, rc);
   xmsg.setAttribute('aria-live', 'polite');
-  xb.addEventListener('click', async () => {
+  const label = () => (sel.value ? `Exportar CSV de ${L.mBrand(sel.value)}` : 'Exportar CSV de todas as marcas');
+  const paint = () => { xb.textContent = label(); };
+  sel.addEventListener('change', paint); paint();
+  xb.addEventListener('click', () => {
     if (ctx.withToday()) { xmsg.textContent = 'O CSV só junta dias completos: escolhe um mês, ou um período que acabe ontem.'; return; }
-    xb.disabled = true; xmsg.textContent = 'A preparar…';
-    try { const name = await ctx.api.csv({ ...ctx.params(), t: 'montra' }); xmsg.textContent = `Descarregado: ${name}`; }
-    catch (x) { xmsg.textContent = x.text || 'Não consegui descarregar.'; }
-    finally { xb.disabled = false; }
+    const r = m.range || {}, from = r.from || ctx.params().from || '', to = r.to || ctx.params().to || '';
+    const out = montraCsv(sel.value ? months : months0, { brand: sel.value, from, to });
+    saveCsv(out.name, out.text);
+    xmsg.textContent = `Descarregado: ${out.name}${sel.value ? '' : '. Leva todas as marcas: não o envies a uma marca.'}`;
   });
-  H('p', 'ga-fine', 'São totais, sem nada de quem clicou. Para o relatório de uma marca, escolhe o mês e exporta.', rc);
+  H('p', 'ga-fine', 'São totais, sem nada de quem clicou. A cada marca, envia só o ficheiro dela; o de todas as marcas é só para ti.', rc);
   g.append(rc);
   monthButtons(mb, ctx);
 
-  if (!totals.length) { g.append(span(figure({ title: 'Por marca e por mês', empty: 'Sem cartões vistos nem cliques neste período.' }), 12)); return; }
-  // the period, per product: the shop taps, the one number brands ask for first
-  const byShop = totals.slice().sort((a, b) => b.shop - a.shop || b.view - a.view || (a.prod < b.prod ? -1 : 1));
-  g.append(span(figure({
-    title: 'Cliques na loja, por produto', note: 'No período escolhido, todos os aparelhos. Ao lado, os cartões vistos; os códigos copiados estão na tabela.',
-    draw: hbars(byShop.map((r) => ({ label: `${L.mBrand(r.brand)} · ${L.mProd(r.prod)}`, v: r.shop, text: `${fmt.n(r.shop)} · ${fmt.n(r.view)} vistos`,
-      tip: () => ({ h: `${L.mBrand(r.brand)} · ${L.mProd(r.prod)}`, rows: MT_COLS.map(([k, l]) => ({ v: fmt.n(r[k]), l: l.toLowerCase() })) }) })), { unit: 'cliques' }),
-    table: () => ({ caption: 'Montra no período', initial: { k: 'shop', dir: 'descending' }, cols: [{ l: 'Marca', get: (r) => L.mBrand(r.brand) }, { l: 'Produto', get: (r) => L.mProd(r.prod) },
-      ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))], rows: totals }),
-  }), 12));
-  // month × brand × product, with a total per brand in each month
-  const rows = [];
-  for (const mo of months) {
-    for (const r of mo.rows) rows.push({ ...r, month: mo.month });
-    for (const b of mtBrands(mo.rows)) rows.push({ ...b, month: mo.month, prod: '', _cls: 'ga-subtotal' });
+  if (!totals.length) g.append(span(figure({ title: 'Por marca e por mês', empty: 'Sem cartões vistos nem cliques neste período.' }), 12));
+  else {
+    // the period, per product: the shop taps, the one number brands ask for first
+    const byShop = totals.slice().sort((a, b) => b.shop - a.shop || b.view - a.view || (a.prod < b.prod ? -1 : 1));
+    const pname = (r) => `${L.mProd(r.prod)} · ${L.mBrand(r.brand)}`;
+    g.append(span(figure({
+      title: 'Cliques na loja, por produto', note: 'No período escolhido, todos os aparelhos. Ao lado, os cartões vistos; os códigos copiados estão na tabela.',
+      draw: hbars(byShop.map((r) => ({ label: `${L.mBrand(r.brand)} · ${L.mProd(r.prod)}`, v: r.shop, text: `${plural(r.shop, 'clique', 'cliques')} · ${fmt.n(r.view)} vistos`,
+        tip: () => ({ h: `${L.mBrand(r.brand)} · ${L.mProd(r.prod)}`, rows: MT_COLS.map(([k, l]) => ({ v: fmt.n(r[k]), l: l.toLowerCase() })) }) })), { unit: 'cliques' }),
+      table: () => ({ caption: 'Montra no período', initial: { k: 'shop', dir: 'descending' }, cols: [{ l: 'Produto · marca', get: pname },
+        ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))], rows: totals }),
+    }), 12));
+    // per month: a heading, then each brand's total and its products under it (no month column: on a phone the three
+    // numbers stay in view)
+    const tc = card('Por marca e por mês', 'Em cada mês, o total de cada marca e, por baixo, os produtos dela. Os meses seguem o período escolhido.');
+    span(tc, 12);
+    for (const mo of months) {
+      H('h3', 'ga-mt-month', L.month(mo.month), tc);
+      const rows = [];
+      for (const b of mtBrands(mo.rows)) {
+        rows.push({ ...b, prod: '', _cls: 'ga-subtotal' });
+        for (const r of mo.rows.filter((x) => x.brand === b.brand)) rows.push({ ...r, _cls: 'lvl1' });
+      }
+      tc.append(table({ caption: `Montra em ${L.month(mo.month)}`, sort: false, rows,
+        cols: [{ l: 'Marca e produto', get: (r) => (r.prod ? L.mProd(r.prod) : `${L.mBrand(r.brand)} (total)`) },
+          ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))] }));
+    }
+    g.append(tc);
   }
-  const tc = card('Por marca e por mês', 'Uma linha por produto e, em cada mês, o total da marca. Os meses seguem o período escolhido.');
-  span(tc, 12);
-  tc.append(table({ caption: 'Montra por marca e por mês', sort: false, rows,
-    cols: [{ l: 'Mês', get: (r) => L.month(r.month) }, { l: 'Marca', get: (r) => L.mBrand(r.brand) }, { l: 'Produto', get: (r) => (r.prod ? L.mProd(r.prod) : 'Total da marca') },
-      ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))] }));
-  g.append(tc);
+  // rows whose ids are not a product of that brand in data/montra.json
+  if (stray.length) {
+    const uc = card('Não reconhecido', 'Identificadores que não estão em data/montra.json, ou um produto com a marca errada: um produto apagado do ficheiro, ou cliques forjados. Não entram nos totais nem no CSV de uma marca.');
+    span(uc, 12);
+    uc.append(table({ caption: 'Montra: não reconhecido', sort: false, rows: stray,
+      cols: [{ l: 'Marca · produto (ids)', get: (r) => `${r.brand} · ${r.prod}` }, ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))] }));
+    g.append(uc);
+  }
 }
 // one button per calendar month with showcase data in the last 13 months (a second read, whole days, cached by the
 // Worker until the next nightly rollup)

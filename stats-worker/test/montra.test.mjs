@@ -3,7 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { start, api, dump, visit, ev, click, PLACE, lisbonISO, lisbonToday, addDays } from './helpers.mjs';
-import { EVENTS, ZONES, ANCHORS, ERROR_FILES, slug } from '../src/schema.js';
+import { EVENTS, ZONES, ANCHORS, ERROR_FILES, slug, prodOfBrand } from '../src/schema.js';
 import { eventsOf } from '../src/derive.js';
 import { montraOf } from '../src/query.js';
 
@@ -43,7 +43,9 @@ before(async () => {
     snap: { eng: 3, rz: ['top'] },
     events: [ev(1, 'montra_shop', { brand: 'Marca-A', prod: 'marca-a-gel' }), ev(2, 'montra_shop', { brand: 'marca-a', prod: 'gel-2027' }),
       ev(3, 'montra_shop', { brand: 'marca-a', prod: `a${'b'.repeat(40)}` }), ev(4, 'montra_shop', { brand: 'marca-a' }),
-      ev(5, 'montra_code', { brand: 'marca-a', prod: 'CARMO10' }), ev(6, 'montra_view', { prod: 'marca-a-gel' })] });
+      ev(5, 'montra_code', { brand: 'marca-a', prod: 'CARMO10' }), ev(6, 'montra_view', { prod: 'marca-a-gel' }),
+      // a forged pair: one brand with another brand's product, and a product of no brand prefix
+      ev(7, 'montra_shop', { brand: 'marca-a', prod: 'marca-b-meias' }), ev(8, 'montra_view', { brand: 'marca-a', prod: 'inventado' })] });
 });
 after(async () => { await mf?.dispose(); });
 
@@ -62,12 +64,18 @@ test('schema: the zone, the anchor, the slugs and the three events', () => {
     assert.deepEqual(EVENTS[n].need, ['brand', 'prod'], n);
   }
   assert.deepEqual([EVENTS.montra_view.cap, EVENTS.montra_view.per, EVENTS.montra_shop.cap, EVENTS.montra_code.cap], [1, 'prod', 10, 10]);
+  for (const n of ['montra_view', 'montra_shop', 'montra_code']) assert.equal(EVENTS[n].rel, prodOfBrand, n);
+  assert.equal(prodOfBrand({ brand: 'marca-a', prod: 'marca-a-gel' }), true);
+  for (const p of [{ brand: 'marca-a', prod: 'marca-b-meias' }, { brand: 'marca-a', prod: 'marca-a' }, { brand: 'marca', prod: 'marcas-gel' }, { brand: 'marca-a' }, {}]) {
+    assert.equal(prodOfBrand(p), false, JSON.stringify(p));
+  }
 });
 
 test('derive: one view per product and page view, events without both ids dropped', () => {
   const batch = (e) => [{ f: 2, e: JSON.stringify(e) }];
   const { events } = eventsOf(batch([ev(1, 'montra_view', G), ev(2, 'montra_view', G), ev(3, 'montra_view', B),
     ev(4, 'montra_view', { brand: 'marca-a' }), ev(5, 'montra_shop', { prod: 'marca-a-gel' }), ev(6, 'montra_code', {}),
+    ev(7, 'montra_view', { brand: 'marca-b', prod: 'marca-a-gel' }), ev(8, 'montra_code', { brand: 'marca-a', prod: 'marca-b-meias' }),
     ...Array.from({ length: 12 }, (_, i) => ev(10 + i, 'montra_shop', G))]));
   assert.deepEqual(events.filter((e) => e.n === 'montra_view').map((e) => e.p.prod), ['marca-a-gel', 'marca-a-garrafa']);
   assert.equal(events.filter((e) => e.n === 'montra_shop').length, 10, 'at most 10 shop taps per page view');
@@ -77,7 +85,8 @@ test('derive: one view per product and page view, events without both ids droppe
 test('stored as `ev`, the zone `material`, the landing hash and the sponsor link out', async () => {
   const d = await dump(mf, ['montra_', 'material']);
   const text = JSON.stringify(d);
-  assert.doesNotMatch(text, /Marca-A|gel-2027|CARMO10|bbbbbbbbbb/, 'refused ids never stored');
+  assert.doesNotMatch(text, /Marca-A|gel-2027|CARMO10|bbbbbbbbbb|inventado/, 'refused ids never stored');
+  assert.doesNotMatch(text, /brand=marca-a&prod=marca-b/, 'a product of another brand is never stored with it');
   const c = await get(`contacts?${range(D1, D1)}`);
   const out = JSON.stringify(c);
   assert.match(out, /loja\.marca-a\.pt/, 'a shop tap is a sponsor link out, with its host');
@@ -138,7 +147,7 @@ test('CSV montra: header, a row per month and product, the brand totals', async 
   assert.equal(r.status, 200, r.text);
   assert.equal(r.headers.get('content-disposition'), `attachment; filename="gocarmo-montra-${D0}-${D1}.csv"`);
   const lines = r.text.replace(/^﻿/, '').trim().split('\r\n');
-  assert.equal(lines[0], 'mês;marca;produto;cartão visto;cliques na loja;códigos copiados');
+  assert.equal(lines[0], 'mês;marca;produto;cartões vistos;cliques na loja;códigos copiados');
   const mo0 = D0.slice(0, 7), mo1 = D1.slice(0, 7);
   assert.deepEqual(lines.slice(1), [
     `${mo0};marca-a;marca-a-garrafa;1;0;0`,
@@ -153,6 +162,34 @@ test('CSV montra: header, a row per month and product, the brand totals', async 
   ]);
   const h = await api(mf, `export.csv?t=montra&${range(D1, TODAY)}`, { now: NOW });
   assert.equal(h.status, 400); assert.deepEqual(h.json, { error: 'periodo' });
+});
+
+test('CSV montra for one brand (b=): only its rows, its name in the file, nothing of another brand', async () => {
+  const r = await api(mf, `export.csv?t=montra&b=marca-b&${range(D0, D1)}`, { now: NOW });
+  assert.equal(r.status, 200, r.text);
+  assert.equal(r.headers.get('content-disposition'), `attachment; filename="gocarmo-montra-marca-b-${D0}-${D1}.csv"`);
+  const lines = r.text.replace(/^﻿/, '').trim().split('\r\n');
+  const mo1 = D1.slice(0, 7);
+  assert.deepEqual(lines, [
+    'mês;marca;produto;cartões vistos;cliques na loja;códigos copiados',
+    `${mo1};marca-b;marca-b-meias;2;1;2`,
+    `${mo1};marca-b;total da marca;2;1;2`,
+    `${D0} a ${D1};marca-b;total do período;2;1;2`,
+  ]);
+  assert.doesNotMatch(r.text, /marca-a/, 'no other brand id in the file');
+  const a = await api(mf, `export.csv?t=montra&b=marca-a&${range(D0, D1)}`, { now: NOW });
+  assert.equal(a.status, 200, a.text);
+  assert.doesNotMatch(a.text, /marca-b/);
+  assert.match(a.text, /marca-a-gel;1;2;0/);
+  // a brand with no rows: the header only
+  const z = await api(mf, `export.csv?t=montra&b=marca-z&${range(D0, D1)}`, { now: NOW });
+  assert.equal(z.status, 200, z.text);
+  assert.deepEqual(z.text.replace(/^﻿/, '').trim().split('\r\n'), ['mês;marca;produto;cartões vistos;cliques na loja;códigos copiados']);
+  // b must be a brand slug, and only with t=montra
+  for (const q of ['t=montra&b=Marca-B', 't=montra&b=marca%20b', 't=montra&b=', 't=dias&b=marca-a']) {
+    const x = await api(mf, `export.csv?${q}&${range(D0, D1)}`, { now: NOW });
+    assert.equal(x.status, 400, q); assert.deepEqual(x.json, { error: 'filtro' }, q);
+  }
 });
 
 test('montraOf: ids from the key, view = page views, shop and code = taps', () => {

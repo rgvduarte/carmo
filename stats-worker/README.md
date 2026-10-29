@@ -32,7 +32,9 @@ Conta as visitas do gocarmo.com com uma ferramenta nossa, sem cookies e sem sabe
 - **A montra «O meu material»** (`#material`, só quando há um produto ativo de um parceiro): os cartões de produto que
   ficam pelo menos meio visíveis durante 1 segundo (uma vez por produto em cada visualização), os toques em «Ver na loja»
   e no botão que copia o código de desconto, por marca e por produto (os identificadores públicos de
-  `data/montra.json`, nunca o código, o endereço da loja nem as etiquetas utm). As marcas recebem só totais por mês.
+  `data/montra.json`, nunca o código, o endereço completo da loja (só o domínio, como nas outras ligações para fora) nem
+  as etiquetas utm). Um evento da montra cujo produto não é da marca que nomeia (o id do produto começa pelo da marca,
+  `marca-gel`) não conta. As marcas recebem só totais por mês, cada uma só os dela (`export.csv?t=montra&b=<marca>`).
 - **30 dias** de registos por visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Respeita o **Global Privacy Control** e o **Do Not Track** do navegador (nesses casos não envia nada) e o botão «Não
   contar as minhas visitas» da página de privacidade.
@@ -86,9 +88,11 @@ carregas em «Sair».
 
 **Montra**: o separador com os cartões vistos, os cliques na loja e os códigos copiados de cada marca e produto, por
 mês, para os relatórios das marcas. Os botões dos meses põem o período nesse mês inteiro (até ontem, no mês em curso) e
-«Exportar CSV» descarrega a tabela `montra` (mês; marca; produto; cartão visto; cliques na loja; códigos copiados, com
-o total de cada marca por mês e no período). A cada marca envia-se só as linhas dela. Os nomes vêm de
-`data/montra.json`; uma marca ou um produto que já saiu do ficheiro aparece pelo identificador.
+«Exportar CSV de <marca>» (escolhe a marca) faz, no browser, o ficheiro dessa marca: só as linhas dela, com os nomes
+de `data/montra.json` (mês; marca; produto; cartões vistos; cliques na loja; códigos copiados; ids; o total da marca
+por mês e no período). É esse que se envia à marca. «Todas as marcas (só para ti)» leva todas, com a coluna «na
+montra». Só contam as linhas de um produto que está no ficheiro com essa marca; as outras aparecem à parte, em «Não
+reconhecido». A API também filtra: `export.csv?t=montra&b=<marca>`.
 
 **Este aparelho**: ao entrar, o teu navegador fica marcado como interno e as tuas visitas não contam (aparecem só com
 «Mostrar visitas internas»). Em janelas privadas ou noutros navegadores, entra no painel uma vez para os marcar também.
@@ -173,11 +177,11 @@ caber nas regras de «O que conta e o que nunca guarda»: entra primeiro na list
 | `GET /health` | `{ ok, v, schema, store, eu, salt, admin, limits, dev }`, só verdadeiro ou falso |
 | `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `montra` · `quality` · `feedback` · `system` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap`. Um período com o dia de hoje (`24h`, ou `custom` até hoje) só no `overview` (só totais) e no `system`: os outros respondem `400 periodo` |
 | `POST /admin/v1/notes`, `DELETE /admin/v1/notes/<id>` | (admin) anotações no gráfico das visitas |
-| `GET /admin/v1/export.csv?t=<tabela>` | (admin) CSV para o Excel (dias completos só; `t=montra` para os relatórios das marcas) |
+| `GET /admin/v1/export.csv?t=<tabela>` | (admin) CSV para o Excel (dias completos só; `t=montra` para os relatórios das marcas, com `b=<marca>` só as linhas dessa marca e dos produtos dela, e o nome do ficheiro com a marca) |
 
 A montra (mudança de privacidade, SPEC atualizada): a zona `material` (âncora `#material`), três eventos com os
 parâmetros `brand` e `prod` (identificadores de `data/montra.json`: minúsculas, hífenes, até 40 caracteres, nunca 4
-algarismos seguidos; um evento sem os dois não conta): `montra_view` (1 por produto e visualização), `montra_shop` e
+algarismos seguidos; um evento sem os dois, ou com um produto cujo id não começa pelo da marca, não conta): `montra_view` (1 por produto e visualização), `montra_shop` e
 `montra_code` (até 10). Guardam-se na métrica `ev`, como os outros eventos (sem tabela nova nem mudança de esquema). O
 clique em «Ver na loja» conta também como ligação para fora de um patrocinador (`osp`), na zona `material`.
 `GET /admin/v1/montra` responde `{ pv, zone: { reach, secs, r }, months: [{ month, rows: [{ brand, prod, view, shop,

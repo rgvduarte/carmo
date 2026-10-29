@@ -473,7 +473,7 @@ como em qualquer pedido. Oficial e Apoio renovam à tabela de 2028. Quem renova 
 A mensagem, o comprovativo e a confirmação (PDF) dizem o preço (no Principal e no fato completo) e o prazo do
 pagamento (todos os níveis). A página Patrocínios lembra cada passo.
 
-**Outubro, sem triatlos.** O último triatlo do calendário de 2027 é até 30 de setembro (`racesUntil`). Os pedidos
+**Outubro, sem triatlos.** O calendário de triatlos de 2027 acaba em setembro (`racesUntil`, 30 de setembro). Os pedidos
 continuam abertos até 31 de outubro, mas de 1 a 31 de outubro o passo 1 do pedido, a mensagem e o comprovativo dizem
 que já não há triatlos com o fato (ou o capacete) em 2027 e que, até 31 de dezembro, o espaço vale pelo site, pelas
 publicações, pelo fato nos treinos (num espaço do fato) e pela preferência em 2028 e, a partir do Principal, também
@@ -508,7 +508,10 @@ aceita pedidos (a época 2027 fechou a 31 de outubro de 2027).
 **Onde.** `gocarmo.com/admin/patrocinios/` (link «Patrocínios» no fim de `/admin/`, das estatísticas e do Strava).
 Só em português, feita para o telemóvel. Usa a mesma chave dos Pedidos (a `ADMIN_KEY`): vindo de `/admin/` no mesmo
 separador já está lá; senão, a página pede-a, e as Palavras-passe do iPhone preenchem-na. Para ver e gerir os
-patrocínios não precisa do token do GitHub; só a montra o pede, ao guardar (ver «Montra «O meu material»»).
+patrocínios não precisa do token do GitHub; só a montra o pede, ao publicar (ver «Montra «O meu material»»).
+«Esquecer a chave e o token», no fim da página, apaga a chave dos pedidos e também o token do GitHub que a montra
+tenha guardado neste browser (com «Lembrar neste telemóvel», ficava guardado até aqui); usa-o num telemóvel que não é
+teu.
 
 **O registo de cada patrocínio.** Fica no Worker dos pedidos (Cloudflare), nunca num ficheiro público. Nasce quando
 confirmas um pedido pago em **Pedidos** (com a data e o montante) ou à mão, em **Novo patrocínio**, para um acordo
@@ -602,18 +605,21 @@ Gonçalo usa.
    Uma marca que patrocina com produto: regista-a primeiro em **Novo patrocínio** (pagamento «Em produto»); na
    montra, liga **Fornecedor oficial**, com o dia do acordo e o número de produtos do acordo.
 2. **Adicionar produto**: o nome (PT, e EN se for diferente), a fotografia, «Como o uso» em PT e em EN (até 140
-   caracteres), o link da loja (só https; os `utm_*` que tiver saem, e por baixo aparece o link como vai ficar), o
-   código de desconto e a nota dele (opcionais; com código, a nota é obrigatória), «Em destaque» (só no fato
-   completo), o início (por defeito, o dia do pagamento ou do acordo) e o fim (vazio = até ao fim da época).
+   caracteres), o link da loja (só https e um domínio, nunca um endereço IP; os `utm_*` que tiver saem, e por baixo
+   aparece o link como vai ficar), o código de desconto e a nota dele (opcionais; com código, a nota é obrigatória),
+   «Em destaque» (só no fato completo, e um só produto: marcar outro tira o destaque ao anterior), o início (por
+   defeito, o dia do pagamento ou do acordo) e o fim (vazio = até ao fim da época). **Pôr na lista** junta-o à lista
+   da marca; ainda não está no site.
 3. A fotografia: escolhe-a nas Fotografias do iPhone. O browser endireita-a, põe-na a 4:5 («Mostrar inteira», no
    fundo cor de papel, ou «Encher») e grava WebP de 600 e 1200 px e JPEG de 600 px, sem metadados (nem localização,
    nem data, nem aparelho). O Safari do iPhone não grava WebP: aí fica só JPEG, de 600 e 1200 px, e o site mostra-o
-   na mesma. Precisa de pelo menos 600 px no lado menor. Para fotografar: fundo liso e luz de janela, sem logótipos
-   de outras marcas.
-4. **Guardar**. Na primeira vez pede o token do GitHub (o mesmo de `/admin/`, com as mesmas regras e «Lembrar neste
+   na mesma. Precisa de pelo menos 600 px no lado menor e de menos de 60 megapíxeis. Para fotografar: fundo liso e
+   luz de janela, sem logótipos de outras marcas.
+4. **Publicar na montra**. Na primeira vez pede o token do GitHub (o mesmo de `/admin/`, com as mesmas regras e «Lembrar neste
    telemóvel»; ver «Página de admin»). Faz um commit de `data/montra.json` e das fotografias em `assets/img/montra/`
-   («Montra: Marca, produto «…» (admin)»). Antes, recusa nomes de exemplo, links http ou para gocarmo.com, mais
-   produtos do que o nível deixa, um código sem nota, datas fora da época e espaços que não estão vendidos a essa
+   («Montra: Marca, produto «…» (admin)»). Antes, recusa nomes de exemplo (exemplo, amostra, sample, teste, demo,
+   fake, genérico, «Marca X»…), links http, para gocarmo.com ou para um endereço IP, mais produtos do que o nível
+   deixa, mais de um em destaque, um código sem nota, datas fora da época e espaços que não estão vendidos a essa
    marca. Se a montra dessa marca mudou entretanto (noutro telemóvel), para e pede para rever; uma falha de rede
    depois do commit nunca grava duas vezes.
 5. Depois mostra «A publicar…» e, quando o GitHub Pages publicar (1 a 2 minutos), «No ar», com «Ver no site» e os
@@ -623,8 +629,21 @@ Gonçalo usa.
 para os relatórios, e deixa de contar para o limite. **Apagar** só existe para um produto que ainda não apareceu.
 
 **Quando aparece.** Do dia do início (o do pagamento ou do acordo) até ao fim, ou até 31 de dezembro da época da
-marca, o que vier primeiro; depois sai sozinho, sem commit (a página lê as datas). Ordem: o fato completo primeiro,
-depois Principal, Oficial e fornecedores oficiais.
+marca, o que vier primeiro; depois sai sozinho, sem commit (a página lê as datas). Ordem: o fato completo primeiro
+(o produto em destaque à frente), depois Principal, Oficial e fornecedores oficiais. A página lê também
+`data/spots.json`: uma marca de Oficial, Principal ou fato completo só aparece enquanto os espaços dela lhe estão
+vendidos lá (com menos espaços, só os produtos que o nível novo deixa, pela ordem da lista).
+
+**Quando um patrocínio acaba antes do fim da época** (espaço libertado, patrocínio cancelado ou retirado por
+conduta). Os cartões dessa marca saem do site logo que o espaço fica livre em `/admin/` (a página deixa de os mostrar).
+Para os tirar também do ficheiro (o contador e os relatórios ficam certos):
+1. Ao libertar os espaços em `/admin/`, a página pergunta «Retirar os N produtos de Marca da montra?». **Retirar** faz
+   um commit que os retira (fim ontem; um que ainda não apareceu sai do ficheiro).
+2. Em Patrocínios, ao apagar o registo de uma marca com produtos no ar, a mesma pergunta abre a montra dela com os
+   produtos já retirados na lista: carrega em **Publicar na montra**.
+3. Se ficou por fazer, o cartão da marca mostra a vermelho «Montra: N de M, retira K»; em **Montra**, «Retirar os K
+   produtos a mais» retira os últimos da lista. Depois, **Publicar na montra**.
+Os produtos retirados ficam no ficheiro, escondidos, para os relatórios dos cliques desse período.
 
 **O ficheiro.** `data/montra.json`, publicado vazio: `{ "v": 1, "brands": [] }`. Cada marca tem `id`, `name`,
 `season`, `level` (`oficial`, `principal`, `title` ou `fornecedor-oficial`; nunca `fornecedor`, que é o nível Apoio),
@@ -639,9 +658,14 @@ cópia local do site.
 **Os cliques e o relatório.** As estatísticas do site contam, por marca e por produto, os cartões vistos (meio cartão
 no ecrã durante 1 segundo, uma vez por visualização), os toques no link da loja e os códigos copiados (eventos
 `montra_view`, `montra_shop` e `montra_code`), sem cookies e sem nada de quem clica. Para o relatório da marca:
-**Estatísticas → Montra** → o botão do mês → **Exportar CSV** (`mês; marca; produto; cartão visto; cliques na loja;
-códigos copiados`). Cada marca recebe só os totais dela: por mês a partir do Principal; a meio e no fim da época no
-Oficial. As vendas vê-as a marca, na loja, pela etiqueta `utm_content` ou pelo código.
+**Estatísticas → Montra** → o botão do mês → escolhe a **Marca** → **Exportar CSV de Marca** (o ficheiro
+`gocarmo-montra-<marca>-<mês>.csv` leva só as linhas dessa marca, com os nomes: `mês; marca; produto; cartões vistos;
+cliques na loja; códigos copiados; id da marca; id do produto`, o total da marca por mês e o do período). É esse o
+ficheiro que se envia à marca. «Todas as marcas (só para ti)» leva todas, com a coluna «na montra» (sim/não), e nunca
+se envia a uma marca. Só contam as linhas de um produto que está em `data/montra.json` com essa marca; as outras (um
+produto apagado do ficheiro, ou cliques forjados) aparecem à parte, em «Não reconhecido», fora dos totais e dos CSV das
+marcas. Cada marca recebe só os totais dela: por mês a partir do Principal; a meio e no fim da época no Oficial. As
+vendas vê-as a marca, na loja, pela etiqueta `utm_content` ou pelo código.
 
 ## GoFundMe
 
@@ -846,7 +870,7 @@ abaixo). Enquanto `SITE.stats.url` estiver vazio, o site não mede nada e o pain
 | Estúdio 3D | do estúdio ao pacote (chegaram perto, viram, o 3D abriu, mexeram, escolheram, juntaram), gestos, toques falhados, espera pelo 3D, visita guiada, interesse por espaço (com o preço) |
 | Reservas | o funil do pedido (viu o patrocínio → escolheu → juntou → abriu → enviou → copiou o pagamento → «Feito»), onde desistem, canal do pedido, forma de pagamento, pacotes, fato completo, experimentar o logótipo, partilhas |
 | Contactos | ligações para fora (WhatsApp, email, Instagram, Strava, GoFundMe…) e em que secção estavam, Apoiar, media kit |
-| Montra | os cartões vistos, os cliques na loja e os códigos copiados, por marca, produto e mês, com um botão por mês (para o relatório mensal de cada marca) e «Exportar CSV»; vazio enquanto a montra não tiver produtos |
+| Montra | os cliques na loja, os cartões vistos e os códigos copiados, por marca, produto e mês, com um botão por mês e o CSV de uma marca (para o relatório mensal dela); à parte, o que não é de um produto do ficheiro; vazio enquanto a montra não tiver produtos |
 | Qualidade | velocidade (LCP, INP, CLS…), o que atrasa, arranque e falhas do 3D, ficheiros que não carregaram, erros de JavaScript |
 | Opinião | a pergunta rápida «Percebeste como funciona o patrocínio?» (Sim/Não e o que não ficou claro), por língua, largura e secção |
 | Dados | limites gratuitos do Cloudflare, pedidos recusados, resumos diários, anotações no gráfico (uma publicação, uma prova), CSV para o Excel |
@@ -1038,8 +1062,11 @@ O script verifica também a época: o bloco `seasonRules` de `data/spots.json` (
 condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `msg.terms`), as datas da época escritas em
 cada língua de `/condicoes/` (também `racesUntil` e `renewPayBy`) e a tabela do desconto de época dessa página, mês a
 mês, contra `season-rules.js`; que só os cartões dos níveis com o preço de 2027 na renovação (Principal e fato
-completo) o dizem e que só «Todos os espaços» fala da preferência; que `data/montra.json` está certo (`checkMontra`:
-forma, ids, links https, nenhuma marca ou produto de exemplo, limites por nível, espaços vendidos à marca) e que as
+completo) o dizem, com estas palavras: «O preço da tabela de 2027 em 2028, se renovares até 31 de outubro de 2027» (a
+tabela, não o que pagou quem entrou a meio da época), e que só «Todos os espaços» fala da preferência; que
+`data/montra.json` está certo (`checkMontra`: forma, ids de produto que começam pelo da marca, links https para um
+domínio, nenhuma marca, produto, nota ou loja de exemplo, um só produto em destaque, limites por nível, espaços
+vendidos à marca, nenhuma marca de espaços de outra época com produtos por mostrar) e que as
 fotografias que ele nomeia existem; que os números de produtos por nível em `/condicoes/` são os de `LIMIT`; e que
 `index.html` não tem nada da montra escrito (a secção é só JavaScript). Se algo não bater, para (também com
 `--check`) e diz o quê.

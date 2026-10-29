@@ -3,8 +3,8 @@
 // the commit message. Pure: no DOM, no fetch, no storage and no clock (every function takes the Lisbon day), so Node
 // tests it. The file's own rules (shape, windows, limits, checks before publishing) are montra-core.js; the levels of the
 // spots are season-rules.js levelOf.
-import { LIMIT, LEVELS, SUPPLIER, MAX_SUPPLIER, IMG_DIR, PLACEHOLDER, idOk, fold, counts, isActive, productEnd, photoFiles, checkMontra } from './montra-core.js';
-import { TITLE, levelOf } from './season-rules.js';
+import { LIMIT, LEVELS, SUPPLIER, MAX_SUPPLIER, IMG_DIR, PLACEHOLDER, idOk, fold, counts, isActive, productEnd, photoFiles, checkMontra, spotsHeld } from './montra-core.js';
+import { TITLE, levelOf, addDays } from './season-rules.js';
 
 export { LIMIT, SUPPLIER, MAX_SUPPLIER, IMG_DIR };
 // a level's rank (the highest wins when a brand has several contracts): the whole suit, Principal, Oficial, Apoio
@@ -58,18 +58,51 @@ export function findBrand(file, { id = '', name = '', season = '' } = {}) {
   const bs = Array.isArray(file?.brands) ? file.brands : [];
   return bs.find((b) => b && id && b.id === id) || bs.find((b) => b && sameBrand(b.name, name) && String(b.season) === String(season)) || null;
 }
-// the card's line: { n, max, text, can: 'products' | 'supplier' | 'none' }
+// the products a brand of a level from spots may still have, from data/spots.json: what the spots it still holds there
+// give (none held: 0); null when that file is about another season (it cannot tell)
+export function spotsAllow(entry, spotsData) {
+  if (!entry || entry.level === SUPPLIER || !spotsData || String(spotsData.season) !== String(entry.season)) return null;
+  const held = spotsHeld(entry, spotsData);
+  if (!held.length) return 0;
+  let lv = '';
+  try { lv = levelOf(spotsData, held); } catch (_) { lv = ''; }
+  return LIMIT[lv] ?? 0;
+}
+// the card's line: { n, max, over, text, can: 'products' | 'supplier', entry, level }. over > 0: the brand has more
+// products counting than its contracts and its spots allow now (a spot freed in /admin/, a contract deleted, a lower
+// level): the line says how many to retire, and the sheet offers it.
 export function cardLine({ contracts, spotsData, file, season, name, day }) {
   const entry = findBrand(file, { name, season }), lv = levelFor(contracts, spotsData, season, name);
   const n = countFor(entry, day);
+  const out = (max, level, can, text) => {
+    const over = Math.max(0, n - max);
+    return { n, max, over, level, entry, can, text: over ? `Montra: ${n} de ${max}, retira ${over}` : text };
+  };
   if (entry && entry.level === SUPPLIER) {
     const max = limitOf(contracts, spotsData, entry);
-    return { n, max, level: SUPPLIER, entry, can: 'products', text: `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'} · fornecedor oficial` };
+    return out(max, SUPPLIER, 'products', `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'} · fornecedor oficial`);
   }
-  const max = LIMIT[lv] ?? 0;
-  if (max > 0) return { n, max, level: lv, entry, can: 'products', text: `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'}` };
-  if (lv === 'fornecedor') return { n, max: 0, level: lv, entry, can: 'supplier', text: 'Montra: não incluída no nível Apoio' };
-  return { n, max: 0, level: lv, entry, can: 'supplier', text: 'Montra: só como fornecedor oficial' };
+  let max = LIMIT[lv] ?? 0;
+  const bySpots = spotsAllow(entry, spotsData);
+  if (bySpots !== null) max = Math.min(max, bySpots);
+  if (max > 0) return out(max, lv, 'products', `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'}`);
+  if (lv === 'fornecedor') return out(0, lv, 'supplier', 'Montra: não incluída no nível Apoio');
+  return out(0, lv, 'supplier', 'Montra: só como fornecedor oficial');
+}
+// the entry with its products past the first `keep` that count retired on Lisbon day `day`: one whose first day is today
+// or later leaves the file (its photo with it, deletesFor), one already on the site ends yesterday, so it is off the
+// site and out of the count at once. -> { entry, names: [the products retired, PT] }
+export function retireOver(entry, day, keep = 0) {
+  if (!entry || !Array.isArray(entry.products)) return { entry, names: [] };
+  const y = addDays(day, -1), names = [], products = [];
+  let n = 0;
+  for (const p of entry.products) {
+    if (!p || !counts(entry, p, day) || n++ < keep) { products.push(p); continue; }
+    names.push(p.name && p.name.pt ? p.name.pt : p.id);
+    if (p.from >= day) continue;
+    products.push({ ...p, until: y });
+  }
+  return { entry: { ...entry, products }, names };
 }
 
 // ---------- ids ----------

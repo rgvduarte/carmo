@@ -992,8 +992,11 @@ section { position: relative; }
 
 /* ---------- the showcase «O meu material» (montra.js; on the page only while a partner has a product on the site) ----------
    Advertising, and it reads as such: the eyebrow «Publicidade» and a full-size line above the cards say it before any
-   card. One column on phones, two from 641 px, three from 1081 px; the title partner's featured card takes two columns
-   with its photo on the left. The section arrives after the page has booted, so no .rv reveal: a plain fade. */
+   card. On phones a list: each card a 96 px photo beside its text (the featured card keeps the full photo), so six
+   products stay a couple of screens. Two columns from 641 px, the featured card a row across both with its 4:5 photo on
+   the left; three from 1081 px, the featured card two columns by two rows, so 1 + 2 and 1 + 5 fill whole rows. The
+   section arrives after the page has booted, so no .rv reveal: a plain fade. The heading comes first in the DOM (a
+   reader jumping by heading meets the product); the brand tag is shown above it with `order`. */
 .mt { animation: mtIn .6s var(--ease) both; }
 @keyframes mtIn { from { opacity: 0; } }
 .mt-lead { margin-top: clamp(20px, 2.4vw, 32px); color: var(--muted-dark); }
@@ -1004,7 +1007,7 @@ section { position: relative; }
 .mt-img picture, .mt-img img { display: block; width: 100%; height: 100%; }
 .mt-img img { object-fit: cover; }
 .mt-body { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: clamp(18px, 2vw, 26px); min-width: 0; }
-.mt-tag { margin: 0; font: 500 12px/1.35 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-dark); overflow-wrap: anywhere; }
+.mt-tag { order: -1; margin: 0; font: 500 12px/1.35 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-dark); overflow-wrap: anywhere; }
 .mt-brand { color: var(--ink-dark); }
 .mt-name { margin: 0; font: 650 20px/1.25 var(--sans); letter-spacing: -0.01em; overflow-wrap: anywhere; text-wrap: balance; }
 .mt-line { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-dark); overflow-wrap: anywhere; text-wrap: pretty; }
@@ -1012,6 +1015,9 @@ section { position: relative; }
 .mt-code-k { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-dark); }
 .mt-cp { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 14px; border: 1px dashed var(--ink-dark); border-radius: 10px; background: var(--paper); color: var(--ink-dark); font: 600 15px/1 var(--mono); letter-spacing: .04em; transition: background .2s; }
 .mt-cp:hover { background: var(--paper-2); }
+.mt-cp .mono { -webkit-user-select: text; user-select: text; }
+/* the code when copying failed: a field the visitor can select */
+.mt-code-sel { flex-basis: 100%; max-width: 16em; min-height: 40px; padding: 0 10px; border: 1px solid var(--line-dark); border-radius: 8px; background: #fff; color: var(--ink-dark); font: 600 15px/1 var(--mono); letter-spacing: .04em; -webkit-user-select: text; user-select: text; }
 .mt-cp-i { display: grid; }
 .mt-cp svg { width: 18px; height: 18px; grid-area: 1 / 1; transition: opacity .2s, transform .3s var(--ease); }
 .mt-cp .i-ok { opacity: 0; transform: scale(.6); color: var(--gold-ink); }
@@ -1022,17 +1028,30 @@ section { position: relative; }
 .mt-shop { margin-top: auto; min-height: 44px; }
 .mt-foot { margin: 28px 0 0; font-size: 14px; color: var(--muted-dark); }
 .mt-foot a { color: var(--ink-dark); }
+@media (max-width: 640px) {
+  .mt-grid { gap: 12px; }
+  .mt-card:not(.is-featured) { flex-direction: row; align-items: flex-start; }
+  .mt-card:not(.is-featured) .mt-img { flex: 0 0 96px; width: 96px; margin: 14px 0 14px 14px; border-radius: 8px; }
+  .mt-card:not(.is-featured) .mt-body { padding: 14px 14px 16px; gap: 8px; }
+  .mt-card:not(.is-featured) .mt-name { font-size: 18px; }
+  .mt-card:not(.is-featured) .mt-line { font-size: 15px; }
+}
 @media (min-width: 641px) {
   .mt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
-  .mt-card.is-featured { grid-column: span 2; flex-direction: row; }
-  .mt-card.is-featured .mt-img { flex: 0 0 50%; }
-  .mt-card.is-featured .mt-body { justify-content: center; padding: clamp(22px, 3vw, 44px); }
+  .mt-card.is-featured { grid-column: span 2; flex-direction: row; align-items: center; }
+  /* the photo stays 4:5 (as it was made) however tall the text beside it is */
+  .mt-card.is-featured .mt-img { flex: 0 0 50%; align-self: center; height: auto; aspect-ratio: 4 / 5; }
+  .mt-card.is-featured .mt-body { align-self: stretch; justify-content: center; padding: clamp(22px, 3vw, 44px); }
   .mt-card.is-featured .mt-name { font-size: clamp(22px, 2.2vw, 30px); }
   .mt-card.is-featured .mt-line { font-size: 17px; }
   .mt-card.is-featured .mt-shop { margin-top: 8px; }
 }
 @media (min-width: 1081px) {
   .mt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* two columns by two rows: the next two cards stack in the third column */
+  .mt-card.is-featured { grid-row: span 2; flex-direction: column; align-items: stretch; }
+  .mt-card.is-featured .mt-img { flex: none; width: 100%; align-self: stretch; }
+  .mt-card.is-featured .mt-body { justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { .mt { animation: none; } .mt-cp svg { transition: none; } }
 @media (forced-colors: active) { .mt-card { border-color: CanvasText; } }
@@ -1437,13 +1456,16 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .contact { min-height: 0; grid-template-columns: 1fr; }
   .contact-copy { padding: 0; }
   a { text-decoration: none; color: #111; }
-  /* the showcase, when it is on the page: its cards three to a row, the photos small, no buttons' icons */
+  /* the showcase, when it is on the page: its cards three to a row, the photos small; no buttons on paper: the shop's
+     address after the text and the code as plain text */
   .mt { animation: none; }
   .mt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8pt; }
-  .mt-card, .mt-card.is-featured { grid-column: auto; flex-direction: column; break-inside: avoid; border-color: rgba(0,0,0,.2); }
-  .mt-card.is-featured .mt-img { flex: none; }
+  .mt-card, .mt-card.is-featured, .mt-card:not(.is-featured) { grid-column: auto; grid-row: auto; flex-direction: column; align-items: stretch; break-inside: avoid; border-color: rgba(0,0,0,.2); }
+  .mt-card .mt-img, .mt-card.is-featured .mt-img, .mt-card:not(.is-featured) .mt-img { flex: none; width: auto; margin: 0; aspect-ratio: 4 / 5; border-radius: 0; }
   .mt-body { padding: 8pt 9pt; gap: 4pt; }
-  .mt-shop svg, .mt-cp-i { display: none; }
+  .mt-shop, .mt-cp-i, .mt-code-sel { display: none !important; }
+  .mt-cp { min-height: 0; padding: 0; border: 0; background: none; }
+  .mt-body[data-host]::after { content: attr(data-host); font: 500 9pt/1.3 var(--mono); color: #111; }
 }
 
 /* ---------- mobile, first-class ---------- */

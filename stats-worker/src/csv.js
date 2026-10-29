@@ -27,7 +27,7 @@ export function exportTable(P, h) {
   const per = period(P, P.clock);
   if (per.error) return { error: 'periodo' };
   const { from, to } = per.range;
-  let header, rows;
+  let header, rows, name = '';
   const win = (ms, dev = P.dev) => ({ name: 'x', from, to, dev, ms, split: new Set() });
   const pvCols = ['visualizações', 'visitantes (soma por dia)', 'visitas'];
   switch (t) {
@@ -135,9 +135,15 @@ export function exportTable(P, h) {
     }
     case 'montra': {
       // the showcase, for a brand's monthly report: one row per month and product, a total per brand and month, and
-      // the period's total per brand (ids as in data/montra.json; the panel shows the names)
+      // the period's total per brand (ids as in data/montra.json; the panel shows the names). P.b (a brand slug): only
+      // that brand's rows, and only its own products (ids that start with «<brand>-»), for the file sent to that brand
       const r = h.compute('montra', {});
-      header = ['mês', 'marca', 'produto', 'cartão visto', 'cliques na loja', 'códigos copiados'];
+      const mine = (x) => !P.b || (x.brand === P.b && String(x.prod).startsWith(`${P.b}-`));
+      for (const m of r.months) m.rows = m.rows.filter(mine);
+      r.months = r.months.filter((m) => m.rows.length);
+      r.totals = r.totals.filter(mine);
+      if (P.b) name = `gocarmo-montra-${P.b}-${from}-${to}.csv`;
+      header = ['mês', 'marca', 'produto', 'cartões vistos', 'cliques na loja', 'códigos copiados'];
       rows = [];
       const sumBy = (list) => {
         const by = new Map();
@@ -153,5 +159,5 @@ export function exportTable(P, h) {
     }
     default: return { error: 'filtro' };
   }
-  return { ok: true, csv: toCsv(header, rows), filename: `gocarmo-${t}-${from}-${to}.csv` };
+  return { ok: true, csv: toCsv(header, rows), filename: name || `gocarmo-${t}-${from}-${to}.csv` };
 }

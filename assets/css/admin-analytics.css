@@ -463,3 +463,8 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 
 /* the login hint sits under the key field (admin.css indents it for a checkbox) */
 .ga #login-form .hint { margin: 6px 0 16px; }
+/* «Montra»: the brand picker of the monthly report, and the month headings of «Por marca e por mês» */
+.ga-mt-ex { align-items: center; gap: 8px 10px; flex-wrap: wrap; }
+.ga-mt-ex select { min-height: 40px; max-width: 100%; }
+.ga-mt-month { margin: 18px 0 4px; font: 600 15px/1.3 var(--sans); color: var(--text); }
+.ga-mt-month:first-of-type { margin-top: 4px; }

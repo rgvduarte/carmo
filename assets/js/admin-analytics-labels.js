@@ -158,7 +158,7 @@ export const CSV = [
   ['paises', 'Países'], ['localidades', 'Localidades'], ['aparelhos', 'Aparelhos'], ['sistemas', 'Sistemas'],
   ['navegadores', 'Navegadores'], ['linguas', 'Línguas'], ['zonas', 'Secções da página'], ['cliques', 'Elementos carregados'],
   ['botoes', 'Botões'], ['eventos', 'Eventos'], ['funil', 'Funil de reserva'], ['erros', 'Erros de JavaScript'],
-  ['opiniao', 'Opinião'], ['meses', 'Totais por mês (arquivo)'], ['montra', 'Montra: cliques por marca e por mês'],
+  ['opiniao', 'Opinião'], ['meses', 'Totais por mês (arquivo)'], ['montra', 'Montra: todas as marcas, por mês (só para ti)'],
 ];
 
 // Cloudflare gives English place names; the common Portuguese ones read better in Portuguese (SPEC 5.8)
@@ -199,22 +199,29 @@ export const EVENT = {
   montra_view: 'Montra: viu o cartão de um produto', montra_shop: 'Montra: abriu a loja da marca', montra_code: 'Montra: copiou o código de desconto',
 };
 
-// the showcase's brands and products by id, from data/montra.json (the panel loads it): unknown ids show the id
-let MTR = { brands: {}, prods: {} };
+// the showcase's brands and products by id, from data/montra.json (the panel loads it). A row of the stats is «known»
+// only when both ids are in the file and the product is that brand's: anything else (a product deleted from the file, a
+// forged beacon) stays out of the totals and of a brand's CSV, and shows by its bare ids under «Não reconhecido».
+let MTR = { brands: {}, prods: {}, order: [] };
 export function setMontra(data) {
-  const brands = {}, prods = {};
+  const brands = {}, prods = {}, order = [];
   for (const b of (data && Array.isArray(data.brands) && data.brands) || []) {
-    if (!b || typeof b.id !== 'string') continue;
+    if (!b || typeof b.id !== 'string' || brands[b.id]) continue;
     brands[b.id] = typeof b.name === 'string' && b.name.trim() ? b.name.trim() : b.id;
+    order.push(b.id);
     for (const p of Array.isArray(b.products) ? b.products : []) {
-      if (p && typeof p.id === 'string') prods[p.id] = (p.name && typeof p.name.pt === 'string' && p.name.pt.trim()) || p.id;
+      if (p && typeof p.id === 'string' && !prods[p.id]) prods[p.id] = { name: (p.name && typeof p.name.pt === 'string' && p.name.pt.trim()) || p.id, brand: b.id };
     }
   }
-  MTR = { brands, prods };
+  MTR = { brands, prods, order };
   return Object.keys(prods).length;
 }
 export const mBrand = (id) => MTR.brands[id] || id || '—';
-export const mProd = (id) => MTR.prods[id] || id || '—';
+export const mProd = (id) => (MTR.prods[id] && MTR.prods[id].name) || id || '—';
+// the pair is in data/montra.json, and the product is that brand's
+export const mKnown = (brand, prod) => !!MTR.prods[prod] && MTR.prods[prod].brand === brand && !!MTR.brands[brand];
+// the brands of the file, in its order: [{ id, name }]
+export const mBrands = () => MTR.order.map((id) => ({ id, name: MTR.brands[id] }));
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 // 'YYYY-MM' → «outubro de 2026»
 export const month = (m) => (/^\d{4}-\d{2}$/.test(m || '') ? `${MONTHS[Number(m.slice(5)) - 1]} de ${m.slice(0, 4)}` : m || '—');

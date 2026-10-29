@@ -7,12 +7,17 @@
 // and rel="sponsored" on every shop link (which opens in a new tab with the gocarmo tag, montra-core.js shopUrl).
 // The page tracker (stats-site.js) counts what happens here from the DOM: .mt-card[data-brand][data-prod], .mt-shop and
 // .mt-cp, and the event 'gc:montra' once the section is in place. No code ever goes into a label.
+// A brand of a level from spots shows only while data/spots.json has its spots sold to it (montra-core.js
+// activeProducts): a spot freed in /admin/ takes its products off the page with the same commit, and a file that cannot
+// be read shows only the official suppliers.
 import { t, getLang } from './i18n.js';
-import { lisbonDay } from './season-rules.js';
-import { parseMontra, activeProducts, shopUrl, photoSrc } from './montra-core.js';
+import { lisbonDay, levelOf } from './season-rules.js';
+import { parseMontra, activeProducts, shopUrl, photoSrc, SUPPLIER } from './montra-core.js';
 import { toast, copy } from './adspace.js';
 
-const SIZES = '(max-width: 640px) calc(100vw - 32px), (max-width: 1080px) 46vw, 410px';
+// the photo's width: a 96 px thumbnail on phones (the featured card: the whole width), a column from 641 px
+const SIZES = '(max-width: 640px) 96px, (max-width: 1080px) 46vw, 410px';
+const SIZES_FEAT = '(max-width: 640px) calc(100vw - 32px), (max-width: 1080px) 46vw, 840px';
 let cards = [];      // [{ brand, product, el: { … } }] once the section is built
 let section = null;
 
@@ -37,7 +42,12 @@ export async function loadMontra(hooks = {}) {
   let raw = null;
   try { raw = await (window.__mtr || fetch('data/montra.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null))); } catch (_) { raw = null; }
   const data = parseMontra(raw);
-  const list = data ? activeProducts(data, lisbonDay()) : [];
+  // the spots, only when a brand of a level from spots is in the file
+  let spots;
+  if (data && data.brands.some((b) => b.level !== SUPPLIER)) {
+    try { spots = await fetch('data/spots.json', { cache: 'no-cache' }).then((r) => (r.ok ? r.json() : null)); } catch (_) { spots = null; }
+  }
+  const list = data ? activeProducts(data, lisbonDay(), spots === undefined ? {} : { spots, levelOf }) : [];
   if (!list.length || section) return;
   build(list);
   renderMontra();
@@ -57,16 +67,21 @@ function build(list) {
     li.dataset.brand = brand.id; li.dataset.prod = product.id;
     // the photo, 4:5: WebP with a JPEG fallback (only a JPEG pair when the phone that took it could not write WebP)
     const src = photoSrc(product), fig = make('figure', 'mt-img'), pic = document.createElement('picture');
-    if (src.webp600) pic.appendChild(make('source', '', { type: 'image/webp', srcset: `${src.webp600} 600w, ${src.webp1200} 1200w`, sizes: SIZES }));
+    const sizes = featured ? SIZES_FEAT : SIZES;
+    if (src.webp600) pic.appendChild(make('source', '', { type: 'image/webp', srcset: `${src.webp600} 600w, ${src.webp1200} 1200w`, sizes }));
     const img = make('img', '', { src: src.jpg600, width: '600', height: '750', loading: 'lazy', decoding: 'async' });
-    if (src.jpg1200) { img.setAttribute('srcset', `${src.jpg600} 600w, ${src.jpg1200} 1200w`); img.setAttribute('sizes', SIZES); }
+    if (src.jpg1200) { img.setAttribute('srcset', `${src.jpg600} 600w, ${src.jpg1200} 1200w`); img.setAttribute('sizes', sizes); }
     pic.appendChild(img); fig.appendChild(pic);
     const body = make('div', 'mt-body');
+    // on paper there is no button: the shop's address is printed after the text
+    try { body.dataset.host = new URL(product.url).hostname.replace(/^www\./, ''); } catch (_) { /* parseMontra checked it */ }
     const tag = make('p', 'mt-tag'), kind = make('span', 'mt-kind'), bn = make('span', 'mt-brand');
     bn.textContent = brand.name;
     tag.append(kind, ' · ', bn);
+    // the heading first (a reader jumping by heading lands on the product, and the brand comes next); CSS shows the tag
+    // above it
     const name = make('h3', 'mt-name'), line = make('p', 'mt-line');
-    body.append(tag, name, line);
+    body.append(name, tag, line);
     let code = null;
     if (product.code) {
       const box = make('div', 'mt-code'), ck = make('span', 'mt-code-k');
@@ -75,16 +90,21 @@ function build(list) {
       const ic = make('span', 'mt-cp-i'); ic.append(icon('i-copy', 'i-cp'), icon('i-check', 'i-ok'));
       cp.append(mono, ic);
       const note = make('small', 'mt-code-n');
-      box.append(ck, cp, note);
+      // when the copy fails (a blocked clipboard, an old iPhone): the code in a field that can be selected, until the
+      // next tap
+      const sel = make('input', 'mt-code-sel mono', { type: 'text', readonly: '', value: product.code, spellcheck: 'false', autocomplete: 'off' });
+      sel.hidden = true;
+      box.append(ck, cp, sel, note);
       body.appendChild(box);
       cp.addEventListener('click', async () => {
         const ok = await copy(product.code);
         toast(t(ok ? 'toast.code' : 'mt.codeIs', product.code));
-        if (!ok) return;
+        sel.hidden = ok;
+        if (!ok) { try { sel.focus(); sel.select(); sel.setSelectionRange(0, product.code.length); } catch (_) { /* shown, at least */ } return; }
         cp.classList.add('copied');
         clearTimeout(cp._t); cp._t = setTimeout(() => cp.classList.remove('copied'), 1500);
       });
-      code = { ck, cp, note };
+      code = { ck, cp, note, sel };
     }
     // the shop: a new tab, marked as sponsored, with the gocarmo tag
     const a = make('a', 'btn sm mt-shop', { href: shopUrl(product.url, { season: brand.season, id: product.id }), target: '_blank', rel: 'sponsored noopener', 'data-track-label': 'montra-shop' });
@@ -116,13 +136,15 @@ export function renderMontra() {
   navItem._a.textContent = t('nav.gear');
   for (const { brand, product, el } of cards) {
     const nm = L(product.name);
-    el.img.alt = product.alt ? L(product.alt) : t('mt.alt', brand.name, nm);
+    // the photo says nothing the heading does not, unless the owner wrote what it shows
+    el.img.alt = product.alt ? L(product.alt) : '';
     el.kind.textContent = t('mt.kind', brand.level);
     el.name.textContent = nm;
     el.line.textContent = t('mt.line', L(product.line));
     if (el.code) {
       el.code.ck.textContent = t('mt.code');
       el.code.cp.setAttribute('aria-label', t('mt.cp', product.code));
+      el.code.sel.setAttribute('aria-label', t('mt.code'));
       el.code.note.textContent = L(product.codeNote);
       el.code.note.hidden = !product.codeNote;
     }

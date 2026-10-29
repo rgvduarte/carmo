@@ -10,6 +10,9 @@ export const PAPER = '#f4f1ea';
 export const MAX_BYTES = 20 * 1024 * 1024;
 export const MIN_SIDE = 600;
 export const SIZES = [[1200, 1500], [600, 750]];
+// a phone tab can die decoding a picture of tens of thousands of pixels a side: above this, refused before it is opened
+// (the size is read from the file's header) and again after (a format whose header is not read here, such as HEIC)
+export const MAX_PIXELS = 60e6;
 const WEBP_Q = 0.82, JPEG_Q = 0.85, WEBP_MAX = 400 * 1024;
 
 export class PhotoError extends Error {}
@@ -28,6 +31,35 @@ async function decode(file) {
   } finally { setTimeout(() => URL.revokeObjectURL(url), 1000); }
 }
 const sizeOf = (src) => ({ w: src.naturalWidth || src.width, h: src.naturalHeight || src.height });
+// the picture's size from the start of a PNG, GIF, JPEG or WebP file, without decoding it; null when it cannot tell
+export function headerSize(b) {
+  try {
+    const u32be = (i) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+    const tag = (i) => String.fromCharCode(b[i], b[i + 1], b[i + 2], b[i + 3]);
+    if (b[0] === 0x89 && tag(1).slice(0, 3) === 'PNG' && tag(12) === 'IHDR') return { w: u32be(16), h: u32be(20) };
+    if (tag(0) === 'GIF8') return { w: b[6] | (b[7] << 8), h: b[8] | (b[9] << 8) };
+    if (tag(0) === 'RIFF' && tag(8) === 'WEBP') {
+      const c = tag(12);
+      if (c === 'VP8X') return { w: 1 + (b[24] | (b[25] << 8) | (b[26] << 16)), h: 1 + (b[27] | (b[28] << 8) | (b[29] << 16)) };
+      if (c === 'VP8L') { const v = (b[21] | (b[22] << 8) | (b[23] << 16) | (b[24] << 24)) >>> 0; return { w: 1 + (v & 0x3fff), h: 1 + ((v >>> 14) & 0x3fff) }; }
+      if (c === 'VP8 ') return { w: (b[26] | (b[27] << 8)) & 0x3fff, h: (b[28] | (b[29] << 8)) & 0x3fff };
+      return null;
+    }
+    if (b[0] === 0xff && b[1] === 0xd8) {
+      for (let i = 2; i + 9 < b.length;) {
+        if (b[i] !== 0xff) return null;
+        const m = b[i + 1];
+        if (m === 0xff) { i++; continue; }
+        if ((m >= 0xc0 && m <= 0xcf) && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { w: (b[i + 7] << 8) | b[i + 8], h: (b[i + 5] << 8) | b[i + 6] };
+        if (m === 0xd8 || (m >= 0xd0 && m <= 0xd7) || m === 0x01) { i += 2; continue; }
+        i += 2 + ((b[i + 2] << 8) | b[i + 3]);
+      }
+    }
+  } catch (_) { /* not one of these */ }
+  return null;
+}
+const tooBig = (s) => !!s && s.w * s.h > MAX_PIXELS;
+const BIG = (s) => new PhotoError(`A fotografia é enorme (${s.w} × ${s.h}). Exporta-a com menos de 60 megapíxeis, por exemplo 4000 × 5000.`);
 
 // src drawn into a w × h canvas on the paper colour: 'contain' shows all of it, 'cover' fills the box (centred)
 function paint(src, w, h, fit) {
@@ -64,9 +96,10 @@ export function stripMeta(b, type) {
     if (type === 'image/webp' && tag(0) === 'RIFF' && tag(8) === 'WEBP') {
       const keep = [];
       for (let i = 12; i + 8 <= b.length;) {
-        const n = b[i + 4] | (b[i + 5] << 8) | (b[i + 6] << 16) | (b[i + 7] << 24), end = i + 8 + n + (n & 1);
+        // (unsigned: a malformed length never walks backwards)
+        const n = (b[i + 4] | (b[i + 5] << 8) | (b[i + 6] << 16) | (b[i + 7] << 24)) >>> 0, end = i + 8 + n + (n & 1);
         const id = tag(i);
-        if (end > b.length) return b;
+        if (end <= i || end > b.length) return b;
         if (!['ICCP', 'EXIF', 'XMP '].includes(id)) {
           const c = b.slice(i, end);
           if (id === 'VP8X') c[8] &= ~(0x20 | 0x08 | 0x04);   // the ICC, EXIF and XMP flags
@@ -97,10 +130,14 @@ export async function productPhoto(file, { fit = 'contain' } = {}) {
   if (!file || !(file instanceof Blob)) throw new PhotoError('Escolhe uma fotografia.');
   if (file.size > MAX_BYTES) throw new PhotoError('A fotografia tem mais de 20 MB. Escolhe outra ou exporta-a mais pequena.');
   if (file.type && !/^image\//.test(file.type)) throw new PhotoError('Isto não é uma fotografia (JPEG, PNG, HEIC ou WebP).');
+  let head = null;
+  try { head = headerSize(new Uint8Array(await file.slice(0, 1024 * 1024).arrayBuffer())); } catch (_) { head = null; }
+  if (tooBig(head)) throw BIG(head);
   let src;
   try { src = await decode(file); } catch (_) { throw new PhotoError('Não consegui abrir esta fotografia neste telemóvel. Tira uma captura ou exporta-a em JPEG.'); }
   const s = sizeOf(src);
   if (!(s.w > 0 && s.h > 0)) throw new PhotoError('Não consegui abrir esta fotografia neste telemóvel. Tira uma captura ou exporta-a em JPEG.');
+  if (tooBig(s)) { if (typeof src.close === 'function') src.close(); throw BIG(s); }
   if (Math.min(s.w, s.h) < MIN_SIDE) throw new PhotoError(`A fotografia é pequena (${s.w} × ${s.h}). Precisa de ${MIN_SIDE} píxeis no lado menor.`);
   const big = paint(src, SIZES[0][0], SIZES[0][1], fit === 'cover' ? 'cover' : 'contain');
   const small = paint(big, SIZES[1][0], SIZES[1][1], 'cover');   // (same 4:5 box: a straight downscale)

@@ -19,13 +19,17 @@
 //    with the logo deadline, of.a4 with the renewal deadline, PT in index.html and EN in i18n.js) has this season's
 //    dates, and no level card but «Todos os espaços» promises the renewal preference (every level has it); the cards of
 //    the levels that keep their price on renewal (season-rules.js PRICE_LOCK: Principal of.c3, the whole suit of.d4)
-//    name «o mesmo preço em <next>, se renovares até <renewBy>», and no other card does. The dates of the last triathlon
-//    (racesUntil) and of the renewal's payment (renewPayBy) are in both articles of /condicoes/. A mismatch stops it
+//    name «o preço da tabela de <season> em <next>, se renovares até <renewBy>» (the table, not what a mid-season sponsor
+//    paid), and no other card does. The end of the triathlon calendar («O calendário de triatlos de 2027 acaba em
+//    setembro», and «a partir de» the day after racesUntil) and the renewal's payment day (renewPayBy) are in both
+//    articles of /condicoes/. A mismatch stops it
 //    (also with --check): the terms cannot drift from the code, and a new season is not published before its terms
 //    carry its dates.
 // 5. The montra «O meu material» (data/montra.json, assets/js/montra-core.js checkMontra): the file passes every check
-//    (shape, ids, https links without utm_, no example or placeholder brand, product or shop, the limits of each level,
-//    featured only for the whole suit, and the spots of a brand of this season sold to it at its level); every photo file
+//    (shape, ids, product ids that start with their brand's, https links to a domain without utm_, no example or
+//    placeholder brand, product, note or shop, the limits of each level, one featured product and only for the whole
+//    suit, the spots of a brand of this season sold to it at its level, and no brand of a level from spots of another
+//    season with a product still to show); every photo file
 //    it names is on disk; /condicoes/ prints the products of each level as LIMIT says (both articles, and the sentence of
 //    its #montra / #showcase section); and index.html holds no montra markup (the section exists only when montra.js
 //    builds it from an active product). The Patrocínios page may reach api.github.com and gocarmo.com (its montra editor
@@ -129,6 +133,14 @@ function checkTerms(R) {
     const html = a[1], text = plain(html);
     need(text.includes(upd(R.termsDate)), `condicoes/index.html (${l}): «${upd(R.termsDate)}» (seasonRules.termsDate)`);
     for (const k of KEYS) {
+      // racesUntil is a boundary, not a race day: the page names the month the calendar ends and the day after it
+      if (k === 'racesUntil') {
+        const [y, m] = ymd(R.racesUntil), after = long(SR.addDays(R.racesUntil, 1));
+        const ends = l === 'pt' ? `O calendário de triatlos de ${y} acaba em ${PT_M[m - 1]}` : `The ${y} triathlon calendar ends in ${EN_M[m - 1]}`;
+        need(text.includes(ends), `condicoes/index.html (${l}): no «${ends}» (seasonRules.racesUntil)`);
+        need(text.includes(`${l === 'pt' ? 'a partir de' : 'from'} ${after}`), `condicoes/index.html (${l}): no «${l === 'pt' ? 'a partir de' : 'from'} ${after}» (the day after seasonRules.racesUntil)`);
+        continue;
+      }
       const ok = text.includes(long(R[k])) || (k === 'start' && text.includes(range()));
       need(ok, `condicoes/index.html (${l}): no «${k === 'start' ? range() : long(R[k])}» (seasonRules.${k})`);
     }
@@ -165,18 +177,18 @@ function checkTerms(R) {
     // the price kept on renewal (owner decisions E1 and E1' of 29.10.2026): the cards of the PRICE_LOCK levels name it, in
     // these words; no other level card does, and none of them names the preference, which every level has
     const LOCK_CARD = { principal: ['of.c', 2], title: ['of.d', 3] };
-    const lockPt = `mesmo preço em ${next}, se renovares até ${pt(R.renewBy)}`, lockEn = `same price in ${next}, if you renew by ${en(R.renewBy)}`;
+    const lockPt = `preço da tabela de ${R.season} em ${next}, se renovares até ${pt(R.renewBy)}`, lockEn = `${R.season} rate card price in ${next}, if you renew by ${en(R.renewBy)}`;
     const locked = new Set(SR.PRICE_LOCK.map((lv) => LOCK_CARD[lv] && LOCK_CARD[lv][1]).filter((x) => x !== undefined));
     cards.slice(1).forEach((c, j) => {
       const i = j + 1, text = plain(c);
       need(!/preferência/i.test(text), `index.html: level card ${i + 1} names the renewal preference, which every level has (put it only in «Todos os espaços»)`);
       if (locked.has(i)) need(text.includes(lockPt), `index.html: level card ${i + 1} has to say «O ${lockPt}» (season-rules.js PRICE_LOCK, seasonRules.renewBy)`);
-      else need(!/renova|mesmo preço/i.test(text), `index.html: level card ${i + 1} names a renewal or a price kept, which only the PRICE_LOCK levels have`);
+      else need(!/renova|mesmo preço|preço da tabela/i.test(text), `index.html: level card ${i + 1} names a renewal or a price kept, which only the PRICE_LOCK levels have`);
     });
     const enOf = [...js.matchAll(/"(of\.[bcd]\d)":\s*"([^"]*)"/g)].map((m) => [m[1], m[2]]);
     const lockKeys = new Set(SR.PRICE_LOCK.map((lv) => LOCK_CARD[lv] && LOCK_CARD[lv][0]).filter(Boolean));
     for (const pre of lockKeys) need(enOf.some(([k, v]) => k.startsWith(pre) && v.includes(lockEn)), `assets/js/i18n.js: no ${pre}N says «${lockEn}» (season-rules.js PRICE_LOCK, seasonRules.renewBy)`);
-    const enBad = enOf.filter(([k, v]) => /first option/i.test(v) || (/renew|same price/i.test(v) && !(lockKeys.has(k.slice(0, 4)) && v.includes(lockEn)))).map(([k]) => k);
+    const enBad = enOf.filter(([k, v]) => /first option/i.test(v) || (/renew|same price|rate card price/i.test(v) && !(lockKeys.has(k.slice(0, 4)) && v.includes(lockEn)))).map(([k]) => k);
     need(!enBad.length, `assets/js/i18n.js: ${enBad.join(', ')} names the renewal preference or a price kept, which only «Todos os espaços» (of.a4) and the PRICE_LOCK levels have`);
   }
   return out;

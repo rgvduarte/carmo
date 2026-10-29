@@ -3,7 +3,9 @@
 // browser only). The page then waits until gocarmo.com serves the new data/spots.json. The rules (what each action
 // writes, and when it is allowed) live in admin-core.js, which is tested against the issue-form bot.
 import * as C from './admin-core.js';
-import { GhError, UiError, transient, readToken, forgetToken, keepToken, gh, UNKNOWN, errText, checkToken, signInText, getToken, setToken } from './admin-gh.js';
+import { GhError, UiError, transient, readToken, forgetToken, keepToken, gh, UNKNOWN, errText, checkToken, signInText, getToken, setToken, commitFiles, readText } from './admin-gh.js';
+import { findBrand, countFor, spotsAllow, retireOver, deletesFor, applyBrand, fileText } from './admin-montra-core.js';
+import { MONTRA_PATH } from './montra-core.js';
 import { lisbonDay, rulesOf, isDay, noRacesLeft } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
@@ -1131,6 +1133,7 @@ async function run(intent) {
     sel.clear(); $('#ref').value = ''; onRef(); render();
     shown = publish({ ids: intent.ids, data: r.data, commit: r.commit, files: r.writes, bytes: intent.logo ? intent.logo.bytes : null });
     showPublish(shown);
+    if (intent.action === 'available') montraAfterFree(intent.snap, r.data);
   } catch (e) {
     busy = false;
     $('#sh-x').hidden = false; $('#pr-close').disabled = false;
@@ -1143,6 +1146,48 @@ async function run(intent) {
     prMsg(errText(e, 'write'), e.unknown ? 'warn' : true);
     if (e.conflict) { if (e.reload) load({ quiet: true }); else render(); }
     else $('#pr-retry').hidden = false;
+  }
+}
+
+// ---------- the montra after a spot is freed ----------
+// The home page already hides the products of a brand whose spots are no longer sold to it (montra.js reads
+// data/spots.json). This takes them out of data/montra.json too, so the count, the reports and Patrocínios agree: for
+// each brand that held a freed spot and now has more products counting than the spots it still holds allow, ask, then
+// one commit that retires the extra ones (montra-core rules: off the site from today).
+async function montraAfterFree(snap, data) {
+  const was = new Set(Object.values(snap || {}).map((v) => { try { return JSON.parse(v); } catch (_) { return null; } })
+    .filter((x) => x && x.status === 'sold' && x.brand).map((x) => x.brand));
+  if (!was.size || !data) return;
+  let file = null;
+  try { const res = await fetch(new URL(`../${MONTRA_PATH}?ts=${Date.now()}`, location.href).href, { cache: 'no-store', credentials: 'omit' }); file = res.ok ? await res.json() : null; } catch (_) { file = null; }
+  if (!file || !Array.isArray(file.brands)) return;
+  const day = lisbonDay();
+  for (const name of was) {
+    const entry = findBrand(file, { name, season: String(data.season) });
+    const allow = spotsAllow(entry, data), n = countFor(entry, day);
+    if (allow === null || n <= allow) continue;
+    const k = n - allow;
+    const yes = await ask(`Retirar ${k === 1 ? '1 produto' : `${k} produtos`} de ${entry.name} da montra?`, [],
+      allow ? `Com os espaços que ainda tem, ${entry.name} pode ter ${allow === 1 ? '1 produto' : `até ${allow} produtos`} na montra e tem ${n}. Os últimos da lista saem do site.`
+        : `${entry.name} já não tem espaços vendidos: os produtos dela saem do site (no ficheiro ficam para os relatórios).`, 'Retirar', 'Agora não');
+    if (!yes) { toast(`A montra de ${entry.name} ficou como estava. Podes retirar os produtos em Patrocínios.`); continue; }
+    try {
+      const r = await commitFiles({ build: async (head) => {
+        const got = await readText(MONTRA_PATH, head);
+        let f;
+        try { f = got ? JSON.parse(got.text) : null; } catch (_) { f = null; }
+        if (!f || !Array.isArray(f.brands)) throw new UiError('data/montra.json no GitHub não tem a forma esperada. Não mexi na montra.');
+        const there = findBrand(f, { id: entry.id });
+        if (!there) return { nothing: true };
+        const out = retireOver(there, day, allow);
+        if (!out.names.length) return { nothing: true };
+        return { message: `Montra: ${there.name}, ${out.names.length === 1 ? `retirado «${out.names[0]}»` : `${out.names.length} produtos retirados`} (espaço libertado, admin)`,
+          files: [{ path: MONTRA_PATH, text: fileText(applyBrand(f, out.entry)) }], deletes: deletesFor(there, out.entry, f) };
+      } });
+      toast(r.nothing ? `A montra de ${entry.name} já estava assim.` : `Montra de ${entry.name}: ${k === 1 ? 'produto retirado' : `${k} produtos retirados`}. O site atualiza-se em 1 a 2 minutos.`);
+    } catch (e) {
+      toast(`Não consegui retirar os produtos de ${entry.name} da montra (${errText(e, 'write')}). Retira-os em Patrocínios.`);
+    }
   }
 }
 

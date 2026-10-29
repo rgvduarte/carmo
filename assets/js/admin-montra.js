@@ -6,8 +6,8 @@
 // page waits until the site serves the file and shows «No ar» with the links. The rules: admin-montra-core.js and
 // montra-core.js. Every piece of data is shown with textContent only.
 import * as K from './admin-montra-core.js';
-import { MONTRA_PATH, IMG_DIR, CODE_RE, PLACEHOLDER, LIMIT, SUPPLIER, MAX_SUPPLIER, shopUrl, photoSrc, productEnd } from './montra-core.js';
-import { lisbonDay, addDays } from './season-rules.js';
+import { MONTRA_PATH, IMG_DIR, CODE_RE, PLACEHOLDER, FAKE_HOST, LIMIT, SUPPLIER, MAX_SUPPLIER, shopUrl, photoSrc, productEnd, counts, spotsHeld } from './montra-core.js';
+import { lisbonDay, addDays, levelOf } from './season-rules.js';
 import * as G from './admin-gh.js';
 import { productPhoto, photoSummary, PhotoError } from './admin-photo.js';
 
@@ -20,7 +20,7 @@ const today = () => lisbonDay();
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const root = () => new URL('../../', location.href);   // the page lives at /admin/patrocinios/
 
-// hooks: { contracts(), data(), toast(msg), ask(title, text, yes), rerender() }
+// hooks: { contracts(), data(), toast(msg), toastOff(), ask(title, text, yes), rerender() }
 let H = null;
 // the live file (same origin; no token needed to show the counts) and the sheet
 const S = { file: null, fileAt: 0, open: null, busy: false, poll: 0 };
@@ -49,7 +49,7 @@ export function montraLine(c, day = today()) {
   const box = el('div', 'ct-mt');
   if (!S.file) { box.appendChild(el('span', 'ct-mt-t', 'Montra: a ler…')); return box; }
   const ln = K.cardLine({ contracts: H.contracts(), spotsData: H.data(), file: S.file, season: String(c.season), name: c.brand, day });
-  box.appendChild(el('span', `ct-mt-t${ln.n > 0 ? ' on' : ''}`, ln.text));
+  box.appendChild(el('span', `ct-mt-t${ln.over ? ' bad' : ln.n > 0 ? ' on' : ''}`, ln.text));
   if (ln.level === 'title') box.appendChild(el('span', 'ct-mt-k', 'em destaque'));
   const b = el('button', ln.can === 'supplier' && !ln.entry ? 'link ct-mt-b' : 'btn sm ghost ct-mt-b', ln.can === 'supplier' && !ln.entry && ln.level === 'fornecedor' ? 'Fornecedor oficial?' : 'Montra');
   b.type = 'button';
@@ -59,14 +59,25 @@ export function montraLine(c, day = today()) {
   return box;
 }
 
+// how many of a brand's products count past what its contracts and spots allow now (0 while the file is not read)
+export function montraOver(c, day = today()) {
+  if (!S.file || !c || !c.brand) return 0;
+  return K.cardLine({ contracts: H.contracts(), spotsData: H.data(), file: S.file, season: String(c.season), name: c.brand, day }).over;
+}
+
 // ---------- the sheet ----------
 // O: { c, season, name, entry0 (the entry as read, or null), draft, changes, photos: Map(id -> { files, webp, base8, url }),
 //      form: { id } | null }
+// limit: the level's number, or fewer when data/spots.json no longer has all the brand's spots sold to it
 function ctx() {
   const O = S.open, contracts = H.contracts(), data = H.data();
   const level = K.levelFor(contracts, data, O.season, O.name);
   const supplier = O.draft && O.draft.level === SUPPLIER;
-  const limit = supplier ? K.limitOf(contracts, data, O.draft) : LIMIT[level] ?? 0;
+  let limit = supplier ? K.limitOf(contracts, data, O.draft) : LIMIT[level] ?? 0;
+  if (!supplier) {
+    const bySpots = K.spotsAllow(O.draft || { name: O.name, season: O.season, level, spots: K.spotsFor(contracts, O.season, O.name) }, data);
+    if (bySpots !== null) limit = Math.min(limit, bySpots);
+  }
   return { level, supplier, limit, contracts, data };
 }
 export function openMontra(c) {
@@ -106,12 +117,16 @@ function renderMain() {
   ps.forEach((p, i) => ul.appendChild(row(e, p, i, ps.length, day)));
   $('#mt-empty').hidden = ps.length > 0;
   // add: at the limit, or a level without the montra
-  const add = $('#mt-add'), why = $('#mt-add-why');
+  const add = $('#mt-add'), why = $('#mt-add-why'), over = $('#mt-over');
   let reason = '';
-  if (!limit) reason = level === 'fornecedor' ? 'O nível Apoio não inclui a montra. Se a marca patrocina com produto e tem acordo escrito, marca-a como fornecedor oficial.'
-    : level ? '' : 'Este patrocínio não tem espaços: a montra só entra como fornecedor oficial, com acordo escrito.';
+  if (n > limit) reason = `${limit ? `Esta marca pode ter ${limit === 1 ? '1 produto' : `até ${limit} produtos`}` : 'Esta marca já não tem montra'} (os espaços ou o contrato mudaram) e tem ${n}. Retira ${n - limit === 1 ? 'o que está a mais' : `os ${n - limit} a mais`}.`;
+  else if (!limit) reason = level === 'fornecedor' ? 'O nível Apoio não inclui a montra. Se a marca patrocina com produto e tem acordo escrito, marca-a como fornecedor oficial.'
+    : level ? 'Os espaços desta marca já não lhe estão vendidos em data/spots.json: a montra não se aplica.' : 'Este patrocínio não tem espaços: a montra só entra como fornecedor oficial, com acordo escrito.';
   else if (n >= limit) reason = supplier ? `O acordo inclui ${limit} ${limit === 1 ? 'produto' : 'produtos'}. Retira um para pôr outro.` : `O nível ${K.LEVEL_PT[level]} inclui ${limit === 1 ? '1 produto' : `até ${limit} produtos`}. Retira um para pôr outro.`;
   add.disabled = !!reason || S.busy; why.hidden = !reason; why.textContent = reason;
+  why.classList.toggle('bad', n > limit);
+  over.hidden = !(n > limit); over.disabled = S.busy;
+  over.textContent = n - limit === 1 ? 'Retirar o produto a mais' : `Retirar os ${n - limit} produtos a mais`;
   // the supplier block: Apoio, no spots, or already a supplier; never at the whole suit's level
   const sup = $('#mt-sup');
   sup.hidden = !(supplier || ((LIMIT[level] ?? 0) === 0 && level !== 'title'));
@@ -121,7 +136,7 @@ function renderMain() {
   $('#mt-sup-on').disabled = S.busy;
   const save = $('#mt-save');
   save.disabled = S.busy || !dirty();
-  save.textContent = O.changes.length > 1 ? `Guardar na montra (${O.changes.length})` : 'Guardar na montra';
+  save.textContent = O.changes.length > 1 ? `Publicar na montra (${O.changes.length})` : 'Publicar na montra';
 }
 function row(e, p, i, len, day) {
   const li = el('li', 'mt-row'), st = K.productState(e, p, day);
@@ -149,6 +164,30 @@ function row(e, p, i, len, day) {
   return li;
 }
 function change(op, name) { S.open.changes.push({ op, name }); renderMain(); }
+// the products past the limit, from the last in the list: off the site at once (montra-core: one not yet shown leaves the
+// file). Then «Publicar na montra».
+async function retireExtra(ask = true) {
+  const O = S.open;
+  if (!O || !O.draft) return;
+  const day = today(), { limit } = ctx(), n = K.countFor(O.draft, day);
+  if (n <= limit) return;
+  const r = K.retireOver(O.draft, day, limit);
+  if (ask && !(await H.ask(`Retirar ${r.names.length === 1 ? `«${r.names[0]}»` : `${r.names.length} produtos`}?`, `${r.names.join(', ')}: ${r.names.length === 1 ? 'sai' : 'saem'} do site ao publicar e deixa${r.names.length === 1 ? '' : 'm'} de contar para o limite.`, 'Retirar'))) return;
+  O.draft = r.entry;
+  for (const nm of r.names) O.changes.push({ op: 'retire', name: nm });
+  renderMain();
+  H.toast(`${r.names.length === 1 ? `«${r.names[0]}» retirado` : `${r.names.length} produtos retirados`} na lista. Falta publicar.`);
+}
+// from the card of a sponsorship that ended (a record deleted, a spot freed): the sheet with the extra products already
+// retired in the list, for one «Publicar na montra»
+export async function retireFor(c) {
+  if (!S.file) await loadFile();
+  if (!S.file) { H.toast('Não consegui ler a montra. Atualiza a página e retira os produtos em «Montra».'); return false; }
+  openMontra(c);
+  if (!S.open || !S.open.draft) return false;
+  await retireExtra(false);
+  return true;
+}
 function move(i, d) {
   const ps = S.open.draft.products, j = i + d;
   if (j < 0 || j >= ps.length) return;
@@ -228,7 +267,9 @@ function openForm(id = null) {
   $('#mt-until-hint').textContent = `Sem fim, fica até ao fim da época, ${K.ptDay(end)} ${O.season}.`;
   const title = ctx().level === 'title' && e.level !== SUPPLIER;
   $('#mt-feat-box').hidden = !title;
-  $('#mt-feat').checked = p ? p.featured === true : true;
+  // one featured product per brand: a new one is featured only when no other product of the brand on the site is
+  const day = today();
+  $('#mt-feat').checked = p ? p.featured === true : !e.products.some((x) => x.featured === true && counts(e, x, day));
   $$('input[name="mt-fit"]').forEach((i) => { i.checked = i.value === 'contain'; });
   $('#mt-file').value = '';
   const ph = p && O.photos.get(p.id), src = ph ? ph.url : p ? new URL(photoSrc(p).jpg600, root()).href : '';
@@ -300,12 +341,13 @@ function formProduct() {
   const clean = (() => { try { const u = new URL(url); const keep = [...u.searchParams.keys()].filter((k) => /^utm_/i.test(k)); for (const k of keep) u.searchParams.delete(k); return u.href; } catch (_) { return url; } })();
   if (!shopUrl(clean, { season: O.season, id })) err('O link tem de começar por https:// e não pode ser do gocarmo.com.', '#mt-url');
   let host = ''; try { host = new URL(clean).hostname; } catch (_) { host = ''; }
-  if (/(^|\.)(localhost|example\.(com|org|net|pt)|test|example|invalid|local)$/i.test(host)) err(`O link parece de exemplo («${host}»). Usa a loja da marca.`, '#mt-url');
+  if (FAKE_HOST.test(host) || PLACEHOLDER.test(host.replace(/[.-]/g, ' '))) err(`O link parece de exemplo («${host}»). Usa a loja da marca.`, '#mt-url');
   const code = t('#mt-code').toUpperCase();
   if (code && !CODE_RE.test(code)) err('O código leva letras maiúsculas, algarismos e hífenes (3 a 20).', '#mt-code');
   const note = t('#mt-note'), noteEn = t('#mt-note-en');
   if (code && !note) err('Escreve a nota do código (por exemplo «10% na primeira compra»).', '#mt-note');
   if (code && !noteEn) err('Escreve a nota do código em inglês.', '#mt-note-en');
+  if (code && PLACEHOLDER.test(`${note} ${noteEn}`)) err('A nota do código parece de exemplo. Escreve a da marca.', '#mt-note');
   const from = $('#mt-from').value, until = $('#mt-until').value, end = `${O.season}-12-31`;
   if (!from) err('Escolhe o dia de início.', '#mt-from');
   if (from > end || from < `${Number(O.season) - 1}-01-01`) err(`O início tem de ser na época ${O.season} (até ${K.ptDay(end)}).`, '#mt-from');
@@ -334,6 +376,9 @@ function submitForm(ev) {
   const next = { ...e, products: old ? e.products.map((x) => (x.id === old.id ? p : x)) : [...e.products, p] };
   if (K.countFor(next, day) > limit) { errBox.textContent = limit ? `${e.level === SUPPLIER ? `O acordo inclui ${limit}` : `O nível ${K.LEVEL_PT[ctx().level]} inclui ${limit === 1 ? '1' : `até ${limit}`}`} ${limit === 1 ? 'produto' : 'produtos'}. Retira um para pôr outro.` : 'Esta marca não tem montra.'; return; }
   e.products = next.products;
+  // one featured product: this one takes it from the others
+  let took = false;
+  if (p.featured) for (const x of e.products) if (x !== p && x.featured) { delete x.featured; took = true; }
   if (O.form.photo) {
     const prev = O.photos.get(p.id);
     if (prev && prev.url !== O.form.photo.url) URL.revokeObjectURL(prev.url);
@@ -342,7 +387,7 @@ function submitForm(ev) {
   change(old ? 'edit' : 'add', p.name.pt);
   $('#mt-title').textContent = `Montra · ${O.name}`;
   showMain();
-  H.toast(old ? `«${p.name.pt}» mudado. Carrega em Guardar na montra para publicar.` : `«${p.name.pt}» na lista. Carrega em Guardar na montra para publicar.`);
+  H.toast(`${old ? `«${p.name.pt}» mudado na lista` : `«${p.name.pt}» na lista`}${took ? `, e passa a ser o destaque` : ''}. Falta publicar.`);
 }
 
 // ---------- save: one commit ----------
@@ -357,12 +402,22 @@ async function save() {
   const O = S.open;
   if (!O || S.busy || !dirty()) return;
   $('#mt-err').textContent = '';
+  if (H.toastOff) H.toastOff();   // «… Falta publicar.» would sit over the progress
   // the token: the one kept from /admin/ (same key), or asked here once
   if (!G.getToken()) { const t = G.readToken(); if (t && G.TOKEN_RE.test(t)) G.setToken(t); }
   if (!G.getToken()) { $('#mt-tok-form').hidden = false; $('#mt-tok-err').textContent = ''; $('#mt-tok').focus(); return; }
   const final = clone(O.draft), day = today(), { limit, data, level } = ctx();
-  // a brand of a level from spots: its level, spots and limit as its contracts give them now (a spot added since)
-  if (final.level !== SUPPLIER && (LIMIT[level] ?? 0) > 0) { final.level = level; final.spots = K.spotsFor(H.contracts(), O.season, O.name); final.max = LIMIT[level]; }
+  // a brand of a level from spots: its level, spots and limit as its contracts give them now (a spot added since), and,
+  // when data/spots.json no longer has all of them sold to it, the spots it still holds there and their level
+  if (final.level !== SUPPLIER && (LIMIT[level] ?? 0) > 0) {
+    final.level = level; final.spots = K.spotsFor(H.contracts(), O.season, O.name); final.max = LIMIT[level];
+    if (data && String(data.season) === String(final.season)) {
+      const held = spotsHeld(final, data);
+      let lv = '';
+      try { lv = held.length ? levelOf(data, held) : ''; } catch (_) { lv = ''; }
+      if (held.length && held.length < final.spots.length && (LIMIT[lv] ?? 0) > 0) { final.level = lv; final.spots = held; final.max = LIMIT[lv]; }
+    }
+  }
   const problems = K.editorProblems(final, { limit, day, file: S.file, spotsData: data });
   if (problems.length) { $('#mt-err').textContent = problems.join(' '); return; }
   S.busy = true; renderMain();
@@ -516,6 +571,7 @@ function bind() {
   $('#mt-agree').addEventListener('change', onSupplierFields);
   $('#mt-max').addEventListener('change', onSupplierFields);
   $('#mt-save').addEventListener('click', save);
+  $('#mt-over').addEventListener('click', () => retireExtra(true));
   $('#mt-tok-form').addEventListener('submit', tokenSubmit);
   // Enter on a field of the form moves on (only the button saves)
   $('#mt-form').addEventListener('keydown', (e) => {

@@ -71,6 +71,7 @@ export function eventsOf(batches) {
       const def = EVENTS[e.n];
       if (!def) continue;
       if (def.need && def.need.some((k) => !e.p || e.p[k] === undefined)) continue;
+      if (def.rel && !def.rel(e.p || {})) continue;
       const key = def.per ? `${e.n}|${(e.p || {})[def.per] ?? ''}` : e.n;
       const c = caps.get(key) || 0;
       if (c >= def.cap) continue;

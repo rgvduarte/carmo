@@ -76,7 +76,7 @@ export const ATTR_VALUES = {
 // Each param is a checker: it returns the clean value, or undefined to drop the param. `cap` is per page view
 // (derive.js counts at most that many); `per` makes the cap count per value of that param (cta_view: 1 per id); `need`
 // lists the params without which derive.js drops the event (a showcase event without its brand and product says
-// nothing).
+// nothing); `rel(p)`, when set, must hold for the clean params or derive.js drops the event.
 const int = (lo, hi) => (v) => {
   const n = typeof v === 'string' && /^-?\d{1,7}$/.test(v) ? Number(v) : v;
   return Number.isInteger(n) && n >= lo && n <= hi ? n : undefined;
@@ -110,6 +110,9 @@ const assetName = (v) => (typeof v === 'string' && /^[a-z0-9._-]{1,48}$/.test(v)
 // a showcase brand or product id (data/montra.json, assets/js/montra-core.js ID_RE): lowercase words joined by single
 // hyphens, at most 40 characters, never a run of 4 digits (public slugs from a public file, never free text)
 export const slug = (v) => (typeof v === 'string' && v.length <= 40 && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(v) && !/\d{4}/.test(v) ? v : undefined);
+// a showcase product belongs to the brand its id starts with («marca-gel» is of «marca»): a beacon cannot pair one
+// brand with another brand's product
+export const prodOfBrand = (p) => !!p && typeof p.prod === 'string' && typeof p.brand === 'string' && p.prod.startsWith(`${p.brand}-`);
 
 export const EVENTS = {
   cta_view: { p: { id: inSet(CTA_SET) }, cap: 1, per: 'id' },
@@ -181,9 +184,9 @@ export const EVENTS = {
   boot_fail: { p: {}, cap: 1 },
   // the showcase «O meu material»: a product card at least half in view for 1 s (once per product), a tap on its shop
   // link, a copy of its discount code (the code itself is never sent)
-  montra_view: { p: { brand: slug, prod: slug }, cap: 1, per: 'prod', need: ['brand', 'prod'] },
-  montra_shop: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'] },
-  montra_code: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'] },
+  montra_view: { p: { brand: slug, prod: slug }, cap: 1, per: 'prod', need: ['brand', 'prod'], rel: prodOfBrand },
+  montra_shop: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'], rel: prodOfBrand },
+  montra_code: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'], rel: prodOfBrand },
 };
 export const MONTRA_EVENTS = ['montra_view', 'montra_shop', 'montra_code'];
 

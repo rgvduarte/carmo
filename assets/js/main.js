@@ -546,6 +546,12 @@ const startMotion = () => {
   const toStudio = () => {
     const t = landTarget(); if (!t || moved) return;
     const [el, gap] = aimAt(t);
+    holdAt(el, gap);
+  };
+  // (Lenis keeps the page's height from its last measure: a page that grew since, the rate card or a section added,
+  // would clamp the jump short of the target, so it measures again first)
+  const holdAt = (el, gap = 0) => {
+    if (lenis) lenis.resize();
     scrollToEl(el, { immediate: true, gap });
     if (!('ResizeObserver' in window)) return;
     let idle = 0;
@@ -553,7 +559,7 @@ const startMotion = () => {
     const hold = new ResizeObserver(() => {
       if (moved) { stop(); return; }
       const off = docTop(el) - scrollY - nav.offsetHeight - gap;
-      if (Math.abs(off) > 2) jump(scrollY + off);
+      if (Math.abs(off) > 2) { if (lenis) lenis.resize(); jump(scrollY + off); }
       clearTimeout(idle); idle = setTimeout(stop, 1500);
     });
     hold.observe(document.body);
@@ -584,7 +590,9 @@ const startMotion = () => {
     if (sec.classList.contains('light')) lightSections.push(sec);
     navTone();
     if (window.ScrollTrigger) window.ScrollTrigger.refresh();
-    if (location.hash === `#${sec.id}` && !moved) scrollToEl(sec, { immediate: true });
+    // a #material address: held under the nav like a part of the studio (the rate card and the pictures above can still
+    // take their room after it arrives)
+    if (location.hash === `#${sec.id}` && !moved) holdAt(sec);
   };
   loadMontra({ addSection, scrollToEl }).catch((e) => console.error(e));
   initAdspace({

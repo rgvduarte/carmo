@@ -104,6 +104,9 @@ fieldset.field > legend { padding: 0; }
 .ct-mt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .ct-mt-t { font-size: 14px; color: var(--muted); }
 .ct-mt-t.on { color: var(--ink); }
+/* more products counting than the contracts and the spots allow now: retire the extra ones */
+.ct-mt-t.bad { color: var(--bad); font-weight: 600; }
+.mt-over { margin-top: 8px; border-color: var(--bad); color: var(--bad); }
 .ct-mt-k { font: 600 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
 .ct-mt-b.btn { min-height: 44px; padding: 0 16px; font-size: 14px; margin-left: auto; }
 .ct-mt-b.link { margin-left: auto; }

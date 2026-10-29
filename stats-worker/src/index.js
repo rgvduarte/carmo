@@ -17,6 +17,7 @@ import { sanitizeBeacon, sanitizeFeedback } from './sanitize.js';
 import { isBot, parseUA, channelOf, truncIp, hashIp } from './ua.js';
 import { clock, period } from './time.js';
 import { CSV_TABLES } from './csv.js';
+import { slug } from './schema.js';
 import { ENDPOINT_NAMES } from './query.js';
 
 export { Store };
@@ -293,8 +294,10 @@ async function admin(request, env, url) {
   if (path === 'export.csv') {
     if (method !== 'GET') return reply(request, env, { error: 'metodo' }, 405);
     if (!CSV_TABLES.includes(q.t)) return reply(request, env, { error: 'filtro' }, 400);
+    // b: one brand of the showcase (t=montra only), for the file that goes to that brand
+    if (q.b !== undefined && (q.t !== 'montra' || !slug(q.b))) return reply(request, env, { error: 'filtro' }, 400);
     if (withToday) return reply(request, env, { error: 'periodo' }, 400);        // whole days only
-    const r = await call('query', 'export', { ...P, t: q.t });
+    const r = await call('query', 'export', { ...P, t: q.t, ...(q.b !== undefined ? { b: q.b } : {}) });
     if (r.error) return reply(request, env, r, 400);
     return new Response(r.csv, { status: 200, headers: { 'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${r.filename}"`, ...BASE, ...cors(request, env) } });

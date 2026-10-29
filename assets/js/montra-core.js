@@ -14,7 +14,12 @@
 // - Ids are lower-case slugs with no run of four digits (the page tracker drops such tokens: «gel-2027» would never be
 //   counted). The product id is the utm_content of its shop link and the `prod` of its click events.
 // - The page adds the tag to every shop link: utm_source=gocarmo, utm_medium=montra, utm_campaign=<season>,
-//   utm_content=<product id> (any utm_* already in the link goes first).
+//   utm_content=<product id> (any utm_* already in the link is removed; the other parameters and the fragment stay).
+// - A product id starts with its brand's id and a hyphen («marca-gel»): the stats Worker drops a click whose product is
+//   not of the brand it names, and the admin panel counts only the pairs this file has.
+// - The Title partner has at most one product «em destaque»: the page shows it first, as the wide card.
+// - On the page, a brand of a level from spots shows only while data/spots.json of its season has those spots sold to it
+//   (activeProducts with `spots`): freeing a spot in /admin/ takes its products off at once.
 // Guards against example brands live in checkMontra(strict) and the editor, not in the page: the owner's local preview
 // renders a fixture with the real code.
 
@@ -26,10 +31,12 @@ export const SUPPLIER = 'fornecedor-oficial';
 export const MAX_SUPPLIER = 6;
 export const ID_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 export const CODE_RE = /^[A-Z0-9][A-Z0-9-]{2,19}$/;
-export const PLACEHOLDER = /\b(exemplo|example|placeholder|teste|test|demo|lorem|marca x)\b/i;
+// names of example, sample or test brands and products (also «Marca X», «Brand B», a lone letter after the word). The
+// word edges are Unicode-aware: «a marca dá» or «Marca Ávila» is not «marca d» / «marca á».
+export const PLACEHOLDER = /(?<![\p{L}\p{N}])(exemplo|exemplar|example|sample|amostra|placeholder|teste?s?|demo|dummy|fake|fict[ií]ci[ao]|gen[eé]ric[oa]|generic|lorem|ipsum|acme|marca \p{L}|brand \p{L})(?![\p{L}\p{N}])/iu;
 export const BASE_RE = /^assets\/img\/montra\/[a-z0-9-]{1,60}$/;
 // hosts that are never a real shop
-const FAKE_HOST = /(^|\.)(localhost|example\.(com|org|net|pt)|test|example|invalid|local)$/i;
+export const FAKE_HOST = /(^|\.)(localhost|example\.(com|org|net|pt)|test|example|invalid|local)$/i;
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
 // the same fold as admin-contracts.js: brand names are matched without accents and case
@@ -95,6 +102,16 @@ export function productEnd(brand, p) {
   const end = seasonEnd(brand.season);
   return isDay(p.until) && p.until < end ? p.until : end;
 }
+// the spots data/spots.json shows sold to this brand, of its own spots (['fato'] when the whole suit is); [] when the
+// file is about another season or the brand is an official supplier (no spots)
+export function spotsHeld(brand, spots) {
+  if (!brand || brand.level === SUPPLIER || !Array.isArray(brand.spots) || !isObj(spots) || String(spots.season) !== String(brand.season)) return [];
+  const me = fold(brand.name).trim().replace(/\s+/g, ' ');
+  const mine = (x) => !!x && x.status === 'sold' && fold(x.brand).trim().replace(/\s+/g, ' ') === me;
+  if (brand.spots.includes('fato')) return mine(spots.title) ? ['fato'] : [];
+  const list = Array.isArray(spots.spots) ? spots.spots : [];
+  return brand.spots.filter((id) => mine(list.find((x) => x && x.id === id)));
+}
 export const isActive = (brand, p, day) => isDay(p.from) && p.from <= day && day <= productEnd(brand, p);
 // counts for the limit: on the site now or still to come
 export const counts = (brand, p, day) => productEnd(brand, p) >= day;
@@ -107,21 +124,38 @@ export function limitOf(brand) {
 }
 // what the section shows on Lisbon day `day`: [{ brand, product, featured }], the whole suit's brand first, then
 // Principal, Oficial and the official suppliers; inside a level, the file's order of brands and of products; at most
-// limitOf(brand) per brand. A product is featured only for the whole suit's brand.
-export function activeProducts(data, day) {
+// limitOf(brand) per brand. Only the first featured product of the whole suit's brand is featured, and it goes first.
+// opts.spots (the page's data/spots.json): a brand of a level from spots, of the season that file is about, shows only
+// the spots it still holds there allow (none held: nothing; fewer: the lower level's limit, with opts.levelOf); null
+// (the file could not be read): no brand of a level from spots shows. Left out: no such check (the tests, the editor).
+export function activeProducts(data, day, opts = {}) {
   const out = [];
   if (!data || !Array.isArray(data.brands) || !isDay(day)) return out;
   const brands = data.brands.map((b, i) => [b, i]).filter(([b]) => LEVELS.includes(b.level))
     .sort((a, b) => LEVELS.indexOf(a[0].level) - LEVELS.indexOf(b[0].level) || a[1] - b[1]).map(([b]) => b);
+  const check = 'spots' in opts, spots = opts.spots;
   for (const brand of brands) {
-    const cap = limitOf(brand);
-    let n = 0;
-    for (const product of brand.products || []) {
-      if (n >= cap) break;
-      if (!isActive(brand, product, day)) continue;
-      out.push({ brand, product, featured: brand.level === 'title' && product.featured === true });
-      n++;
+    let cap = limitOf(brand);
+    if (check && brand.level !== SUPPLIER) {
+      if (!isObj(spots)) continue;
+      if (String(spots.season) === String(brand.season)) {
+        const held = spotsHeld(brand, spots);
+        if (!held.length) continue;
+        if (typeof opts.levelOf === 'function' && held.length < (brand.spots || []).length) {
+          let lv = '';
+          try { lv = opts.levelOf(spots, held); } catch (_) { lv = ''; }
+          cap = Math.min(cap, LIMIT[lv] ?? 0);
+        }
+      }
     }
+    const mine = [];
+    for (const product of brand.products || []) {
+      if (mine.length >= cap) break;
+      if (isActive(brand, product, day)) mine.push(product);
+    }
+    const f = brand.level === 'title' ? mine.findIndex((p) => p.featured === true) : -1;
+    if (f > 0) mine.unshift(mine.splice(f, 1)[0]);
+    mine.forEach((product, i) => out.push({ brand, product, featured: f >= 0 && i === 0 }));
   }
   return out;
 }
@@ -135,6 +169,8 @@ export function shopUrl(url, { season, id } = {}) {
   if (u.protocol !== 'https:' || u.username || u.password || !u.hostname) return '';
   const host = u.hostname.toLowerCase().replace(/\.$/, '');
   if (host === 'gocarmo.com' || host.endsWith('.gocarmo.com')) return '';
+  // a shop is a domain name: never an IP address, a single label (an intranet name) or a name without a real TLD
+  if (/^\d+(\.\d+){3}$/.test(host) || host.startsWith('[') || !/\.([a-z]{2,}|xn--[a-z0-9-]+)$/.test(host)) return '';
   if (!/^\d{4}$/.test(String(season ?? '')) || !idOk(id)) return '';
   const keep = u.search.replace(/^\?/, '').split('&').filter((kv) => {
     if (!kv) return false;
@@ -203,8 +239,14 @@ export function checkMontra(data, { spots = null, day = '', levelOf = null, stri
       if (b.agreement !== undefined) bad(`${where}: agreement só para fornecedor oficial`);
     }
     if (strict && (PLACEHOLDER.test(String(b.name || '')) || PLACEHOLDER.test(String(b.id || '').replace(/-/g, ' ')))) bad(`${where}: parece uma marca de exemplo; só entram marcas com acordo`);
-    // the spots: sold to this brand in data/spots.json, at this level (only for the season spots.json is about)
-    if (strict && !supplier && spots && Array.isArray(b.spots) && String(spots.season) === season) {
+    // the spots: sold to this brand in data/spots.json, at this level, while any of its products counts (on the site or
+    // to come; a brand whose products are all over may keep spots it no longer holds, for the reports). A brand of
+    // another season has no agreement the file can show: it may stay only while none of its products counts.
+    const counting = Array.isArray(b.products) && b.products.some((p) => isObj(p) && isDay(p.from) && (!isDay(day) || counts({ season }, p, day)));
+    if (strict && !supplier && spots && String(spots.season) !== season && counting) {
+      bad(`${where}: a época ${season} não é a de data/spots.json (${spots.season}); só entram espaços vendidos nesta época`);
+    }
+    if (strict && !supplier && spots && Array.isArray(b.spots) && String(spots.season) === season && counting) {
       const me = fold(b.name);
       for (const id of b.spots) {
         if (id === 'fato') {
@@ -223,7 +265,7 @@ export function checkMontra(data, { spots = null, day = '', levelOf = null, stri
       }
     }
     if (!Array.isArray(b.products)) { bad(`${where}: products tem de ser uma lista`); return; }
-    let live = 0;
+    let live = 0, feat = 0;
     b.products.forEach((p, pi) => {
       const pw = `${where}, produto ${pi + 1}${isObj(p) && isObj(p.name) && p.name.pt ? ` («${p.name.pt}»)` : ''}`;
       if (!isObj(p)) { bad(`${pw}: não é um objeto`); return; }
@@ -231,6 +273,7 @@ export function checkMontra(data, { spots = null, day = '', levelOf = null, stri
       if (!idOk(p.id)) bad(`${pw}: id «${p.id ?? ''}» inválido (letras minúsculas, números e hífenes, até 40, sem 4 algarismos seguidos)`);
       else if (pIds.has(p.id)) bad(`${pw}: id «${p.id}» repetido no ficheiro`);
       else pIds.add(p.id);
+      if (idOk(p.id) && idOk(b.id, 30) && !p.id.startsWith(`${b.id}-`)) bad(`${pw}: o id «${p.id}» tem de começar por «${b.id}-» (o id da marca)`);
       textPair(p.name, 60, `${pw}: name`);
       textPair(p.line, 140, `${pw}: line`);
       textPair(p.alt, 140, `${pw}: alt`, false);
@@ -266,13 +309,17 @@ export function checkMontra(data, { spots = null, day = '', levelOf = null, stri
         }
       }
       if (strict) {
-        const names = [p.id, isObj(p.name) ? p.name.pt : '', isObj(p.name) ? p.name.en : ''].map((x) => String(x || '').replace(/-/g, ' '));
+        const names = [p.id, isObj(p.name) ? p.name.pt : '', isObj(p.name) ? p.name.en : '', isObj(p.codeNote) ? p.codeNote.pt : '', isObj(p.codeNote) ? p.codeNote.en : '']
+          .map((x) => String(x || '').replace(/-/g, ' '));
         if (names.some((x) => PLACEHOLDER.test(x))) bad(`${pw}: parece um produto de exemplo`);
       }
-      if (isDay(day) && /^\d{4}$/.test(season) && isObj(p) && isDay(p.from) && counts({ season }, p, day)) live++;
+      const on = /^\d{4}$/.test(season) && isDay(p.from) && (!isDay(day) || counts({ season }, p, day));
+      if (on && isDay(day)) live++;
+      if (on && p.featured === true) feat++;
     });
     const cap = limitOf({ level: b.level, max: Number.isInteger(b.max) ? b.max : (supplier ? 0 : LIMIT[b.level]) });
     if (live > cap) bad(`${where}: ${live} produtos na montra, o limite é ${cap}`);
+    if (feat > 1) bad(`${where}: ${feat} produtos em destaque; só um produto em destaque por marca`);
   });
   return out;
 }

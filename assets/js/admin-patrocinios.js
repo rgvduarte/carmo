@@ -10,7 +10,8 @@
 import * as A from './admin-contracts.js';
 import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError } from './admin-core.js';
 import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, renewalPrice, roundHalfUp, SEASON_DIV } from './season-rules.js';
-import { initMontra, montraLine, loadFile as loadMontra } from './admin-montra.js';
+import { initMontra, montraLine, loadFile as loadMontra, retireFor, montraOver } from './admin-montra.js';
+import { forgetToken, setToken } from './admin-gh.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -84,7 +85,7 @@ function errText(e) {
 function boot() {
   readPref();
   bind();
-  initMontra({ contracts: () => S.contracts || [], data: () => S.data, toast, ask, rerender: () => { if (S.contracts) render(); } });
+  initMontra({ contracts: () => S.contracts || [], data: () => S.data, toast, toastOff: () => { clearTimeout(toast.t); $('#toast').classList.remove('on'); }, ask, rerender: () => { if (S.contracts) render(); } });
   const api = reqApi();
   if (!api) return off('Os patrocínios ainda não estão ligados: falta o endereço do serviço dos pedidos (SITE.requestsApi em assets/js/data.js). Vê worker/README.md.');
   if (!/^https:\/\//.test(api) || !cspAllows(api)) return off('O endereço dos pedidos (SITE.requestsApi) ainda não está autorizado nesta página: corre node scripts/stamp.mjs e publica.');
@@ -122,11 +123,14 @@ function wipe() {
   const f = $('#sh-form'); if (f) f.reset();
   S.sheet = null; S.pdf = ''; S.hl = '';
 }
+// both secrets this page may hold: the requests key (this tab) and the GitHub token the montra editor asked for (in
+// memory, and in this browser's storage with «Lembrar neste telemóvel»)
 function forget() {
   dropKey(); S.key = ''; S.contracts = null; S.requests = null;
+  forgetToken(); setToken(null);
   wipe();
   showKey(); $('#key-err').textContent = '';
-  toast('Esqueci a chave dos pedidos neste separador.');
+  toast('Esqueci a chave dos pedidos e o token do GitHub neste browser.');
 }
 
 // data/spots.json from this site: the names, the prices and the season's dates
@@ -379,8 +383,12 @@ async function renew(id, state) {
 async function remove(c) {
   if (!(await ask(`Apagar o registo de ${c.brand}?`, `${A.spotsText(c) || c.label || ''} · ${A.money(c.amount)}. Só para um registo feito por engano: sai da lista e do serviço dos pedidos, e não volta.${c.request ? ' O pedido do site fica confirmado.' : ''}`, 'Apagar'))) return;
   setBusy(c.id, true);
-  try { await call('POST', `/contratos/${encodeURIComponent(c.id)}`, { action: 'apagar' }); S.contracts = S.contracts.filter((x) => x.id !== c.id); toast(`Registo de ${c.brand} apagado.`); } catch (e) { authLost(e) || toast(errText(e)); }
+  let gone = false;
+  try { await call('POST', `/contratos/${encodeURIComponent(c.id)}`, { action: 'apagar' }); S.contracts = S.contracts.filter((x) => x.id !== c.id); gone = true; toast(`Registo de ${c.brand} apagado.`); } catch (e) { authLost(e) || toast(errText(e)); }
   setBusy(c.id, false);
+  // the brand's products on the site past what its other contracts allow: retire them (one «Publicar na montra»)
+  const over = gone ? montraOver(c) : 0;
+  if (over && (await ask(`Retirar ${over === 1 ? 'o produto' : `os ${over} produtos`} de ${c.brand} da montra?`, `Sem este registo, ${c.brand} não tem montra para ${over === 1 ? 'esse produto' : 'esses produtos'}. Ficam retirados na lista da montra; depois carrega em «Publicar na montra».`, 'Retirar'))) retireFor(c);
 }
 // a request confirmed (paid) with no record: confirmar again, with the payment's date and amount
 async function register(r) {
