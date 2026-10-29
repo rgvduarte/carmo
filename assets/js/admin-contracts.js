@@ -4,7 +4,7 @@
 // The records come from the booking Worker (GET /contratos, KV c:<id>, worker/requests.js); the dates and the price rule
 // from season-rules.js. A record's renewal step is stored by hand ('', 'proposta', 'renova', 'nao-renova'); the state
 // shown is renewalView(contract, day).
-import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, isDay, seasonBp, pctText, roundHalfUp, SEASON_DIV, locksPrice } from './season-rules.js';
+import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, isDay, seasonBp, pctText, roundHalfUp, SEASON_DIV } from './season-rules.js';
 
 // ---------- words and dates ----------
 export const PT_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -142,41 +142,6 @@ export function payLine(c, contracts, day, data = null) {
   if (p.state === 'a-pagar') return { kind: daysBetween(day, p.by) <= 14 ? 'warn' : 'info', text: `Pagar até ${ptDay(p.by, true)}` };
   return { kind: 'bad', text: `Renovação de ${next} por pagar desde ${ptDay(p.since, true)}: ${isTitle(c) ? 'o fato completo fica livre' : idsOf(c).length > 1 ? 'os espaços ficam livres' : 'o espaço fica livre'}` };
 }
-// what the table asked for the spots of the contract, before any discount (the sum of the stored spot prices, else the
-// price's gross)
-export function tablePrice(c) {
-  const xs = Array.isArray(c?.spots) ? c.spots.filter(Boolean) : [];
-  const sum = xs.reduce((a, s) => a + (Number(s.price) || 0), 0);
-  return sum > 0 ? sum : Number(c?.price?.gross) || 0;
-}
-// the price kept on renewal (owner decision E1, amended: Principal and the whole suit): a sponsor of a locking level who
-// has not lost the renewal pays next season this season's table price for the same spots, or the next table if lower.
-// The card's line, or '' for every other level and a renewal that is lost.
-export function lockLine(c, day) {
-  if (!c || !locksPrice(c.level)) return '';
-  const v = renewalView(c, day);
-  if (v.state === 'nao-renova' || (v.state === 'terminado' && v.outcome !== 'renova')) return '';
-  const y = String(c.season), next = Number(y) + 1, gross = tablePrice(c);
-  if (!(gross > 0)) return '';
-  return `Preço em ${next}: o de ${y}, ${money(gross)} (tabela, sem desconto de época), ou o da tabela de ${next}, se for mais baixo.`;
-}
-// a new contract of `season` for `brand` and the spots `ids` that renews a contract of the season before at a level that
-// keeps its price (Principal, the whole suit) whose sponsor said yes: { from, level, prev } with prev the table price of
-// those spots in that contract (before any discount); null when there is none, or the spots are not all the same ones
-export function lockFor(contracts, { brand, season, ids }, day) {
-  const xs = Array.isArray(ids) ? ids : [];
-  if (!xs.length) return null;
-  const prevSeason = String(Number(season) - 1);
-  for (const c of Array.isArray(contracts) ? contracts : []) {
-    if (!c || String(c.season) !== prevSeason || !sameBrand(c.brand, brand) || !locksPrice(isTitle(c) ? 'title' : c.level) || !renewed(c, day)) continue;
-    if (isTitle(c)) { if (xs.length === 1 && xs[0] === TITLE) return { from: c, level: 'title', prev: tablePrice(c) }; continue; }
-    const had = new Map((c.spots || []).filter(Boolean).map((s) => [s.id, Number(s.price) || 0]));
-    if (!xs.every((id) => had.has(id))) continue;
-    return { from: c, level: c.level, prev: xs.reduce((a, id) => a + had.get(id), 0) };
-  }
-  return null;
-}
-
 // ---------- the list ----------
 export const FILTERS = [['todos', 'Todos'], ['ativo', 'Antes das propostas'], ['a-propor', 'A propor'], ['proposta', 'Proposta enviada'], ['renova', 'Renova'], ['nao-renova', 'Não renova'], ['terminado', 'Terminados']];
 // f: { state: a FILTERS key, season: '2027' | 'todas', q: words of the brand (accents and case do not count) }
@@ -446,12 +411,11 @@ const L = {
     // training; from Principal up also on the training kit)
     logoNoRaces: (r, suit, kit, got) => `O logótipo entra no site e nas minhas publicações a partir de agora${suit ? `, e no fato, nos treinos${kit ? ', e no equipamento de treino' : ''}` : ''}: em ${r.season} já não há triatlos depois do teu pedido.${suit && !got ? ' Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).' : suit && got ? ' Já recebi o logótipo em vetor.' : ''}`,
     // when: 'before' proposalsFrom (the general calendar), 'late' (from proposalsFrom to renewBy: the proposal goes with
-    // the payment confirmation), 'after' renewBy (only a deal by hand gets here). lock: the level keeps this season's
-    // price (Principal and the whole suit); every renewal is paid by renewPayBy
-    renew: (r, w, when, lock = false) => {
-      const s = r.season, y = Number(s) + 1;
-      const head = lock ? `Renovação: tens preferência ${w[0]} em ${y}, ao preço de ${s} (o da tabela de ${s}, sem o desconto de época; se a tabela de ${y} for mais baixa, pagas a de ${y}).`
-        : `Renovação: tens preferência ${w[0]} em ${y}, ao preço da tabela de ${y}.`;
+    // the payment confirmation), 'after' renewBy (only a deal by hand gets here). Every level renews at the next season's
+    // rate card and pays the renewal by renewPayBy
+    renew: (r, w, when) => {
+      const y = Number(r.season) + 1;
+      const head = `Renovação: tens preferência ${w[0]} em ${y}, ao preço da tabela de ${y}.`;
       const pay = ` Se renovares, pagas até ${ptLong(r.renewPayBy)}; sem o pagamento, ${w[2]} a partir de ${ptLong(addDays(r.renewPayBy, 1))}.`;
       if (when === 'after') return `${head} A proposta de ${y} segue à parte.${pay}`;
       const how = when === 'late' ? ` Como entras a partir de ${ptLong(r.proposalsFrom)}, envio-te a proposta com a confirmação do pagamento; tens até ${ptLong(r.renewBy)} para me dizer que sim.`
@@ -474,10 +438,9 @@ const L = {
     logoOpen: (r, got, soon) => `${soon ? `Your logo goes on the site and in my posts on ${enLong(r.start)}, when the season starts.` : 'Your logo goes on the site and in my posts from now on.'} For the kit, the vector logo (SVG, PDF, AI or EPS) is due by ${enLong(r.logoBy)}; if it arrives by then, I expect it to be on the kit for the first triathlon.${got ? ' I already have it.' : ''}`,
     logoLate: (race, got) => `Your logo goes on the site and in my posts from now on, and on the kit from ${race ? `this race, agreed before the payment: ${race}` : 'the race we agree on'}.${got ? ' I already have the vector logo.' : ' For production, send me the logo as a vector file (SVG, PDF, AI or EPS).'}`,
     logoNoRaces: (r, suit, kit, got) => `Your logo goes on the site and in my posts from now on${suit ? `, and on the suit in training${kit ? ', and on the training kit' : ''}` : ''}: there are no more triathlons in ${r.season} after your request.${suit && !got ? ' For production, send me the logo as a vector file (SVG, PDF, AI or EPS).' : suit && got ? ' I already have the vector logo.' : ''}`,
-    renew: (r, w, when, lock = false) => {
-      const s = r.season, y = Number(s) + 1;
-      const head = lock ? `Renewal: you have first option ${w[0]} in ${y}, at the ${s} price (the ${s} rate card price, without the mid-season discount; if the ${y} rate card is lower, you pay that).`
-        : `Renewal: you have first option ${w[0]} in ${y}, at the ${y} rate card price.`;
+    renew: (r, w, when) => {
+      const y = Number(r.season) + 1;
+      const head = `Renewal: you have first option ${w[0]} in ${y}, at the ${y} rate card price.`;
       const pay = ` If you renew, you pay by ${enLong(r.renewPayBy)}; without the payment, ${w[2]} from ${enLong(addDays(r.renewPayBy, 1))}.`;
       if (when === 'after') return `${head} The ${y} proposal follows separately.${pay}`;
       const how = when === 'late' ? ` As you join from ${enLong(r.proposalsFrom)}, I send you the proposal with the payment confirmation; you have until ${enLong(r.renewBy)} to say yes.`
@@ -534,7 +497,7 @@ export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {
   const when = ref && ref > r.renewBy ? 'after' : ref && ref >= r.proposalsFrom ? 'late' : 'before';
   const got = c.logo?.vector === true, logo = late && noRaces(c, data) && !c.logo?.fromRace ? w.logoNoRaces(r, hasSuit(c), TRAINING_KIT.includes(c.level) || isTitle(c), got)
     : late ? w.logoLate(c.logo?.fromRace || '', got) : w.logoOpen(r, got, soon);
-  const next = [logo, w.renew(r, what, when, locksPrice(isTitle(c) ? 'title' : c.level)), w.terms(c.terms || '')];
+  const next = [logo, w.renew(r, what, when), w.terms(c.terms || '')];
   const wa = site.whatsapp ? String(site.whatsapp).replace(/^(\d{3})(\d{3})(\d{3})(\d{3})$/, '+$1 $2 $3 $4') : '+351 916 395 103';
   return {
     lang: lg, file: `gocarmo-${w.file}-${slug(brand)}-${c.season}.pdf`, docTitle: `${w.doc(brand)} · ${site.name || 'Gonçalo Carmo'}`,

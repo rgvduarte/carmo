@@ -17,10 +17,9 @@
 //    date of the season; and its mid-season discount table (table.season-disc) has, for each month, the percent and the
 //    prices season-rules.js gives; the home page's season copy (ru.p2 «De janeiro a dezembro de 2027», the step «É teu»
 //    with the logo deadline, of.a4 with the renewal deadline, PT in index.html and EN in i18n.js) has this season's
-//    dates, and no level card but «Todos os espaços» promises the renewal preference (every level has it); the cards of
-//    the levels that keep their price on renewal (season-rules.js PRICE_LOCK: Principal of.c3, the whole suit of.d4)
-//    name «o preço da tabela de <season> em <next>, se renovares até <renewBy>» (the table, not what a mid-season sponsor
-//    paid), and no other card does. The end of the triathlon calendar («O calendário de triatlos de 2027 acaba em
+//    dates, and no level card but «Todos os espaços» promises the renewal preference (every level has it); no level card
+//    names a renewal price, and neither article of /condicoes/ keeps a price on renewal: every level renews at the next
+//    season's rate card. The end of the triathlon calendar («O calendário de triatlos de 2027 acaba em
 //    setembro», and «a partir de» the day after racesUntil) and the renewal's payment day (renewPayBy) are in both
 //    articles of /condicoes/. A mismatch stops it
 //    (also with --check): the terms cannot drift from the code, and a new season is not published before its terms
@@ -174,22 +173,21 @@ function checkTerms(R) {
   else {
     const cards = offer[1].split(/<div class="card\b/).slice(1);
     need(cards.length >= 2 && /renova|preferência/i.test(plain(cards[0])), 'index.html: the «Todos os espaços» card has to name the renewal preference (of.a4)');
-    // the price kept on renewal (owner decisions E1 and E1' of 29.10.2026): the cards of the PRICE_LOCK levels name it, in
-    // these words; no other level card does, and none of them names the preference, which every level has
-    const LOCK_CARD = { principal: ['of.c', 2], title: ['of.d', 3] };
-    const lockPt = `preço da tabela de ${R.season} em ${next}, se renovares até ${pt(R.renewBy)}`, lockEn = `${R.season} rate card price in ${next}, if you renew by ${en(R.renewBy)}`;
-    const locked = new Set(SR.PRICE_LOCK.map((lv) => LOCK_CARD[lv] && LOCK_CARD[lv][1]).filter((x) => x !== undefined));
+    // the renewal (owner decision of 29.10.2026, evening; terms of 30.10.2026): every level renews at the next season's
+    // rate card, so no level card names the renewal or a price kept (only «Todos os espaços», of.a4, names the renewal)
     cards.slice(1).forEach((c, j) => {
-      const i = j + 1, text = plain(c);
-      need(!/preferência/i.test(text), `index.html: level card ${i + 1} names the renewal preference, which every level has (put it only in «Todos os espaços»)`);
-      if (locked.has(i)) need(text.includes(lockPt), `index.html: level card ${i + 1} has to say «O ${lockPt}» (season-rules.js PRICE_LOCK, seasonRules.renewBy)`);
-      else need(!/renova|mesmo preço|preço da tabela/i.test(text), `index.html: level card ${i + 1} names a renewal or a price kept, which only the PRICE_LOCK levels have`);
+      const text = plain(c);
+      need(!/preferência|renova|mesmo preço|preço da tabela/i.test(text), `index.html: level card ${j + 2} names the renewal or a price kept (only «Todos os espaços», of.a4, names the renewal; no level keeps its price)`);
     });
     const enOf = [...js.matchAll(/"(of\.[bcd]\d)":\s*"([^"]*)"/g)].map((m) => [m[1], m[2]]);
-    const lockKeys = new Set(SR.PRICE_LOCK.map((lv) => LOCK_CARD[lv] && LOCK_CARD[lv][0]).filter(Boolean));
-    for (const pre of lockKeys) need(enOf.some(([k, v]) => k.startsWith(pre) && v.includes(lockEn)), `assets/js/i18n.js: no ${pre}N says «${lockEn}» (season-rules.js PRICE_LOCK, seasonRules.renewBy)`);
-    const enBad = enOf.filter(([k, v]) => /first option/i.test(v) || (/renew|same price|rate card price/i.test(v) && !(lockKeys.has(k.slice(0, 4)) && v.includes(lockEn)))).map(([k]) => k);
-    need(!enBad.length, `assets/js/i18n.js: ${enBad.join(', ')} names the renewal preference or a price kept, which only «Todos os espaços» (of.a4) and the PRICE_LOCK levels have`);
+    const enBad = enOf.filter(([, v]) => /first option|renew|same price|rate card price/i.test(v)).map(([k]) => k);
+    need(!enBad.length, `assets/js/i18n.js: ${enBad.join(', ')} names the renewal or a price kept (only «Todos os espaços», of.a4, names the renewal; no level keeps its price)`);
+  }
+  // and the terms keep no price on renewal: they name no table of this season (the lock of the terms of 29.10.2026, «ao
+  // preço da tabela de 2027», must not come back; this season's table is «a tabela», with no year)
+  for (const [l, re] of [['pt', new RegExp(`tabela de ${R.season}|ao preço de ${R.season}`, 'i')], ['en', new RegExp(`${R.season} rate card|at the ${R.season} price`, 'i')]]) {
+    const a = C.match(new RegExp(`<article\\b[^>]*data-l="${l}"[^>]*>([\\s\\S]*?)</article>`));
+    need(!a || !re.test(plain(a[1])), `condicoes/index.html (${l}): keeps the ${R.season} price on renewal; every level renews at the ${next} rate card`);
   }
   return out;
 }

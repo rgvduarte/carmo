@@ -9,7 +9,7 @@
 // through the GitHub API with the owner's token (admin-gh.js). Every piece of a record is shown with textContent only.
 import * as A from './admin-contracts.js';
 import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError } from './admin-core.js';
-import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, renewalPrice, roundHalfUp, SEASON_DIV } from './season-rules.js';
+import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText } from './season-rules.js';
 import { initMontra, montraLine, loadFile as loadMontra, retireFor, montraOver } from './admin-montra.js';
 import { forgetToken, setToken } from './admin-gh.js';
 import { SITE } from './data.js';
@@ -307,9 +307,7 @@ function card(c, day) {
     ren.appendChild(b);
   }
   li.appendChild(ren);
-  // the renewal's price (Principal and the whole suit keep this season's) and its payment by renewPayBy
-  const lock = A.lockLine(c, day);
-  if (lock) li.appendChild(el('p', 'ct-lock', lock));
+  // the renewal's payment by renewPayBy (every level renews at the next season's rate card)
   const pay = A.payLine(c, S.contracts, day, S.data);
   if (pay) li.appendChild(el('p', `ct-paystate ${pay.kind}`, pay.text));
   // the brand's montra: «Montra: N de M produtos» and its editor
@@ -487,14 +485,8 @@ function tableQuote() {
   if (site && [...A.idsOf(c)].sort().join() === [...ids].sort().join()) return { net: c.price.total, m: c.price.m, seasonBp: c.price.seasonBp, discPct: c.price.discPct, gross: c.price.gross };
   const day = site && /^\d{4}-\d{2}-\d{2}$/.test(c.price.day || '') ? c.price.day : /^\d{4}-\d{2}-\d{2}$/.test(paid) ? paid : today();
   const m = site && Number.isInteger(c.price.m) ? c.price.m : seasonMonth(season === r.season ? r : defaultRules(season), day);
-  const q = quote(S.data, ids, { day, m });
-  // a renewal of a level that keeps its price (owner decision E1: Principal and the whole suit): the table price of the
-  // season before for the same spots, or this table's when lower; then the discounts as usual
-  const lock = !site ? A.lockFor(S.contracts, { brand: $('#c-brand').value.trim(), season, ids }, today()) : null;
-  if (!lock) return q;
-  const gross = renewalPrice(lock.level, lock.prev, q.gross);
-  const net = roundHalfUp(gross * (SEASON_DIV - q.m) * (100 - q.discPct), SEASON_DIV * 100);
-  return { ...q, gross, net, lock };
+  // a renewal too: every level renews at the rate card of the season it renews for (no level keeps its price)
+  return quote(S.data, ids, { day, m });
 }
 // the rules of the season picked in the sheet
 const sheetRules = () => { const r = rules(), season = $('#c-season').value; return season === r.season ? r : defaultRules(season); };
@@ -503,7 +495,6 @@ function sheetHints() {
   if (q) {
     const parts = [q.m > 0 ? `desconto de época de ${A.monthName(q.m)}, −${pctText(q.seasonBp)}%` : '', q.discPct ? `desconto de pacote, −${q.discPct}%` : ''].filter(Boolean);
     hint.textContent = `Tabela: ${A.money(q.net)}${parts.length ? ` (${parts.join('; ')})` : ''}`;
-    if (q.lock) hint.textContent = `${q.lock.level === 'title' ? 'Title partner' : 'Principal'} que renovou: paga o preço de ${q.lock.from.season}, ${A.money(q.lock.prev)}, ou o da tabela de ${$('#c-season').value}, se for mais baixo. ${hint.textContent}`;
     // a deal by hand paid after the season's sales closed: priced as the last month of sales
     const sr = sheetRules(), paidAt = $('#c-paid').value, c0 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
     if ((!c0 || c0.kind !== 'site') && paidAt > sr.requestsUntil && paidAt <= sr.end && q.m > 0) hint.textContent += `. Pago depois do fecho das vendas de ${sr.season}: tabela de ${A.monthName(q.m)} (−${pctText(q.seasonBp)}%)`;

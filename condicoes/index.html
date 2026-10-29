@@ -23,16 +23,16 @@
   "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=4d3bfc69",
   "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=910c5272",
   "../assets/js/admin-confirm-pdf.js": "../assets/js/admin-confirm-pdf.js?v=4c9d7f83",
-  "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=6f5dfe79",
+  "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=2a861450",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=8d4ca3b5",
   "../assets/js/admin-gh.js": "../assets/js/admin-gh.js?v=aac86619",
   "../assets/js/admin-montra-core.js": "../assets/js/admin-montra-core.js?v=65ac1320",
   "../assets/js/admin-montra.js": "../assets/js/admin-montra.js?v=b8a5f267",
-  "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=96b4c1c6",
+  "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=c382a62b",
   "../assets/js/admin-photo.js": "../assets/js/admin-photo.js?v=534d6c65",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
   "../assets/js/admin.js": "../assets/js/admin.js?v=e6854a42",
-  "../assets/js/adspace.js": "../assets/js/adspace.js?v=dbad41b6",
+  "../assets/js/adspace.js": "../assets/js/adspace.js?v=0225baf6",
   "../assets/js/analytics.js": "../assets/js/analytics.js?v=640b44e0",
   "../assets/js/cartao.js": "../assets/js/cartao.js?v=3afab20e",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
@@ -41,7 +41,7 @@
   "../assets/js/gl3d.js": "../assets/js/gl3d.js?v=a7737baa",
   "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=df0a53e9",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=2f562717",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=b559949e",
   "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
   "../assets/js/main.js": "../assets/js/main.js?v=71f7fc59",
   "../assets/js/marks.js": "../assets/js/marks.js?v=fdea7b6c",
@@ -53,7 +53,7 @@
   "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
   "../assets/js/receipt.js": "../assets/js/receipt.js?v=f6b133d7",
   "../assets/js/room.js": "../assets/js/room.js?v=b0ef85a2",
-  "../assets/js/season-rules.js": "../assets/js/season-rules.js?v=7da03c68",
+  "../assets/js/season-rules.js": "../assets/js/season-rules.js?v=2761de48",
   "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=87cd2e59",
   "../assets/js/stats-site.js": "../assets/js/stats-site.js?v=340a563d",
   "../assets/js/stats-zones.js": "../assets/js/stats-zones.js?v=0b1a2d6f",
@@ -62,7 +62,7 @@
   "../assets/js/suit-mesh.js": "../assets/js/suit-mesh.js?v=b3644acd",
   "../assets/js/suit-worker.js": "../assets/js/suit-worker.js?v=41a4b375",
   "../assets/js/suit.js": "../assets/js/suit.js?v=116c1105",
-  "../assets/js/terms-text.js": "../assets/js/terms-text.js?v=3c4cf5aa"
+  "../assets/js/terms-text.js": "../assets/js/terms-text.js?v=0d550f6c"
 } }
 </script>
 <script type="module" src="../assets/js/privacy.js?v=95de7df4"></script>
@@ -110,8 +110,10 @@
     D1 a D18 foram aceites a 26.10.2026; as da época (ano civil, desconto de época, prazo do logótipo a 15 de janeiro,
     preferência na renovação para todos os níveis, registo dos patrocínios) a 28.10.2026; a montra «O meu material» a
     28.10.2026; o preço da tabela de 2027 na renovação do Principal e do fato completo, as vendas até 31 de outubro com o aviso
-    de que já não há triatlos, e o pagamento da renovação até 15 de janeiro a 29.10.2026. A comissão de cada marca da
-    montra fica no acordo dela, nunca aqui.
+    de que já não há triatlos, e o pagamento da renovação até 15 de janeiro a 29.10.2026; a renovação de todos os níveis à
+    tabela de 2028 (sem o preço de 2027 no Principal e no fato completo) e o parceiro de prova sem Kona a 30.10.2026 (o
+    texto de 29.10.2026 está em data/terms/2026-10-29.json). A comissão de cada marca da montra fica no acordo dela,
+    nunca aqui.
   - Montra: os números de produtos por nível (1, 3, 6) vêm de LIMIT em assets/js/montra-core.js, e o stamp.mjs
     compara-os com esta página. Se mudarem, mudam ao mesmo tempo o código, esta página (nas duas línguas) e o kit.
     O texto da secção #montra / #showcase repete, palavra por palavra, o do kit de patrocínio
@@ -128,16 +130,16 @@
   <p class="eyebrow gold">Condições do patrocínio</p>
   <h1 class="display legal-h">O que inclui um espaço</h1>
   <p class="lead">O que recebes em 2027, o que fica de fora, como reservas e pagas, e o que se combina à parte.</p>
-  <p class="legal-date">Atualizada a 29 de outubro de 2026</p>
+  <p class="legal-date">Atualizada a 30 de outubro de 2026</p>
 
   <section class="legal-sum" aria-labelledby="sum-pt">
     <h2 id="sum-pt">Em resumo</h2>
     <ul>
       <li>Um espaço é para a época 2027 inteira, de 1 de janeiro a 31 de dezembro de 2027, em todos os triatlos que eu fizer, salvo nas provas com parceiro de prova ou em que tenha de usar outro equipamento (mais abaixo). O fato vai também aos treinos.</li>
-      <li>Se entrares a meio da época, a partir de fevereiro de 2027, tens um desconto de época, até 20,83% em outubro. Se patrocinares em 2027, tens preferência no mesmo espaço em 2028 (nos níveis Principal e fato completo, ao preço da tabela de 2027), se me disseres que sim até 31 de outubro de 2027 e pagares até 15 de janeiro de 2028.</li>
+      <li>Se entrares a meio da época, a partir de fevereiro de 2027, tens um desconto de época, até 20,83% em outubro. Se patrocinares em 2027, tens preferência no mesmo espaço em 2028, ao preço da tabela de 2028, se me disseres que sim até 31 de outubro de 2027 e pagares até 15 de janeiro de 2028.</li>
       <li>Recebes o que o teu nível inclui. Não garanto resultados nem alcance.</li>
       <li>Exclusividade de setor, só com o fato completo ou por acordo escrito. A minha imagem em anúncios, só por escrito.</li>
-      <li>Numa prova do calendário por época, no máximo, e em Kona, garantindo a qualificação, uma empresa pode ser parceiro de prova. Nessas provas corro com o fato dela, não com o da época, e aviso-te antes.</li>
+      <li>Numa prova do calendário por época, no máximo, uma empresa pode ser parceiro de prova. Nessa prova corro com o fato dela, não com o da época, e aviso-te antes.</li>
       <li>Acordos maiores fazem-se por escrito, e o acordo escrito vale mais do que esta página.</li>
       <li>Lesão, doença ou prova cancelada não acabam com o patrocínio.</li>
     </ul>
@@ -158,14 +160,14 @@
     <li>A marca identificada nas minhas publicações de cada prova (numa prova com parceiro de prova, ver mais abaixo).</li>
   </ul>
   <p><strong>Oficial</strong> (espaços a partir de 150&nbsp;€), mais: publicação de apresentação e story no Instagram, fotografias com o logótipo para as redes da marca, relatórios a meio e no fim da época e 1 produto na montra do site (em <a href="#montra">«A montra do site»</a>).</p>
-  <p><strong>Principal</strong> (a partir de 400&nbsp;€), tudo o que o Oficial inclui e ainda: três publicações dedicadas por mês, o logótipo no equipamento de treino, uma t-shirt GOCARMO, uma página de relatório por mês, até 3 produtos na montra do site e o preço da tabela de 2027 em 2028, se renovares até 31 de outubro de 2027 (em <a href="#duracao">«Duração, prazos e renovação»</a>).</p>
-  <p><strong>Fato completo</strong>, o title partner (3&nbsp;000&nbsp;€), tudo o que o Principal e o Oficial incluem e ainda: os 20 espaços do fato, «Gonçalo Carmo × Marca» na bio, no media kit e no material de imprensa, exclusividade no teu setor, uma presença por época num evento da marca, até 6 produtos na montra do site, em destaque, e, como no Principal, o preço da tabela de 2027 em 2028, 3&nbsp;000&nbsp;€ (ou menos, se a tabela de 2028 baixar), se renovares até 31 de outubro de 2027.</p>
+  <p><strong>Principal</strong> (a partir de 400&nbsp;€), tudo o que o Oficial inclui e ainda: três publicações dedicadas por mês, o logótipo no equipamento de treino, uma t-shirt GOCARMO, uma página de relatório por mês e até 3 produtos na montra do site.</p>
+  <p><strong>Fato completo</strong>, o title partner (3&nbsp;000&nbsp;€), tudo o que o Principal e o Oficial incluem e ainda: os 20 espaços do fato, «Gonçalo Carmo × Marca» na bio, no media kit e no material de imprensa, exclusividade no teu setor, uma presença por época num evento da marca e até 6 produtos na montra do site, em destaque.</p>
   <p>Com vários espaços, ficas no nível do mais caro. O nível conta pelo preço da tabela do espaço, antes dos descontos de época e de pacote.</p>
 
   <h2>O que não inclui</h2>
   <ul>
     <li><strong>Resultados.</strong> Não prometo tempos nem lugares.</li>
-    <li><strong>A vaga para Kona.</strong> É o objetivo da época, sem garantia.</li>
+    <li><strong>A vaga para Kona em 2028.</strong> É o objetivo da época, sem garantia.</li>
     <li><strong>Um alcance mínimo.</strong> Os relatórios mostram os números reais das minhas redes.</li>
     <li><strong>Exclusividade de setor.</strong> Outra marca do teu setor pode ficar com outro espaço. Só há exclusividade no fato completo ou por acordo escrito.</li>
     <li><strong>A minha imagem nos anúncios da marca</strong> (pagos, cartazes, embalagens), salvo acordo escrito.</li>
@@ -182,9 +184,9 @@
   </ul>
 
   <h2>O parceiro de prova</h2>
-  <p>Numa prova grande, uma empresa pode ficar com a prova inteira. É o parceiro de prova. Paga os custos (inscrição, viagem, alojamento) e eu corro com o fato dela. Pode acontecer, por exemplo, em Kona, garantindo a qualificação. Nessa prova, não uso o fato da época. Fica escrito aqui para ninguém ter surpresas.</p>
+  <p>Numa prova grande, uma empresa pode ficar com a prova inteira. É o parceiro de prova. Paga os custos (inscrição, viagem, alojamento) e eu corro com o fato dela. Nessa prova, não uso o fato da época. Fica escrito aqui para ninguém ter surpresas.</p>
   <ul>
-    <li>No máximo duas provas por época: uma do calendário publicado no dia em que enviaste o pedido, e Kona, garantindo a qualificação. O capacete fica com os logótipos da época, a não ser que o acordo com o parceiro de prova peça outra coisa.</li>
+    <li>No máximo uma prova por época, do calendário publicado no dia em que enviaste o pedido. O capacete fica com os logótipos da época, a não ser que o acordo com o parceiro de prova peça outra coisa.</li>
     <li>O parceiro de prova não pode ser de um setor em que uma marca tenha exclusividade comigo (o do title partner, ou outro por acordo escrito), nem de álcool, apostas ou tabaco. Também não pode ser concorrente direto de uma marca Principal sem o acordo dela por escrito. Se houver title partner, o nosso acordo escrito diz o que acontece nessa prova.</li>
     <li>Aviso cada patrocinador da época por mensagem logo que o acordo fechar, sempre antes da prova, e ponho o aviso no site, na secção do patrocínio.</li>
     <li>Quem patrocina a época fica com tudo o resto: treinos, outras provas, publicações e relatórios.</li>
@@ -225,7 +227,7 @@
     <li>Vale o preço do dia do pedido, se pagares enquanto a reserva durar (48 horas ou, se eu a prolongar, até ao novo prazo).</li>
     <li>O logótipo em vetor para o fato e o capacete tem prazo até 15 de janeiro de 2027 (em <a href="#logotipo">«O logótipo e a produção»</a>).</li>
     <li>Todos os patrocinadores da época 2027, de qualquer nível, têm preferência no mesmo espaço em 2028. Envio-te a proposta a partir de 1 de setembro de 2027; se fizeres o pedido a partir dessa data, envio-ta com a confirmação do pagamento. Se me disseres que sim até 31 de outubro de 2027, o espaço continua teu. A partir de 1 de novembro de 2027, os espaços que não forem renovados ficam livres para quem os quiser na época 2028.</li>
-    <li>A renovação paga-se ao preço da tabela de 2028. Nos níveis Principal e fato completo, quem me disser que sim até 31 de outubro de 2027 paga em 2028 o que a tabela de 2027 pedia pelos mesmos espaços: o preço de cada espaço na tabela de 2027, sem o desconto de época, ou 3&nbsp;000&nbsp;€ pelo fato completo. Se a tabela de 2028 for mais baixa, paga a de 2028. O desconto de pacote conta como em qualquer pedido.</li>
+    <li>A renovação paga-se ao preço da tabela de 2028, em todos os níveis, também no Principal e no fato completo. O desconto de pacote conta como em qualquer pedido.</li>
     <li>Quem renovar paga a época 2028 até 15 de janeiro de 2028, o prazo do logótipo da época 2028. Se o pagamento não chegar até essa data, o espaço fica livre para quem o quiser a partir de 16 de janeiro de 2028.</li>
     <li>O calendário de triatlos de 2027 acaba em setembro. Os pedidos continuam abertos até 31 de outubro de 2027, mas a partir de 1 de outubro de 2027 já não há triatlos com o fato nem com o capacete em 2027. Num pedido feito a partir desse dia, o espaço inclui, até 31 de dezembro de 2027, o logótipo no site, as publicações, o fato nos treinos (num espaço do fato) e a preferência no mesmo espaço em 2028; a partir do nível Principal, também o logótipo no equipamento de treino. O resto do que o teu nível inclui não muda. O pedido, a mensagem e o comprovativo dizem isto antes de pagares.</li>
     <li>Os pedidos para a época 2027 fecham a 31 de outubro de 2027. A época 2028 abre no site a partir de 1 de novembro de 2027, quando a tabela de 2028 estiver publicada.</li>
@@ -282,16 +284,16 @@
   <p class="eyebrow gold">Sponsorship terms</p>
   <h1 class="display legal-h">What a spot includes</h1>
   <p class="lead">What you get in 2027, what's left out, how booking and payment work, and what we agree separately.</p>
-  <p class="legal-date">Updated 29 October 2026</p>
+  <p class="legal-date">Updated 30 October 2026</p>
 
   <section class="legal-sum" aria-labelledby="sum-en">
     <h2 id="sum-en">At a glance</h2>
     <ul>
       <li>A spot covers the whole 2027 season, 1 January to 31 December 2027, at every triathlon I race, except at races with a race partner or where I have to wear other kit (see below). I wear the suit in training too.</li>
-      <li>If you join mid-season, from February 2027, you get a mid-season discount, up to 20.83% in October. If you sponsor in 2027, you have first option on the same spot in 2028 (at Principal and whole suit level, at the 2027 rate card price), if you say yes by 31 October 2027 and pay by 15 January 2028.</li>
+      <li>If you join mid-season, from February 2027, you get a mid-season discount, up to 20.83% in October. If you sponsor in 2027, you have first option on the same spot in 2028, at the 2028 rate card price, if you say yes by 31 October 2027 and pay by 15 January 2028.</li>
       <li>You get what your level includes. I don't guarantee results or reach.</li>
       <li>Category exclusivity only comes with the whole suit or a written agreement. Using my image in your ads needs a written agreement.</li>
-      <li>At one calendar race a season at most, and at Kona if I qualify, a company can be the race partner. At those races I wear its suit, not the season suit, and I'll tell you beforehand.</li>
+      <li>At one calendar race a season at most, a company can be the race partner. At that race I wear its suit, not the season suit, and I'll tell you beforehand.</li>
       <li>Bigger deals are made in writing, and the written agreement prevails over this page.</li>
       <li>Injury, illness or a cancelled race doesn't end the sponsorship.</li>
     </ul>
@@ -312,14 +314,14 @@
     <li>Your brand tagged in my posts for every race (for a race with a race partner, see below).</li>
   </ul>
   <p><strong>Official</strong> (spots from €150), plus: an announcement post and story on Instagram, photos with your logo for your brand's channels, mid-season and end-of-season reports, and 1 product in the site showcase (see <a href="#showcase">“The site showcase”</a>).</p>
-  <p><strong>Principal</strong> (from €400), everything in Official, plus: three dedicated posts a month, your logo on my training kit, a GOCARMO T-shirt, a one-page report every month, up to 3 products in the site showcase and the 2027 rate card price in 2028, if you renew by 31 October 2027 (see <a href="#duration">“Duration, deadlines and renewal”</a>).</p>
-  <p><strong>Whole suit</strong>, the title partner (€3,000), everything in Principal and Official, plus: all 20 suit spots, “Gonçalo Carmo × Brand” in my bios, the media kit and press materials, category exclusivity, one appearance a season at a brand event, up to 6 products in the site showcase, featured, and, as at Principal, the 2027 rate card price in 2028, €3,000 (or less, if the 2028 rate card goes down), if you renew by 31 October 2027.</p>
+  <p><strong>Principal</strong> (from €400), everything in Official, plus: three dedicated posts a month, your logo on my training kit, a GOCARMO T-shirt, a one-page report every month and up to 3 products in the site showcase.</p>
+  <p><strong>Whole suit</strong>, the title partner (€3,000), everything in Principal and Official, plus: all 20 suit spots, “Gonçalo Carmo × Brand” in my bios, the media kit and press materials, category exclusivity, one appearance a season at a brand event and up to 6 products in the site showcase, featured.</p>
   <p>If you take several spots, you get the level of the most expensive one. The level follows the spot's rate card price, before the mid-season and bundle discounts.</p>
 
   <h2>What is not included</h2>
   <ul>
     <li><strong>Results.</strong> I don't promise times or places.</li>
-    <li><strong>A Kona slot.</strong> It's the season's goal, with no guarantee.</li>
+    <li><strong>A Kona slot for 2028.</strong> It's the season's goal, with no guarantee.</li>
     <li><strong>A minimum reach.</strong> The reports show the real numbers from my accounts.</li>
     <li><strong>Category exclusivity.</strong> Another brand in your category can take a different spot. Exclusivity only comes with the whole suit or a written agreement.</li>
     <li><strong>My image in your brand's advertising</strong> (paid ads, posters, packaging), unless agreed in writing.</li>
@@ -336,9 +338,9 @@
   </ul>
 
   <h2>The race partner</h2>
-  <p>At a big race, one company may take the whole race. That's the race partner. It pays the costs (entry, travel, accommodation) and I race in its suit. It could happen at Kona, for example, if I qualify. At that race, I don't wear the season suit. It's written here so nobody gets a surprise.</p>
+  <p>At a big race, one company may take the whole race. That's the race partner. It pays the costs (entry, travel, accommodation) and I race in its suit. At that race, I don't wear the season suit. It's written here so nobody gets a surprise.</p>
   <ul>
-    <li>Two races a season at most: one from the calendar published on the day you sent your request, and Kona, if I qualify. The helmet keeps the season logos, unless the race partner's deal asks for something else.</li>
+    <li>One race a season at most, from the calendar published on the day you sent your request. The helmet keeps the season logos, unless the race partner's deal asks for something else.</li>
     <li>The race partner can't be in a category where a brand has exclusivity with me (the title partner's, or another by written agreement), or be an alcohol, betting or tobacco brand. Nor can it be a direct competitor of a Principal brand without that brand's written consent. If there is a title partner, our written agreement says what happens at that race.</li>
     <li>I message every season sponsor as soon as the deal closes, always before the race, and post the notice in the sponsorship section of the site.</li>
     <li>Season sponsors keep everything else: training, the other races, posts and reports.</li>
@@ -379,7 +381,7 @@
     <li>The price of the request day stands if you pay while the hold lasts (48 hours or, if I extend it, until the new deadline).</li>
     <li>The vector logo for the suit and helmet is due by 15 January 2027 (see <a href="#logo">“Your logo and production”</a>).</li>
     <li>Every 2027 sponsor, at any level, has first option on the same spot in 2028. I send you the proposal from 1 September 2027; if you send the request from that date, I send it with the payment confirmation. If you say yes by 31 October 2027, the spot stays yours. From 1 November 2027, the spots not renewed are open to anyone for the 2028 season.</li>
-    <li>A renewal is paid at the 2028 rate card price. At Principal and whole suit level, if you say yes by 31 October 2027, you pay in 2028 what the 2027 rate card asked for the same spots: each spot's 2027 rate card price, without the mid-season discount, or €3,000 for the whole suit. If the 2028 rate card is lower, you pay the 2028 price. The bundle discount applies as in any request.</li>
+    <li>A renewal is paid at the 2028 rate card price, at every level, Principal and whole suit included. The bundle discount applies as in any request.</li>
     <li>If you renew, you pay for the 2028 season by 15 January 2028, the logo deadline of the 2028 season. If the payment has not arrived by then, the spot is open to anyone from 16 January 2028.</li>
     <li>The 2027 triathlon calendar ends in September. Requests stay open until 31 October 2027, but from 1 October 2027 there are no more triathlons with the suit or the helmet in 2027. For a request made from that day, until 31 December 2027 the spot includes your logo on the site, the posts, the suit in training (for a suit spot) and first option on the same spot in 2028; from Principal level up, also your logo on my training kit. Everything else your level includes stays the same. The request, the message and the confirmation say so before you pay.</li>
     <li>Requests for the 2027 season close on 31 October 2027. The 2028 season opens on the site from 1 November 2027, once the 2028 rate card is published.</li>

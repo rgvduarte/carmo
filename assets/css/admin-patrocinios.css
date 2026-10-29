@@ -92,8 +92,7 @@ fieldset.field > legend { padding: 0; }
 #c-use { min-height: 36px; padding: 0; }
 .pt-sheet textarea { min-height: 96px; resize: vertical; }
 
-/* the renewal's price and payment on a card (owner decisions E1, E3) */
-.ct-lock { margin: 0; font-size: 13px; color: var(--gold); line-height: 1.4; }
+/* the renewal's payment on a card (owner decision E3) */
 .ct-paystate { margin: 0; font-size: 14px; line-height: 1.4; }
 .ct-paystate.ok { color: var(--ok); }
 .ct-paystate.info { color: var(--ink); }

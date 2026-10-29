@@ -37,9 +37,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, num botão depois dos níveis, na ficha de cada espaço, no cartão do fato
   completo e no fim das tabelas de preços, no rodapé e no passo 1 do pedido, «Ao enviar, aceitas as condições do
-  patrocínio (versão de 29.10.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
+  patrocínio (versão de 30.10.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
-  prazo do logótipo, a preferência na renovação, o preço de 2027 na renovação do Principal e do fato completo, o
+  prazo do logótipo, a preferência na renovação, a renovação de todos os níveis à tabela de 2028, o
   pagamento da renovação até 15 de janeiro, o aviso de outubro, já sem triatlos, e a conta das devoluções por meses),
   a montra do site («A montra do site», com os produtos por nível), o parceiro de prova e o que se combina num acordo
   escrito. A data «Atualizada a», nas duas línguas, muda
@@ -416,13 +416,13 @@ lado nenhum.
   «Pedir o fato completo». Todos são `.btn.ghost.sm` (o bloco, `.btn.ghost`) e abrem `/condicoes/` noutro separador
   (o 3D, a ficha e o pacote ficam como estavam), em inglês `condicoes/?lang=en`; os links «condições» do texto do 05
   também, e todos dizem ao leitor de ecrã «(abre noutro separador)». O passo 1 do pedido diz «Ao enviar, aceitas as
-  condições do patrocínio (versão de 29.10.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
+  condições do patrocínio (versão de 30.10.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
   no mesmo separador.
-- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 29.10.2026):
-  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 29 October 2026): …?lang=en»), feita de
+- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 30.10.2026):
+  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 30 October 2026): …?lang=en»), feita de
   `seasonRules.termsDate`.
 - **Os PDF.** O comprovativo do pedido e a confirmação do patrocínio têm a primeira página igual à de antes e, a
-  seguir, «Anexo · Condições do patrocínio · versão de 29.10.2026»: o texto inteiro da página, na língua do documento,
+  seguir, «Anexo · Condições do patrocínio · versão de 30.10.2026»: o texto inteiro da página, na língua do documento,
   com títulos, listas, a tabela do desconto de época, «Página 2 de 7» e links (a página no ar, Privacidade, email,
   WhatsApp; o endereço da Privacidade escrito a seguir ao link, para o papel; cada «(em «Duração, prazos e
   renovação»)» leva a esse título do anexo). Em inglês, o anexo diz que vale o texto português e liga para ele
@@ -434,8 +434,8 @@ lado nenhum.
 - **De onde vem o texto.** `assets/js/terms-text.js` é escrito por `node scripts/stamp.mjs` (`scripts/terms-text.mjs`) a
   partir dos dois `<article>` de `condicoes/index.html`: nunca o edites à mão. Só carrega quando se faz um PDF. Quando
   `seasonRules.termsDate` muda, o stamp guarda o texto da versão anterior em `data/terms/<data>.json` (já lá estão
-  26.10.2026 e 28.10.2026) e a soma sha256 dele em `data/terms/SHA256SUMS`; daí em diante confere cada ficheiro com a
-  sua linha, porque as confirmações de contratos antigos anexam esse texto.
+  26.10.2026, 28.10.2026 e 29.10.2026) e a soma sha256 dele em `data/terms/SHA256SUMS`; daí em diante confere cada
+  ficheiro com a sua linha, porque as confirmações de contratos antigos anexam esse texto.
 - **O que o stamp recusa:** uma marcação na página que o anexo não sabe desenhar (um `<em>`, um `<ol>`, um `<br>`: ensina
   `scripts/terms-text.mjs` e `assets/js/pdf-annex.js`), texto da página que não chegue ao anexo, o módulo desatualizado,
   datas que não batem, o texto mudado depois do próprio dia sem data nova (muda a data no mesmo dia em que mudas o
@@ -461,7 +461,7 @@ num só ficheiro, `assets/js/season-rules.js`, que o site, o admin e o Worker im
 | `renewBy` | 2027-10-31 | último dia para o patrocinador dizer que sim e ficar com o espaço |
 | `openFrom` | 2027-11-01 | os espaços não renovados ficam livres para todos |
 | `renewPayBy` | 2028-01-15 | último dia para pagar a renovação de 2028 (o prazo do logótipo de 2028); sem o pagamento, o espaço fica livre a partir do dia seguinte |
-| `termsDate` | 2026-10-29 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
+| `termsDate` | 2026-10-30 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
 
 O fuso é sempre o de Lisboa. `node scripts/stamp.mjs` recusa um bloco com datas impossíveis (fora da época, fora de
 ordem, `fullPriceUntil` que não seja o último dia de um mês, `requestsUntil` em dezembro, `racesUntil` fora da época,
@@ -502,21 +502,20 @@ mês em que o patrocínio acaba. Peito pedido em março, 563 €, paragem em jun
 
 **Renovação.** Todos os patrocinadores, de qualquer nível, têm preferência no mesmo espaço na época seguinte: envias a
 proposta a partir de 1 de setembro de 2027; quem disser que sim até 31 de outubro de 2027 fica com o espaço; a partir
-de 1 de novembro de 2027 os não renovados ficam livres. O preço é o da tabela de 2028, salvo no Principal e no fato
-completo (decisão de 29.10.2026; `PRICE_LOCK` e `renewalPrice` em `assets/js/season-rules.js`, o nível é o de
-`levelOf`): quem disser que sim até 31 de outubro paga em 2028 o que a tabela de 2027 pedia pelos mesmos espaços, sem
-o desconto de época, ou 3 000 € pelo fato completo, ou a tabela de 2028, se for mais baixa; o desconto de pacote conta
-como em qualquer pedido. Oficial e Apoio renovam à tabela de 2028. Quem renova paga até 15 de janeiro de 2028
-(`renewPayBy`, o prazo do logótipo de 2028); sem o pagamento até lá, o espaço fica livre a partir de 16 de janeiro.
-A mensagem, o comprovativo e a confirmação (PDF) dizem o preço (no Principal e no fato completo) e o prazo do
-pagamento (todos os níveis). A página Patrocínios lembra cada passo.
+de 1 de novembro de 2027 os não renovados ficam livres. Todos os níveis renovam ao preço da tabela de 2028, o
+Principal e o fato completo também (decisão de 29.10.2026, nas condições de 30.10.2026); o desconto de pacote conta
+como em qualquer pedido. Quem renova paga até 15 de janeiro de 2028 (`renewPayBy`, o prazo do logótipo de 2028); sem o
+pagamento até lá, o espaço fica livre a partir de 16 de janeiro. A mensagem, o comprovativo e a confirmação (PDF)
+dizem a tabela de 2028 e o prazo do pagamento. A página Patrocínios lembra cada passo. Quem fez o pedido com as
+condições de 29.10.2026 tem em anexo essa versão, que dava o preço de 2027 ao Principal e ao fato completo; se houver
+um, combina-o por escrito.
 
 **Outubro, sem triatlos.** O calendário de triatlos de 2027 acaba em setembro (`racesUntil`, 30 de setembro). Os pedidos
 continuam abertos até 31 de outubro, mas de 1 a 31 de outubro o passo 1 do pedido, a mensagem e o comprovativo dizem
 que já não há triatlos com o fato (ou o capacete) em 2027 e que, até 31 de dezembro, o espaço vale pelo site, pelas
 publicações, pelo fato nos treinos (num espaço do fato) e pela preferência em 2028 e, a partir do Principal, também
 pelo logótipo no equipamento de treino. As linhas do logótipo deixam de prometer uma prova. Até 30 de setembro nada
-muda. Se entrar um triatlo depois de 30 de setembro (Kona, por exemplo), muda `racesUntil` e, no mesmo dia, as
+muda. Se entrar um triatlo depois de 30 de setembro, muda `racesUntil` e, no mesmo dia, as
 condições, que escrevem a data (o `stamp.mjs` compara-as).
 
 **Mudar de época (para 2028).** Depois de 1 de novembro de 2027, com a tabela de 2028 pronta:
@@ -530,9 +529,8 @@ condições, que escrevem a data (o `stamp.mjs` compara-as).
 5. `node scripts/stamp.mjs` e `node scripts/stamp.mjs --check`: recusa enquanto as condições não tiverem as datas
    novas. Depois publica.
 6. Quando cada patrocinador renovado pagar (até 15 de janeiro de 2028), regista-o como patrocínio de 2028 em
-   Patrocínios («Novo patrocínio», época 2028; no Principal e no fato completo, o preço de 2027, ou o de 2028 se for
-   mais baixo). O cartão de 2027 passa a «Renovação de 2028 paga». Quem não pagou até 15 de janeiro perde o espaço:
-   liberta-o na página de admin.
+   Patrocínios («Novo patrocínio», época 2028, à tabela de 2028). O cartão de 2027 passa a «Renovação de 2028 paga».
+   Quem não pagou até 15 de janeiro perde o espaço: liberta-o na página de admin.
 7. Na montra, cada época tem a sua entrada. Os produtos de 2027 saem sozinhos a 31 de dezembro de 2027, e a entrada
    de 2027 fica no ficheiro, escondida, com o histórico. Para uma marca renovada, «Montra» no cartão de 2028 abre uma
    entrada nova da época 2028, com outro id (o da marca com `-2` no fim; os cliques de 2028 aparecem à parte nas
@@ -594,13 +592,10 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   → Renova ou Não renova; «Desfazer» volta um passo atrás; depois de 31 de dezembro, Terminado; a 1 de novembro, uma
   proposta sem resposta, ou uma marca a quem a proposta nunca foi enviada, conta como Não renova),
   o logótipo em vetor (recebido ou em falta), as notas, **Editar**, **Confirmação (PDF)** e **Apagar** (só para um
-  registo feito por engano; pergunta antes). No Principal e no fato completo, enquanto a renovação não estiver perdida,
-  «Preço em 2028: o de 2027, 600 € (tabela, sem desconto de época), ou o da tabela de 2028, se for mais baixo.».
-  Depois de «Renova», o pagamento: «Pagar até 15 jan. 2028» (em aviso nas duas últimas semanas), «Renovação de 2028
-  paga a …» (quando há um patrocínio de 2028 da mesma marca nos mesmos espaços) ou «Renovação de 2028 por pagar desde
-  16 jan. 2028: o espaço fica livre». E a linha da montra, «Montra: 2 de 3 produtos», com o botão **Montra**.
-- **Novo patrocínio** na época 2028, para uma marca Principal ou fato completo que renovou: a dica da tabela diz «paga
-  o preço de 2027, 600 €, ou o da tabela de 2028, se for mais baixo», e «Usar o valor da tabela» usa esse preço (com o
+  registo feito por engano; pergunta antes). Depois de «Renova», o pagamento: «Pagar até 15 jan. 2028» (em aviso nas
+  duas últimas semanas), «Renovação de 2028 paga a …» (quando há um patrocínio de 2028 da mesma marca nos mesmos
+  espaços) ou «Renovação de 2028 por pagar desde 16 jan. 2028: o espaço fica livre». E a linha da montra, «Montra: 2 de 3 produtos», com o botão **Montra**.
+- **Novo patrocínio** na época 2028, também para uma marca que renovou: a tabela de 2028, como para todos (com o
   desconto de pacote, como sempre).
 - **Exportar CSV**: `gocarmo-patrocinios-<época>-<data>.csv`, separado por `;`, que o Excel em português abre
   direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas). No
@@ -608,8 +603,8 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   cópia de segurança: guarda-a e apaga as antigas até ao fim do prazo dos registos.
 - **Confirmação (PDF)**: a «Confirmação de patrocínio» que envias à marca depois do pagamento, feita no telemóvel como
   o comprovativo: marca, espaços e preços, desconto de época e de pacote (só quando o montante é o da tabela), montante
-  e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo (no Principal e no fato
-  completo, com o preço de 2027), o prazo do pagamento da renovação (15 de janeiro de 2028) e o link para as condições.
+  e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo (à tabela de 2028), o prazo
+  do pagamento da renovação (15 de janeiro de 2028) e o link para as condições.
   Em português, ou em inglês se a marca escreveu em inglês (escolhes antes de gerar). A seguir, em anexo, as condições
   na versão do contrato; a janela diz qual, ou que vai sem anexo (ver «Condições do patrocínio nos pedidos e nos PDF»).
 
@@ -1102,9 +1097,8 @@ condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `sea
 sai dela), o texto das condições para o anexo dos PDF (escreve `assets/js/terms-text.js` e guarda a versão anterior em
 `data/terms/`, ver «Condições do patrocínio nos pedidos e nos PDF»), as datas da época escritas em
 cada língua de `/condicoes/` (também `racesUntil` e `renewPayBy`) e a tabela do desconto de época dessa página, mês a
-mês, contra `season-rules.js`; que só os cartões dos níveis com o preço de 2027 na renovação (Principal e fato
-completo) o dizem, com estas palavras: «O preço da tabela de 2027 em 2028, se renovares até 31 de outubro de 2027» (a
-tabela, não o que pagou quem entrou a meio da época), e que só «Todos os espaços» fala da preferência; que
+mês, contra `season-rules.js`; que nenhum cartão de nível fala de um preço na renovação e que as condições não dão o
+preço da época a quem renova (todos renovam à tabela de 2028), e que só «Todos os espaços» fala da preferência; que
 `data/montra.json` está certo (`checkMontra`: forma, ids de produto que começam pelo da marca, links https para um
 domínio, nenhuma marca, produto, nota ou loja de exemplo, um só produto em destaque, limites por nível, espaços
 vendidos à marca, nenhuma marca de espaços de outra época com produtos por mostrar) e que as

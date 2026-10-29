@@ -1068,7 +1068,7 @@ const closedNow = () => !heldReq() && !salesOpen(rules(), lisbonDay());
 const shut = () => clStep === 1 && closedNow();
 // the request's day falls after the season's last triathlon while sales are still open (seasonRules.racesUntil): the
 // dialog, the message and the comprovativo say what the spot is still worth this season. lvNow: the package's level
-// (season-rules.js levelOf: Principal and the whole suit keep the price on renewal and have the training kit)
+// (season-rules.js levelOf: Principal and the whole suit have the logo on the training kit)
 const lateOn = (day) => { const R = rules(); return salesOpen(R, day) && noRacesLeft(R, day); };
 const lvNow = () => levelOf(DATA, wantTitle ? [TITLE] : totals().list.map((s) => s.id));
 // the step «É teu» (#sp-p4) from the season's rules: the logo deadline while it is open, the race after it (the page
@@ -1165,7 +1165,7 @@ function message({ sizes = true, extra = null } = {}) {
   const late = lateOn(day), kind = kindKey(), lv = lvNow();
   if (late) lines.push(t('msg.late', R, kind, kOf(), lv));
   if (midSeason) lines.push(t('msg.season', m, seasonBp));
-  lines.push(t('msg.logo', R, logoOpen(R, day), late, kind), t('msg.renew', R, kOf(), lv));
+  lines.push(t('msg.logo', R, logoOpen(R, day), late, kind), t('msg.renew', R, kOf()));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -2054,7 +2054,7 @@ function rcptModel() {
   // then the season: the logo deadline (or, after it, from which race), the mid-season discount, the renewal preference
   // (from the day after the season's last triathlon: first, what the spot is still worth this season)
   const late = lateOn(qDay), kind = kindKey(), lv = lvNow();
-  const season = [t('rcpt.logo', R, logoOpen(R, qDay), late, kind), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R, k, qDay, lv)];
+  const season = [t('rcpt.logo', R, logoOpen(R, qDay), late, kind), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R, k, qDay)];
   const next = [...(late ? [t('rcpt.late', R, kind, k, lv)] : []), ...(!r ? [t('rcpt.proof')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k)] : [t('rcpt.payBy', day), t('cl.payHeld', k)]), ...season];
   return {
     lang: getLang(),

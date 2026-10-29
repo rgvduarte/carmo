@@ -27,7 +27,7 @@
 export const TITLE = 'fato';
 export const TZ = 'Europe/Lisbon';
 export const SEASON_DIV = 48;
-const TERMS_DEFAULT = '2026-10-29';
+const TERMS_DEFAULT = '2026-10-30';
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'racesUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom', 'renewPayBy', 'termsDate'];
 
@@ -172,18 +172,8 @@ export function levelOf(data, ids) {
   return (tiers.find((t) => top >= t.min) || tiers[tiers.length - 1]).key;
 }
 
-// The renewal price. The levels whose sponsors keep the price when they say yes by renewBy (Principal and the whole suit,
-// owner decision of 29.10.2026): in the next season they pay what this season's rate card asked for the same spot(s), or
-// the next season's rate card price if that is lower. Every other level pays the next season's rate card. prev, next:
-// table prices (before any discount) of this season and of the next one; next null when the next table is not out yet.
-export const PRICE_LOCK = Object.freeze(['principal', 'title']);
-export const locksPrice = (level) => PRICE_LOCK.includes(level);
-const amount = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
-export function renewalPrice(level, prev, next) {
-  const p = amount(prev), n = amount(next);
-  if (!locksPrice(level)) return n;
-  return n === null ? p : p === null ? n : Math.min(p, n);
-}
+// The renewal: every level renews at the next season's rate card (owner decision of 29.10.2026, evening; terms of
+// 30.10.2026). No level keeps its price.
 
 // ---------- contracts ----------
 // the renewal step as shown on Lisbon day `day`, from the step stored by hand ('', 'proposta', 'renova', 'nao-renova').
