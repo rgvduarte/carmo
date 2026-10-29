@@ -75,6 +75,23 @@ test('no IP address and no User-Agent anywhere at rest', async () => {
   assert.ok(d.tables.pv >= 3 && d.tables.agg > 0);
 });
 
+test('the diagnostic card and the sponsors\' clicks: day and month totals only, no address, browser or place', async () => {
+  const ua = `${UA.pixel} DiagMarker/5`;
+  await visit(mf, { ip: '10.124.1.9', ua, cf: PLACE.leiria, now: at(10, 7), events: [click(1, { sel: '#onsuit-list > li > a', lab: 'Marca',
+    sec: 'o-fato', x: 40, y: 900, ex: 50, ey: 50, pt: 't', ia: 1, out: 'marca.pt', osp: 1 })] });
+  const d = (await api(mf, 'diag?p=7d', { now: LATER })).json;
+  const day = d.days.find((x) => x.day === DAY);
+  assert.ok(day.counted && day.req >= 2 && day.ok >= 2, JSON.stringify(day));
+  const s = (await api(mf, `sponsors?p=custom&from=${DAY}&to=${DAY}`, { now: LATER })).json;
+  assert.deepEqual(s.totals.find((r) => r.host === 'marca.pt'), { host: 'marca.pt', logo: 1, shop: 0 });
+  for (const text of [JSON.stringify(d), JSON.stringify(s)]) {
+    for (const n of ['10.124', 'DiagMarker', 'Pixel', 'Leiria', 'PT', 'mobile', '"hr"', 'android']) assert.ok(!text.includes(n), n);
+  }
+  // the new counters live in `sys` with the others: nothing of the request in any table
+  const g = await dump(mf, ['10.124.1.9', '10.124.1.', 'DiagMarker']);
+  for (const k of Object.keys(g.grep)) assert.deepEqual(g.grep[k], [], k);
+});
+
 test('a visitor-day: two page views of one visitor count once; across a Lisbon midnight they count twice', async () => {
   // later days than the other tests: the salt only ever rotates forwards
   const day = addDays(DAY, 1), next = addDays(DAY, 2), q = at(15, 0, next);

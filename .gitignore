@@ -12,3 +12,8 @@ worker/.dev.vars
 *.certSigningRequest
 /*.pkpass
 /wallet/*.pkpass
+# Cofre de documentos (README, «Documentos»): a configuração com caminhos reais, o estado (e o seu ficheiro temporário
+# docs-publish.state.json.tmp-<pid>, se o publicador parar a meio) e a cache do publicador nunca entram
+docs-publish.json*
+docs-publish.state.json*
+docs-publish.cache.git/

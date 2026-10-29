@@ -1,7 +1,7 @@
 // Every refusal path and status, CORS and OPTIONS, the response headers, /health, admin auth (SPEC 3).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { start, post, api, page, dump, UA, SITE, KEY, lisbonToday, lisbonISO, addDays } from './helpers.mjs';
+import { start, post, api, page, dump, UA, SITE, KEY, lisbonToday, lisbonISO, addDays, freshMinute } from './helpers.mjs';
 
 let mf, prod;
 before(async () => {
@@ -44,6 +44,7 @@ test('/health says which pieces are set up, true or false only', async () => {
 test('/health: limited per address, and the store asked at most once a minute', async () => {
   const dor = async () => { const q = (await api(mf, 'system?p=7d')).json.quota; return q.dor[q.dor.length - 1]; };
   const d0 = await dor();
+  await freshMinute();
   const codes = [];
   for (let i = 0; i < 100; i++) codes.push((await raw(mf, '/health', { headers: { 'X-Dev-Ip': '198.51.100.20' } })).status);
   assert.equal(codes.filter((c) => c === 200).length, 30);
@@ -135,6 +136,7 @@ test('beacon refusals, in order, each counted once (and GPC/DNT counted nowhere)
 });
 
 test('rate limit: 30 beacons a minute per address, then 429', async () => {
+  await freshMinute();
   const codes = [];
   for (let i = 0; i < 40; i++) codes.push((await post(mf, page(), { ip: '10.20.30.40' })).status);
   assert.equal(codes.filter((c) => c === 204).length, 30);
@@ -242,19 +244,23 @@ test('admin parameters: 400 periodo / filtro, 404, 405', async () => {
   assert.equal((await api(mf, 'nothing')).status, 404);
   assert.equal((await api(mf, 'overview', { method: 'POST', body: {} })).status, 405);
   assert.equal((await api(mf, 'export.csv?t=tudo')).status, 400);
-  for (const e of ['ping', 'now', 'overview', 'audience', 'content', 'heatmap', 'studio', 'booking', 'contacts', 'quality', 'feedback', 'system']) {
+  const TODAY_OK = ['ping', 'now', 'overview', 'system', 'diag'];
+  for (const e of ['ping', 'now', 'overview', 'audience', 'content', 'heatmap', 'studio', 'booking', 'contacts', 'quality', 'feedback', 'system', 'montra', 'sponsors', 'diag']) {
     for (const p of ['24h', '7d', '30d', '90d']) {
       const r = await api(mf, `${e}?p=${p}`);
-      // privacy 2.7: only Resumo's totals, the live count and the quota panel take a period with today in it
-      const ok = p !== '24h' || ['ping', 'now', 'overview', 'system'].includes(e);
+      // privacy 2.7: only Resumo's totals, the live count, the quota panel and the diagnostic day totals take a
+      // period with today in it
+      const ok = p !== '24h' || TODAY_OK.includes(e);
       assert.equal(r.status, ok ? 200 : 400, `${e} ${p}`);
       assert.equal(ok ? r.json.ok : r.json.error, ok ? true : 'periodo');
     }
-    if (!['ping', 'now', 'overview', 'system'].includes(e)) assert.equal((await api(mf, `${e}?p=custom&from=${addDays(t, -3)}&to=${t}`)).status, 400, `${e} up to today`);
+    if (!TODAY_OK.includes(e)) assert.equal((await api(mf, `${e}?p=custom&from=${addDays(t, -3)}&to=${t}`)).status, 400, `${e} up to today`);
   }
+  assert.equal((await api(mf, 'sponsors?p=7d&host=a%20b')).status, 400, 'sponsors: a host that is not one');
 });
 
 test('the admin limit is per address: a stranger cannot lock the owner out', async () => {
+  await freshMinute();
   const codes = [];
   for (let i = 0; i < 125; i++) {
     const r = await prod.dispatchFetch('http://api.test/admin/v1/ping', { headers: { 'CF-Connecting-IP': '203.0.113.1' } });

@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "example": true,
+  "remote": "",
+  "keep": 3,
+  "categories": [
+    { "id": "patrocinio", "title": "Patrocínio" },
+    { "id": "redes", "title": "Redes sociais" },
+    { "id": "contactos", "title": "Contactos e folhetos" },
+    { "id": "site", "title": "O site" },
+    { "id": "questionarios", "title": "Questionários" }
+  ],
+  "documents": [
+    { "id": "kit-patrocinio", "title": "Kit de patrocínio", "category": "patrocinio",
+      "file": "/caminho/para/kit-patrocinio.zip", "name": "gocarmo-kit-patrocinio.zip",
+      "version": "v1", "date": "2026-10-29", "changes": ["Primeira versão"] },
+    { "id": "guiao-semana", "title": "Guião da semana", "category": "redes", "file": "/caminho/para/guiao.zip",
+      "version": "semana 99", "date": "2026-10-20", "changes": ["Posts 02 a 08 refeitos"] },
+    { "id": "manual-site", "title": "Manual do site", "category": "site", "file": "/caminho/para/manual.pdf",
+      "version": "v2", "date": "2026-10-29", "changes": ["Montra e renovações"] }
+  ]
+}

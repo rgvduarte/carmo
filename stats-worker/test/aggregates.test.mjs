@@ -304,10 +304,12 @@ test('rollup equals live, on every endpoint and filter', async () => {
   const d1 = await dump(mf);
   assert.equal(d1.flags[`rolled:${D}`], '1');
   for (let i = 0; i < qs.length; i++) assert.deepEqual(strip(await get(`${qs[i]}&src=agg`)), live[i], qs[i]);
-  // idempotent: a second run gives the same rows
-  const before = d1.tables.agg;
+  // idempotent: a second run gives the same rows (counted for D only: the alarm may roll up other days meanwhile)
+  const aggOfD = async () => (await api(mf, `dev/dump?day=${D}`)).json.aggDay;
+  const before = await aggOfD();
+  assert.ok(before > 0);
   await api(mf, 'dev/rollup', { method: 'POST', body: { day: D }, now: NOW });
-  assert.equal((await dump(mf)).tables.agg, before);
+  assert.equal(await aggOfD(), before);
   for (let i = 0; i < 4; i++) assert.deepEqual(strip(await get(`${qs[i]}&src=agg`)), live[i], qs[i]);
 });
 

@@ -34,6 +34,9 @@
 //    its #montra / #showcase section); and index.html holds no montra markup (the section exists only when montra.js
 //    builds it from an active product). The Patrocínios page may reach api.github.com and gocarmo.com (its montra editor
 //    commits through the GitHub API and then waits for the site).
+// 6. The documents page (/admin/documentos/, the cofre) gets the same import map, hashes and CSP, and its connect-src
+//    reaches api.github.com (the head of the orphan branch «docs», and the vault's commits) and raw.githubusercontent.com
+//    (the encrypted files, read at that commit). stampCofrePages() does it, after the main loop.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -296,6 +299,7 @@ const CONNECT = {
   //   commits through the GitHub API and then waits for gocarmo.com, as /admin/ does
   'admin/patrocinios/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker],
 };
+CONNECT['admin/documentos/index.html'] = ["'self'", 'https://api.github.com', 'https://raw.githubusercontent.com'];
 const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
 
 for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false]]) {
@@ -308,6 +312,19 @@ for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index
   if (now === was) continue;
   stale.push(page);
   if (!check) writeFileSync(page, now);
+}
+stampCofrePages();
+// the cofre (/admin/documentos/): the same stamp and connect-src as the pages of the main loop
+function stampCofrePages() {
+  for (const [page, base] of [['admin/documentos/index.html', '../../']]) {
+    const was = readFileSync(page, 'utf8');
+    let now = stamp(was, base);
+    if (!/connect-src /.test(now)) throw new Error(`${page}: its Content-Security-Policy has no connect-src`);
+    now = connect(now, CONNECT[page]);
+    if (now === was) continue;
+    stale.push(page);
+    if (!check) writeFileSync(page, now);
+  }
 }
 if (check) {
   if (stale.length) { console.error(`out of date: ${stale.join(', ')}. Run node scripts/stamp.mjs`); process.exit(1); }
