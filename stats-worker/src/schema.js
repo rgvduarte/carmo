@@ -6,8 +6,9 @@ export const SCHEMA_VERSION = 1;      // the tables in store.js (meta.schema)
 export const TRACKER_VERSION = 1;     // the beacon's `v`
 
 // page zones, in page order (assets/js/stats-zones.js has the same ids)
+// 'material' is the showcase «O meu material» (#material), on the page only while a partner has an active product
 export const ZONES = ['top', 'tese', 'historia', 'prova', 'resultados', 'dados', 'epoca', 'fato-topo', 'o-fato',
-  'o-capacete', 'fato-termos', 'media', 'apoiar', 'contacto', 'footer'];
+  'o-capacete', 'fato-termos', 'media', 'apoiar', 'material', 'contacto', 'footer'];
 // fixed layers (do not scroll with the page)
 export const FIXED = ['reserva', 'opiniao', 'pacote', 'ficha', 'nav', 'aviso'];
 export const ZONE_SET = new Set(ZONES);
@@ -20,7 +21,7 @@ export const SCRUBBED = ['prova', 'resultados'];
 
 // section anchors a landing hash may name (`land: '#<anchor>'`), and `nav_click.to`
 export const ANCHORS = ['top', 'tese', 'historia', 'prova', 'resultados', 'dados', 'epoca', 'fato', 'o-fato',
-  'o-capacete', 'media', 'apoiar', 'contacto'];
+  'o-capacete', 'media', 'apoiar', 'material', 'contacto'];
 export const ANCHOR_SET = new Set(ANCHORS);
 
 // appendix B (data/spots.json). Unknown spot ids are dropped: add new ones here and deploy again.
@@ -47,8 +48,8 @@ export const CHANNELS = ['social', 'pesquisa', 'ia', 'mensagens', 'desporto', 'd
 // appendix E: first-party script basenames (an error from one of them keeps its scrubbed message)
 export const ERROR_FILES = new Set(['main.js', 'adspace.js', 'suit.js', 'suit-body.js', 'suit-mesh.js', 'suit-worker.js',
   'helmet.js', 'i18n.js', 'marks.js', 'flow.js', 'charts.js', 'data.js', 'stats.js', 'stats-site.js', 'stats-fb.js',
-  'stats-zones.js', 'analytics.js', 'privacy.js', 'gsap.min.js', 'ScrollTrigger.min.js', 'ScrambleTextPlugin.min.js',
-  'lenis.min.js', 'three.module.min.js', 'index.mjs', 'web-vitals.attribution.js']);
+  'stats-zones.js', 'analytics.js', 'privacy.js', 'montra.js', 'montra-core.js', 'gsap.min.js', 'ScrollTrigger.min.js',
+  'ScrambleTextPlugin.min.js', 'lenis.min.js', 'three.module.min.js', 'index.mjs', 'web-vitals.attribution.js']);
 
 // ---------- selector grammar (4.5) ----------
 // attribute values a selector step may carry: only enums from the page itself (never free text)
@@ -73,7 +74,9 @@ export const ATTR_VALUES = {
 
 // ---------- the event dictionary (4.7) ----------
 // Each param is a checker: it returns the clean value, or undefined to drop the param. `cap` is per page view
-// (derive.js counts at most that many); `per` makes the cap count per value of that param (cta_view: 1 per id).
+// (derive.js counts at most that many); `per` makes the cap count per value of that param (cta_view: 1 per id); `need`
+// lists the params without which derive.js drops the event (a showcase event without its brand and product says
+// nothing).
 const int = (lo, hi) => (v) => {
   const n = typeof v === 'string' && /^-?\d{1,7}$/.test(v) ? Number(v) : v;
   return Number.isInteger(n) && n >= lo && n <= hi ? n : undefined;
@@ -104,6 +107,9 @@ const spot = inSet(SPOT_SET);
 const anchor = inSet(ANCHOR_SET);
 const step12 = (v) => { const n = int(1, 2)(v); return n; };
 const assetName = (v) => (typeof v === 'string' && /^[a-z0-9._-]{1,48}$/.test(v) ? v : undefined);
+// a showcase brand or product id (data/montra.json, assets/js/montra-core.js ID_RE): lowercase words joined by single
+// hyphens, at most 40 characters, never a run of 4 digits (public slugs from a public file, never free text)
+export const slug = (v) => (typeof v === 'string' && v.length <= 40 && /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(v) && !/\d{4}/.test(v) ? v : undefined);
 
 export const EVENTS = {
   cta_view: { p: { id: inSet(CTA_SET) }, cap: 1, per: 'id' },
@@ -173,7 +179,13 @@ export const EVENTS = {
   asset_fail: { p: { what: oneOf('spots', 'logo', 'img', 'module', 'gsap', 'lenis'), name: assetName, spot }, cap: 10 },
   boot_retry: { p: {}, cap: 1 },
   boot_fail: { p: {}, cap: 1 },
+  // the showcase «O meu material»: a product card at least half in view for 1 s (once per product), a tap on its shop
+  // link, a copy of its discount code (the code itself is never sent)
+  montra_view: { p: { brand: slug, prod: slug }, cap: 1, per: 'prod', need: ['brand', 'prod'] },
+  montra_shop: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'] },
+  montra_code: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'] },
 };
+export const MONTRA_EVENTS = ['montra_view', 'montra_shop', 'montra_code'];
 
 // the feedback question (3.4, 4.10)
 export const FEEDBACK = {

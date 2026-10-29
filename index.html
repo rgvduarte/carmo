@@ -23,7 +23,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="assets/css/style.css?v=a28eabf5">
+<link rel="stylesheet" href="assets/css/style.css?v=c5b4e27f">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -32,6 +32,8 @@
   // the GoFundMe file is asked for now, while the page loads, and gofundme.js takes this one answer (one request,
   // revalidated, in every browser), so the card is usually in place before «Apoiar» shows
   window.__gfm = fetch('data/gofundme.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  // the same for the showcase file (montra.js builds its section only when the file has an active product)
+  window.__mtr = fetch('data/montra.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   (function () {
     // a browser can still hold files from the previous deploy: load the page fresh once before giving up
     var d = document.documentElement, fail = function () {
@@ -63,18 +65,22 @@
   "./assets/js/admin-analytics-api.js": "./assets/js/admin-analytics-api.js?v=35971a4d",
   "./assets/js/admin-analytics-charts.js": "./assets/js/admin-analytics-charts.js?v=3b35f743",
   "./assets/js/admin-analytics-heat.js": "./assets/js/admin-analytics-heat.js?v=7321de53",
-  "./assets/js/admin-analytics-labels.js": "./assets/js/admin-analytics-labels.js?v=40073038",
+  "./assets/js/admin-analytics-labels.js": "./assets/js/admin-analytics-labels.js?v=1db12701",
   "./assets/js/admin-analytics-map.js": "./assets/js/admin-analytics-map.js?v=a6e8f1b4",
-  "./assets/js/admin-analytics-panels.js": "./assets/js/admin-analytics-panels.js?v=d192f4a9",
-  "./assets/js/admin-analytics.js": "./assets/js/admin-analytics.js?v=1eb36543",
+  "./assets/js/admin-analytics-panels.js": "./assets/js/admin-analytics-panels.js?v=e739329f",
+  "./assets/js/admin-analytics.js": "./assets/js/admin-analytics.js?v=910c5272",
   "./assets/js/admin-confirm-pdf.js": "./assets/js/admin-confirm-pdf.js?v=fecff3f8",
-  "./assets/js/admin-contracts.js": "./assets/js/admin-contracts.js?v=0e22c01c",
+  "./assets/js/admin-contracts.js": "./assets/js/admin-contracts.js?v=9f4e9d9b",
   "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=8d4ca3b5",
-  "./assets/js/admin-patrocinios.js": "./assets/js/admin-patrocinios.js?v=eb1bc5fa",
+  "./assets/js/admin-gh.js": "./assets/js/admin-gh.js?v=aac86619",
+  "./assets/js/admin-montra-core.js": "./assets/js/admin-montra-core.js?v=e9b081bf",
+  "./assets/js/admin-montra.js": "./assets/js/admin-montra.js?v=97b720aa",
+  "./assets/js/admin-patrocinios.js": "./assets/js/admin-patrocinios.js?v=3dfd762d",
+  "./assets/js/admin-photo.js": "./assets/js/admin-photo.js?v=a59e6f3d",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
-  "./assets/js/admin.js": "./assets/js/admin.js?v=61fee613",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=b5e82d48",
-  "./assets/js/analytics.js": "./assets/js/analytics.js?v=33844efa",
+  "./assets/js/admin.js": "./assets/js/admin.js?v=2ef5f7a7",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=ac33c85c",
+  "./assets/js/analytics.js": "./assets/js/analytics.js?v=640b44e0",
   "./assets/js/cartao.js": "./assets/js/cartao.js?v=3afab20e",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
   "./assets/js/data.js": "./assets/js/data.js?v=bbf4e22b",
@@ -82,20 +88,22 @@
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=4e3fc835",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=f0754916",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
-  "./assets/js/main.js": "./assets/js/main.js?v=3843dd80",
+  "./assets/js/main.js": "./assets/js/main.js?v=a0555879",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
+  "./assets/js/montra-core.js": "./assets/js/montra-core.js?v=0c4623cd",
+  "./assets/js/montra.js": "./assets/js/montra.js?v=8da6b85e",
   "./assets/js/pdf-kit.js": "./assets/js/pdf-kit.js?v=78100225",
   "./assets/js/privacy.js": "./assets/js/privacy.js?v=95de7df4",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
   "./assets/js/receipt.js": "./assets/js/receipt.js?v=5b6a6dce",
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
-  "./assets/js/season-rules.js": "./assets/js/season-rules.js?v=47fd5674",
+  "./assets/js/season-rules.js": "./assets/js/season-rules.js?v=7da03c68",
   "./assets/js/stats-fb.js": "./assets/js/stats-fb.js?v=87cd2e59",
-  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=c1ae9984",
-  "./assets/js/stats-zones.js": "./assets/js/stats-zones.js?v=66b2b133",
-  "./assets/js/stats.js": "./assets/js/stats.js?v=9d4500c4",
+  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=340a563d",
+  "./assets/js/stats-zones.js": "./assets/js/stats-zones.js?v=0b1a2d6f",
+  "./assets/js/stats.js": "./assets/js/stats.js?v=733950eb",
   "./assets/js/suit-body.js": "./assets/js/suit-body.js?v=e86b9edf",
   "./assets/js/suit-mesh.js": "./assets/js/suit-mesh.js?v=b3644acd",
   "./assets/js/suit-worker.js": "./assets/js/suit-worker.js?v=41a4b375",
@@ -624,8 +632,8 @@
     <div class="offer">
       <div class="card rv"><span class="k" data-i18n="of.k1">Todos os espaços</span><h3 data-i18n="of.h1">Incluído</h3><ul><li data-i18n-html="of.a1">Logótipo no fato ou no capacete em todos os triatlos de 2027, salvo as exceções das <a href="condicoes/">condições</a> (o fato também em treino)</li><li data-i18n="of.a2">Logótipo e link nesta página</li><li data-i18n="of.a3">Identificação nas publicações de cada prova</li><li data-i18n="of.a4">Preferência no mesmo espaço em 2028, se disseres que sim até 31 de outubro de 2027</li></ul></div>
       <div class="card rv"><span class="k" data-i18n="of.k2">Oficial · a&nbsp;partir&nbsp;de&nbsp;150&nbsp;€</span><h3 data-i18n="of.h2">Conteúdo e relatórios</h3><ul><li data-i18n="of.b1">Publicação de apresentação e story no Instagram</li><li data-i18n="of.b2">Fotografias com o logótipo, de treino ou de prova, para as redes da marca</li><li data-i18n="of.b3">Relatório a meio e no fim da época, com resultados e alcance</li></ul></div>
-      <div class="card rv"><span class="k" data-i18n="of.k3">Principal · a&nbsp;partir&nbsp;de&nbsp;400&nbsp;€</span><h3 data-i18n="of.h3">Parceiro principal</h3><ul><li data-i18n="of.c0">Tudo o que o Oficial inclui</li><li data-i18n="of.c1">Três publicações dedicadas por mês</li><li data-i18n="of.c2">Logótipo no equipamento de treino</li><li data-i18n="of.c4">Uma t-shirt GOCARMO</li></ul></div>
-      <div class="card rv"><span class="k" data-i18n="of.k4">Title partner</span><h3 data-i18n="of.h4">Nome associado</h3><ul><li data-i18n="of.d0">Tudo o que o Principal e o Oficial incluem</li><li data-i18n="of.d1">«Gonçalo Carmo × Marca» na bio, no media kit e no material de imprensa</li><li data-i18n="of.d2">Exclusividade de setor</li><li data-i18n="of.d3">Uma presença por época num evento da marca</li></ul></div>
+      <div class="card rv"><span class="k" data-i18n="of.k3">Principal · a&nbsp;partir&nbsp;de&nbsp;400&nbsp;€</span><h3 data-i18n="of.h3">Parceiro principal</h3><ul><li data-i18n="of.c0">Tudo o que o Oficial inclui</li><li data-i18n="of.c1">Três publicações dedicadas por mês</li><li data-i18n="of.c2">Logótipo no equipamento de treino</li><li data-i18n="of.c4">Uma t-shirt GOCARMO</li><li data-i18n="of.c3">O mesmo preço em 2028, se renovares até 31 de outubro de 2027</li></ul></div>
+      <div class="card rv"><span class="k" data-i18n="of.k4">Title partner</span><h3 data-i18n="of.h4">Nome associado</h3><ul><li data-i18n="of.d0">Tudo o que o Principal e o Oficial incluem</li><li data-i18n="of.d1">«Gonçalo Carmo × Marca» na bio, no media kit e no material de imprensa</li><li data-i18n="of.d2">Exclusividade de setor</li><li data-i18n="of.d3">Uma presença por época num evento da marca</li><li data-i18n="of.d4">O mesmo preço em 2028, se renovares até 31 de outubro de 2027</li></ul></div>
     </div>
 
     <div class="steps">
@@ -783,6 +791,9 @@
           <ul class="cl-items" id="cl-items" hidden></ul>
           <!-- the season the spot is for, and, from February, the mid-season discount and why (season-rules.js) -->
           <p class="cl-period" id="cl-period"></p>
+          <!-- from the day after the season's last triathlon (seasonRules.racesUntil) until sales close: what the spot is
+               still worth this season (season-rules.js noRacesLeft) -->
+          <p class="cl-late" id="cl-late" hidden></p>
           <p class="cl-season" id="cl-season" hidden></p>
         </div>
         <!-- after the season's last day for requests: the note, first, and one plain way to write for the next season (a
@@ -826,7 +837,7 @@
         <!-- what went wrong with the request, and what to do; announced as it shows -->
         <div class="cl-note" id="cl-note" role="alert" hidden></div>
         <!-- what sending means: the request follows the sponsorship terms in force that day (/condicoes/) -->
-        <p class="cl-terms" data-i18n-html="cl.terms">Ao enviar, aceitas as <a href="condicoes/" target="_blank" rel="noopener">condições do patrocínio</a> (atualizadas a 28 de outubro de 2026).</p>
+        <p class="cl-terms" data-i18n-html="cl.terms">Ao enviar, aceitas as <a href="condicoes/" target="_blank" rel="noopener">condições do patrocínio</a> (atualizadas a 29 de outubro de 2026).</p>
         <div class="cl-acts">
           <a class="btn gold" id="cl-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span data-i18n="cl.wa">Enviar pedido por WhatsApp</span></a>
           <div class="cl-alt">
@@ -927,8 +938,8 @@
 <script src="assets/vendor/gsap@3.13.0/ScrollTrigger.min.js" defer></script>
 <script src="assets/vendor/gsap@3.13.0/ScrambleTextPlugin.min.js" defer></script>
 <script src="assets/vendor/lenis@1.3.4/dist/lenis.min.js" defer></script>
-<script type="module" src="assets/js/stats.js?v=9d4500c4" async data-optional></script>
-<script type="module" src="assets/js/main.js?v=3843dd80"></script>
-<script type="module" src="assets/js/analytics.js?v=33844efa"></script>
+<script type="module" src="assets/js/stats.js?v=733950eb" async data-optional></script>
+<script type="module" src="assets/js/main.js?v=a0555879"></script>
+<script type="module" src="assets/js/analytics.js?v=640b44e0"></script>
 </body>
 </html>

@@ -7,7 +7,7 @@ import { createApi, MSG } from './admin-analytics-api.js';
 import { H, fmt, redrawAll, resetTokens, forget, emptyState, tip } from './admin-analytics-charts.js';
 import { TABS, renderNow } from './admin-analytics-panels.js';
 import { createHeat } from './admin-analytics-heat.js';
-import { setSpots, selName } from './admin-analytics-labels.js';
+import { setSpots, selName, setMontra } from './admin-analytics-labels.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -36,7 +36,7 @@ applyTheme(theme);
 
 // ---------- state in the hash ----------
 const local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-const TAB_IDS = ['resumo', 'publico', 'pagina', 'calor', 'estudio', 'reservas', 'contactos', 'qualidade', 'opiniao', 'dados'];
+const TAB_IDS = ['resumo', 'publico', 'pagina', 'calor', 'estudio', 'reservas', 'contactos', 'montra', 'qualidade', 'opiniao', 'dados'];
 function readHash() {
   const q = new URLSearchParams(location.hash.slice(1));
   return {
@@ -125,6 +125,15 @@ const ctx = {
   pageText: (k) => pageText(k),
   selName: (sel) => selName(sel, pageDoc, pageText),
   withToday: () => withToday(),
+  // a whole custom period (the «Montra» month buttons)
+  setPeriod: (from, to) => {
+    state.p = 'custom'; state.from = from; state.to = to;
+    for (const r of $$('#period input')) r.checked = r.value === 'custom';
+    $('#custom').hidden = false;
+    $('#c-from').value = from; $('#c-to').value = to;
+    $('#c-err').textContent = '';
+    refilter();
+  },
 };
 
 function startApp() {
@@ -172,6 +181,15 @@ async function spots() {
   } catch (_) { ctx.spots = {}; }
   setSpots(ctx.spots);
   return ctx.spots;
+}
+
+// the showcase's brand and product names (data/montra.json, same origin): read again with each «Montra» load, since the
+// Patrocínios page may have changed it; the count of products, or null when it could not be read
+async function montraNames() {
+  try {
+    const r = await fetch('../../data/montra.json', { cache: 'no-cache' });
+    return setMontra(r.ok ? await r.json() : null);
+  } catch (_) { setMontra(null); return null; }
 }
 
 function rangeText(env) {
@@ -242,6 +260,7 @@ async function loadTab(name, force) {
     const jobs = tab.endpoints.map(async (ep) => { d[ep] = await api.get(ep, params(), { fresh: force }); });
     if (tab.live) jobs.push(api.get('now', { int: state.int }, { fresh: true }).then((v) => { d.now = v; }, () => { d.now = null; }));
     if (tab.spots) jobs.push(spots());
+    if (tab.montra) jobs.push(montraNames().then((n) => { d.names = n; }));
     await Promise.all(jobs);
     if (key !== paramsKey() || !api) return;
     const env = d[tab.endpoints[0]];

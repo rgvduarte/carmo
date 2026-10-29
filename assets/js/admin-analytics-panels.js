@@ -5,7 +5,7 @@ import { H, fmt, figure, table, emptyState, hbars, grouped, stack100, funnel, co
 import * as L from './admin-analytics-labels.js';
 import { drawMap } from './admin-analytics-map.js';
 
-const ZONES = ['top', 'tese', 'historia', 'prova', 'resultados', 'dados', 'epoca', 'fato-topo', 'o-fato', 'o-capacete', 'fato-termos', 'media', 'apoiar', 'contacto', 'footer'];
+const ZONES = ['top', 'tese', 'historia', 'prova', 'resultados', 'dados', 'epoca', 'fato-topo', 'o-fato', 'o-capacete', 'fato-termos', 'media', 'apoiar', 'material', 'contacto', 'footer'];
 const ALL_DEV = 'Todos os aparelhos';
 const NODATA = 'Ainda sem dados neste período.';
 // privacy 2.7: with today in the period, «Resumo» shows totals only
@@ -532,6 +532,105 @@ export function contactos(p, d) {
     : figure({ title: 'Por dia', empty: dl.unit === 'hour' ? 'Em «24 h» não mostramos ligações por hora. Escolhe 7 dias ou mais.' : NODATA }), 12));
 }
 
+// ---------- Montra ----------
+// The showcase «O meu material», for the brands' monthly reports: per month, brand and product, the cards seen, the
+// taps on the shop link and the codes copied. Totals only, every device (SPEC 3.6, privacy 2.7). d.names: how many
+// products data/montra.json lists (null when it could not be read).
+const MT_EMPTY = 'A montra ainda não tem produtos. Quando tiver, os cliques aparecem aqui.';
+const MT_COLS = [['view', 'Cartões vistos', 'Vistos'], ['shop', 'Cliques na loja', 'Loja'], ['code', 'Códigos copiados', 'Códigos']];
+const mtSum = (rows, k) => sum(rows.map((r) => r[k]));
+// per brand, in the order the rows come (brand, then product)
+function mtBrands(rows) {
+  const by = new Map();
+  for (const r of rows) { const b = by.get(r.brand) || { brand: r.brand, view: 0, shop: 0, code: 0 }; b.view += r.view; b.shop += r.shop; b.code += r.code; by.set(r.brand, b); }
+  return [...by.values()];
+}
+export function montra(p, d, ctx) {
+  const m = d.montra || {}, totals = m.totals || [], months = m.months || [];
+  if (!totals.length && !d.names) { emptyState(p, d.names === null ? `${MT_EMPTY} (Não consegui ler a lista de produtos do site.)` : MT_EMPTY); return; }
+  sec(p, 'Montra (O meu material)');
+  kpiRow(p, [
+    tile({ label: 'Cartões vistos', value: fmt.n(mtSum(totals, 'view')), sub: 'visualizações em que o cartão de um produto esteve visível, pelo menos metade, durante 1 segundo', prevName: null }),
+    tile({ label: 'Cliques na loja', value: fmt.n(mtSum(totals, 'shop')), sub: 'toques em «Ver na loja» (abrem a loja da marca, com a etiqueta gocarmo)', prevName: null }),
+    tile({ label: 'Códigos copiados', value: fmt.n(mtSum(totals, 'code')), sub: 'toques no botão que copia o código de desconto', prevName: null }),
+  ], 'cols3');
+  const z = m.zone || { reach: 0, secs: 0, r: 0 };
+  H('p', 'ga-fine', `${fmt.n(z.reach)} ${z.reach === 1 ? 'visualização chegou' : 'visualizações chegaram'} à montra (${fmt.pct(z.r)} das ${fmt.n(m.pv)} do período), com ${fmt.dur(z.secs)} de tempo ativo nela, no total.`, p);
+
+  const g = grid(p);
+  // month shortcuts and the export: what the monthly report needs
+  const rc = card('Relatório do mês', 'Escolhe um mês: o período passa a ser esse mês inteiro (até ontem, se for o mês em curso). Depois exporta o CSV e envia à marca só as linhas dela.');
+  span(rc, 12);
+  const mb = H('div', 'ga-inline ga-months', null, rc);
+  mb.setAttribute('role', 'group');
+  mb.setAttribute('aria-label', 'Meses com dados da montra');
+  H('p', 'ga-fine', 'A procurar os meses com dados…', mb);
+  const ex = H('div', 'ga-inline', null, rc);
+  const xb = H('button', 'btn sm gold', 'Exportar CSV', ex);
+  xb.type = 'button';
+  const xmsg = H('p', 'ga-fine', null, rc);
+  xmsg.setAttribute('aria-live', 'polite');
+  xb.addEventListener('click', async () => {
+    if (ctx.withToday()) { xmsg.textContent = 'O CSV só junta dias completos: escolhe um mês, ou um período que acabe ontem.'; return; }
+    xb.disabled = true; xmsg.textContent = 'A preparar…';
+    try { const name = await ctx.api.csv({ ...ctx.params(), t: 'montra' }); xmsg.textContent = `Descarregado: ${name}`; }
+    catch (x) { xmsg.textContent = x.text || 'Não consegui descarregar.'; }
+    finally { xb.disabled = false; }
+  });
+  H('p', 'ga-fine', 'São totais, sem nada de quem clicou. Para o relatório de uma marca, escolhe o mês e exporta.', rc);
+  g.append(rc);
+  monthButtons(mb, ctx);
+
+  if (!totals.length) { g.append(span(figure({ title: 'Por marca e por mês', empty: 'Sem cartões vistos nem cliques neste período.' }), 12)); return; }
+  // the period, per product: the shop taps, the one number brands ask for first
+  const byShop = totals.slice().sort((a, b) => b.shop - a.shop || b.view - a.view || (a.prod < b.prod ? -1 : 1));
+  g.append(span(figure({
+    title: 'Cliques na loja, por produto', note: 'No período escolhido, todos os aparelhos. Ao lado, os cartões vistos; os códigos copiados estão na tabela.',
+    draw: hbars(byShop.map((r) => ({ label: `${L.mBrand(r.brand)} · ${L.mProd(r.prod)}`, v: r.shop, text: `${fmt.n(r.shop)} · ${fmt.n(r.view)} vistos`,
+      tip: () => ({ h: `${L.mBrand(r.brand)} · ${L.mProd(r.prod)}`, rows: MT_COLS.map(([k, l]) => ({ v: fmt.n(r[k]), l: l.toLowerCase() })) }) })), { unit: 'cliques' }),
+    table: () => ({ caption: 'Montra no período', initial: { k: 'shop', dir: 'descending' }, cols: [{ l: 'Marca', get: (r) => L.mBrand(r.brand) }, { l: 'Produto', get: (r) => L.mProd(r.prod) },
+      ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))], rows: totals }),
+  }), 12));
+  // month × brand × product, with a total per brand in each month
+  const rows = [];
+  for (const mo of months) {
+    for (const r of mo.rows) rows.push({ ...r, month: mo.month });
+    for (const b of mtBrands(mo.rows)) rows.push({ ...b, month: mo.month, prod: '', _cls: 'ga-subtotal' });
+  }
+  const tc = card('Por marca e por mês', 'Uma linha por produto e, em cada mês, o total da marca. Os meses seguem o período escolhido.');
+  span(tc, 12);
+  tc.append(table({ caption: 'Montra por marca e por mês', sort: false, rows,
+    cols: [{ l: 'Mês', get: (r) => L.month(r.month) }, { l: 'Marca', get: (r) => L.mBrand(r.brand) }, { l: 'Produto', get: (r) => (r.prod ? L.mProd(r.prod) : 'Total da marca') },
+      ...MT_COLS.map(([k, l, sh]) => ({ l, s: sh, k, num: true, fmt: fmt.n }))] }));
+  g.append(tc);
+}
+// one button per calendar month with showcase data in the last 13 months (a second read, whole days, cached by the
+// Worker until the next nightly rollup)
+async function monthButtons(box, ctx) {
+  const today = ctx.today;
+  const yday = today && new Date(Date.parse(`${today}T12:00:00Z`) - 864e5).toISOString().slice(0, 10);
+  if (!yday || !ctx.setPeriod) { box.replaceChildren(); return; }
+  const y = Number(today.slice(0, 4)), mo = Number(today.slice(5, 7));
+  const first = new Date(Date.UTC(y, mo - 13, 1)).toISOString().slice(0, 10);
+  let r;
+  try { r = await ctx.api.get('montra', { p: 'custom', from: first, to: yday, int: ctx.state.int }); } catch (_) { r = null; }
+  if (!box.isConnected) return;
+  box.replaceChildren();
+  const list = r ? r.months.filter((x) => x.rows.some((row) => row.view || row.shop || row.code)).map((x) => x.month) : [];
+  if (!list.length) { H('p', 'ga-fine', r ? 'Ainda nenhum mês com dados da montra.' : 'Não consegui ler os meses com dados.', box); return; }
+  const st = ctx.state;
+  for (const m of list.slice().reverse()) {
+    const from = `${m}-01`, end = new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).toISOString().slice(0, 10);
+    const to = end > yday ? yday : end;
+    const b = H('button', 'btn sm ghost', L.month(m), box);
+    b.type = 'button';
+    const on = st.p === 'custom' && st.from === from && st.to === to;
+    b.setAttribute('aria-pressed', String(on));
+    if (to < end) b.title = `Até ${fmt.day(to, true)} (o mês ainda não acabou)`;
+    b.addEventListener('click', () => ctx.setPeriod(from, to));
+  }
+}
+
 // ---------- Qualidade ----------
 export function qualidade(p, d, ctx) {
   const q = d.quality;
@@ -810,5 +909,6 @@ export const TABS = {
   qualidade: { endpoints: ['quality'], render: qualidade },
   opiniao: { endpoints: ['feedback'], render: opiniao },
   dados: { endpoints: ['system'], render: dados },
+  montra: { endpoints: ['montra'], render: montra, montra: true },
 };
 export { legend, textW };

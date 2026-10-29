@@ -3,6 +3,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { start, post, api, dump, visit, page, ev, click, strip, UA, PLACE, KEY, lisbonISO, lisbonToday, addDays } from './helpers.mjs';
+import { ZONES } from '../src/schema.js';
 
 let mf;
 const TODAY = lisbonToday();
@@ -179,7 +180,7 @@ test('heatmap: nothing below 5 page views in the bucket', async () => {
   const zc = m.zcells.find((c) => c.b === '#hero-spots');
   assert.deepEqual([zc.z, zc.c], ['top', [[50, 600, 3, 1, 1]]]);
   assert.equal(m.scroll.length, 21);
-  assert.equal(m.attention.length, 15);
+  assert.equal(m.attention.length, ZONES.length, 'one row per page zone, the showcase included');
   const all = await get(`heatmap?${range()}&vw=all`);
   assert.equal(all.enough, true);
   assert.deepEqual(all.cells, []);

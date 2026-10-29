@@ -356,6 +356,10 @@ i.ksg { background: var(--st-good); } i.ksw { background: var(--st-warn); } i.ks
 .ga-table .tag2 { display: inline-block; margin-top: 3px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); font-size: 12px; color: var(--text-2); }
 /* «Onde estão»: country › region › city, indented and in a lighter ink below the country */
 .ga-table .lvl1 > :first-child { padding-left: 18px; }
+/* «Montra»: a brand's total in a month, and the month buttons of the monthly report */
+.ga-table tr.ga-subtotal > * { font-weight: 600; color: var(--text); border-bottom-color: var(--line-2); }
+.ga-months { margin: 0 0 10px; }
+.ga-months .btn[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .ga-table .lvl2 > :first-child { padding-left: 36px; }
 .ga-table .lvl1 > th, .ga-table .lvl2 > th, .ga-table .lvl1 > th .ga-xp { color: var(--text-2); }
 .ga-xp { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; font-weight: 600; color: var(--text); }

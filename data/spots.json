@@ -7,11 +7,13 @@
     "end": "2027-12-31",
     "logoBy": "2027-01-15",
     "fullPriceUntil": "2027-01-31",
+    "racesUntil": "2027-09-30",
     "requestsUntil": "2027-10-31",
     "proposalsFrom": "2027-09-01",
     "renewBy": "2027-10-31",
     "openFrom": "2027-11-01",
-    "termsDate": "2026-10-28"
+    "renewPayBy": "2028-01-15",
+    "termsDate": "2026-10-29"
   },
   "bundle": {
     "min": 3,

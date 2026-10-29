@@ -92,6 +92,58 @@ fieldset.field > legend { padding: 0; }
 #c-use { min-height: 36px; padding: 0; }
 .pt-sheet textarea { min-height: 96px; resize: vertical; }
 
+/* the renewal's price and payment on a card (owner decisions E1, E3) */
+.ct-lock { margin: 0; font-size: 13px; color: var(--gold); line-height: 1.4; }
+.ct-paystate { margin: 0; font-size: 14px; line-height: 1.4; }
+.ct-paystate.ok { color: var(--ok); }
+.ct-paystate.info { color: var(--ink); }
+.ct-paystate.warn { color: #f3e3c0; }
+.ct-paystate.bad { color: var(--bad); }
+
+/* the montra line on a card */
+.ct-mt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.ct-mt-t { font-size: 14px; color: var(--muted); }
+.ct-mt-t.on { color: var(--ink); }
+.ct-mt-k { font: 600 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+.ct-mt-b.btn { min-height: 44px; padding: 0 16px; font-size: 14px; margin-left: auto; }
+.ct-mt-b.link { margin-left: auto; }
+
+/* the montra sheet: the list of products */
+.mt-intro { margin: -6px 0 14px; }
+.mt-list { list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 10px; }
+.mt-row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px 12px; padding: 10px; border: 1px solid var(--line-2); border-radius: 14px; background: var(--bg-3); }
+.mt-th { width: 64px; aspect-ratio: 4 / 5; border-radius: 8px; overflow: hidden; background: #f4f1ea; }
+.mt-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mt-rb { min-width: 0; }
+.mt-rn { margin: 0 0 6px; font-weight: 600; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.mt-rm { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; }
+.mt-star { font: 600 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+.mt-code-k { font-size: 12px; color: var(--muted); }
+.mt-ra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.mt-ra .btn { min-height: 44px; min-width: 44px; padding: 0 12px; font-size: 14px; }
+.mt-ra .mt-up, .mt-ra .mt-down { font-size: 18px; padding: 0; }
+.mt-ra .btn:disabled { opacity: .35; }
+#mt-add { width: 100%; min-height: 48px; }
+.mt-sup { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.mt-sup .check { min-height: 44px; font-size: 15px; }
+.mt-tok { margin-top: 16px; padding: 14px; border: 1px solid rgba(230,180,80,.32); border-radius: 14px; background: rgba(230,180,80,.06); }
+.mt-tok .why { margin: 0 0 12px; font-size: 14px; color: #f3e3c0; }
+.mt-pub { margin-top: 16px; }
+.links a.rel-sp { font-weight: 500; }
+
+/* the product form */
+.mt-drop { position: relative; display: grid; place-items: center; width: min(100%, 260px); aspect-ratio: 4 / 5; margin: 0 auto 10px; border: 1px dashed var(--line-2); border-radius: 14px; background: #f4f1ea; overflow: hidden; cursor: pointer; }
+.mt-drop:has(input:focus-visible) { outline: 2px solid var(--gold); outline-offset: 3px; }
+.mt-drop input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.mt-drop img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.mt-drop-t { position: relative; z-index: 1; padding: 8px 14px; border-radius: 999px; background: rgba(11,11,12,.78); color: var(--ink); font-size: 14px; font-weight: 600; }
+.mt-drop img:not([hidden]) + .mt-drop-t { position: absolute; bottom: 10px; }
+.mt-fit { margin-bottom: 4px; }
+.mt-n { float: right; font-family: var(--mono); font-size: 11px; }
+.mt-tagged { overflow-wrap: anywhere; font-family: var(--mono); font-size: 12px; }
+.mt-more { margin: 4px 0 10px; }
+.mt-more summary { min-height: 44px; display: flex; align-items: center; color: var(--muted); font-size: 14px; cursor: pointer; }
+
 @media (min-width: 721px) {
   .pt-grid { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; }
   .cts { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }

@@ -5,7 +5,7 @@ export const ZONE = {
   top: 'Início', tese: 'Porquê agora', historia: '01 História', prova: 'Kona, segmento a segmento',
   resultados: '02 Resultados', dados: '03 Telemetria', epoca: '04 Objetivos', 'fato-topo': '05 Patrocínio',
   'o-fato': 'O fato', 'o-capacete': 'O capacete', 'fato-termos': 'Condições e passos', media: '06 Media',
-  apoiar: '07 Apoiar', contacto: '08 Contacto', footer: 'Rodapé',
+  apoiar: '07 Apoiar', material: 'Montra (O meu material)', contacto: '08 Contacto', footer: 'Rodapé',
   // fixed layers
   nav: 'Menu do topo', pacote: 'Barra do pacote', ficha: 'Ficha do espaço (telemóvel)', reserva: 'Janela de reserva',
   aviso: 'Aviso', opiniao: 'Pergunta rápida',
@@ -98,7 +98,8 @@ export const VITAL = {
 export const VITAL_T = { lcp: [2500, 4000], inp: [200, 500], cls: [0.1, 0.25], fcp: [1800, 3000], ttfb: [800, 1800] };
 export const NAVTO = {
   top: 'Início', tese: 'Porquê agora', historia: 'História', prova: 'A prova', resultados: 'Resultados', dados: 'Dados',
-  epoca: 'Época 2027', fato: 'Patrocínio', 'o-fato': 'O fato', 'o-capacete': 'O capacete', media: 'Media', apoiar: 'Apoiar', contacto: 'Contacto',
+  epoca: 'Época 2027', fato: 'Patrocínio', 'o-fato': 'O fato', 'o-capacete': 'O capacete', media: 'Media', apoiar: 'Apoiar',
+  material: 'Montra', contacto: 'Contacto',
 };
 // spot names (data/spots.json, read by the page): setSpots() once they are in
 let SPOTN = {};
@@ -157,7 +158,7 @@ export const CSV = [
   ['paises', 'Países'], ['localidades', 'Localidades'], ['aparelhos', 'Aparelhos'], ['sistemas', 'Sistemas'],
   ['navegadores', 'Navegadores'], ['linguas', 'Línguas'], ['zonas', 'Secções da página'], ['cliques', 'Elementos carregados'],
   ['botoes', 'Botões'], ['eventos', 'Eventos'], ['funil', 'Funil de reserva'], ['erros', 'Erros de JavaScript'],
-  ['opiniao', 'Opinião'], ['meses', 'Totais por mês (arquivo)'],
+  ['opiniao', 'Opinião'], ['meses', 'Totais por mês (arquivo)'], ['montra', 'Montra: cliques por marca e por mês'],
 ];
 
 // Cloudflare gives English place names; the common Portuguese ones read better in Portuguese (SPEC 5.8)
@@ -195,4 +196,25 @@ export const EVENT = {
   kit_print: 'Media kit', print: 'Imprimiu', lang_switch: 'Mudou de língua', toast_err: 'Aviso de erro', fb_show: 'Viu a pergunta',
   fb_close: 'Fechou a pergunta', '3d_ready': '3D pronto', '3d_fail': '3D falhou', gl_lost: '3D perdido', gl_back: '3D recuperado',
   asset_fail: 'Ficheiro falhou', boot_retry: 'Recarregou para atualizar', boot_fail: 'A página não arrancou',
+  montra_view: 'Montra: viu o cartão de um produto', montra_shop: 'Montra: abriu a loja da marca', montra_code: 'Montra: copiou o código de desconto',
 };
+
+// the showcase's brands and products by id, from data/montra.json (the panel loads it): unknown ids show the id
+let MTR = { brands: {}, prods: {} };
+export function setMontra(data) {
+  const brands = {}, prods = {};
+  for (const b of (data && Array.isArray(data.brands) && data.brands) || []) {
+    if (!b || typeof b.id !== 'string') continue;
+    brands[b.id] = typeof b.name === 'string' && b.name.trim() ? b.name.trim() : b.id;
+    for (const p of Array.isArray(b.products) ? b.products : []) {
+      if (p && typeof p.id === 'string') prods[p.id] = (p.name && typeof p.name.pt === 'string' && p.name.pt.trim()) || p.id;
+    }
+  }
+  MTR = { brands, prods };
+  return Object.keys(prods).length;
+}
+export const mBrand = (id) => MTR.brands[id] || id || '—';
+export const mProd = (id) => MTR.prods[id] || id || '—';
+const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+// 'YYYY-MM' → «outubro de 2026»
+export const month = (m) => (/^\d{4}-\d{2}$/.test(m || '') ? `${MONTHS[Number(m.slice(5)) - 1]} de ${m.slice(0, 4)}` : m || '—');

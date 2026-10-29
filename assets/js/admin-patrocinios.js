@@ -4,11 +4,13 @@
 // patrocínio» PDF that Gonçalo sends to the sponsor. The records live in the booking Worker's KV (worker/requests.js:
 // GET /contratos, POST /contratos, POST /contratos/<id>, and POST /pedidos/<id> confirmar), read and written with the
 // Pedidos key (ADMIN_KEY), kept in this tab only (the same sessionStorage entry as the Pedidos list of /admin/). The
-// public data/spots.json (same origin) gives the spots' names, the prices and the season's dates. Every piece of a
-// record is shown with textContent only.
+// public data/spots.json (same origin) gives the spots' names, the prices and the season's dates. Each card also has
+// the brand's montra («O meu material», data/montra.json): its line and its editor are admin-montra.js, which commits
+// through the GitHub API with the owner's token (admin-gh.js). Every piece of a record is shown with textContent only.
 import * as A from './admin-contracts.js';
 import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError } from './admin-core.js';
-import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText } from './season-rules.js';
+import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, renewalPrice, roundHalfUp, SEASON_DIV } from './season-rules.js';
+import { initMontra, montraLine, loadFile as loadMontra } from './admin-montra.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -82,6 +84,7 @@ function errText(e) {
 function boot() {
   readPref();
   bind();
+  initMontra({ contracts: () => S.contracts || [], data: () => S.data, toast, ask, rerender: () => { if (S.contracts) render(); } });
   const api = reqApi();
   if (!api) return off('Os patrocínios ainda não estão ligados: falta o endereço do serviço dos pedidos (SITE.requestsApi em assets/js/data.js). Vê worker/README.md.');
   if (!/^https:\/\//.test(api) || !cspAllows(api)) return off('O endereço dos pedidos (SITE.requestsApi) ainda não está autorizado nesta página: corre node scripts/stamp.mjs e publica.');
@@ -267,17 +270,17 @@ function card(c, day) {
   li.appendChild(el('p', 'ct-spots', [spots, c.label && spots !== c.label ? c.label : ''].filter(Boolean).join(' · ')));
 
   // the money and its day; a deal in kind (nothing paid in money): what was agreed and when, with no «0 €»
-  const pay = el('p', 'ct-pay'), when = c.paidAt ? A.ptDay(c.paidAt, true) : '?';
+  const paid = el('p', 'ct-pay'), when = c.paidAt ? A.ptDay(c.paidAt, true) : '?';
   if (c.pay === 'produto' && !(Number(c.amount) > 0)) {
-    pay.appendChild(el('b', null, `Em produto${c.inKind ? `: ${c.inKind}` : ''}`));
-    pay.append(` · combinado a ${when}`);
+    paid.appendChild(el('b', null, `Em produto${c.inKind ? `: ${c.inKind}` : ''}`));
+    paid.append(` · combinado a ${when}`);
   } else {
-    pay.appendChild(el('b', null, A.money(c.amount)));
-    pay.append(` · pago a ${when}`);
+    paid.appendChild(el('b', null, A.money(c.amount)));
+    paid.append(` · pago a ${when}`);
     const how = c.pay === 'produto' ? `em produto${c.inKind ? `: ${c.inKind}` : ''}` : A.PAY[c.pay] || '';
-    if (how) pay.append(` · ${how}`);
+    if (how) paid.append(` · ${how}`);
   }
-  li.appendChild(pay);
+  li.appendChild(paid);
   // the season discount was applied only when the amount is the table's price; otherwise it is part of what the table
   // asked («A tabela pedia 90 € (desconto de época de maio, −10,42%)»)
   const season = A.seasonText(c.price);
@@ -300,11 +303,19 @@ function card(c, day) {
     ren.appendChild(b);
   }
   li.appendChild(ren);
+  // the renewal's price (Principal and the whole suit keep this season's) and its payment by renewPayBy
+  const lock = A.lockLine(c, day);
+  if (lock) li.appendChild(el('p', 'ct-lock', lock));
+  const pay = A.payLine(c, S.contracts, day, S.data);
+  if (pay) li.appendChild(el('p', `ct-paystate ${pay.kind}`, pay.text));
+  // the brand's montra: «Montra: N de M produtos» and its editor
+  const mt = montraLine(c, day);
+  if (mt) li.appendChild(mt);
 
   const logo = el('label', 'check ct-logo'), cb = el('input');
   cb.type = 'checkbox'; cb.checked = c.logo?.vector === true; cb.disabled = busy;
   cb.addEventListener('change', () => patch(c.id, { action: 'editar', set: { logo: { vector: cb.checked } } }, cb.checked ? 'Logótipo em vetor recebido.' : 'Logótipo em vetor em falta.'));
-  logo.append(cb, el('span', null, `Logótipo em vetor: ${c.logo?.vector ? 'recebido' : 'em falta'}${c.logo?.fromRace ? ` · no equipamento a partir da prova: ${c.logo.fromRace}` : A.logoLate(c) ? ' · falta combinar a prova' : ''}`));
+  logo.append(cb, el('span', null, `Logótipo em vetor: ${c.logo?.vector ? 'recebido' : 'em falta'}${c.logo?.fromRace ? ` · no equipamento a partir da prova: ${c.logo.fromRace}` : A.noRaces(c, S.data) ? ` · sem triatlos em ${c.season} depois do pedido` : A.logoLate(c) ? ' · falta combinar a prova' : ''}`));
   li.appendChild(logo);
 
   const who = [c.contact?.name, A.CHANNEL[c.contact?.channel || ''], c.contact?.email, c.contact?.phone, c.contact?.handle].filter(Boolean).join(' · ');
@@ -468,7 +479,14 @@ function tableQuote() {
   if (site && [...A.idsOf(c)].sort().join() === [...ids].sort().join()) return { net: c.price.total, m: c.price.m, seasonBp: c.price.seasonBp, discPct: c.price.discPct, gross: c.price.gross };
   const day = site && /^\d{4}-\d{2}-\d{2}$/.test(c.price.day || '') ? c.price.day : /^\d{4}-\d{2}-\d{2}$/.test(paid) ? paid : today();
   const m = site && Number.isInteger(c.price.m) ? c.price.m : seasonMonth(season === r.season ? r : defaultRules(season), day);
-  return quote(S.data, ids, { day, m });
+  const q = quote(S.data, ids, { day, m });
+  // a renewal of a level that keeps its price (owner decision E1: Principal and the whole suit): the table price of the
+  // season before for the same spots, or this table's when lower; then the discounts as usual
+  const lock = !site ? A.lockFor(S.contracts, { brand: $('#c-brand').value.trim(), season, ids }, today()) : null;
+  if (!lock) return q;
+  const gross = renewalPrice(lock.level, lock.prev, q.gross);
+  const net = roundHalfUp(gross * (SEASON_DIV - q.m) * (100 - q.discPct), SEASON_DIV * 100);
+  return { ...q, gross, net, lock };
 }
 // the rules of the season picked in the sheet
 const sheetRules = () => { const r = rules(), season = $('#c-season').value; return season === r.season ? r : defaultRules(season); };
@@ -477,6 +495,7 @@ function sheetHints() {
   if (q) {
     const parts = [q.m > 0 ? `desconto de época de ${A.monthName(q.m)}, −${pctText(q.seasonBp)}%` : '', q.discPct ? `desconto de pacote, −${q.discPct}%` : ''].filter(Boolean);
     hint.textContent = `Tabela: ${A.money(q.net)}${parts.length ? ` (${parts.join('; ')})` : ''}`;
+    if (q.lock) hint.textContent = `${q.lock.level === 'title' ? 'Title partner' : 'Principal'} que renovou: paga o preço de ${q.lock.from.season}, ${A.money(q.lock.prev)}, ou o da tabela de ${$('#c-season').value}, se for mais baixo. ${hint.textContent}`;
     // a deal by hand paid after the season's sales closed: priced as the last month of sales
     const sr = sheetRules(), paidAt = $('#c-paid').value, c0 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
     if ((!c0 || c0.kind !== 'site') && paidAt > sr.requestsUntil && paidAt <= sr.end && q.m > 0) hint.textContent += `. Pago depois do fecho das vendas de ${sr.season}: tabela de ${A.monthName(q.m)} (−${pctText(q.seasonBp)}%)`;
@@ -486,10 +505,12 @@ function sheetHints() {
   $('#c-inkind-box').hidden = pay !== 'produto' && pay !== 'outro';
   // the race the logo goes on the kit from: after the logo deadline, counted from the request day of a site request (what
   // its buyer was told) or the payment day of a deal by hand (admin-contracts.js logoRef)
-  const logoBy = sheetRules().logoBy, c1 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
+  const sr2 = sheetRules(), logoBy = sr2.logoBy, c1 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
   const site = c1 && c1.kind === 'site' && c1.price && /^\d{4}-\d{2}-\d{2}$/.test(c1.price.day || '');
   const ref = site ? c1.price.day : $('#c-paid').value;
-  $('#c-race-box').hidden = !(ref && ref > logoBy) && !$('#c-race').value;
+  // (after the season's last triathlon no race is agreed: the logo goes on the suit in training)
+  const noRace = !!ref && ref > sr2.racesUntil && ref <= sr2.end;
+  $('#c-race-box').hidden = (!(ref && ref > logoBy) || noRace) && !$('#c-race').value;
   $('#c-race-hint').textContent = `${site ? 'Pedido' : 'Pago'} depois de ${A.ptDay(logoBy, true)}: o logótipo vai para o equipamento a partir desta prova, que combinas com a marca antes do pagamento.`;
   const nif = $('#c-nif').value.trim(), ok = nif ? nifOk(nif) : null;
   $('#c-nif-hint').textContent = ok === false ? 'Este NIF não bate certo (o último algarismo não confere). Confirma com a marca.' : '';
@@ -659,7 +680,7 @@ function toast(msg) {
 // ---------- wiring ----------
 function bind() {
   $('#key-form').addEventListener('submit', signIn);
-  $('#reload').addEventListener('click', () => { load(); loadSpots(); });
+  $('#reload').addEventListener('click', () => { load(); loadSpots(); loadMontra(); });
   $('#forget').addEventListener('click', forget);
   $('#season').addEventListener('change', () => { S.pref.season = $('#season').value; savePref(); render(); });
   $('#q').addEventListener('input', () => { S.pref.q = $('#q').value; render(); });
@@ -667,7 +688,7 @@ function bind() {
   $('#csv').addEventListener('click', saveCsv);
   $('#ics').addEventListener('click', saveIcs);
   $('#sh-form').addEventListener('submit', submitSheet);
-  for (const id of ['#c-paid', '#c-season', '#c-pay', '#c-amount', '#c-nif', '#c-race']) $(id).addEventListener('input', () => { $('#sh-err').textContent = ''; sheetHints(); });
+  for (const id of ['#c-paid', '#c-season', '#c-pay', '#c-amount', '#c-nif', '#c-race', '#c-brand']) $(id).addEventListener('input', () => { $('#sh-err').textContent = ''; sheetHints(); });
   $('#c-use').addEventListener('click', () => { const q = tableQuote(); if (q) { $('#c-amount').value = String(q.net); sheetHints(); } });
   const closeSheet = () => { const d = $('#sheet'); if (d.open) d.close(); };
   $('#sh-x').addEventListener('click', closeSheet);

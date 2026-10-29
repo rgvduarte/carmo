@@ -197,6 +197,8 @@ const ENDPOINTS = {
   },
   feedback: { cur: D('c', 'fb', 'fbs') },
   system: { cur: D('vv') },
+  // the showcase, for the brands' monthly reports: every device (a click is never tied to a device, a source or a place)
+  montra: { curAll: D('ev', 'z') },
 };
 export const ENDPOINT_NAMES = [...Object.keys(ENDPOINTS), 'heatmap'];
 
@@ -587,6 +589,8 @@ const BUILD = {
     };
   },
 
+  montra(w) { return montraOf(w.curAll); },
+
   system(w) {
     const { cur, ctx } = w;
     const tv = new Map(), b = new Map();
@@ -598,6 +602,45 @@ const BUILD = {
     return { ...ctx.system, versions: { tv: ranked(tv), b: ranked(b, { top: 10 }) }, notes: ctx.notes };
   },
 };
+
+// «Montra» (the showcase): per calendar month and per product, the page views that saw its card (montra_view counts
+// once per page view), the taps on its shop link and the copies of its code; the reach of the section and the seconds
+// spent on it. Grouped by the month of each whole day of the period (the API refuses a period with today in it).
+const MONTRA_COL = { montra_view: 'view', montra_shop: 'shop', montra_code: 'code' };
+export function montraOf(acc) {
+  const months = new Map(), totals = new Map();
+  const bump = (map, k, brand, prod, col, v) => {
+    let r = map.get(k);
+    if (!r) map.set(k, (r = { brand, prod, view: 0, shop: 0, code: 0 }));
+    r[col] += v;
+  };
+  for (const slot of acc.slots) {
+    const month = slot.slice(0, 7);
+    for (const [k, a] of acc.slotRows(slot, 'ev')) {
+      const [n, ps] = splitK(k);
+      const col = MONTRA_COL[n];
+      if (!col) continue;
+      const p = {};
+      if (ps) for (const kv of ps.split('&')) { const i = kv.indexOf('='); p[kv.slice(0, i)] = kv.slice(i + 1); }
+      if (!p.prod) continue;
+      const brand = p.brand || '', v = col === 'view' ? a[1] : a[0];
+      if (!v) continue;
+      let m = months.get(month);
+      if (!m) months.set(month, (m = new Map()));
+      bump(m, `${brand}\t${p.prod}`, brand, p.prod, col, v);
+      bump(totals, `${brand}\t${p.prod}`, brand, p.prod, col, v);
+    }
+  }
+  const order = (a, b) => cmp(a.brand, b.brand) || cmp(a.prod, b.prod);
+  const out = (rows) => [...rows.values()].map((r) => ({ brand: r.brand, prod: r.prod, view: int(r.view), shop: int(r.shop), code: int(r.code) })).sort(order);
+  const [reach, , secs] = acc.get('z', 'material');
+  return {
+    zone: { reach: int(reach), secs: int(secs), r: rate(reach, acc.c('pv')) ?? 0 },
+    months: [...months].sort((a, b) => cmp(a[0], b[0])).map(([month, rows]) => ({ month, rows: out(rows) })),
+    totals: out(totals),
+    ignored: ['dev'],
+  };
+}
 
 function attentionOf(acc, m) {
   let total = 0;

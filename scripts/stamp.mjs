@@ -17,10 +17,20 @@
 //    date of the season; and its mid-season discount table (table.season-disc) has, for each month, the percent and the
 //    prices season-rules.js gives; the home page's season copy (ru.p2 «De janeiro a dezembro de 2027», the step «É teu»
 //    with the logo deadline, of.a4 with the renewal deadline, PT in index.html and EN in i18n.js) has this season's
-//    dates, and no level card but «Todos os espaços» promises the renewal preference (every level has it). A mismatch
-//    stops it (also with --check): the terms cannot drift from the code, and a new season is not published before its
-//    terms carry its dates.
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
+//    dates, and no level card but «Todos os espaços» promises the renewal preference (every level has it); the cards of
+//    the levels that keep their price on renewal (season-rules.js PRICE_LOCK: Principal of.c3, the whole suit of.d4)
+//    name «o mesmo preço em <next>, se renovares até <renewBy>», and no other card does. The dates of the last triathlon
+//    (racesUntil) and of the renewal's payment (renewPayBy) are in both articles of /condicoes/. A mismatch stops it
+//    (also with --check): the terms cannot drift from the code, and a new season is not published before its terms
+//    carry its dates.
+// 5. The montra «O meu material» (data/montra.json, assets/js/montra-core.js checkMontra): the file passes every check
+//    (shape, ids, https links without utm_, no example or placeholder brand, product or shop, the limits of each level,
+//    featured only for the whole suit, and the spots of a brand of this season sold to it at its level); every photo file
+//    it names is on disk; /condicoes/ prints the products of each level as LIMIT says (both articles, and the sentence of
+//    its #montra / #showcase section); and index.html holds no montra markup (the section exists only when montra.js
+//    builds it from an active product). The Patrocínios page may reach api.github.com and gocarmo.com (its montra editor
+//    commits through the GitHub API and then waits for the site).
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
 const check = process.argv.includes('--check');
@@ -51,6 +61,51 @@ if (termProblems.length) {
   console.error(`The printed terms do not agree with data/spots.json "seasonRules":\n  ${termProblems.join('\n  ')}`);
   process.exit(1);
 }
+// ---------- the montra «O meu material» ----------
+const MT = await load('assets/js/montra-core.js');
+const montraProblems = checkMontraFile();
+if (montraProblems.length) {
+  console.error(`The montra (data/montra.json, /condicoes/, index.html) is not ready to publish:\n  ${montraProblems.join('\n  ')}`);
+  process.exit(1);
+}
+function checkMontraFile() {
+  const out = [];
+  let file;
+  try { file = JSON.parse(readFileSync(MT.MONTRA_PATH, 'utf8')); } catch (e) { return [`${MT.MONTRA_PATH}: ${e.code === 'ENOENT' ? 'missing (the empty state is { "v": 1, "brands": [] })' : `not JSON (${e.message})`}`]; }
+  out.push(...MT.checkMontra(file, { spots: SPOTS, day: SR.lisbonDay(), levelOf: SR.levelOf, strict: true }).map((p) => `${MT.MONTRA_PATH}: ${p}`));
+  for (const b of Array.isArray(file.brands) ? file.brands : []) {
+    for (const p of b && Array.isArray(b.products) ? b.products : []) {
+      for (const f of MT.photoFiles(p)) if (!existsSync(f)) out.push(`${MT.MONTRA_PATH}: «${b.name}», «${p?.name?.pt ?? p?.id}»: the photo file ${f} is not in the repo`);
+    }
+  }
+  // the products of each level in /condicoes/, both articles, as LIMIT says
+  const C = readFileSync('condicoes/index.html', 'utf8');
+  const plain = (html) => html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#xa0;/gi, ' ').replace(/&amp;/g, '&').replace(/[\u00a0\u202f\u2009]/g, ' ').replace(/\s+/g, ' ');
+  const L = MT.LIMIT;
+  const words = {
+    pt: { id: 'montra', levels: [['Oficial', `${L.oficial} produto na montra`], ['Principal', `até ${L.principal} produtos na montra`], ['Fato completo', `até ${L.title} produtos na montra`]],
+      sentence: `${L.oficial} produto no Oficial, até ${L.principal} no Principal, até ${L.title} e em destaque no Titular` },
+    en: { id: 'showcase', levels: [['Official', `${L.oficial} product in the site showcase`], ['Principal', `up to ${L.principal} products in the site showcase`], ['Whole suit', `up to ${L.title} products in the site showcase`]],
+      sentence: `${L.oficial} product at Official, up to ${L.principal} at Principal, up to ${L.title} and featured at Title` },
+  };
+  for (const [l, w] of Object.entries(words)) {
+    const a = C.match(new RegExp(`<article\\b[^>]*data-l="${l}"[^>]*>([\\s\\S]*?)</article>`));
+    if (!a) { out.push(`condicoes/index.html: no <article data-l="${l}">`); continue; }
+    for (const [name, want] of w.levels) {
+      const m = a[1].match(new RegExp(`<(p|li)\\b[^>]*>\\s*<strong>${name}</strong>([\\s\\S]*?)</\\1>`));
+      if (!m) { out.push(`condicoes/index.html (${l}): no paragraph that starts with <strong>${name}</strong> (the level's items)`); continue; }
+      if (!plain(m[2]).includes(want)) out.push(`condicoes/index.html (${l}): the ${name} paragraph has to say «${want}» (montra-core.js LIMIT)`);
+    }
+    if (!new RegExp(`\\bid="${w.id}"`).test(a[1])) out.push(`condicoes/index.html (${l}): no id="${w.id}" (the montra section the home page links to)`);
+    if (!plain(a[1]).includes(w.sentence)) out.push(`condicoes/index.html (${l}): the montra section has to say «${w.sentence}» (montra-core.js LIMIT)`);
+  }
+  // the section is built only by montra.js: no static trace in the home page
+  const IX = readFileSync('index.html', 'utf8');
+  if (/\bid="material"/.test(IX)) out.push('index.html: id="material" (the montra section exists only when montra.js builds it)');
+  if (/class="[^"]*\bmt-[a-z]/.test(IX)) out.push('index.html: an mt-… class (the montra markup is built only by montra.js)');
+  if (/O meu material|My gear/.test(plain(IX))) out.push('index.html: «O meu material» / «My gear» in the static page (the montra is built only by montra.js)');
+  return out;
+}
 function checkTerms(R) {
   const PT_M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const EN_M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -63,7 +118,7 @@ function checkTerms(R) {
   const plain = (html) => html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#xa0;/gi, ' ').replace(/&amp;/g, '&')
     .replace(/[\u00a0\u202f\u2009]/g, ' ').replace(/\s+/g, ' ');
   const out = [], need = (ok, msg) => { if (!ok) out.push(msg); };
-  const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom'];
+  const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'racesUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom', 'renewPayBy'];
   const C = readFileSync('condicoes/index.html', 'utf8');
   const first = SR.monthIndex(R.fullPriceUntil) - SR.monthIndex(R.start) + 2, last = SR.monthIndex(R.requestsUntil) - SR.monthIndex(R.start) + 1;
   // the price of a spot of `price` euros in season month m, as quote() works it out
@@ -107,9 +162,22 @@ function checkTerms(R) {
   else {
     const cards = offer[1].split(/<div class="card\b/).slice(1);
     need(cards.length >= 2 && /renova|preferência/i.test(plain(cards[0])), 'index.html: the «Todos os espaços» card has to name the renewal preference (of.a4)');
-    cards.slice(1).forEach((c, i) => need(!/renova|preferência/i.test(plain(c)), `index.html: level card ${i + 2} names the renewal preference, which every level has (put it only in «Todos os espaços»)`));
-    const enLevels = [...js.matchAll(/"(of\.[bcd]\d)":\s*"([^"]*)"/g)].filter((m) => /renew|first option/i.test(m[2])).map((m) => m[1]);
-    need(!enLevels.length, `assets/js/i18n.js: ${enLevels.join(', ')} names the renewal preference, which every level has`);
+    // the price kept on renewal (owner decisions E1 and E1' of 29.10.2026): the cards of the PRICE_LOCK levels name it, in
+    // these words; no other level card does, and none of them names the preference, which every level has
+    const LOCK_CARD = { principal: ['of.c', 2], title: ['of.d', 3] };
+    const lockPt = `mesmo preço em ${next}, se renovares até ${pt(R.renewBy)}`, lockEn = `same price in ${next}, if you renew by ${en(R.renewBy)}`;
+    const locked = new Set(SR.PRICE_LOCK.map((lv) => LOCK_CARD[lv] && LOCK_CARD[lv][1]).filter((x) => x !== undefined));
+    cards.slice(1).forEach((c, j) => {
+      const i = j + 1, text = plain(c);
+      need(!/preferência/i.test(text), `index.html: level card ${i + 1} names the renewal preference, which every level has (put it only in «Todos os espaços»)`);
+      if (locked.has(i)) need(text.includes(lockPt), `index.html: level card ${i + 1} has to say «O ${lockPt}» (season-rules.js PRICE_LOCK, seasonRules.renewBy)`);
+      else need(!/renova|mesmo preço/i.test(text), `index.html: level card ${i + 1} names a renewal or a price kept, which only the PRICE_LOCK levels have`);
+    });
+    const enOf = [...js.matchAll(/"(of\.[bcd]\d)":\s*"([^"]*)"/g)].map((m) => [m[1], m[2]]);
+    const lockKeys = new Set(SR.PRICE_LOCK.map((lv) => LOCK_CARD[lv] && LOCK_CARD[lv][0]).filter(Boolean));
+    for (const pre of lockKeys) need(enOf.some(([k, v]) => k.startsWith(pre) && v.includes(lockEn)), `assets/js/i18n.js: no ${pre}N says «${lockEn}» (season-rules.js PRICE_LOCK, seasonRules.renewBy)`);
+    const enBad = enOf.filter(([k, v]) => /first option/i.test(v) || (/renew|same price/i.test(v) && !(lockKeys.has(k.slice(0, 4)) && v.includes(lockEn)))).map(([k]) => k);
+    need(!enBad.length, `assets/js/i18n.js: ${enBad.join(', ')} names the renewal preference or a price kept, which only «Todos os espaços» (of.a4) and the PRICE_LOCK levels have`);
   }
   return out;
 }
@@ -207,8 +275,9 @@ const stats = origin('SITE.stats', /^\s*stats:\s*\{\s*url:\s*'([^']*)'/m);
 const CONNECT = {
   'admin/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker, stats],
   'admin/analytics/index.html': ["'self'", stats],
-  // - SITE.requestsApi also: /admin/patrocinios/ (the sponsor contracts are kept by the same Worker)
-  'admin/patrocinios/index.html': ["'self'", worker],
+  // - SITE.requestsApi also: /admin/patrocinios/ (the sponsor contracts are kept by the same Worker); its montra editor
+  //   commits through the GitHub API and then waits for gocarmo.com, as /admin/ does
+  'admin/patrocinios/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker],
 };
 const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
 

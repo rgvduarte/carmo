@@ -29,6 +29,10 @@ Conta as visitas do gocarmo.com com uma ferramenta nossa, sem cookies e sem sabe
 - **Cliques**: o botão ou elemento e o seu texto curto, nunca o que se escreve nos campos. Nada da janela de reserva além
   dos passos (abriu, enviou, copiou o IBAN), sem marcas, nomes, NIF, mensagens ou valores. Das ligações para fora só se
   guarda o site (instagram.com, whatsapp), nunca o endereço completo.
+- **A montra «O meu material»** (`#material`, só quando há um produto ativo de um parceiro): os cartões de produto que
+  ficam pelo menos meio visíveis durante 1 segundo (uma vez por produto em cada visualização), os toques em «Ver na loja»
+  e no botão que copia o código de desconto, por marca e por produto (os identificadores públicos de
+  `data/montra.json`, nunca o código, o endereço da loja nem as etiquetas utm). As marcas recebem só totais por mês.
 - **30 dias** de registos por visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Respeita o **Global Privacy Control** e o **Do Not Track** do navegador (nesses casos não envia nada) e o botão «Não
   contar as minhas visitas» da página de privacidade.
@@ -79,6 +83,12 @@ publica. Com `url: ''` o site não mede nada.
 
 Abre `https://gocarmo.com/admin/analytics/` e entra com a `ADMIN_KEY`. A chave fica só nesse separador e sai quando
 carregas em «Sair».
+
+**Montra**: o separador com os cartões vistos, os cliques na loja e os códigos copiados de cada marca e produto, por
+mês, para os relatórios das marcas. Os botões dos meses põem o período nesse mês inteiro (até ontem, no mês em curso) e
+«Exportar CSV» descarrega a tabela `montra` (mês; marca; produto; cartão visto; cliques na loja; códigos copiados, com
+o total de cada marca por mês e no período). A cada marca envia-se só as linhas dela. Os nomes vêm de
+`data/montra.json`; uma marca ou um produto que já saiu do ficheiro aparece pelo identificador.
 
 **Este aparelho**: ao entrar, o teu navegador fica marcado como interno e as tuas visitas não contam (aparecem só com
 «Mostrar visitas internas»). Em janelas privadas ou noutros navegadores, entra no painel uma vez para os marcar também.
@@ -161,9 +171,18 @@ caber nas regras de «O que conta e o que nunca guarda»: entra primeiro na list
 | `POST /v1/e` | `204`. Corpo JSON em `text/plain`, até 16 KB, do site (`Origin`) |
 | `POST /v1/f` | `204`. A resposta à pergunta rápida, até 1 KB |
 | `GET /health` | `{ ok, v, schema, store, eu, salt, admin, limits, dev }`, só verdadeiro ou falso |
-| `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `quality` · `feedback` · `system` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap`. Um período com o dia de hoje (`24h`, ou `custom` até hoje) só no `overview` (só totais) e no `system`: os outros respondem `400 periodo` |
+| `GET /admin/v1/ping` · `now` · `overview` · `audience` · `content` · `heatmap` · `studio` · `booking` · `contacts` · `montra` · `quality` · `feedback` · `system` | (admin) JSON com os totais. Parâmetros `p=24h\|7d\|30d\|90d\|custom` (`from`, `to`), `dev`, `int`, `cmp`; `vw` no `heatmap`. Um período com o dia de hoje (`24h`, ou `custom` até hoje) só no `overview` (só totais) e no `system`: os outros respondem `400 periodo` |
 | `POST /admin/v1/notes`, `DELETE /admin/v1/notes/<id>` | (admin) anotações no gráfico das visitas |
-| `GET /admin/v1/export.csv?t=<tabela>` | (admin) CSV para o Excel |
+| `GET /admin/v1/export.csv?t=<tabela>` | (admin) CSV para o Excel (dias completos só; `t=montra` para os relatórios das marcas) |
+
+A montra (mudança de privacidade, SPEC atualizada): a zona `material` (âncora `#material`), três eventos com os
+parâmetros `brand` e `prod` (identificadores de `data/montra.json`: minúsculas, hífenes, até 40 caracteres, nunca 4
+algarismos seguidos; um evento sem os dois não conta): `montra_view` (1 por produto e visualização), `montra_shop` e
+`montra_code` (até 10). Guardam-se na métrica `ev`, como os outros eventos (sem tabela nova nem mudança de esquema). O
+clique em «Ver na loja» conta também como ligação para fora de um patrocinador (`osp`), na zona `material`.
+`GET /admin/v1/montra` responde `{ pv, zone: { reach, secs, r }, months: [{ month, rows: [{ brand, prod, view, shop,
+code }] }], totals: [...] }`, por mês de calendário dos dias do período, sempre com todos os aparelhos (`ignored:
+['dev']`), e nunca com o dia de hoje (`400 periodo`).
 
 Os pedidos de admin levam `Authorization: Bearer <ADMIN_KEY>`, com um limite de 120 por minuto por endereço (contado
 antes de a chave ser vista). Os erros são `{ "error": "<código>" }`: `origem` (403),

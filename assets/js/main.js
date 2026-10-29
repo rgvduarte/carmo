@@ -7,6 +7,7 @@ import { initMarks, refreshMarks } from './marks.js';
 import { flowSet, flowStatic } from './flow.js';
 import { initAdspace, userHasInteracted, landTarget } from './adspace.js';
 import { loadGofundme, renderGofundme } from './gofundme.js';
+import { loadMontra, renderMontra } from './montra.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -30,10 +31,11 @@ function setMenu(open, { restore = false } = {}) {
   else if (restore) menuBtn.focus({ preventScroll: true });
 }
 menuBtn.addEventListener('click', () => setMenu(!nav.classList.contains('open'), { restore: true }));
-$$('#menu a').forEach((a) => a.addEventListener('click', () => setMenu(false)));
+const closeMenu = () => setMenu(false);
+$$('#menu a').forEach((a) => a.addEventListener('click', closeMenu));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && nav.classList.contains('open')) { e.preventDefault(); setMenu(false, { restore: true }); } });
 const sections = $$('main section[id]');
-// the nav turns light over paper sections
+// the nav turns light over paper sections (a section added later, the showcase, joins the list: addSection)
 const lightSections = $$('.light');
 function navTone() {
   const y = nav.offsetHeight / 2;
@@ -387,6 +389,7 @@ function flight(p) {
 }
 
 // ---------- smooth scroll + scroll-driven scenes ----------
+let hashLink = null;   // the in-page link handler (initMotion); a link added later gets it from addSection
 // the suit turns to face you as the studio scrolls in: from behind, far and high, into its home pose (e: 0..1)
 function scrollPose(s, e) {
   const H = s.constructor.HOME;
@@ -423,10 +426,11 @@ function initMotion(getSuit) {
   addEventListener('scroll', onScroll, { passive: true });
   onScroll();
   // in-page links glide with Lenis and clear the fixed nav
-  $$('a[href^="#"]').forEach((a) => a.addEventListener('click', (e) => {
-    const id = a.getAttribute('href');
+  hashLink = (e) => {
+    const a = e.currentTarget, id = a.getAttribute('href');
     if (id.length < 2) return;
-    const target = id === '#top' ? 0 : $(id);
+    let target = null;
+    try { target = id === '#top' ? 0 : $(id); } catch (_) { return; }
     if (target === null) return;
     e.preventDefault();
     const navH = nav.offsetHeight;
@@ -440,7 +444,8 @@ function initMotion(getSuit) {
     if (lenis) lenis.scrollTo(aim === 0 ? 0 : docTop(aim) - navH - gap, { duration: 1.4, onComplete: () => { reaim(); land(); } });
     else { if (target === 0) scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); else aim.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth' }); land(); }
     history.replaceState(null, '', id === '#top' ? location.pathname : id);
-  }));
+  };
+  $$('a[href^="#"]').forEach((a) => a.addEventListener('click', hashLink));
 
   if (reduce || !G || !ST) {
     // stacked, static scenes: just show the full distance (also when the GSAP scripts failed to load)
@@ -492,7 +497,7 @@ function renderSocial() {
 }
 const safe = (f) => { try { f(); } catch (e) { console.error(e); } };
 function renderFooter() { $('#ft-date').textContent = fmtDay(SITE.updated); }
-function renderAll() { [renderSocial, renderRaces, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter].forEach(safe); }
+function renderAll() { [renderSocial, renderRaces, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter, renderMontra].forEach(safe); }
 renderAll();
 safe(initRaces);
 onLang(() => { renderAll(); safe(refreshMarks); safe(flowStatic); });
@@ -554,6 +559,34 @@ const startMotion = () => {
     hold.observe(document.body);
     setTimeout(stop, 10000);
   };
+  // The showcase «O meu material» (montra.js) is built only when data/montra.json has a product on the site today, and
+  // placed here: after «Apoiar» and before «Contacto», its nav entry after «Apoiar». It gets what a section of the page
+  // has from boot: the nav highlight and tone, the menu, the in-page link, the ScrollTrigger positions below it and a
+  // #material address. A reader already below the place it goes in stays on what they are reading (the page moves by
+  // the section's height at once).
+  const addSection = (sec, navLi) => {
+    const contact = $('#contacto');
+    if (!contact || sec.isConnected) return;
+    const below = contact.getBoundingClientRect().top < 0, y0 = scrollY, h0 = document.documentElement.scrollHeight;
+    contact.before(sec);
+    if (navLi) {
+      const support = $('#menu a[href="#apoiar"]')?.closest('li');
+      if (support) support.after(navLi); else $('#menu').append(navLi);
+      for (const a of navLi.querySelectorAll('a')) {
+        a.addEventListener('click', closeMenu);
+        if (hashLink) a.addEventListener('click', hashLink);
+      }
+    }
+    // (Lenis measures the page again first: its scroll limit is the old page's until its own observer catches up)
+    if (below) { if (lenis) lenis.resize(); jump(y0 + (document.documentElement.scrollHeight - h0)); }
+    sections.push(sec);
+    navObserver.observe(sec);
+    if (sec.classList.contains('light')) lightSections.push(sec);
+    navTone();
+    if (window.ScrollTrigger) window.ScrollTrigger.refresh();
+    if (location.hash === `#${sec.id}` && !moved) scrollToEl(sec, { immediate: true });
+  };
+  loadMontra({ addSection, scrollToEl }).catch((e) => console.error(e));
   initAdspace({
     scrollTo: scrollToEl,
     // move the page by dy at once, keeping Lenis in step (a change above the part being read must not push it)

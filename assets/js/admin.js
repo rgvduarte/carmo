@@ -3,12 +3,12 @@
 // browser only). The page then waits until gocarmo.com serves the new data/spots.json. The rules (what each action
 // writes, and when it is allowed) live in admin-core.js, which is tested against the issue-form bot.
 import * as C from './admin-core.js';
-import { lisbonDay, rulesOf, isDay } from './season-rules.js';
+import { GhError, UiError, transient, readToken, forgetToken, keepToken, gh, UNKNOWN, errText, checkToken, signInText, getToken, setToken } from './admin-gh.js';
+import { lisbonDay, rulesOf, isDay, noRacesLeft } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
-const API = `https://api.github.com/repos/${C.REPO}`;
-const KEY = 'gc.admin.token', FILTER_KEY = 'gc.admin.filter';
+const FILTER_KEY = 'gc.admin.filter';   // (the token's key and the GitHub calls: admin-gh.js)
 const SITE_ROOT = new URL('../', location.href);   // the page lives at /admin/; logo paths start at the site root
 const POLL_EVERY = 5000, POLL_FOR = 180000;
 const RASTER_SIDES = [1200, 800, 500];              // an SVG logo becomes a PNG this wide (longest side), if it fits 3 MB
@@ -21,7 +21,6 @@ const hhmm = (d) => `${C.pad2(d.getHours())}:${C.pad2(d.getMinutes())}`;
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 const kb = (n) => (n < 1048576 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1048576).toFixed(1).replace('.', ',')} MB`);
 
-let token = null;          // in memory; storage only holds it between visits
 let base = null;           // { head, text, data, readAt }: data/spots.json at the head of gh-pages
 let sel = new Set();
 let filter = 'all';
@@ -29,56 +28,6 @@ let busy = false;          // a save is running (one at a time)
 let sheet = null;          // the open action: { action, ids, snap, logo, untilTouched }
 let lastRun = null, hiddenAt = 0, gl = null;
 let stash = null;          // the sheet as it was when the token stopped working mid-save; it comes back after signing in
-
-class GhError extends Error { constructor(status, msg, rate = null) { super(msg || `GitHub ${status}`); this.status = status; this.rate = rate; } }
-class UiError extends Error { constructor(msg, opts = {}) { super(msg); Object.assign(this, opts); } }
-const transient = (e) => e instanceof GhError && (e.status === 0 || e.status >= 500);
-
-// ---------- token storage ("Lembrar neste telemóvel" = localStorage, otherwise this tab only) ----------
-const stores = () => ['sessionStorage', 'localStorage'].map((k) => { try { return window[k]; } catch (_) { return null; } }).filter(Boolean);
-function readToken() { for (const s of stores()) { try { const v = s.getItem(KEY); if (v) return v; } catch (_) {} } return null; }
-function forgetToken() { for (const s of stores()) { try { s.removeItem(KEY); } catch (_) {} } }
-function keepToken(t, remember) { forgetToken(); try { (remember ? localStorage : sessionStorage).setItem(KEY, t); } catch (_) {} }
-
-// ---------- GitHub ----------
-// One wrapper holds the header. Errors carry the status and GitHub's own message only, never the token.
-async function ghRes(method, path, body) {
-  let res;
-  try {
-    res = await fetch(path.startsWith('https://') ? path : `${API}${path}`, {
-      method, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch (_) { throw new GhError(0, 'network'); }
-  let json = null;
-  try { json = await res.json(); } catch (_) {}
-  if (!res.ok) {
-    const h = (k) => res.headers.get(k);
-    // primary limit: remaining 0 until x-ratelimit-reset; secondary limit (403 or 429): retry-after seconds
-    const spent = h('x-ratelimit-remaining') === '0', retry = Number(h('retry-after')) || 0;
-    const limited = res.status === 429 || (res.status === 403 && (spent || retry > 0));
-    throw new GhError(res.status, json && typeof json.message === 'string' ? json.message : '', limited ? { reset: spent ? Number(h('x-ratelimit-reset')) || 0 : 0, retry } : null);
-  }
-  return { json, headers: res.headers };
-}
-const gh = async (method, path, body) => (await ghRes(method, path, body)).json;
-
-const UNKNOWN = 'Não sei se ficou guardado: a ligação falhou logo depois de o pedido seguir. Quando a rede voltar, carrega em «Tentar outra vez»: primeiro vejo no GitHub, e não guardo duas vezes.';
-
-function errText(e, kind = 'read') {
-  if (e instanceof UiError || e instanceof C.RuleError) return e.message;
-  if (!(e instanceof GhError)) return 'Algo correu mal nesta página. Recarrega-a e tenta outra vez.';
-  const tail = kind === 'write' ? ' O site não mudou.' : '';
-  if (e.status === 0) return kind === 'write' ? 'Sem ligação. O site não mudou.' : 'Sem ligação ao GitHub. Verifica a rede e tenta outra vez.';
-  if (e.rate) return `Demasiados pedidos ao GitHub. Tenta depois das ${hhmm(e.rate.retry || !e.rate.reset ? new Date(Date.now() + (e.rate.retry || 60) * 1000) : new Date(e.rate.reset * 1000))}.`;
-  if (e.status === 401) return 'O token expirou ou foi revogado. Cria um novo.';
-  if (kind === 'write' && (e.status === 403 || e.status === 404)) return 'O token não tem permissão de escrita (Contents: Read and write).';
-  if (e.status === 404) return 'O token não chega ao repositório rgvduarte/carmo.';
-  if (e.status === 403) return 'O GitHub recusou o pedido. Confirma as permissões do token.';
-  if (e.status === 409 || e.status >= 500) return `O GitHub falhou (código ${e.status}).${tail || ' Tenta outra vez daqui a pouco.'}`;
-  return `O GitHub não aceitou o pedido (código ${e.status}).${tail}`;   // its own words are English: not shown
-}
 
 async function readSpots(ref) {
   const c = await gh('GET', `/contents/${C.SPOTS_PATH}?ref=${encodeURIComponent(ref)}`);
@@ -105,7 +54,7 @@ function showLogin(msg = '') {
 }
 
 function signOut(msg = '') {
-  forgetToken(); token = null; base = null; sel.clear(); stopPublishing();
+  forgetToken(); setToken(null); base = null; sel.clear(); stopPublishing();
   forgetReqKey(); pasted = null; $('#inbox').hidden = true;
   $('#tok').value = ''; $('#who').textContent = '';
   updateBar();
@@ -118,27 +67,9 @@ async function signIn(e) {
   err.textContent = '';
   if (!C.TOKEN_RE.test(t)) { err.textContent = 'Isto não parece um token do GitHub (começa por github_pat_).'; input.focus(); return; }
   btn.disabled = true; btn.textContent = 'A verificar…';
-  token = t;
-  try {
-    const { json: repo, headers } = await ghRes('GET', '');
-    if (repo && repo.permissions && repo.permissions.push !== true) throw new UiError('A tua conta não pode escrever neste repositório. Pede ao dono acesso de escrita.');
-    // A classic token reaches every repository the account can write to: take one that can do no more than this page
-    // needs (public_repo), so a lost token does less harm.
-    if (t.startsWith('ghp_') && headers.get('x-oauth-scopes') !== null) {
-      const extra = headers.get('x-oauth-scopes').split(',').map((x) => x.trim()).filter((x) => x && x !== 'public_repo');
-      if (extra.length) throw new UiError(`Este token clássico pode mais do que esta página precisa (${extra.join(', ')}). Apaga-o no GitHub e cria outro só com public_repo e 7 dias de validade.`);
-    }
-    // A fine-grained token shows what it may do only when it writes: the empty blob already exists in the repo
-    // (.nojekyll), so asking for it again changes nothing.
-    try { await gh('POST', '/git/blobs', { content: '', encoding: 'utf-8' }); } catch (x) {
-      if (x instanceof GhError && (x.status === 403 || x.status === 404) && !x.rate) throw new UiError('O token só pode ler. Em «Permissions», o Contents tem de estar em «Read and write».');
-      throw x;
-    }
-  } catch (x) {
-    token = null;
-    err.textContent = x instanceof GhError && x.status === 401 ? 'O GitHub não aceitou este token: está mal copiado, expirou ou foi revogado.'
-      : x instanceof GhError && x.status === 404 ? 'Este token não chega a rgvduarte/carmo. Na criação, em «Repository access», escolhe esse repositório.'
-      : errText(x);
+  // (admin-gh.js checkToken: the account can write, a classic token holds public_repo only, a fine-grained one can write)
+  try { await checkToken(t); } catch (x) {
+    err.textContent = signInText(x);
     btn.disabled = false; btn.textContent = 'Entrar';
     return;
   }
@@ -678,7 +609,7 @@ function reqCard(r) {
   }
   const stand = reqStanding(r);
   // a request after the logo deadline: its logo goes on the kit from a race named before the payment
-  if (open && raw && logoLateReq(raw, r)) stand.lines.push(RACE_ASK);
+  if (open && raw && logoLateReq(raw, r)) stand.lines.push(noRaceReq(raw, r) ? NO_RACE(raw, r) : RACE_ASK);
   if (stand.lines.length) { const n = el('ul', 'notes'); for (const s of stand.lines) n.appendChild(el('li', null, s)); li.appendChild(n); }
   if (open) {
     const acts = el('div', 'req-acts'), busyNow = inbox.busy.has(r.id);
@@ -733,7 +664,7 @@ async function confirmPurchase(r) {
   $('#f-brand').value = r.brand || '';
   sheet.request = r.id;
   const note = $('#sh-req');
-  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.${logoLateReq(base.data, r) ? ` ${RACE_ASK} Escreve-a depois em Patrocínios (Editar, «A partir da prova»).` : ''}`;
+  note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.${!logoLateReq(base.data, r) ? '' : noRaceReq(base.data, r) ? ` ${NO_RACE(base.data, r)}` : ` ${RACE_ASK} Escreve-a depois em Patrocínios (Editar, «A partir da prova»).`}`;
   note.hidden = false;
   showPaid(r);
   showLogo(logo);
@@ -742,7 +673,12 @@ async function confirmPurchase(r) {
 // a request made after the season's logo deadline (its Lisbon day, as the message and the comprovativo counted it)
 const reqDay = (r) => (isDay(r.day) ? r.day : Date.parse(r.at || '') ? lisbonDay(Date.parse(r.at)) : '');
 const logoLateReq = (data, r) => { const d = reqDay(r), R = rulesOf(data); return !!d && String(r.season || R.season) === R.season && d > R.logoBy; };
+// a request made after the season's last triathlon (seasonRules.racesUntil): no race to agree, the logo goes on the site,
+// the posts and the suit in training (what the message and the comprovativo told the buyer)
+const noRaceReq = (data, r) => { const d = reqDay(r), R = rulesOf(data); return !!d && String(r.season || R.season) === R.season && noRacesLeft(R, d); };
 const RACE_ASK = 'Diz a prova antes do pagamento: o logótipo entra no equipamento a partir de que prova?';
+const reqSuit = (data, r) => reqIds(r).some((id) => id === C.TITLE || C.itemOf(C.targetOf(data, id) || {}) === 'suit');
+const NO_RACE = (data, r) => `Sem triatlos em ${rulesOf(data).season} depois do pedido: o logótipo vai para o site${reqSuit(data, r) ? ', as publicações e o fato nos treinos' : ' e as publicações'}.`;
 
 // ---------- the payment of a request: «Pago a» and «Montante recebido» (they go into its sponsor contract) ----------
 // «Desconto de época (março): −6,25%» of a request the Worker priced (its record's m and seasonBp), '' at full price
@@ -1497,7 +1433,7 @@ function bind() {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hiddenAt = performance.now(); return; }
     if (queue.some((q) => !q.late)) pollIn(0);
-    if (token && base && !busy && hiddenAt && performance.now() - hiddenAt > 60000 && !$$('dialog').some((x) => x.open)) { load({ quiet: true }); loadInbox({ quiet: true }); }
+    if (getToken() && base && !busy && hiddenAt && performance.now() - hiddenAt > 60000 && !$$('dialog').some((x) => x.open)) { load({ quiet: true }); loadInbox({ quiet: true }); }
   });
   addEventListener('resize', () => { if (sel.size) document.documentElement.style.setProperty('--bar-h', `${$('#bar').offsetHeight}px`); });
 }
@@ -1506,7 +1442,7 @@ function boot() {
   try { const f = localStorage.getItem(FILTER_KEY); if (['all', 'available', 'reserved', 'sold'].includes(f)) filter = f; } catch (_) {}
   bind();
   const t = readToken();
-  if (t && C.TOKEN_RE.test(t)) { token = t; enterApp({ check: true }); } else { forgetToken(); showLogin(); }
+  if (t && C.TOKEN_RE.test(t)) { setToken(t); enterApp({ check: true }); } else { forgetToken(); showLogin(); }
 }
 
 // frame-ancestors is ignored in a meta CSP: a framed copy of this page shows nothing

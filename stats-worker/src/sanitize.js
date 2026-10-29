@@ -208,7 +208,7 @@ export function sanitizeBeacon(b) {
     const sec = {};
     let n = 0;
     for (const [k, v] of Object.entries(b.sec)) {
-      if (n >= 16) break;
+      if (n >= SEC_KEYS.size) break;            // every zone and the booking window
       if (!SEC_KEYS.has(k)) continue;
       const s = clampRound(v, 0, 1800);
       if (s === undefined || s < 1) continue;
@@ -217,7 +217,7 @@ export function sanitizeBeacon(b) {
     if (n) snap.sec = sec;
   }
   if (Array.isArray(b.rz)) {
-    const rz = [...new Set(b.rz.filter((z) => typeof z === 'string' && ZONE_SET.has(z)))].slice(0, 15);
+    const rz = [...new Set(b.rz.filter((z) => typeof z === 'string' && ZONE_SET.has(z)))].slice(0, ZONE_SET.size);
     if (rz.length) snap.rz = rz;
   }
   if (isObj(b.perf)) {

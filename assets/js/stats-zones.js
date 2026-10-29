@@ -3,7 +3,7 @@ export const ZONES = [
   ['top', '#top'], ['tese', '#tese'], ['historia', '#historia'], ['prova', '#prova'], ['resultados', '#resultados'],
   ['dados', '#dados'], ['epoca', '#epoca'], ['fato-topo', '#fato .adspace-head, #fato .entry'], ['o-fato', '#o-fato'],
   ['o-capacete', '#o-capacete'], ['fato-termos', '#fato .offer, #fato .steps, #fato .rules'], ['media', '#media'],
-  ['apoiar', '#apoiar'], ['contacto', '#contacto'], ['footer', 'body > footer'],
+  ['apoiar', '#apoiar'], ['material', '#material'], ['contacto', '#contacto'], ['footer', 'body > footer'],
 ];
 // fixed layers, innermost first
 export const FIXED = [['reserva', '#claim'], ['opiniao', '#gc-fb'], ['pacote', '#package'], ['ficha', '#spot-card'],

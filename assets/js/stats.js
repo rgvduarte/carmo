@@ -151,7 +151,8 @@ function start() {
   // SPEC 4.6.1-3
   const onEl = new Set(), zel = new Map(), put = (id, s) => { sec[id] = Math.min(1800, (sec[id] || 0) + s); };
   const io = new IntersectionObserver((es) => es.forEach((e) => onEl[e.isIntersecting ? 'add' : 'delete'](e.target)), { threshold: [...Array(21).keys()].map((i) => i / 20) });
-  for (const [id, s] of ZONES) for (const el of D.querySelectorAll(s)) { zel.set(el, id); io.observe(el); }
+  const watch = () => { for (const [id, s] of ZONES) for (const el of D.querySelectorAll(s)) zel.has(el) || (zel.set(el, id), io.observe(el)); };
+  watch(); on('gc:montra', watch, cap, D);   // the showcase comes later
   function tick() {
     const t = now(), ih = innerHeight, part = [], card = innerWidth <= 760 && $('#spot-card.open'), one = $('#claim[open]') ? 'reserva' : card && card.closest('.part')?.id;
     let tot = 0, md;
@@ -202,13 +203,13 @@ function start() {
     if (o && !o.closest('#claim')) {
       const h = o.hostname.toLowerCase().replace(/^www\./, ''), u = o.protocol;
       const out = u === 'mailto:' ? 'mailto' : u === 'tel:' ? 'tel' : /^(wa\.me|api\.whatsapp\.com)$/.test(h) ? 'whatsapp' : /^https?:$/.test(u) && o.host !== L.host && HOST.test(h) && h;
-      if (out) { r.out = out; if (o.closest('#onsuit-list')) r.osp = 1; }
+      if (out) { r.out = out; if (o.closest('#onsuit-list, #material')) r.osp = 1; }
     }
     if (!push(r)) return;
     pend.push(r);
     api.oc ? api.oc([r, t, T, x, y]) : CQ.push([r, t, T, x, y]);
     setTimeout(() => { const k = pend.indexOf(r); if (k >= 0) { pend.splice(k, 1); buf.push(r); more(); } }, 1000);
-    if (r.out) send('x');
+    if (r.out) o.closest('#material') ? setTimeout(() => send('x')) : send('x');   // with montra_shop
   }, cap, D);
 
   // queued for stats-site.js

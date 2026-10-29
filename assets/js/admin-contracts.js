@@ -4,7 +4,7 @@
 // The records come from the booking Worker (GET /contratos, KV c:<id>, worker/requests.js); the dates and the price rule
 // from season-rules.js. A record's renewal step is stored by hand ('', 'proposta', 'renova', 'nao-renova'); the state
 // shown is renewalView(contract, day).
-import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, isDay, seasonBp, pctText, roundHalfUp, SEASON_DIV } from './season-rules.js';
+import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, isDay, seasonBp, pctText, roundHalfUp, SEASON_DIV, locksPrice } from './season-rules.js';
 
 // ---------- words and dates ----------
 export const PT_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -42,15 +42,28 @@ export function levelName(key, lang = 'pt', data = null) {
 // ---------- one contract ----------
 export const isTitle = (c) => !!c && (c.title === true || (Array.isArray(c.spots) && c.spots.some((s) => s && s.id === TITLE)));
 export const idsOf = (c) => (isTitle(c) ? [TITLE] : (Array.isArray(c?.spots) ? c.spots.map((s) => s && s.id).filter(Boolean) : []));
-// the rules of the contract's own season: its stored period and dates, the season's defaults for anything missing
-export function rulesOfContract(c) {
-  const d = defaultRules(c && c.season);
-  return { ...d, start: c?.period?.start || d.start, end: c?.period?.end || d.end, logoBy: c?.dates?.logoBy || d.logoBy, proposalsFrom: c?.dates?.proposalsFrom || d.proposalsFrom, renewBy: c?.dates?.renewBy || d.renewBy, openFrom: c?.dates?.openFrom || d.openFrom };
+// the rules of the contract's own season: its stored period and dates, the season's defaults for anything missing. A
+// record keeps logoBy, proposalsFrom, renewBy and openFrom; the day of the last triathlon (racesUntil) and the renewal's
+// payment deadline (renewPayBy) come from data/spots.json when it is about the contract's season (data), else from the
+// season's defaults
+export function rulesOfContract(c, data = null) {
+  const d = defaultRules(c && c.season), live = data ? rulesOf(data) : null, same = !!live && live.season === String(c?.season ?? '');
+  return { ...d, start: c?.period?.start || d.start, end: c?.period?.end || d.end, logoBy: c?.dates?.logoBy || d.logoBy, proposalsFrom: c?.dates?.proposalsFrom || d.proposalsFrom, renewBy: c?.dates?.renewBy || d.renewBy, openFrom: c?.dates?.openFrom || d.openFrom,
+    racesUntil: c?.dates?.racesUntil || (same ? live.racesUntil : d.racesUntil), renewPayBy: c?.dates?.renewPayBy || (same ? live.renewPayBy : d.renewPayBy) };
 }
 // the day that decides whether the logo deadline had passed: for a request of the site, its request day (what the message
 // and the comprovativo told the buyer, and the day of its price); for a deal by hand, the payment day
 export const logoRef = (c) => (c && c.kind === 'site' && c.price && isDay(c.price.day) ? c.price.day : String(c?.paidAt || ''));
 export const logoLate = (c) => { const ref = logoRef(c); return !!ref && ref > rulesOfContract(c).logoBy; };
+// the request (or, by hand, the payment) came after the season's last triathlon (season-rules.js noRacesLeft on the logoRef
+// day): no race is agreed for the logo; it goes on the site, in the posts and on the suit in training (owner decision E2)
+export const noRaces = (c, data = null) => { const ref = logoRef(c), r = rulesOfContract(c, data); return !!ref && ref > r.racesUntil && ref <= r.end; };
+// a race still has to be agreed for the logo on the kit: late for the logo deadline, with triathlons still to come
+export const needsRace = (c, data = null) => logoLate(c) && !noRaces(c, data);
+// the package has the suit (a suit spot or the whole suit); the helmet is not used in training
+// the levels with the logo on the training kit (the home page's Principal card, «Tudo o que o Principal … inclui»)
+export const TRAINING_KIT = ['principal', 'title'];
+export const hasSuit = (c) => isTitle(c) || (Array.isArray(c?.spots) && c.spots.some((s) => s && s.item !== 'helmet'));
 // whether the season discount line belongs on the card and in the CSV: only when the amount paid is the table's price
 export const paidTable = (c) => !!c && !!c.price && Number.isFinite(Number(c.price.total)) && Number(c.amount) === Number(c.price.total);
 // '01 Peito, 21 Topo do capacete', 'Fato completo', or the label of a deal with no spot
@@ -101,6 +114,69 @@ export function renewalActs(c, day) {
   return [];
 }
 
+// the sponsor said yes to the next season (the stored step, or the outcome once the season is over)
+export const renewed = (c, day) => { const v = renewalView(c, day); return v.state === 'renova' || v.outcome === 'renova'; };
+// the contract of the next season that pays a renewal: same brand (accents and case do not count), next season, the same
+// spots (any of them) or both the whole suit
+export function renewalContract(c, contracts) {
+  if (!c) return null;
+  const next = String(Number(c.season) + 1), ids = idsOf(c), title = isTitle(c);
+  return (Array.isArray(contracts) ? contracts : []).find((x) => x && x !== c && x.id !== c.id && String(x.season) === next && sameBrand(x.brand, c.brand)
+    && (title ? isTitle(x) : !isTitle(x) && idsOf(x).some((id) => ids.includes(id)))) || null;
+}
+// the payment of a renewal (owner decision E3): a sponsor who said yes pays the next season by renewPayBy, or the spot is
+// free. { state: 'pago', at } when the next season's contract is registered; else { state: 'a-pagar', by } up to
+// renewPayBy, then { state: 'em-atraso', since: the day after }. null when the sponsor did not say yes.
+export function payState(c, contracts, day, data = null) {
+  if (!c || !renewed(c, day)) return null;
+  const x = renewalContract(c, contracts), by = rulesOfContract(c, data).renewPayBy;
+  if (x) return { state: 'pago', at: String(x.paidAt || ''), by, contract: x.id };
+  if (day <= by) return { state: 'a-pagar', by };
+  return { state: 'em-atraso', by, since: addDays(by, 1) };
+}
+// the card's line for it: { kind: 'ok' | 'info' | 'warn' | 'bad', text }, or null
+export function payLine(c, contracts, day, data = null) {
+  const p = payState(c, contracts, day, data), next = Number(c?.season) + 1;
+  if (!p) return null;
+  if (p.state === 'pago') return { kind: 'ok', text: `Renovação de ${next} paga${isDay(p.at) ? ` a ${ptDay(p.at, true)}` : ''}` };
+  if (p.state === 'a-pagar') return { kind: daysBetween(day, p.by) <= 14 ? 'warn' : 'info', text: `Pagar até ${ptDay(p.by, true)}` };
+  return { kind: 'bad', text: `Renovação de ${next} por pagar desde ${ptDay(p.since, true)}: ${isTitle(c) ? 'o fato completo fica livre' : idsOf(c).length > 1 ? 'os espaços ficam livres' : 'o espaço fica livre'}` };
+}
+// what the table asked for the spots of the contract, before any discount (the sum of the stored spot prices, else the
+// price's gross)
+export function tablePrice(c) {
+  const xs = Array.isArray(c?.spots) ? c.spots.filter(Boolean) : [];
+  const sum = xs.reduce((a, s) => a + (Number(s.price) || 0), 0);
+  return sum > 0 ? sum : Number(c?.price?.gross) || 0;
+}
+// the price kept on renewal (owner decision E1, amended: Principal and the whole suit): a sponsor of a locking level who
+// has not lost the renewal pays next season this season's table price for the same spots, or the next table if lower.
+// The card's line, or '' for every other level and a renewal that is lost.
+export function lockLine(c, day) {
+  if (!c || !locksPrice(c.level)) return '';
+  const v = renewalView(c, day);
+  if (v.state === 'nao-renova' || (v.state === 'terminado' && v.outcome !== 'renova')) return '';
+  const y = String(c.season), next = Number(y) + 1, gross = tablePrice(c);
+  if (!(gross > 0)) return '';
+  return `Preço em ${next}: o de ${y}, ${money(gross)} (tabela, sem desconto de época), ou o da tabela de ${next}, se for mais baixo.`;
+}
+// a new contract of `season` for `brand` and the spots `ids` that renews a contract of the season before at a level that
+// keeps its price (Principal, the whole suit) whose sponsor said yes: { from, level, prev } with prev the table price of
+// those spots in that contract (before any discount); null when there is none, or the spots are not all the same ones
+export function lockFor(contracts, { brand, season, ids }, day) {
+  const xs = Array.isArray(ids) ? ids : [];
+  if (!xs.length) return null;
+  const prevSeason = String(Number(season) - 1);
+  for (const c of Array.isArray(contracts) ? contracts : []) {
+    if (!c || String(c.season) !== prevSeason || !sameBrand(c.brand, brand) || !locksPrice(isTitle(c) ? 'title' : c.level) || !renewed(c, day)) continue;
+    if (isTitle(c)) { if (xs.length === 1 && xs[0] === TITLE) return { from: c, level: 'title', prev: tablePrice(c) }; continue; }
+    const had = new Map((c.spots || []).filter(Boolean).map((s) => [s.id, Number(s.price) || 0]));
+    if (!xs.every((id) => had.has(id))) continue;
+    return { from: c, level: c.level, prev: xs.reduce((a, id) => a + had.get(id), 0) };
+  }
+  return null;
+}
+
 // ---------- the list ----------
 export const FILTERS = [['todos', 'Todos'], ['ativo', 'Antes das propostas'], ['a-propor', 'A propor'], ['proposta', 'Proposta enviada'], ['renova', 'Renova'], ['nao-renova', 'Não renova'], ['terminado', 'Terminados']];
 // f: { state: a FILTERS key, season: '2027' | 'todas', q: words of the brand (accents and case do not count) }
@@ -133,14 +209,16 @@ export function summary(list, day) {
 }
 
 // ---------- the season's calendar ----------
-export const KEY_LABEL = { inicio: 'Início', logos: 'Logótipos', propostas: 'Propostas', renovacao: 'Renovação', abertos: 'Livres para todos', fim: 'Fim' };
+export const KEY_LABEL = { inicio: 'Início', logos: 'Logótipos', propostas: 'Propostas', provas: 'Último triatlo', renovacao: 'Renovação', abertos: 'Livres para todos', fim: 'Fim', pagamento: 'Pagamento das renovações' };
 const KEY_NOTE = {
   inicio: (r) => `Começa a época ${r.season}.`,
   logos: () => 'Último dia para o logótipo em vetor do fato e do capacete do primeiro triatlo.',
   propostas: (r) => `Começa o envio das propostas de ${Number(r.season) + 1}.`,
+  provas: (r) => `O último triatlo do calendário de ${r.season} é até este dia. Daqui até ao fecho dos pedidos, o pedido diz que já não há triatlos com o fato.`,
   renovacao: (r) => `Último dia para cada marca dizer que renova para ${Number(r.season) + 1}.`,
   abertos: () => 'Os espaços que não foram renovados ficam livres para todos.',
   fim: (r) => `Acaba a época ${r.season}.`,
+  pagamento: (r) => `Último dia para pagar a renovação de ${Number(r.season) + 1}. Sem o pagamento, o espaço fica livre.`,
 };
 // [{ key, day, label, date, note, state: 'past' | 'today' | 'next' | 'later', when }]
 export function calendar(rules, day) {
@@ -151,7 +229,7 @@ export function calendar(rules, day) {
     if (state === 'later' && !next) { state = 'next'; next = true; }
     if (state === 'today') next = true;
     const when = n < 0 ? 'passou' : n === 0 ? 'hoje' : n === 1 ? 'amanhã' : `faltam ${n} dias`;
-    return { key: k.key, day: k.day, label: KEY_LABEL[k.key], date: ptDay(k.day), note: KEY_NOTE[k.key](rules), state, when };
+    return { key: k.key, day: k.day, label: KEY_LABEL[k.key] || k.key, date: ptDay(k.day, k.day.slice(0, 4) !== String(rules.season)), note: KEY_NOTE[k.key] ? KEY_NOTE[k.key](rules) : '', state, when };
   });
 }
 
@@ -178,11 +256,13 @@ export function dueNow(contracts, requests, data, rules, day) {
   // before the payment); the card keeps saying it after. Such a sponsor with no race written down: agree it and write it.
   for (const c of list) {
     if (!live(c) || (!idsOf(c).length && !isTitle(c))) continue;
-    const r = rulesOfContract(c), late = logoLate(c), race = String(c.logo?.fromRace || '');
-    if (late && !race) add({ key: `prova:${c.id}`, kind: 'warn', id: c.id, text: `Falta combinar a prova do logótipo: ${c.brand}`, acts: [{ op: 'editar', label: 'Editar' }] });
+    const r = rulesOfContract(c, data), late = logoLate(c), race = String(c.logo?.fromRace || ''), none = noRaces(c, data);
+    // (after the season's last triathlon no race is agreed: the logo goes on the suit in training)
+    if (late && !race && !none) add({ key: `prova:${c.id}`, kind: 'warn', id: c.id, text: `Falta combinar a prova do logótipo: ${c.brand}`, acts: [{ op: 'editar', label: 'Editar' }] });
     if (c.logo?.vector === true) continue;
     if (!(day <= r.logoBy || (late && day <= addDays(c.paidAt, 30)))) continue;
-    const when = day <= r.logoBy && !late ? `prazo ${ptDay(r.logoBy, r.logoBy.slice(0, 4) !== day.slice(0, 4))}` : race ? `para o equipamento da prova: ${race}` : 'para o equipamento';
+    if (none && !hasSuit(c)) continue;   // the helmet alone, with no triathlon left: nothing to print this season
+    const when = day <= r.logoBy && !late ? `prazo ${ptDay(r.logoBy, r.logoBy.slice(0, 4) !== day.slice(0, 4))}` : race ? `para o equipamento da prova: ${race}` : none ? 'para o fato, nos treinos' : 'para o equipamento';
     add({ key: `logo:${c.id}`, kind: day <= r.logoBy && !late && daysBetween(day, r.logoBy) <= 7 ? 'warn' : 'info', id: c.id, text: `Falta o logótipo em vetor: ${c.brand} (${when})`, acts: [{ op: 'logo', label: 'Recebido' }] });
   }
 
@@ -225,6 +305,21 @@ export function dueNow(contracts, requests, data, rules, day) {
       const held = !data || !Array.isArray(data.spots) ? ids : ids.filter((id) => { const x = id === TITLE ? data.title : data.spots.find((s) => s.id === id); return x && x.status !== 'available' && sameBrand(x.brand, c.brand); });
       if (held.length) add({ key: `libertar:${c.id}`, kind: 'info', id: c.id, text: `Libertar para ${next}: ${c.brand}, ${spotsText({ ...c, spots: (c.spots || []).filter((s) => held.includes(s.id)) })}`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
     }
+  }
+
+  // the renewal's payment (owner decision E3): from openFrom, each sponsor who said yes and has no contract of the next
+  // season yet; after renewPayBy, the spot is free: free it in Espaços (while the site still shows it as the brand's)
+  for (const c of list) {
+    const r = rulesOfContract(c, data), next = Number(c.season) + 1;
+    if (day < r.openFrom) continue;
+    const p = payState(c, list, day, data);
+    if (!p || p.state === 'pago') continue;
+    const what = spotsText(c), tag = `${c.brand}${what ? ` (${what})` : ''}`;
+    if (p.state === 'a-pagar') { add({ key: `pagar:${c.id}`, kind: daysBetween(day, p.by) <= 14 ? 'warn' : 'info', id: c.id, text: `Renovação de ${next} por pagar: ${tag}, até ${ptDay(p.by)}` }); continue; }
+    if (day > `${next}-12-31`) continue;
+    const ids = idsOf(c);
+    const held = !data || !Array.isArray(data.spots) ? ids : ids.filter((id) => { const x = id === TITLE ? data.title : data.spots.find((s) => s.id === id); return x && x.status !== 'available' && sameBrand(x.brand, c.brand); });
+    if (held.length) add({ key: `nao-pago:${c.id}`, kind: 'warn', id: c.id, text: `Renovação de ${next} não paga: ${c.brand}. Liberta ${isTitle(c) ? 'o fato completo' : held.length > 1 ? 'os espaços' : 'o espaço'} em Espaços.`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
   }
 
   // the end of the season
@@ -284,9 +379,10 @@ function icsEvent({ uid, day, summary, description, stamp, alarms }) {
 }
 export const icsName = (season) => `gocarmo-patrocinios-${season}.ics`;
 // the season's key dates and one reminder per sponsor of that season: the proposal still to send (on proposalsFrom, or,
-// exported from that day on, the next day, so its 9:00 alarm is still ahead; never after renewBy), and the answer still
-// to come for a proposal sent (a week before renewBy, or the next day when that is past). now: the moment (Date or ms)
-// of the export.
+// exported from that day on, the next day, so its 9:00 alarm is still ahead; never after renewBy), the answer still
+// to come for a proposal sent (a week before renewBy, or the next day when that is past), and the payment of a renewal
+// still to come (a week before renewPayBy, or the next day; never after renewPayBy). now: the moment (Date or ms) of
+// the export.
 export function toIcs(contracts, rules, now) {
   const ms = now instanceof Date ? now.getTime() : Number(now);
   const stamp = icsStamp(ms), y = rules.season, next = Number(y) + 1, day = lisbonDay(ms);
@@ -297,6 +393,7 @@ export function toIcs(contracts, rules, now) {
     { key: 'renovacao', summary: 'Renovações: último dia', description: `Último dia para cada patrocinador dizer que renova para ${next}. A partir de ${ptLong(rules.openFrom)}, os espaços não renovados ficam livres.`, week: true },
     { key: 'abertos', summary: 'Espaços não renovados livres', description: `Os espaços que não foram renovados para ${next} ficam livres para todos. Liberta-os em Espaços.` },
     { key: 'fim', summary: `Fim da época ${y}`, description: `Acaba a época ${y}.` },
+    { key: 'pagamento', summary: `Renovações ${next}: último dia de pagamento`, description: `Último dia para os patrocinadores que renovaram pagarem a época ${next}. Sem o pagamento, o espaço fica livre a partir de ${ptLong(addDays(rules.renewPayBy, 1))}: liberta-o em Espaços.`, week: true },
   ];
   const at = Object.fromEntries(keyDates(rules).map((k) => [k.key, k.day]));
   const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//gocarmo.com//Patrocinios//PT', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${icsText(`GOCARMO patrocínios ${y}`)}`];
@@ -304,10 +401,18 @@ export function toIcs(contracts, rules, now) {
   const tomorrow = addDays(day, 1), later = (d) => (d > day ? d : tomorrow);
   const min = (a, b) => (a < b ? a : b);
   const onPropose = min(later(rules.proposalsFrom), rules.renewBy), onAnswer = min(later(addDays(rules.renewBy, -7)), rules.renewBy);
-  if (day <= rules.renewBy) {
+  const onPay = min(later(addDays(rules.renewPayBy, -7)), rules.renewPayBy);
+  if (day <= rules.renewPayBy) {
     for (const c of Array.isArray(contracts) ? contracts : []) {
       if (!c || String(c.season) !== String(y)) continue;
       const st = renewalView(c, day).state, what = spotsText(c), tag = `${c.brand}${what ? ` (${what})` : ''}`;
+      const p = payState(c, contracts, day);
+      if (p && p.state === 'a-pagar') {
+        lines.push(...icsEvent({ uid: `gocarmo-${y}-p-${c.id}@gocarmo.com`, day: onPay, summary: `Pagamento ${next}: ${tag} (até ${ptDay(rules.renewPayBy)})`,
+          description: `Renovou para ${next}. Falta o pagamento, até ${ptLong(rules.renewPayBy)}; sem ele, o espaço fica livre.`, stamp, alarms: [AT9] }));
+        continue;
+      }
+      if (day > rules.renewBy) continue;
       if (st === 'ativo' || st === 'a-propor') {
         lines.push(...icsEvent({ uid: `gocarmo-${y}-c-${c.id}@gocarmo.com`, day: onPropose, summary: `Proposta ${next}: ${tag}`,
           description: `Envia a proposta de ${next} para o mesmo espaço. Resposta até ${ptLong(rules.renewBy)}.`, stamp, alarms: [AT9] }));
@@ -337,16 +442,23 @@ const L = {
     // (soon: a contract of the next season, paid while this one runs; its spots are this season's sponsors' until it ends)
     logoOpen: (r, got, soon) => `${soon ? `O logótipo entra no site e nas minhas publicações a ${ptLong(r.start)}, no início da época.` : 'O logótipo entra no site e nas minhas publicações a partir de agora.'} Para o equipamento, o logótipo em vetor (SVG, PDF, AI ou EPS) tem prazo até ${ptLong(r.logoBy)}; se chegar até lá, conto tê-lo no equipamento do primeiro triatlo.${got ? ' Já o recebi.' : ''}`,
     logoLate: (race, got) => `O logótipo entra no site e nas minhas publicações a partir de agora e, no equipamento, a partir ${race ? `desta prova, combinada antes do pagamento: ${race}` : 'da prova que combinarmos'}.${got ? ' Já recebi o logótipo em vetor.' : ' Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).'}`,
+    // (no triathlon left in the season after the request: the logo goes on the site, the posts and, on the suit, in
+    // training; from Principal up also on the training kit)
+    logoNoRaces: (r, suit, kit, got) => `O logótipo entra no site e nas minhas publicações a partir de agora${suit ? `, e no fato, nos treinos${kit ? ', e no equipamento de treino' : ''}` : ''}: em ${r.season} já não há triatlos depois do teu pedido.${suit && !got ? ' Para a produção, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS).' : suit && got ? ' Já recebi o logótipo em vetor.' : ''}`,
     // when: 'before' proposalsFrom (the general calendar), 'late' (from proposalsFrom to renewBy: the proposal goes with
-    // the payment confirmation), 'after' renewBy (only a deal by hand gets here)
-    renew: (r, w, when) => {
-      const y = Number(r.season) + 1, head = `Renovação: tens preferência ${w[0]} em ${y}, ao preço da tabela de ${y}.`;
-      if (when === 'after') return `${head} A proposta de ${y} segue à parte.`;
+    // the payment confirmation), 'after' renewBy (only a deal by hand gets here). lock: the level keeps this season's
+    // price (Principal and the whole suit); every renewal is paid by renewPayBy
+    renew: (r, w, when, lock = false) => {
+      const s = r.season, y = Number(s) + 1;
+      const head = lock ? `Renovação: tens preferência ${w[0]} em ${y}, ao preço de ${s} (o da tabela de ${s}, sem o desconto de época; se a tabela de ${y} for mais baixa, pagas a de ${y}).`
+        : `Renovação: tens preferência ${w[0]} em ${y}, ao preço da tabela de ${y}.`;
+      const pay = ` Se renovares, pagas até ${ptLong(r.renewPayBy)}; sem o pagamento, ${w[2]} a partir de ${ptLong(addDays(r.renewPayBy, 1))}.`;
+      if (when === 'after') return `${head} A proposta de ${y} segue à parte.${pay}`;
       const how = when === 'late' ? ` Como entras a partir de ${ptLong(r.proposalsFrom)}, envio-te a proposta com a confirmação do pagamento; tens até ${ptLong(r.renewBy)} para me dizer que sim.`
         : ` Envio-te a proposta a partir de ${ptLong(r.proposalsFrom)}; se me disseres que sim até ${ptLong(r.renewBy)}, ${w[1]}.`;
-      return `${head}${how} A partir de ${ptLong(r.openFrom)}, o que não for renovado fica livre para todos.`;
+      return `${head}${how} A partir de ${ptLong(r.openFrom)}, o que não for renovado fica livre para todos.${pay}`;
     },
-    renewWhat: { one: ['no mesmo espaço', 'o espaço continua teu'], many: ['nos mesmos espaços', 'os espaços continuam teus'], title: ['no fato completo', 'o fato completo continua teu'], none: ['na renovação', 'o patrocínio continua'] },
+    renewWhat: { one: ['no mesmo espaço', 'o espaço continua teu', 'o espaço fica livre'], many: ['nos mesmos espaços', 'os espaços continuam teus', 'os espaços ficam livres'], title: ['no fato completo', 'o fato completo continua teu', 'o fato completo fica livre'], none: ['na renovação', 'o patrocínio continua', 'o patrocínio acaba'] },
     terms: (d) => `As condições do patrocínio estão em gocarmo.com/condicoes${d ? ` (atualizadas a ${ptLong(d)})` : ''}.`,
     ct: 'Contacto', foot: 'Esta confirmação não é uma fatura nem um recibo. O recibo de donativo segue à parte.',
     pays: PAY_PT_LONG, inKind: (x) => `Em produto: ${x}`, inKindTotal: ['Pagamento', 'Em produto'],
@@ -361,14 +473,18 @@ const L = {
     nextH: 'Deadlines and renewal',
     logoOpen: (r, got, soon) => `${soon ? `Your logo goes on the site and in my posts on ${enLong(r.start)}, when the season starts.` : 'Your logo goes on the site and in my posts from now on.'} For the kit, the vector logo (SVG, PDF, AI or EPS) is due by ${enLong(r.logoBy)}; if it arrives by then, I expect it to be on the kit for the first triathlon.${got ? ' I already have it.' : ''}`,
     logoLate: (race, got) => `Your logo goes on the site and in my posts from now on, and on the kit from ${race ? `this race, agreed before the payment: ${race}` : 'the race we agree on'}.${got ? ' I already have the vector logo.' : ' For production, send me the logo as a vector file (SVG, PDF, AI or EPS).'}`,
-    renew: (r, w, when) => {
-      const y = Number(r.season) + 1, head = `Renewal: you have first option ${w[0]} in ${y}, at the ${y} rate card price.`;
-      if (when === 'after') return `${head} The ${y} proposal follows separately.`;
+    logoNoRaces: (r, suit, kit, got) => `Your logo goes on the site and in my posts from now on${suit ? `, and on the suit in training${kit ? ', and on the training kit' : ''}` : ''}: there are no more triathlons in ${r.season} after your request.${suit && !got ? ' For production, send me the logo as a vector file (SVG, PDF, AI or EPS).' : suit && got ? ' I already have the vector logo.' : ''}`,
+    renew: (r, w, when, lock = false) => {
+      const s = r.season, y = Number(s) + 1;
+      const head = lock ? `Renewal: you have first option ${w[0]} in ${y}, at the ${s} price (the ${s} rate card price, without the mid-season discount; if the ${y} rate card is lower, you pay that).`
+        : `Renewal: you have first option ${w[0]} in ${y}, at the ${y} rate card price.`;
+      const pay = ` If you renew, you pay by ${enLong(r.renewPayBy)}; without the payment, ${w[2]} from ${enLong(addDays(r.renewPayBy, 1))}.`;
+      if (when === 'after') return `${head} The ${y} proposal follows separately.${pay}`;
       const how = when === 'late' ? ` As you join from ${enLong(r.proposalsFrom)}, I send you the proposal with the payment confirmation; you have until ${enLong(r.renewBy)} to say yes.`
         : ` I send you the proposal from ${enLong(r.proposalsFrom)}; if you say yes by ${enLong(r.renewBy)}, ${w[1]}.`;
-      return `${head}${how} From ${enLong(r.openFrom)}, anything not renewed is open to everyone.`;
+      return `${head}${how} From ${enLong(r.openFrom)}, anything not renewed is open to everyone.${pay}`;
     },
-    renewWhat: { one: ['on the same spot', 'the spot stays yours'], many: ['on the same spots', 'the spots stay yours'], title: ['on the whole suit', 'the whole suit stays yours'], none: ['on renewal', 'the sponsorship carries on'] },
+    renewWhat: { one: ['on the same spot', 'the spot stays yours', 'the spot is open to anyone'], many: ['on the same spots', 'the spots stay yours', 'the spots are open to anyone'], title: ['on the whole suit', 'the whole suit stays yours', 'the whole suit is open to anyone'], none: ['on renewal', 'the sponsorship carries on', 'the sponsorship ends'] },
     terms: (d) => `The sponsorship terms are at gocarmo.com/condicoes${d ? ` (updated ${enLong(d)})` : ''}.`,
     ct: 'Contact', foot: 'This confirmation is not an invoice or a receipt. The donation receipt is sent separately.',
     pays: PAY_EN, inKind: (x) => `In kind: ${x}`, inKindTotal: ['Payment', 'In kind'],
@@ -392,7 +508,7 @@ export function priceRows(c, lang = 'pt') {
 // the model the PDF lays out (admin-confirm-pdf.js). opts.data: data/spots.json, for the spots' English names, the
 // tier names and the season the site runs now; opts.site: { name, email, whatsapp } of SITE.
 export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {}) {
-  const lg = lang === 'en' ? 'en' : 'pt', w = L[lg], r = { ...rulesOfContract(c), season: String(c.season) };
+  const lg = lang === 'en' ? 'en' : 'pt', w = L[lg], r = { ...rulesOfContract(c, data), season: String(c.season) };
   const brand = String(c.brand || '');
   const title = isTitle(c);
   const live = (id) => (Array.isArray(data?.spots) ? data.spots.find((x) => x.id === id) : null);
@@ -416,7 +532,9 @@ export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {
   // since March whose PDF is made again in September did not «join from 1 September».)
   const ref = isDay(c.paidAt) ? c.paidAt : '';
   const when = ref && ref > r.renewBy ? 'after' : ref && ref >= r.proposalsFrom ? 'late' : 'before';
-  const next = [late ? w.logoLate(c.logo?.fromRace || '', c.logo?.vector === true) : w.logoOpen(r, c.logo?.vector === true, soon), w.renew(r, what, when), w.terms(c.terms || '')];
+  const got = c.logo?.vector === true, logo = late && noRaces(c, data) && !c.logo?.fromRace ? w.logoNoRaces(r, hasSuit(c), TRAINING_KIT.includes(c.level) || isTitle(c), got)
+    : late ? w.logoLate(c.logo?.fromRace || '', got) : w.logoOpen(r, got, soon);
+  const next = [logo, w.renew(r, what, when, locksPrice(isTitle(c) ? 'title' : c.level)), w.terms(c.terms || '')];
   const wa = site.whatsapp ? String(site.whatsapp).replace(/^(\d{3})(\d{3})(\d{3})(\d{3})$/, '+$1 $2 $3 $4') : '+351 916 395 103';
   return {
     lang: lg, file: `gocarmo-${w.file}-${slug(brand)}-${c.season}.pdf`, docTitle: `${w.doc(brand)} · ${site.name || 'Gonçalo Carmo'}`,

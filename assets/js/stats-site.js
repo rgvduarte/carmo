@@ -4,17 +4,17 @@ const W = window, D = document, H = D.documentElement, $ = (s) => D.querySelecto
 const now = Date.now, later = (fn) => setTimeout(fn, 0), on = (t, f, x = D, o = { capture: true, passive: true }) => x.addEventListener(t, f, o);
 // per-pv caps (SPEC 4.7), as 'cap[:param counted per value] names…'
 const CAP = {};
-('1 offer_reach onsuit_view fb_show fb_close boot_retry boot_fail|1:id cta_view|' +
+('1 offer_reach onsuit_view fb_show fb_close boot_retry boot_fail|1:id cta_view|1:prod montra_view|' +
   '1:item studio_near studio_seen studio_show studio_wait studio_rotate 3d_ready 3d_fail|' +
   '3 studio_pinch pkg_bar claim_done kit_print print|' +
   '5 menu_open back_top hero_cta results_all strava_table tour_start tour_end pkg_clear title_click logo_remove claim_open claim_items claim_extra claim_back claim_close bf_return give_kind gl_lost gl_back|' +
-  '10 entry_click studio_auto studio_spots rc_sort rc_avail try_open logo_try logo_opt mockup_download spot_share claim_step claim_error claim_send pay_tab give_copy lang_switch toast_err asset_fail|' +
+  '10 entry_click studio_auto studio_spots rc_sort rc_avail try_open logo_try logo_opt mockup_download spot_share claim_step claim_error claim_send pay_tab give_copy lang_switch toast_err asset_fail montra_shop montra_code|' +
   '20 nav_click marks_jump studio_zoom studio_view chapter spot_close pay_copy|30 studio_tap pkg_add pkg_remove|' +
   '40 spot_select').split('|').forEach((g) => {
   const [c, ...ns] = g.split(' '), [m, k] = c.split(':');
   for (const n of ns) CAP[n] = [+m, k];
 });
-const KEYS = 'id to from s via item open i hit dir view on focus how n spot by opt step field kind ch tab auto what dlg k q ms mesh why name'.split(' ');
+const KEYS = 'id to from s via item open i hit dir view on focus how n spot by opt step field kind ch tab auto what dlg k q ms mesh why name brand prod'.split(' ');
 // a small whole number or a short lowercase token; the Worker checks the enums
 const okv = (k, v) => (typeof v === 'number' ? Number.isInteger(v) && v >= 0 && v <= 20000
   : typeof v === 'string' && /^[a-z0-9][a-z0-9._+-]{0,47}$/.test(v) && (k === 'name' || !/\d{4}/.test(v)));
@@ -29,7 +29,7 @@ const CTA = [['hero-sponsor', '.hero-cta .btn.gold'], ['hero-support', '.hero-ct
   ['title', '#tp-btn'], ['pkg-go', '#pk-go'], ['spot-add', '#sd-add'], ['spot-try', '#sd-try'], ['gofundme', '#gofundme'],
   ['give-iban', '#apoiar [data-copy-iban]'], ['give-mb', '#give-mb'], ['contact-email', '#contacto .cta .btn.gold'],
   ['media-kit', '#print-kit'], ['strava', '.strava-card a']];
-const FIRST = /^((main|adspace|suit(-body|-mesh|-worker)?|helmet|i18n|marks|flow|charts|data|stats(-site|-fb|-zones)?|analytics|privacy|web-vitals\.attribution)\.js|(gsap|ScrollTrigger|ScrambleTextPlugin|lenis|three\.module)\.min\.js|index\.mjs)$/;
+const FIRST = /^((main|adspace|suit(-body|-mesh|-worker)?|helmet|i18n|marks|flow|charts|data|stats(-site|-fb|-zones)?|analytics|privacy|montra(-core)?|web-vitals\.attribution)\.js|(gsap|ScrollTrigger|ScrambleTextPlugin|lenis|three\.module)\.min\.js|index\.mjs)$/;
 const SPOT = /^(peito|clavicula-[ed]|abdomen|cintura|lateral-[ed]|ombro-[ed]|coxa-(frente|lateral|tras)-[ed]|nuca|costas-(topo|centro)|lombar|gluteos|capacete-(topo|lateral-[ed]|traseira))$/;
 const FATO = ['fato-topo', 'o-fato', 'o-capacete', 'fato-termos'];
 const bucket = (v, bins) => bins.filter((b) => v >= b).pop() ?? bins[0];
@@ -136,6 +136,12 @@ function spots() {
     if (s.id && !s.tour && SPOT.test(s.id)) ev('spot_select', { spot: s.id, item: /^capacete-/.test(s.id) ? 'helmet' : 'suit', from: s.from });
     if (!s.id && closeBy && s.t - closeBy[1] <= 400) { ev('spot_close', { how: closeBy[0] }); closeBy = null; }
   }
+}
+
+// ---- the showcase's events: the card's two ids, or nothing when a card lacks one (the Worker would drop it anyway)
+function montra(n, el) {
+  const c = el.closest('.mt-card'), brand = c && c.dataset.brand, prod = c && c.dataset.prod;
+  if (brand && prod) ev(n, { brand, prod });
 }
 
 // ---- at least r visible for 1 s (or, with a margin, near the screen)
@@ -286,6 +292,10 @@ export function init(api) {
     ['#give-mb', () => ev('give_copy', { what: 'mb' })],
     ['.support .cta .btn.ghost', () => ev('give_kind')],
     ['#print-kit', () => { printAt = now(); ev('kit_print'); }],
+    // the showcase: the card's brand and product ids (public slugs from data/montra.json), never the code or the link;
+    // stats.js sends the shop tap's beacon once this dispatch is over, with this event in it
+    ['.mt-shop', (el) => montra('montra_shop', el)],
+    ['.mt-cp', (el) => montra('montra_code', el)],
     ['[data-lang]', (el) => {
       const from = H.lang.startsWith('pt') ? 'pt' : 'en', to = el.dataset.lang;
       if (to !== from) ev('lang_switch', { from, to, s: bucket(A.st().eng, [0, 10, 30, 60]) });
@@ -333,6 +343,18 @@ export function init(api) {
     D.addEventListener('click', f, { capture: true, passive: true, once: true });
     setTimeout(() => { D.removeEventListener('click', f, true); if (!clicked) A.ck({ target: t, isTrusted: true, detail: 1, clientX: x, clientY: y }); }, 350);
   });
+
+  // ---- the showcase: a product card at least half in view for 1 s, while the page is visible, once per product.
+  // The section comes later than this (montra.js, when data/montra.json has an active product): its cards are watched
+  // on 'gc:montra', and again if the section is drawn anew
+  const cards = new WeakSet();
+  const watchCards = () => {
+    const fresh = $$('#material .mt-card').filter((el) => !cards.has(el));
+    fresh.forEach((el) => cards.add(el));
+    if (fresh.length) seen(fresh, 0.5, (el) => { if (D.visibilityState === 'visible' && el.isConnected) montra('montra_view', el); });
+  };
+  watchCards();
+  on('gc:montra', watchCards);
 
   // ---- the studio
   seen(stages, 0, (el) => ev('studio_near', { item: el.dataset.item }), '600px 0px');

@@ -25,22 +25,31 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Apoiar**: GoFundMe (com o valor angariado e a barra até à meta), transferência ou MB WAY (o mesmo IBAN e o mesmo
   número dos pedidos, com o código `CARMO APOIO`, escondidos enquanto houver campanha aberta), apoio em espécie e
   orçamento estimado da época.
+- **Montra «O meu material»** (`#material`, entre Apoiar e Contacto, com «Material» no menu; em inglês «My gear»):
+  os produtos que o Gonçalo usa das marcas que o patrocinam, um cartão por produto com a fotografia, uma linha dele
+  sobre como o usa (PT e EN), o link para a loja da marca com a etiqueta gocarmo e, se a marca quiser, um código de
+  desconto com o botão «Copiar». Diz que é publicidade e os links levam `rel="sponsored noopener"`. Só existe quando
+  `data/montra.json` tem um produto ativo; sem nenhum (o estado publicado), a página, o menu, o media kit impresso e a
+  página sem JavaScript ficam iguais, sem rasto da secção. Ver «Montra «O meu material»», mais abaixo.
 - **Contacto** e **media kit** (o botão imprime a página como PDF limpo).
 - **Privacidade** (`/privacidade/`, ligada no rodapé): o que o site guarda e porquê. Com as estatísticas do site
   ligadas, explica a contagem de visitas sem cookies e tem o botão «Não contar as minhas visitas». Com o Google
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, ligada no rodapé, por baixo das regras do capítulo 05 e no passo 1 do
-  pedido, «Ao enviar, aceitas as condições do patrocínio (atualizadas a 28 de outubro de 2026).»): o que inclui um espaço, o que fica de fora, como se reserva
+  pedido, «Ao enviar, aceitas as condições do patrocínio (atualizadas a 29 de outubro de 2026).»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
-  prazo do logótipo, a preferência na renovação e a conta das devoluções por meses), o parceiro de prova e o que se
-  combina num acordo escrito. A data «Atualizada a», nas duas línguas, muda
+  prazo do logótipo, a preferência na renovação, o preço de 2027 na renovação do Principal e do fato completo, o
+  pagamento da renovação até 15 de janeiro, o aviso de outubro, já sem triatlos, e a conta das devoluções por meses),
+  a montra do site («A montra do site», com os produtos por nível), o parceiro de prova e o que se combina num acordo
+  escrito. A data «Atualizada a», nas duas línguas, muda
   sempre que o texto mudar: cada patrocínio segue a versão do dia do pedido. No mesmo dia muda também a data das
   chaves `cl.terms` (a linha do passo 1: `index.html` e, em inglês, `assets/js/i18n.js`) e `msg.terms` (a linha
   «Condições: gocarmo.com/condicoes, atualizadas a …» da mensagem do pedido: `assets/js/i18n.js`, `PT_JS` e `EN_JS`;
   o comprovativo do pedido usa esta mesma linha) e `seasonRules.termsDate` em `data/spots.json`, que o Worker e os
   registos dos patrocínios guardam. `node scripts/stamp.mjs --check` falha enquanto estas quatro datas não forem a
   mesma, e também se as datas da época ou a tabela do desconto de época da página não baterem com `seasonRules` (ver
-  «Época, prazos e renovação», mais abaixo).
+  «Época, prazos e renovação», mais abaixo), ou se os números de produtos da montra por nível não forem os de `LIMIT`
+  (`assets/js/montra-core.js`).
   As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 - **Cartão de contacto** (`/cartao/`, para o Gonçalo mostrar e partilhar): foto, contactos, «Guardar contacto», o QR
   do cartão e, depois de ligado, «Adicionar à Apple Wallet». Ver «Cartão de contacto», mais abaixo.
@@ -55,6 +64,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
 | Datas da época (período, prazo do logótipo, desconto de época, fim dos pedidos, renovação) | `data/spots.json` → `seasonRules` (ver «Época, prazos e renovação»; as mesmas datas estão escritas em `condicoes/index.html`) |
 | Patrocínios pagos (contratos, renovações) | página `/admin/patrocinios/`, guardados no Worker dos pedidos (ver «Patrocínios») |
+| Montra «O meu material» (os produtos dos parceiros e as fotografias) | `data/montra.json` e `assets/img/montra/`, sempre pelo editor da página `/admin/patrocinios/` (botão «Montra» no cartão de cada patrocínio; ver «Montra «O meu material»») |
 | Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
 | Estatísticas do site (o endereço do Worker `gocarmo-api` e o modo) | `assets/js/data.js` → `SITE.stats` (`url` vazio = não mede nada; depois de mudar, `node scripts/stamp.mjs`; ver «Estatísticas do site») |
 | Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem Google Analytics e sem aviso de cookies; ver «Google Analytics») |
@@ -64,7 +74,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Resultados, calendário 2027, orçamento | `assets/js/data.js` (depois de mudar `RESULTS`, `node scripts/stamp.mjs` escreve os cartões de «Todas as provas» em `index.html`) |
 | Textos da página | `index.html` (PT) e `assets/js/i18n.js` (EN) |
 | Textos do comprovativo do pedido (PDF e cartão do passo 2) | `assets/js/i18n.js` → `rcpt.*`, `cl.rcpt*` e `cl.nag*` (PT e EN; `rc.*` são os da tabela de preços); o desenho do PDF em `assets/js/receipt.js` |
-| Fotografias | `assets/img/` (WebP + JPG, 800/1600 px) |
+| Fotografias | `assets/img/` (WebP + JPG, 800/1600 px; as da montra em `assets/img/montra/`, feitas pelo editor, 600/1200 px) |
 | Cartão de contacto (página, vCard, QR, Apple Wallet) | `cartao/`, `wallet/cartao/pass.json` e `python3 scripts/cartao.py` (ver «Cartão de contacto») |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
@@ -407,14 +417,17 @@ num só ficheiro, `assets/js/season-rules.js`, que o site, o admin e o Worker im
 | `start`, `end` | 2027-01-01, 2027-12-31 | o período escrito em todo o lado: «Época 2027 · 1 jan a 31 dez 2027» |
 | `logoBy` | 2027-01-15 | último dia do logótipo em vetor para o fato e o capacete do primeiro triatlo |
 | `fullPriceUntil` | 2027-01-31 | até este dia (e em todos os pedidos de 2026) paga-se o preço da tabela |
+| `racesUntil` | 2027-09-30 | o último triatlo do calendário é neste dia ou antes; do dia seguinte até `requestsUntil`, o pedido, a mensagem e o comprovativo dizem que já não há triatlos com o fato em 2027 (ver «Outubro, sem triatlos») |
 | `requestsUntil` | 2027-10-31 | último dia em que o site e o Worker aceitam pedidos da época; depois o pedido diz que fechou |
 | `proposalsFrom` | 2027-09-01 | a partir deste dia envias a proposta de 2028 a cada patrocinador |
 | `renewBy` | 2027-10-31 | último dia para o patrocinador dizer que sim e ficar com o espaço |
 | `openFrom` | 2027-11-01 | os espaços não renovados ficam livres para todos |
-| `termsDate` | 2026-10-28 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
+| `renewPayBy` | 2028-01-15 | último dia para pagar a renovação de 2028 (o prazo do logótipo de 2028); sem o pagamento, o espaço fica livre a partir do dia seguinte |
+| `termsDate` | 2026-10-29 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
 
 O fuso é sempre o de Lisboa. `node scripts/stamp.mjs` recusa um bloco com datas impossíveis (fora da época, fora de
-ordem, `fullPriceUntil` que não seja o último dia de um mês, `requestsUntil` em dezembro). Um `spots.json` sem o
+ordem, `fullPriceUntil` que não seja o último dia de um mês, `requestsUntil` em dezembro, `racesUntil` fora da época,
+`renewPayBy` que não fique no início da época seguinte, depois de `renewBy` e até 31 de março). Um `spots.json` sem o
 bloco (uma cópia antiga em cache) usa as datas por defeito da época, por isso o preço nunca falha.
 
 **Desconto de época** (quem entra a meio da época). Até 31 de janeiro de 2027 paga-se a tabela. A partir de 1 de
@@ -449,22 +462,44 @@ inglês «mid-season discount»).
 dividir pelos meses do mês do pedido a dezembro (12 nos pedidos até 31 de janeiro), vezes os meses completos depois do
 mês em que o patrocínio acaba. Peito pedido em março, 563 €, paragem em junho: 563 € × 6/10 = 337,80 €.
 
-**Renovação.** Todos os patrocinadores, de qualquer nível, têm preferência no mesmo espaço na época seguinte, ao preço
-da tabela nova: envias a proposta a partir de 1 de setembro de 2027; quem disser que sim até 31 de outubro de 2027
-fica com o espaço; a partir de 1 de novembro de 2027 os não renovados ficam livres. A página Patrocínios lembra cada
-passo.
+**Renovação.** Todos os patrocinadores, de qualquer nível, têm preferência no mesmo espaço na época seguinte: envias a
+proposta a partir de 1 de setembro de 2027; quem disser que sim até 31 de outubro de 2027 fica com o espaço; a partir
+de 1 de novembro de 2027 os não renovados ficam livres. O preço é o da tabela de 2028, salvo no Principal e no fato
+completo (decisão de 29.10.2026; `PRICE_LOCK` e `renewalPrice` em `assets/js/season-rules.js`, o nível é o de
+`levelOf`): quem disser que sim até 31 de outubro paga em 2028 o que a tabela de 2027 pedia pelos mesmos espaços, sem
+o desconto de época, ou 3 000 € pelo fato completo, ou a tabela de 2028, se for mais baixa; o desconto de pacote conta
+como em qualquer pedido. Oficial e Apoio renovam à tabela de 2028. Quem renova paga até 15 de janeiro de 2028
+(`renewPayBy`, o prazo do logótipo de 2028); sem o pagamento até lá, o espaço fica livre a partir de 16 de janeiro.
+A mensagem, o comprovativo e a confirmação (PDF) dizem o preço (no Principal e no fato completo) e o prazo do
+pagamento (todos os níveis). A página Patrocínios lembra cada passo.
+
+**Outubro, sem triatlos.** O último triatlo do calendário de 2027 é até 30 de setembro (`racesUntil`). Os pedidos
+continuam abertos até 31 de outubro, mas de 1 a 31 de outubro o passo 1 do pedido, a mensagem e o comprovativo dizem
+que já não há triatlos com o fato (ou o capacete) em 2027 e que, até 31 de dezembro, o espaço vale pelo site, pelas
+publicações, pelo fato nos treinos (num espaço do fato) e pela preferência em 2028 e, a partir do Principal, também
+pelo logótipo no equipamento de treino. As linhas do logótipo deixam de prometer uma prova. Até 30 de setembro nada
+muda. Se entrar um triatlo depois de 30 de setembro (Kona, por exemplo), muda `racesUntil` e, no mesmo dia, as
+condições, que escrevem a data (o `stamp.mjs` compara-as).
 
 **Mudar de época (para 2028).** Depois de 1 de novembro de 2027, com a tabela de 2028 pronta:
 1. Em Patrocínios, exporta o CSV de 2027 (é a tua cópia; apaga-a até 31 de dezembro de 2028).
 2. Na página de admin, liberta os espaços que não foram renovados (os renovados ficam vendidos à mesma marca).
-3. Em `data/spots.json`: `"season": "2028"`, o bloco `seasonRules` de 2028 (as mesmas datas, um ano depois, e o
-   `termsDate` do dia em que publicas) e os preços de 2028.
+3. Em `data/spots.json`: `"season": "2028"`, o bloco `seasonRules` de 2028 (as mesmas datas, um ano depois, com
+   `renewPayBy` em janeiro de 2029 e `racesUntil` no dia do último triatlo do calendário de 2028, e o `termsDate` do
+   dia em que publicas) e os preços de 2028.
 4. Em `/condicoes/`: as datas de 2028 nas duas línguas, a tabela do desconto de época (se os preços de exemplo
    mudarem) e a data «Atualizada a»; no mesmo dia `cl.terms` e `msg.terms` (ver «Condições do patrocínio», em cima).
 5. `node scripts/stamp.mjs` e `node scripts/stamp.mjs --check`: recusa enquanto as condições não tiverem as datas
    novas. Depois publica.
-6. Quando cada patrocinador renovado pagar, regista-o como patrocínio de 2028 em Patrocínios («Novo patrocínio»,
-   época 2028).
+6. Quando cada patrocinador renovado pagar (até 15 de janeiro de 2028), regista-o como patrocínio de 2028 em
+   Patrocínios («Novo patrocínio», época 2028; no Principal e no fato completo, o preço de 2027, ou o de 2028 se for
+   mais baixo). O cartão de 2027 passa a «Renovação de 2028 paga». Quem não pagou até 15 de janeiro perde o espaço:
+   liberta-o na página de admin.
+7. Na montra, cada época tem a sua entrada. Os produtos de 2027 saem sozinhos a 31 de dezembro de 2027, e a entrada
+   de 2027 fica no ficheiro, escondida, com o histórico. Para uma marca renovada, «Montra» no cartão de 2028 abre uma
+   entrada nova da época 2028, com outro id (o da marca com `-2` no fim; os cliques de 2028 aparecem à parte nas
+   Estatísticas), e lá voltas a juntar os produtos, com o início de 2028. Exporta o CSV da Montra de 2027 antes de
+   fechares os relatórios dessa época.
 O Worker não precisa de ser publicado outra vez: lê `data/spots.json` em cada pedido. Até ao passo 5, o site não
 aceita pedidos (a época 2027 fechou a 31 de outubro de 2027).
 
@@ -472,8 +507,8 @@ aceita pedidos (a época 2027 fechou a 31 de outubro de 2027).
 
 **Onde.** `gocarmo.com/admin/patrocinios/` (link «Patrocínios» no fim de `/admin/`, das estatísticas e do Strava).
 Só em português, feita para o telemóvel. Usa a mesma chave dos Pedidos (a `ADMIN_KEY`): vindo de `/admin/` no mesmo
-separador já está lá; senão, a página pede-a, e as Palavras-passe do iPhone preenchem-na. Não precisa do token do
-GitHub.
+separador já está lá; senão, a página pede-a, e as Palavras-passe do iPhone preenchem-na. Para ver e gerir os
+patrocínios não precisa do token do GitHub; só a montra o pede, ao guardar (ver «Montra «O meu material»»).
 
 **O registo de cada patrocínio.** Fica no Worker dos pedidos (Cloudflare), nunca num ficheiro público. Nasce quando
 confirmas um pedido pago em **Pedidos** (com a data e o montante) ou à mão, em **Novo patrocínio**, para um acordo
@@ -491,15 +526,22 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   sem registo («Registar»); de 1 de setembro a 31 de outubro, as propostas de 2028 por enviar («Enviei a proposta»;
   nas duas últimas semanas, «ainda por enviar», com o prazo); nas duas últimas semanas antes de 31 de outubro, as
   respostas que faltam («Renova», «Não renova»); a partir de 1 de novembro, os espaços para libertar (também os de quem
-  nunca recebeu proposta); no último mês, os contratos que acabam a 31 de dezembro.
+  nunca recebeu proposta); de 1 de novembro a 15 de janeiro, as renovações de 2028 por pagar («Renovação de 2028 por
+  pagar: Marca (espaços), até 15 jan.») e, depois, as que não foram pagas («Renovação de 2028 não paga: Marca. Liberta
+  o espaço em Espaços.»); no último mês, os contratos que acabam a 31 de dezembro.
 - **A prova do logótipo.** Num pedido depois de 15 de janeiro, o site diz à marca que o logótipo entra no equipamento a
   partir da prova que lhe dizes antes de ela pagar. Os Pedidos lembram-te disso («Diz a prova antes do pagamento»);
   depois, escreve-a em Patrocínios (Editar, «A partir da prova»). A data que conta é a do pedido, como no comprovativo.
-- **Calendário**: início (1 jan), logótipos (15 jan), propostas (1 set), renovação (31 out), livres para todos (1 nov)
-  e fim (31 dez), cada data com «passou», «hoje» ou quantos dias faltam. **Juntar ao calendário** descarrega um
+  Num pedido depois de 30 de setembro (`racesUntil`) já não há triatlos em 2027: os Pedidos não pedem a prova e o
+  cartão diz «sem triatlos em 2027 depois do pedido».
+- **Calendário**: início (1 jan), logótipos (15 jan), propostas (1 set), último triatlo (30 set), renovação (31 out),
+  livres para todos (1 nov), fim (31 dez) e pagamento das renovações (15 jan 2028), cada data com «passou», «hoje» ou
+  quantos dias faltam. **Juntar ao calendário** descarrega um
   `.ics` com estas datas e um lembrete por marca: a proposta por enviar (a 1 de setembro, ou no dia a seguir à
   exportação, se já passou), e a resposta que falta de quem já recebeu a proposta (uma semana antes de 31 de outubro),
-  sempre às 9:00; a renovação também uma semana antes. No iPhone, abre o ficheiro e carrega em «Adicionar todos». Abrir um `.ics` novo atualiza os mesmos eventos
+  sempre às 9:00; a renovação também uma semana antes. Leva ainda o último dia do pagamento das renovações (15 de
+  janeiro de 2028, também com lembrete uma semana antes) e, para cada marca que renovou e ainda não pagou, «Pagamento
+  2028: Marca (espaços) (até 15 jan.)» uma semana antes. No iPhone, abre o ficheiro e carrega em «Adicionar todos». Abrir um `.ics` novo atualiza os mesmos eventos
   em vez de os repetir. Só leva o nome das marcas e dos espaços: nem contactos, nem NIF, nem montantes.
 - Um resumo (quantos patrocínios, quanto recebido, quantos a propor, quantos à espera de resposta), os filtros da
   renovação (Todos, Antes das propostas, A propor, Proposta enviada, Renova, Não renova, Terminados), a época e a
@@ -511,15 +553,95 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   → Renova ou Não renova; «Desfazer» volta um passo atrás; depois de 31 de dezembro, Terminado; a 1 de novembro, uma
   proposta sem resposta, ou uma marca a quem a proposta nunca foi enviada, conta como Não renova),
   o logótipo em vetor (recebido ou em falta), as notas, **Editar**, **Confirmação (PDF)** e **Apagar** (só para um
-  registo feito por engano; pergunta antes).
+  registo feito por engano; pergunta antes). No Principal e no fato completo, enquanto a renovação não estiver perdida,
+  «Preço em 2028: o de 2027, 600 € (tabela, sem desconto de época), ou o da tabela de 2028, se for mais baixo.».
+  Depois de «Renova», o pagamento: «Pagar até 15 jan. 2028» (em aviso nas duas últimas semanas), «Renovação de 2028
+  paga a …» (quando há um patrocínio de 2028 da mesma marca nos mesmos espaços) ou «Renovação de 2028 por pagar desde
+  16 jan. 2028: o espaço fica livre». E a linha da montra, «Montra: 2 de 3 produtos», com o botão **Montra**.
+- **Novo patrocínio** na época 2028, para uma marca Principal ou fato completo que renovou: a dica da tabela diz «paga
+  o preço de 2027, 600 €, ou o da tabela de 2028, se for mais baixo», e «Usar o valor da tabela» usa esse preço (com o
+  desconto de pacote, como sempre).
 - **Exportar CSV**: `gocarmo-patrocinios-<época>-<data>.csv`, separado por `;`, que o Excel em português abre
   direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas). No
   iPhone descarrega para Ficheiros (nunca passa pela folha de partilha, porque leva os contactos e os NIF). É a tua
   cópia de segurança: guarda-a e apaga as antigas até ao fim do prazo dos registos.
 - **Confirmação (PDF)**: a «Confirmação de patrocínio» que envias à marca depois do pagamento, feita no telemóvel como
   o comprovativo: marca, espaços e preços, desconto de época e de pacote (só quando o montante é o da tabela), montante
-  e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo, e o link para as condições.
+  e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo (no Principal e no fato
+  completo, com o preço de 2027), o prazo do pagamento da renovação (15 de janeiro de 2028) e o link para as condições.
   Em português, ou em inglês se a marca escreveu em inglês (escolhes antes de gerar).
+
+## Montra «O meu material»
+
+**O que é.** Uma secção da página inicial, entre Apoiar e Contacto, com os produtos que o Gonçalo usa das marcas que
+o patrocinam (decisão de 28.10.2026). Só aparece quando há pelo menos um produto ativo, e só então entra «Material»
+no menu; sem produtos, a página fica sem rasto dela. É publicidade e diz-o: o título pequeno da secção é
+«Publicidade» (em inglês «Advertising»), uma linha explica que são marcas que o patrocinam ou lhe fornecem o
+material, e os links para as lojas abrem noutro separador com `rel="sponsored noopener"`. A comissão de uma marca,
+se houver, fica no acordo dela, nunca no site.
+
+**Quem tem montra, e quantos produtos.**
+
+| Nível | Produtos na montra |
+|---|---|
+| Apoio (abaixo de 150 €) | nenhum |
+| Oficial | 1 |
+| Principal | até 3 |
+| Fato completo (Titular) | até 6, em destaque (cartões maiores, primeiro) |
+| Fornecedor oficial (patrocina com produto: fato, nutrição, material) | o número do acordo escrito, de 1 a 6 |
+
+O nível sai dos espaços da marca na época (`levelOf`, em `assets/js/season-rules.js`; com vários patrocínios, o mais
+alto). Os números estão em `LIMIT`, em `assets/js/montra-core.js`, e escritos em `/condicoes/` («A montra do site»,
+nas duas línguas, com as frases do kit de patrocínio); o `stamp.mjs` compara-os. Nenhuma marca entra sem acordo: o
+editor só abre a partir de um patrocínio registado em Patrocínios. A marca dá as fotografias do produto, com direito
+a usá-las (ou o produto, para o Gonçalo o fotografar), o link da loja e, se quiser, o código. Só entram produtos que o
+Gonçalo usa.
+
+**Pôr os produtos de um parceiro (no telemóvel).**
+1. Em `/admin/patrocinios/`, o cartão da marca tem a linha «Montra: N de M produtos». Carrega em **Montra**.
+   Uma marca que patrocina com produto: regista-a primeiro em **Novo patrocínio** (pagamento «Em produto»); na
+   montra, liga **Fornecedor oficial**, com o dia do acordo e o número de produtos do acordo.
+2. **Adicionar produto**: o nome (PT, e EN se for diferente), a fotografia, «Como o uso» em PT e em EN (até 140
+   caracteres), o link da loja (só https; os `utm_*` que tiver saem, e por baixo aparece o link como vai ficar), o
+   código de desconto e a nota dele (opcionais; com código, a nota é obrigatória), «Em destaque» (só no fato
+   completo), o início (por defeito, o dia do pagamento ou do acordo) e o fim (vazio = até ao fim da época).
+3. A fotografia: escolhe-a nas Fotografias do iPhone. O browser endireita-a, põe-na a 4:5 («Mostrar inteira», no
+   fundo cor de papel, ou «Encher») e grava WebP de 600 e 1200 px e JPEG de 600 px, sem metadados (nem localização,
+   nem data, nem aparelho). O Safari do iPhone não grava WebP: aí fica só JPEG, de 600 e 1200 px, e o site mostra-o
+   na mesma. Precisa de pelo menos 600 px no lado menor. Para fotografar: fundo liso e luz de janela, sem logótipos
+   de outras marcas.
+4. **Guardar**. Na primeira vez pede o token do GitHub (o mesmo de `/admin/`, com as mesmas regras e «Lembrar neste
+   telemóvel»; ver «Página de admin»). Faz um commit de `data/montra.json` e das fotografias em `assets/img/montra/`
+   («Montra: Marca, produto «…» (admin)»). Antes, recusa nomes de exemplo, links http ou para gocarmo.com, mais
+   produtos do que o nível deixa, um código sem nota, datas fora da época e espaços que não estão vendidos a essa
+   marca. Se a montra dessa marca mudou entretanto (noutro telemóvel), para e pede para rever; uma falha de rede
+   depois do commit nunca grava duas vezes.
+5. Depois mostra «A publicar…» e, quando o GitHub Pages publicar (1 a 2 minutos), «No ar», com «Ver no site» e os
+   links com a etiqueta, para experimentares um.
+
+**↑ ↓** mudam a ordem. **Editar** muda um produto. **Retirar** tira-o do site (o fim passa a ontem): fica no ficheiro,
+para os relatórios, e deixa de contar para o limite. **Apagar** só existe para um produto que ainda não apareceu.
+
+**Quando aparece.** Do dia do início (o do pagamento ou do acordo) até ao fim, ou até 31 de dezembro da época da
+marca, o que vier primeiro; depois sai sozinho, sem commit (a página lê as datas). Ordem: o fato completo primeiro,
+depois Principal, Oficial e fornecedores oficiais.
+
+**O ficheiro.** `data/montra.json`, publicado vazio: `{ "v": 1, "brands": [] }`. Cada marca tem `id`, `name`,
+`season`, `level` (`oficial`, `principal`, `title` ou `fornecedor-oficial`; nunca `fornecedor`, que é o nível Apoio),
+`spots` (ou `agreement`, no fornecedor oficial), `max` e `products`. Cada produto tem `id`, `name` e `line` (PT e EN),
+`alt` (opcional), `photo` (`base` e `webp`), `url`, `code` e `codeNote` (opcionais), `featured`, `from` e `until`. Os
+ids são palavras em minúsculas ligadas por hífens, sem 4 algarismos seguidos (o contador ignora-os). O link publicado
+leva `utm_source=gocarmo&utm_medium=montra&utm_campaign=<época>&utm_content=<id do produto>`. Usa sempre o editor:
+uma mudança à mão no GitHub salta as verificações (se a fizeres, corre `node scripts/stamp.mjs --check` num clone
+antes). Uma marca de exemplo nunca vai para o ficheiro publicado: a pré-visualização com «Marca exemplo» faz-se numa
+cópia local do site.
+
+**Os cliques e o relatório.** As estatísticas do site contam, por marca e por produto, os cartões vistos (meio cartão
+no ecrã durante 1 segundo, uma vez por visualização), os toques no link da loja e os códigos copiados (eventos
+`montra_view`, `montra_shop` e `montra_code`), sem cookies e sem nada de quem clica. Para o relatório da marca:
+**Estatísticas → Montra** → o botão do mês → **Exportar CSV** (`mês; marca; produto; cartão visto; cliques na loja;
+códigos copiados`). Cada marca recebe só os totais dela: por mês a partir do Principal; a meio e no fim da época no
+Oficial. As vendas vê-as a marca, na loja, pela etiqueta `utm_content` ou pelo código.
 
 ## GoFundMe
 
@@ -724,6 +846,7 @@ abaixo). Enquanto `SITE.stats.url` estiver vazio, o site não mede nada e o pain
 | Estúdio 3D | do estúdio ao pacote (chegaram perto, viram, o 3D abriu, mexeram, escolheram, juntaram), gestos, toques falhados, espera pelo 3D, visita guiada, interesse por espaço (com o preço) |
 | Reservas | o funil do pedido (viu o patrocínio → escolheu → juntou → abriu → enviou → copiou o pagamento → «Feito»), onde desistem, canal do pedido, forma de pagamento, pacotes, fato completo, experimentar o logótipo, partilhas |
 | Contactos | ligações para fora (WhatsApp, email, Instagram, Strava, GoFundMe…) e em que secção estavam, Apoiar, media kit |
+| Montra | os cartões vistos, os cliques na loja e os códigos copiados, por marca, produto e mês, com um botão por mês (para o relatório mensal de cada marca) e «Exportar CSV»; vazio enquanto a montra não tiver produtos |
 | Qualidade | velocidade (LCP, INP, CLS…), o que atrasa, arranque e falhas do 3D, ficheiros que não carregaram, erros de JavaScript |
 | Opinião | a pergunta rápida «Percebeste como funciona o patrocínio?» (Sim/Não e o que não ficou claro), por língua, largura e secção |
 | Dados | limites gratuitos do Cloudflare, pedidos recusados, resumos diários, anotações no gráfico (uma publicação, uma prova), CSV para o Excel |
@@ -756,6 +879,8 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
 - Nunca lê o que se escreve nos campos do pedido nem o logótipo. De um clique guarda o elemento e o seu nome curto;
   de uma ligação para fora, só o tipo ou o nome do site (a mensagem do pedido vai no endereço do WhatsApp). A hora fica
   sem minutos. As mensagens de erro só ficam quando vêm de um ficheiro do site, sem endereços, números nem emails.
+- Na montra, só os ids públicos da marca e do produto (os de `data/montra.json`), nunca o código nem o link inteiro.
+  Cada marca recebe só os totais dela, por mês; nunca de onde vieram, onde estão ou que aparelho usam.
 - 30 dias de registos de cada visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Quem tem Global Privacy Control ou Do Not Track ligado não é contado, nem quem carrega em «Não contar as minhas
   visitas» na página de privacidade (`gc.optout`, só nesse browser). A pergunta rápida também não lhes aparece.
@@ -907,12 +1032,17 @@ node scripts/stamp.mjs
 
 O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `admin/patrocinios/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
-Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/` e `/admin/patrocinios/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista.
+Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/` e `/admin/patrocinios/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar.
 
 O script verifica também a época: o bloco `seasonRules` de `data/spots.json` (datas reais e por ordem), a data das
 condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `msg.terms`), as datas da época escritas em
-cada língua de `/condicoes/` e a tabela do desconto de época dessa página, mês a mês, contra `season-rules.js`. Se
-algo não bater, para (também com `--check`) e diz o quê.
+cada língua de `/condicoes/` (também `racesUntil` e `renewPayBy`) e a tabela do desconto de época dessa página, mês a
+mês, contra `season-rules.js`; que só os cartões dos níveis com o preço de 2027 na renovação (Principal e fato
+completo) o dizem e que só «Todos os espaços» fala da preferência; que `data/montra.json` está certo (`checkMontra`:
+forma, ids, links https, nenhuma marca ou produto de exemplo, limites por nível, espaços vendidos à marca) e que as
+fotografias que ele nomeia existem; que os números de produtos por nível em `/condicoes/` são os de `LIMIT`; e que
+`index.html` não tem nada da montra escrito (a secção é só JavaScript). Se algo não bater, para (também com
+`--check`) e diz o quê.
 
 O mesmo script escreve em `index.html` os cartões de «Todas as provas» a partir de `RESULTS` (`assets/js/data.js`), com o mesmo código que os desenha na página (`assets/js/races.js`): são eles que aparecem sem JavaScript e no media kit impresso. Pára com uma lista do que falta se uma prova não tiver o que os cartões precisam (um triatlo sem `splits` ou `ag`, uma corrida sem `pace`). `node scripts/stamp.mjs --check` não muda nada e falha se alguma página estiver desatualizada.
 

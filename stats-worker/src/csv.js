@@ -7,7 +7,7 @@ import { splitK } from './query.js';
 
 const BOM = String.fromCharCode(0xfeff);
 export const CSV_TABLES = ['dias', 'paginas', 'origens', 'sites', 'paises', 'localidades', 'aparelhos', 'sistemas',
-  'navegadores', 'linguas', 'zonas', 'cliques', 'botoes', 'eventos', 'funil', 'erros', 'opiniao', 'meses'];
+  'navegadores', 'linguas', 'zonas', 'cliques', 'botoes', 'eventos', 'funil', 'erros', 'opiniao', 'meses', 'montra'];
 
 function cell(v) {
   if (v === null || v === undefined) return '';
@@ -131,6 +131,24 @@ export function exportTable(P, h) {
       header = ['mês', 'visualizações', 'visitas', 'visitantes (soma por dia)', 'com envolvimento', 'saídas rápidas', 'chegaram ao patrocínio', 'pedidos enviados'];
       // the whole archive, whatever the period (it holds whole months only)
       rows = [...by].sort((a, b) => (a[0] < b[0] ? -1 : 1)).map(([month, m]) => [month, ...['pv', 'visits', 'uv', 'engaged', 'quick', 's0', 'S4'].map((k) => Math.round(m[k] || 0))]);
+      break;
+    }
+    case 'montra': {
+      // the showcase, for a brand's monthly report: one row per month and product, a total per brand and month, and
+      // the period's total per brand (ids as in data/montra.json; the panel shows the names)
+      const r = h.compute('montra', {});
+      header = ['mês', 'marca', 'produto', 'cartão visto', 'cliques na loja', 'códigos copiados'];
+      rows = [];
+      const sumBy = (list) => {
+        const by = new Map();
+        for (const x of list) { const b = by.get(x.brand) || { view: 0, shop: 0, code: 0 }; b.view += x.view; b.shop += x.shop; b.code += x.code; by.set(x.brand, b); }
+        return [...by];
+      };
+      for (const m of r.months) {
+        for (const x of m.rows) rows.push([m.month, x.brand, x.prod, x.view, x.shop, x.code]);
+        for (const [brand, b] of sumBy(m.rows)) rows.push([m.month, brand, 'total da marca', b.view, b.shop, b.code]);
+      }
+      for (const [brand, b] of sumBy(r.totals)) rows.push([`${from} a ${to}`, brand, 'total do período', b.view, b.shop, b.code]);
       break;
     }
     default: return { error: 'filtro' };

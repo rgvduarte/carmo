@@ -42,7 +42,10 @@ const KEY = 'gc.consent';             // {"v":"granted"|"denied","at":<ms>,"sig"
 const OWNER = 'gc.internal';           // written by internal.js on /admin/ and /admin/strava/
 const TOKEN = 'gc.admin.token';        // where admin.js keeps the GitHub token
 const KEEP = 183 * 864e5;              // the choice holds six months, then the banner asks again (the _ga cookies too)
-const SECTIONS = ['historia', 'resultados', 'dados', 'epoca', 'o-fato', 'o-capacete', 'media', 'apoiar', 'contacto'];
+// 'material': the showcase «O meu material», on the page only while a partner has an active product (montra.js
+// says when it adds it: 'gc:montra'). Its shop links go out as outbound_click (link_location 'material'); no brand or
+// product id is sent to Google as a parameter of ours
+const SECTIONS = ['historia', 'resultados', 'dados', 'epoca', 'o-fato', 'o-capacete', 'media', 'apoiar', 'material', 'contacto'];
 const SEND = { 'cl-wa': 'whatsapp', 'cl-mail': 'email', 'cl-ig': 'instagram' };
 const LINKS = [
   ['whatsapp', /(^|\.)(wa\.me|whatsapp\.com)$/], ['instagram', /(^|\.)(instagram\.com|ig\.me)$/],
@@ -325,16 +328,20 @@ function wire() {
   document.addEventListener('keydown', (e) => { if (/^(Arrow|Home$|End$)/.test(e.key) && e.target instanceof Element && e.target.closest('#pay-tabs')) paid(); });
   if ('IntersectionObserver' in window) {
     // a section counts once it has held the middle of the screen for a second: a nav link that glides past it does not
-    const due = new Map();
+    const due = new Map(), sent = new Set();
     const io = new IntersectionObserver((entries) => {
       for (const x of entries) {
         const el = x.target;
         if (!x.isIntersecting) { clearTimeout(due.get(el)); due.delete(el); continue; }
         if (due.has(el)) continue;
-        due.set(el, setTimeout(() => { due.delete(el); if (!live()) return; io.unobserve(el); track('section_view', { section_id: el.id }); }, 1000));
+        due.set(el, setTimeout(() => { due.delete(el); if (!live()) return; io.unobserve(el); if (sent.has(el.id)) return; sent.add(el.id); track('section_view', { section_id: el.id }); }, 1000));
       }
     }, { rootMargin: '-45% 0px -45% 0px' });
-    for (const id of SECTIONS) { const el = document.getElementById(id); if (el) io.observe(el); }
+    // each section once: the showcase arrives late, and may be drawn anew (a new element, the same id)
+    const watched = new WeakSet();
+    const watch = () => { for (const id of SECTIONS) { const el = document.getElementById(id); if (el && !watched.has(el)) { watched.add(el); io.observe(el); } } };
+    watch();
+    document.addEventListener('gc:montra', watch);
   }
   const dlg = document.getElementById('claim');
   if (dlg) {

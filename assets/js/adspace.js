@@ -5,7 +5,7 @@
 import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
-import { quote, rulesOf, lisbonDay, salesOpen, logoOpen, TITLE } from './season-rules.js';
+import { quote, rulesOf, lisbonDay, salesOpen, logoOpen, noRacesLeft, levelOf, TITLE } from './season-rules.js';
 import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, fixable, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE, isIOS, inApp, appName } from './gl3d.js';
 
 // for stats.js (and analytics.js later): a named event the page tracker may count; never personal data
@@ -1066,6 +1066,11 @@ const rules = () => rulesOf(DATA);
 // the season's sales are over and nothing of this tab's is held: the package bar and step 1 say so
 const closedNow = () => !heldReq() && !salesOpen(rules(), lisbonDay());
 const shut = () => clStep === 1 && closedNow();
+// the request's day falls after the season's last triathlon while sales are still open (seasonRules.racesUntil): the
+// dialog, the message and the comprovativo say what the spot is still worth this season. lvNow: the package's level
+// (season-rules.js levelOf: Principal and the whole suit keep the price on renewal and have the training kit)
+const lateOn = (day) => { const R = rules(); return salesOpen(R, day) && noRacesLeft(R, day); };
+const lvNow = () => levelOf(DATA, wantTitle ? [TITLE] : totals().list.map((s) => s.id));
 // the step «É teu» (#sp-p4) from the season's rules: the logo deadline while it is open, the race after it (the page
 // without JS keeps the sentence that covers both)
 function renderSeasonCopy() {
@@ -1154,9 +1159,12 @@ function message({ sizes = true, extra = null } = {}) {
   // the season: its period, the mid-season discount («Desconto de época (março, mês 3): −6,25%», read back by the admin
   // page: admin-core.js LINE.season), the logo deadline (or, after it, from which race the logo is on the kit) and the
   // renewal preference
+  // (from the day after the season's last triathlon: what the spot is still worth this season, right after the period)
   lines.push(t('msg.period', R));
+  const late = lateOn(day), kind = kindKey(), lv = lvNow();
+  if (late) lines.push(t('msg.late', R, kind, kOf(), lv));
   if (midSeason) lines.push(t('msg.season', m, seasonBp));
-  lines.push(t('msg.logo', R, logoOpen(R, day)), t('msg.renew', R, kOf()));
+  lines.push(t('msg.logo', R, logoOpen(R, day), late, kind), t('msg.renew', R, kOf(), lv));
   if (extra) lines.push('', extra);
   lines.push('', packageLink());
   return lines.join('\n');
@@ -1302,6 +1310,10 @@ function renderClaim() {
   if (disc) li(t('cl.save', Math.round(disc * 100)), `−${money(steps.bundle)}`, 'save');
   // the season the spot is for, always; the mid-season discount and why, from February
   $('#cl-period').textContent = t('cl.period', R);
+  // after the season's last triathlon (never in a closed season): what the spot is still worth until the end of it
+  const lt = $('#cl-late'), lateNow = !shutNow && lateOn(totals().day);
+  lt.hidden = !lateNow;
+  lt.textContent = lateNow ? t('cl.late', R, kindKey(), kOf(), lvNow()) : '';
   const se = $('#cl-season');
   se.hidden = !midSeason || shutNow;
   se.textContent = midSeason && !shutNow ? t('cl.season', m, seasonBp) : '';
@@ -2038,8 +2050,10 @@ function rcptModel() {
   };
   // (step 2's lines, with the hold's day written in: on paper they sit far from «Reservado até …»)
   // then the season: the logo deadline (or, after it, from which race), the mid-season discount, the renewal preference
-  const season = [t('rcpt.logo', R, logoOpen(R, qDay)), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R, k, qDay)];
-  const next = [...(!r ? [t('rcpt.proof')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k)] : [t('rcpt.payBy', day), t('cl.payHeld', k)]), ...season];
+  // (from the day after the season's last triathlon: first, what the spot is still worth this season)
+  const late = lateOn(qDay), kind = kindKey(), lv = lvNow();
+  const season = [t('rcpt.logo', R, logoOpen(R, qDay), late, kind), ...(midSeason ? [t('rcpt.season', sm, seasonBp, !!disc)] : []), t('rcpt.renew', R, k, qDay, lv)];
+  const next = [...(late ? [t('rcpt.late', R, kind, k, lv)] : []), ...(!r ? [t('rcpt.proof')] : wantTitle ? [t('rcpt.proof'), t('cl.payHeld', k)] : [t('rcpt.payBy', day), t('cl.payHeld', k)]), ...season];
   return {
     lang: getLang(),
     file: `gocarmo-pedido-${id || `resumo-${when.toISOString().slice(0, 10)}`}.pdf`,

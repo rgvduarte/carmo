@@ -990,6 +990,53 @@ section { position: relative; }
   .channels a:nth-child(odd) { padding-left: 0; border-left: 0; }
 }
 
+/* ---------- the showcase «O meu material» (montra.js; on the page only while a partner has a product on the site) ----------
+   Advertising, and it reads as such: the eyebrow «Publicidade» and a full-size line above the cards say it before any
+   card. One column on phones, two from 641 px, three from 1081 px; the title partner's featured card takes two columns
+   with its photo on the left. The section arrives after the page has booted, so no .rv reveal: a plain fade. */
+.mt { animation: mtIn .6s var(--ease) both; }
+@keyframes mtIn { from { opacity: 0; } }
+.mt-lead { margin-top: clamp(20px, 2.4vw, 32px); color: var(--muted-dark); }
+.mt-disc { margin: 20px 0 0; max-width: 72ch; font-size: 16px; line-height: 1.55; color: var(--ink-dark); padding-left: 14px; border-left: 2px solid var(--ink-dark); text-wrap: pretty; }
+.mt-grid { list-style: none; margin: clamp(36px, 4.5vw, 64px) 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.mt-card { display: flex; flex-direction: column; min-width: 0; background: #fff; border: 1px solid var(--line-dark); border-radius: var(--r); overflow: hidden; }
+.mt-img { margin: 0; aspect-ratio: 4 / 5; background: var(--paper); overflow: hidden; }
+.mt-img picture, .mt-img img { display: block; width: 100%; height: 100%; }
+.mt-img img { object-fit: cover; }
+.mt-body { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: clamp(18px, 2vw, 26px); min-width: 0; }
+.mt-tag { margin: 0; font: 500 12px/1.35 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-dark); overflow-wrap: anywhere; }
+.mt-brand { color: var(--ink-dark); }
+.mt-name { margin: 0; font: 650 20px/1.25 var(--sans); letter-spacing: -0.01em; overflow-wrap: anywhere; text-wrap: balance; }
+.mt-line { margin: 0; font-size: 16px; line-height: 1.5; color: var(--ink-dark); overflow-wrap: anywhere; text-wrap: pretty; }
+.mt-code { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.mt-code-k { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-dark); }
+.mt-cp { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px 0 14px; border: 1px dashed var(--ink-dark); border-radius: 10px; background: var(--paper); color: var(--ink-dark); font: 600 15px/1 var(--mono); letter-spacing: .04em; transition: background .2s; }
+.mt-cp:hover { background: var(--paper-2); }
+.mt-cp-i { display: grid; }
+.mt-cp svg { width: 18px; height: 18px; grid-area: 1 / 1; transition: opacity .2s, transform .3s var(--ease); }
+.mt-cp .i-ok { opacity: 0; transform: scale(.6); color: var(--gold-ink); }
+.mt-cp.copied { border-style: solid; }
+.mt-cp.copied .i-cp { opacity: 0; transform: scale(.6); }
+.mt-cp.copied .i-ok { opacity: 1; transform: none; }
+.mt-code-n { flex-basis: 100%; font-size: 13px; line-height: 1.4; color: var(--muted-dark); }
+.mt-shop { margin-top: auto; min-height: 44px; }
+.mt-foot { margin: 28px 0 0; font-size: 14px; color: var(--muted-dark); }
+.mt-foot a { color: var(--ink-dark); }
+@media (min-width: 641px) {
+  .mt-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+  .mt-card.is-featured { grid-column: span 2; flex-direction: row; }
+  .mt-card.is-featured .mt-img { flex: 0 0 50%; }
+  .mt-card.is-featured .mt-body { justify-content: center; padding: clamp(22px, 3vw, 44px); }
+  .mt-card.is-featured .mt-name { font-size: clamp(22px, 2.2vw, 30px); }
+  .mt-card.is-featured .mt-line { font-size: 17px; }
+  .mt-card.is-featured .mt-shop { margin-top: 8px; }
+}
+@media (min-width: 1081px) {
+  .mt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: reduce) { .mt { animation: none; } .mt-cp svg { transition: none; } }
+@media (forced-colors: active) { .mt-card { border-color: CanvasText; } }
+
 /* ---------- contact ---------- */
 .contact { display: grid; grid-template-columns: 1.05fr 0.95fr; min-height: 100svh; }
 .contact-copy { padding: clamp(96px, 12vw, 160px) var(--gutter) 60px max(var(--gutter), calc((100vw - var(--max)) / 2 + var(--gutter))); display: flex; flex-direction: column; justify-content: space-between; gap: 40px; }
@@ -1054,6 +1101,8 @@ dialog::backdrop { background: rgba(0,0,0,0.7); -webkit-backdrop-filter: blur(4p
 /* the season the spot is for (always), and the mid-season discount from February */
 .cl-period { margin: -6px 8px 10px 0; font-size: 13px; line-height: 1.4; color: var(--muted); text-wrap: pretty; }
 .cl-season { margin: -4px 8px 12px 0; font-size: 13px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+/* after the season's last triathlon (seasonRules.racesUntil): what the spot is still worth this season */
+.cl-late { margin: -4px 8px 12px 0; font-size: 13px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
 /* after the season's last day for requests: the note right under the summary, with the one way left (write for the
    next season); the brand, logo, payment and send parts of step 1 go */
 .cl-closed { padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.08); font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
@@ -1388,6 +1437,13 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .contact { min-height: 0; grid-template-columns: 1fr; }
   .contact-copy { padding: 0; }
   a { text-decoration: none; color: #111; }
+  /* the showcase, when it is on the page: its cards three to a row, the photos small, no buttons' icons */
+  .mt { animation: none; }
+  .mt-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8pt; }
+  .mt-card, .mt-card.is-featured { grid-column: auto; flex-direction: column; break-inside: avoid; border-color: rgba(0,0,0,.2); }
+  .mt-card.is-featured .mt-img { flex: none; }
+  .mt-body { padding: 8pt 9pt; gap: 4pt; }
+  .mt-shop svg, .mt-cp-i { display: none; }
 }
 
 /* ---------- mobile, first-class ---------- */

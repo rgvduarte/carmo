@@ -6,10 +6,13 @@
 //   start, end        the contract period: the season is the calendar year (season-01-01 to season-12-31)
 //   logoBy            last day for the vector logo to make the printed suit and helmet for the first triathlon
 //   fullPriceUntil    requests on or before it pay the rate card price (m = 0); the last day of a month
+//   racesUntil        the last triathlon of the season's calendar is on or before it; from the next day until sales close
+//                     a request is told there are no more triathlons with the suit this season (noRacesLeft)
 //   requestsUntil     last day the site and the Worker take a request for this season (its month is the largest m)
 //   proposalsFrom     the next season's proposal goes to each sponsor from this day
 //   renewBy           last day for a sponsor to say yes and keep the spot
 //   openFrom          spots not renewed are open to everyone
+//   renewPayBy        last day to pay the next season's renewal (the next season's logo deadline); unpaid, the spot is free
 //   termsDate         the date of the sponsorship terms (/condicoes/) in force
 // A missing or broken block never breaks a price: rulesOf() falls back to the defaults of the season.
 //
@@ -24,9 +27,9 @@
 export const TITLE = 'fato';
 export const TZ = 'Europe/Lisbon';
 export const SEASON_DIV = 48;
-const TERMS_DEFAULT = '2026-10-28';
+const TERMS_DEFAULT = '2026-10-29';
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom', 'termsDate'];
+const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'racesUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom', 'renewPayBy', 'termsDate'];
 
 // ---------- days ('YYYY-MM-DD', compared as strings; arithmetic in UTC, no time zone) ----------
 let fmt = null;
@@ -63,8 +66,9 @@ const lastOfMonth = (day) => new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7
 const seasonOf = (data) => (/^\d{4}$/.test(String(data?.season ?? '')) ? String(data.season) : '');
 export function defaultRules(season) {
   const y = /^\d{4}$/.test(String(season ?? '')) ? String(season) : '2027';
-  return { season: y, start: `${y}-01-01`, end: `${y}-12-31`, logoBy: `${y}-01-15`, fullPriceUntil: `${y}-01-31`, requestsUntil: `${y}-10-31`,
-    proposalsFrom: `${y}-09-01`, renewBy: `${y}-10-31`, openFrom: `${y}-11-01`, termsDate: TERMS_DEFAULT };
+  return { season: y, start: `${y}-01-01`, end: `${y}-12-31`, logoBy: `${y}-01-15`, fullPriceUntil: `${y}-01-31`, racesUntil: `${y}-09-30`,
+    requestsUntil: `${y}-10-31`, proposalsFrom: `${y}-09-01`, renewBy: `${y}-10-31`, openFrom: `${y}-11-01`, renewPayBy: `${+y + 1}-01-15`,
+    termsDate: TERMS_DEFAULT };
 }
 // what is wrong with data.season + data.seasonRules ([] when nothing): stamp.mjs refuses to publish with any of it
 export function checkRules(data) {
@@ -86,6 +90,13 @@ export function checkRules(data) {
   // the largest season month is the one of requestsUntil: 11 at most, so the discount stays below 25% (m = 12)
   need(monthIndex(r.requestsUntil) - monthIndex(r.start) + 1 <= 11, 'requestsUntil tem de ser em novembro ou antes (o desconto de época fica abaixo de 25%)');
   need(le('start', 'proposalsFrom') && r.proposalsFrom < r.renewBy && r.renewBy < r.openFrom && le('openFrom', 'end'), 'tem de ser start <= proposalsFrom < renewBy < openFrom <= end');
+  // the last triathlon of the calendar, inside the season (the notice runs from the day after it while sales are open). It
+  // may fall after requestsUntil: closing the sales early by moving requestsUntil alone must not make the block invalid,
+  // or rulesOf would fall back to the defaults and open the sales again
+  need(le('start', 'racesUntil') && le('racesUntil', 'end'), 'racesUntil tem de ficar entre start e end (o dia do último triatlo do calendário, ou antes)');
+  // the renewal is paid at the start of the next season, after the answer (by 31 March at the latest)
+  if (y) need(r.renewBy < r.renewPayBy && r.end < r.renewPayBy && r.renewPayBy <= `${+y + 1}-03-31`,
+    'renewPayBy tem de ser no início da época seguinte, depois de renewBy e de end (até 31 de março)');
   need(le('termsDate', 'end'), 'termsDate não pode ser depois de end');
   return out;
 }
@@ -119,6 +130,9 @@ export function pctText(bp, dec = ',') {
 }
 export const salesOpen = (rules, day) => day <= rules.requestsUntil;
 export const logoOpen = (rules, day) => day <= rules.logoBy;
+// the season's last triathlon is behind: from the day after racesUntil to the end of the season (sales stay open up to
+// requestsUntil, and the request, the message and the comprovativo say what the spot is still worth)
+export const noRacesLeft = (rules, day) => isDay(day) && day > rules.racesUntil && day <= rules.end;
 // whole months for a refund (/condicoes/, «Duração, prazos e renovação»): left = the months after the month of stopDay up
 // to December; of = the months from the request's month to December, both included (12 for a request up to
 // fullPriceUntil). The refund is amount paid × left / of, to the cent.
@@ -158,6 +172,19 @@ export function levelOf(data, ids) {
   return (tiers.find((t) => top >= t.min) || tiers[tiers.length - 1]).key;
 }
 
+// The renewal price. The levels whose sponsors keep the price when they say yes by renewBy (Principal and the whole suit,
+// owner decision of 29.10.2026): in the next season they pay what this season's rate card asked for the same spot(s), or
+// the next season's rate card price if that is lower. Every other level pays the next season's rate card. prev, next:
+// table prices (before any discount) of this season and of the next one; next null when the next table is not out yet.
+export const PRICE_LOCK = Object.freeze(['principal', 'title']);
+export const locksPrice = (level) => PRICE_LOCK.includes(level);
+const amount = (v) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+export function renewalPrice(level, prev, next) {
+  const p = amount(prev), n = amount(next);
+  if (!locksPrice(level)) return n;
+  return n === null ? p : p === null ? n : Math.min(p, n);
+}
+
 // ---------- contracts ----------
 // the renewal step as shown on Lisbon day `day`, from the step stored by hand ('', 'proposta', 'renova', 'nao-renova').
 // From openFrom, a sponsor with no answer does not renew: 'sem-resposta' after a proposal, 'sem-proposta' when none was
@@ -177,7 +204,8 @@ export function renewalView(contract, day) {
 // the season's key dates, in order (calendar, .ics, what is due now)
 export function keyDates(rules) {
   return [{ key: 'inicio', day: rules.start }, { key: 'logos', day: rules.logoBy }, { key: 'propostas', day: rules.proposalsFrom },
-    { key: 'renovacao', day: rules.renewBy }, { key: 'abertos', day: rules.openFrom }, { key: 'fim', day: rules.end }];
+    { key: 'provas', day: rules.racesUntil }, { key: 'renovacao', day: rules.renewBy }, { key: 'abertos', day: rules.openFrom },
+    { key: 'fim', day: rules.end }, { key: 'pagamento', day: rules.renewPayBy }];
 }
 // KV expiration (seconds) of a contract record of `season`: the end of 31 December of the following year, Lisbon time
 // (UTC+0 in December)
