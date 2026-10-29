@@ -13,7 +13,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   recente à mais antiga, com o tempo, o lugar no escalão e na geral e os parciais dos triatlos. No telemóvel desliza-se
   de cartão em cartão; no computador avança-se com as setas. Sem JavaScript e no media kit impresso aparecem todos.
 - **Telemetria**: dados do Strava, que aparecem sozinhos quando a sincronização estiver ligada.
-- **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando houver vaga.
+- **Época 2027**: sete provas, com um IRONMAN de qualificação para Kona. Kona entra no calendário quando a qualificação estiver garantida.
 - **Patrocínio (05)**: 24 espaços à venda, 20 no fato e 4 no capacete aero. Logo a seguir ao título e ao subtítulo há
   dois cartões grandes, «O fato» e «O capacete», cada um com a imagem do modelo, o número de espaços, o preço mais baixo
   e um botão que leva à sua parte. A introdução, os espaços livres e as marcas que já lá estão vêm depois dos cartões,

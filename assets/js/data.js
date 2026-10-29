@@ -87,13 +87,13 @@ export const SEASON = [
   { date: '2027-07', pt: 'IRONMAN de qualificação', en: 'Qualifying IRONMAN', where: { pt: 'Península Ibérica', en: 'Iberian Peninsula' }, what: { pt: 'Qualificação para Kona', en: 'Kona qualifier' }, km: 226, status: 'tbc' },
   { date: '2027-09', pt: 'Triatlo de Sines', en: 'Sines Triathlon', where: { pt: 'Sines, Portugal', en: 'Sines, Portugal' }, what: { pt: 'Triatlo · 2 · 80 · 18 km', en: 'Triathlon · 2 · 80 · 18 km' }, km: 100, status: 'entry' },
   // Kona has no date until the slot is won: it is the goal, not a counted race
-  { date: '', label: { pt: 'Quando houver vaga', en: 'Once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
+  { date: '', label: { pt: 'Garantindo qualificação', en: 'Once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
 ];
 
 // Season budget estimate (EUR). Entry fees from official race pages, Oct 2026.
 export const BUDGET = [
-  { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: 7000, note: { pt: 'Provas em Espanha e em Portugal e, com a vaga, a viagem a Kona (voos, 10 noites, transporte da bicicleta)', en: 'Races in Spain and Portugal and, once qualified, the trip to Kona (flights, 10 nights, bike transport)' } },
-  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Sete provas e, com a vaga, Kona. Setúbal e Sines já estão garantidas por mérito.', en: 'Seven races and, once qualified, Kona. Setúbal and Sines already earned on merit.' } },
+  { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: 7000, note: { pt: 'Provas em Espanha e em Portugal e, garantindo a qualificação, a viagem a Kona (voos, 10 noites, transporte da bicicleta)', en: 'Races in Spain and Portugal and, once qualified, the trip to Kona (flights, 10 nights, bike transport)' } },
+  { pt: 'Inscrições', en: 'Race entries', eur: 3200, note: { pt: 'Sete provas e, garantindo a qualificação, Kona. Setúbal e Sines já estão garantidas por mérito.', en: 'Seven races and, once qualified, Kona. Setúbal and Sines already earned on merit.' } },
   { pt: 'Treino, nutrição e saúde', en: 'Coaching, nutrition and health', eur: 3000, note: { pt: 'Treinador, suplementação, fisioterapia e testes', en: 'Coach, nutrition, physio and testing' } },
   { pt: 'Material e manutenção', en: 'Equipment and maintenance', eur: 2500, note: { pt: 'Pneus, transmissão, sapatilhas, fato de neoprene', en: 'Tyres, drivetrain, shoes, wetsuit' } },
 ];
