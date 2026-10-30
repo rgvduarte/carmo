@@ -27,6 +27,8 @@ test('the allowlist: unknown keys, names and params are dropped; emails and phon
       click(3, { sel: '#tel-912345678', lab: 'y', sec: 'top' }),
       // a field of the booking window: never a click record
       click(4, { sel: '#cl-name', lab: 'cl-name', sec: 'reserva' }),
+      click(15, { sel: '#cl-email', lab: 'cl-email', sec: 'reserva' }),
+      click(16, { sel: '#cl-phone', lab: 'cl-phone', sec: 'reserva' }),
       click(5, { sel: '#claim > form > input:nth-of-type(2)', sec: 'reserva' }),
       // a label with a phone: masked
       click(6, { sel: '#contacto', lab: 'Liga 912 345 678 já', sec: 'contacto', out: 'tel', value: 'secret-value' }),

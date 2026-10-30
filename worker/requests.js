@@ -11,15 +11,17 @@
 //                             409 { error: 'epoca', season, until }.
 //   GET  /pedidos             (admin) the requests kept, newest first, without the logos
 //   GET  /pedidos/<id>/logo   (admin) the request's logo, a PNG
-//   POST /pedidos/<id>        (admin) { action: 'confirmar' | 'cancelar' | 'prolongar', bloquear?: true (with cancelar),
-//                             paidAt?: 'YYYY-MM-DD', amount?: euros (with confirmar) }. confirmar also creates the
-//                             sponsor contract c:<id> once (the same call again creates it if KV failed the first time)
+//   POST /pedidos/<id>        (admin) { action: 'confirmar' | 'cancelar' | 'prolongar' | 'apagar', bloquear?: true (with
+//                             cancelar), paidAt?: 'YYYY-MM-DD', amount?: euros (with confirmar) }. confirmar also creates
+//                             the sponsor contract c:<id> once (the same call again creates it if KV failed the first
+//                             time). apagar deletes a closed request (confirmado or cancelado) and its logo, when no
+//                             contract names it: 409 'estado' for an open one, 409 { error: 'contrato', id } otherwise
 //   GET  /contratos           (admin) the sponsor contracts, newest payment first
 //   POST /contratos           (admin) a contract entered by hand (a deal by email, WhatsApp, in kind)
 //   POST /contratos/<id>      (admin) { action: 'editar' | 'renovacao' | 'apagar', ... }
 //   GET  /estado              which pieces are set up (true / false only), for the deploy check
 //
-// Admin calls carry "Authorization: Bearer <ADMIN_KEY>". A request holds a name and a NIF, so: it expires from KV after
+// Admin calls carry "Authorization: Bearer <ADMIN_KEY>". A request holds a name, an email, a phone and a NIF, so: it expires from KV after
 // 180 days, only an admin call returns it, the address it came from is kept only as a keyed hash (of its /64 for IPv6),
 // nothing is ever logged, and an error is { error: '<code>' } with nothing of the request in it. A contract record
 // (KV c:<id>) holds the brand, the spots, the amount paid, the contact and the NIF if given, never an address hash or a
@@ -50,7 +52,7 @@ const HOLD_H = 48;
 const MAX_BODY = 600 * 1024;             // the whole POST (a 400 KB logo is 534 KB of base64)
 const MAX_LOGO = 400 * 1024;             // the logo, decoded: small enough for the 10 ms of CPU of Workers Free
 const MAX_SIDE = 4096;                   // px, either side of the logo
-const CAPS = { brand: 60, name: 80, nif: 20, message: 2000 };   // characters, after trimming
+const CAPS = { brand: 60, name: 80, email: 120, phone: 30, nif: 20, message: 2000 };   // characters, after trimming
 const MAX_ITEMS = 6;                     // spots in one request; more only as the whole suit (title: true)
 const MAX_HELD = 8;                      // spots held at once by the site's unpaid requests (MAX_HELD in wrangler.toml)
 const PER_IP_DAY = 3;                    // requests placed per address per UTC day
@@ -60,7 +62,7 @@ const RECENT = 5;                        // requests remembered per address (o:<
 const RETRIES = 3;                       // a write that lost the race to another commit is tried again 3 times
 const PAYS = ['mb', 'tr'];
 const CHANNELS = ['whatsapp', 'email', 'instagram', 'site'];
-const ACTIONS = ['confirmar', 'cancelar', 'prolongar'];
+const ACTIONS = ['confirmar', 'cancelar', 'prolongar', 'apagar'];
 // contracts (KV c:<id>)
 const MAX_CONTRACTS = 900;               // records kept at once: GET /contratos reads each one, and a Worker call may
                                          // make at most 1 000 KV operations
@@ -211,6 +213,10 @@ function text(v, max, lines = false) {
   s = lines ? s.split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim() : s.replace(/\s+/g, ' ').trim();
   return Array.from(s).length > max ? null : s;
 }
+// a plausible email: one @, no spaces, a dot inside its domain; a phone: digits and spaces with an optional + in front,
+// 9 to 15 digits (a Portuguese number, or one with its country code). The same rules as the site (adspace.js formOk).
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+const phoneOk = (v) => /^\+?[0-9 ]+$/.test(v) && /^\d{9,15}$/.test(v.replace(/\D/g, ''));
 // the body, or null once it passes `max` bytes (the length header may be missing or wrong: count while reading)
 async function readCapped(request, max) {
   if (Number(request.headers.get('Content-Length')) > max) return null;
@@ -461,8 +467,14 @@ async function create(request, env) {
   if (items.length > MAX_ITEMS) return fail(request, env, 'muitos', 400, { max: MAX_ITEMS });
 
   const brand = text(p.brand, CAPS.brand), name = text(p.name, CAPS.name), nif = text(p.nif, CAPS.nif), message = text(p.message, CAPS.message, true);
+  const email = text(p.email, CAPS.email), phone = text(p.phone, CAPS.phone);
+  // the company or brand, and who is asking: name, email and phone, all required (the site's own rules, adspace.js
+  // formOk). The email and the phone are checked before the name, so a page loaded before they existed (it sends
+  // neither) hears 'email', a code it does not know, and sends its message only, as when the Worker is down
   if (!brand) return fail(request, env, 'marca');
-  if (name === null) return fail(request, env, 'nome');
+  if (!email || !EMAIL_RE.test(email)) return fail(request, env, 'email');
+  if (!phone || !phoneOk(phone)) return fail(request, env, 'telefone');
+  if (!name || Array.from(name).length < 2) return fail(request, env, 'nome');
   if (nif === null || (nif && !/^[A-Za-z0-9 .\-/]+$/.test(nif))) return fail(request, env, 'nif');
   if (message === null) return fail(request, env, 'mensagem');
   if (!PAYS.includes(p.pay)) return fail(request, env, 'pagamento');
@@ -516,7 +528,7 @@ async function create(request, env) {
   // the price of the public file for now; the write below sets it from the committed file
   const q0 = live ? quote(live, ids0, { day: lday }) : null;
   const record = {
-    id, at, until, ...(title ? { title: true } : { items: [...items] }), brand, name, nif, message, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
+    id, at, until, ...(title ? { title: true } : { items: [...items] }), brand, name, email, phone, nif, message, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
     channel: p.channel || '', total: q0 ? q0.net : 0,
     season: q0 ? q0.season : '', day: lday, m: q0 ? q0.m : 0, seasonBp: q0 ? q0.seasonBp : 0, gross: q0 ? q0.gross : 0, discPct: q0 ? q0.discPct : 0,
     terms: live ? rulesOf(live).termsDate : '', prices: live ? snapshotOf(live, ids0) : [],
@@ -638,6 +650,7 @@ async function act(request, env, id) {
   const step = (extra = {}) => { r.history = [...(r.history || []), { at, action: b.action, ...extra }].slice(-20); r.updated = at; };
 
   if (b.action === 'confirmar') return confirm(request, env, r, { paidAt: b.paidAt === undefined ? lday : b.paidAt, amount: b.amount === undefined ? Number(r.total) || 0 : b.amount, now, step });
+  if (b.action === 'apagar') return erase(request, env, r, now);
   if (b.action === 'cancelar' && r.status === 'cancelado') {
     const blocked = b.bloquear === true ? await block(env, r) : false;
     if (blocked && !r.blocked) { r.blocked = true; step({ bloquear: true }); await saveAfter(env, r); }
@@ -678,6 +691,36 @@ async function act(request, env, id) {
   step({ until, ...(res.commit ? { commit: res.commit } : {}) });
   await saveAfter(env, r);
   return reply(request, env, { pedido: pub(r), extended: res.own, lost: res.lost });
+}
+
+// ---------- apagar: a closed request out of the list (a test, a mistake) ----------
+// Only a closed request: an open one («novo») holds spots and is cancelled instead. Never one a contract names (its own
+// c:<id>, or a contract by hand linked to it with "request"): a paid request is registered, and its record goes first in
+// Patrocínios. The record and the logo leave KV. The address's pause after a cancelled request stays: while it lasts,
+// it is kept as a block (x:<hash>) that ends when the pause would have ended, unless the address is blocked already.
+async function erase(request, env, r, now) {
+  if (r.status !== 'confirmado' && r.status !== 'cancelado') return fail(request, env, 'estado', 409);
+  const id = r.id;
+  let by = '';
+  try {
+    if (await env.PEDIDOS.get(`c:${id}`)) by = id;
+    else {
+      const keys = (await contractKeys(env)).slice(0, MAX_CONTRACTS);
+      for (let i = 0; i < keys.length && !by; i += 50) {
+        const got = await Promise.all(keys.slice(i, i + 50).map((k) => env.PEDIDOS.get(k, { type: 'json' }).catch(() => null)));
+        const c = got.find((x) => x && x.request === id);
+        if (c) by = String(c.id || '');
+      }
+    }
+  } catch (_) { return fail(request, env, 'interno', 503); }
+  if (by) return fail(request, env, 'contrato', 409, { id: by });
+  const pause = r.status === 'cancelado' && r.ip && !r.blocked ? COOL_S * 1000 - (now - Date.parse(r.closed || r.updated || r.at)) : 0;
+  try {
+    if (pause > 60000 && !(await env.PEDIDOS.get(`x:${r.ip}`))) await env.PEDIDOS.put(`x:${r.ip}`, '1', { expirationTtl: Math.ceil(pause / 1000) });
+    await env.PEDIDOS.delete(`l:${id}`);
+    await env.PEDIDOS.delete(`p:${id}`);
+  } catch (_) { return fail(request, env, 'interno', 503); }
+  return reply(request, env, { apagado: id });
 }
 
 // ---------- confirmar: the request closes, the sponsor contract begins ----------
@@ -756,7 +799,7 @@ function contractOfRequest(r, data, { paidAt, amount, at }) {
   const level = r.level || (data ? levelOf(pricedAs(data, spots), ids) : '');
   return contractShape({
     id: r.id, kind: 'site', request: r.id, season, rules: rulesFor(data, season), brand: r.brand, title: r.title === true, spots, level, price,
-    amount, paidAt, pay: r.pay, contact: { name: r.name || '', channel: r.channel || '' }, nif: r.nif || '', lang: r.lang === 'en' ? 'en' : 'pt',
+    amount, paidAt, pay: r.pay, contact: { name: r.name || '', channel: r.channel || '', email: r.email || '', phone: r.phone || '' }, nif: r.nif || '', lang: r.lang === 'en' ? 'en' : 'pt',
     terms: r.terms || '', at, from: 'pedido',
   });
 }

@@ -309,6 +309,8 @@ function showPaste(p) {
   row('Espaços', ids.map((id) => shortName(raw, id)).join(', '));
   row('Marca', p.brand);
   row('Nome', p.name);
+  row('Email', p.email);
+  row('Telefone', p.phone);
   row('NIF', p.nif ? `${p.nif}${p.nifOk === true ? ' ✓' : p.nifOk === false ? ' · não confere' : ''}` : '', p.nifOk === false ? 'bad' : '');
   row('Pagamento', C.PAY_LABEL[p.pay] || '');
   row('Referência', p.ref);
@@ -475,6 +477,7 @@ function reqErrText(e) {
   if (e.status === 401) return 'A chave dos pedidos não está certa.';
   if (e.status === 429) return 'Demasiadas tentativas com a chave errada. Espera 10 minutos.';
   if (e.code === 'estado') return 'Este pedido já está fechado.';
+  if (e.code === 'contrato') return 'Este pedido tem um patrocínio registado: apaga primeiro esse registo em Patrocínios.';
   if (e.code === 'ocupado') return 'Os espaços deste pedido já não estão reservados por ele.';
   if (e.code === 'config') return 'Os pedidos ainda não estão prontos no Cloudflare (falta um secret). Vê worker/README.md.';
   if (e.code === 'campos' && e.campo === 'paidAt') return 'Os pedidos não aceitaram a data do pagamento (de 1 jan. 2026 a amanhã).';
@@ -594,7 +597,7 @@ function reqCard(r) {
   li.appendChild(el('p', 'req-meta', [atText(r.at), CHANNEL[r.channel], C.PAY_LABEL[r.pay], r.lang === 'en' ? 'em inglês' : '', `pedido ${r.id}`].filter(Boolean).join(' · ')));
   const season = reqSeason(r);
   if (season) li.appendChild(el('p', 'req-season', season));
-  const who = [r.name ? `Nome: ${r.name}` : '', r.nif ? `NIF: ${r.nif}${C.nifOk(r.nif) === false ? ' (não confere)' : ''}` : ''].filter(Boolean).join(' · ');
+  const who = [r.name ? `Nome: ${r.name}` : '', r.email ? `Email: ${r.email}` : '', r.phone ? `Telefone: ${r.phone}` : '', r.nif ? `NIF: ${r.nif}${C.nifOk(r.nif) === false ? ' (não confere)' : ''}` : ''].filter(Boolean).join(' · ');
   if (who) li.appendChild(el('p', 'req-who', who));
   if (r.message) li.appendChild(el('p', 'req-msg', r.message));
   const st = el('span', 'st'), left = C.holdLeft(r.until);
@@ -608,6 +611,13 @@ function reqCard(r) {
     if (r.contract) { line.append('Contrato registado · '); const a = el('a', null, 'Ver em Patrocínios'); a.href = `patrocinios/#${encodeURIComponent(r.contract)}`; line.appendChild(a); }
     else { const b = el('button', 'btn sm ghost', 'Registar contrato'); b.type = 'button'; b.disabled = inbox.busy.has(r.id); b.addEventListener('click', () => registerReq(r)); line.appendChild(b); }
     li.appendChild(line);
+  }
+  // a closed request (confirmed or cancelled) can leave the list: a test, a mistake (never one with a contract: the Worker
+  // refuses, and the page says to delete the record in Patrocínios first)
+  if (r.status === 'confirmado' || r.status === 'cancelado') {
+    const line = el('p', 'req-erase'), b = el('button', 'btn sm ghost', 'Eliminar');
+    b.type = 'button'; b.disabled = inbox.busy.has(r.id); b.addEventListener('click', () => eraseReq(r));
+    line.appendChild(b); li.appendChild(line);
   }
   const stand = reqStanding(r);
   // a request after the logo deadline: its logo goes on the kit from a race named before the payment
@@ -794,6 +804,23 @@ async function cancelReq(r) {
   } catch (e) { toast(reqErrText(e)); }
   reqBusy(r.id, false);
 }
+
+// «Eliminar»: a closed request out of the Worker (its record and its logo), after a question
+async function eraseReq(r) {
+  if (!(await ask(`Eliminar o pedido ${r.id} de ${r.brand || 'sem marca'}?`, [], ERASE_TEXT, 'Eliminar', 'Voltar'))) return;
+  reqBusy(r.id, true);
+  try {
+    await reqCall('POST', `/pedidos/${r.id}`, { action: 'apagar' });
+    if (inbox.list) inbox.list = inbox.list.filter((x) => x.id !== r.id);
+    toast(`Pedido ${r.id} eliminado.`);
+  } catch (e) {
+    // gone already (another tab): out of the list as well
+    if (e instanceof ReqError && e.status === 404 && inbox.list) inbox.list = inbox.list.filter((x) => x.id !== r.id);
+    toast(reqErrText(e));
+  }
+  reqBusy(r.id, false);
+}
+const ERASE_TEXT = 'Usa isto para testes ou enganos: um pedido pago deve ser registado. Não se pode desfazer.';
 
 function saveFilter() { try { localStorage.setItem(FILTER_KEY, filter); } catch (_) {} }
 

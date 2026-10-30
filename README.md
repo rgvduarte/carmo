@@ -103,8 +103,9 @@ Receber por MB WAY tem limite da SIBS: 5 000 € e 50 transferências por mês. 
 compra confirma-se em **Pedidos**: ver **Compras automáticas**. Aqui fica o pedido em si e o caminho à mão, que é o
 de uma mensagem que chega sem `Pedido:`:
 1. A marca escolhe os espaços e carrega em **Reservar**. O pedido tem dois passos, um ecrã cada:
-   **Reservar** (o resumo numa linha, a marca, o nome e, se quiser, NIF e mensagem, e **Pagar por** MB WAY ou
-   Transferência) e **Pagar** (MB WAY ou Transferência, cada um com três linhas para copiar: número ou IBAN, montante e
+   **Reservar** (o resumo numa linha, a empresa ou marca, o nome, o email e o telefone, os quatro obrigatórios, e, se
+   quiser, NIF e mensagem, e **Pagar por** MB WAY ou Transferência) e **Pagar** (MB WAY ou Transferência, cada um com
+   três linhas para copiar: número ou IBAN, montante e
    código `CARMO`). A forma escolhida vai escrita na mensagem que recebes («Pagamento: MB WAY» ou «Pagamento:
    transferência bancária») e o passo Pagar abre nela. Acima de 2 000 € o MB WAY fica desligado, com a razão por baixo.
    Se a marca mudar de forma no passo Pagar depois de enviar, aparece «Mudaste a forma de pagamento? Diz-me na conversa.»
@@ -197,7 +198,7 @@ origem). Sem isso, ao fechar o separador tens de colar o token outra vez. «Sair
 **Colar pedido ou referência.** Colas a referência do pagamento, por exemplo `CARMO 01 21 22` ou `CARMO FATO` (ou
 uma antiga, `KONA 01 21 22`), e a página seleciona esses espaços e mostra o total esperado. Também podes colar a mensagem inteira do pedido (do
 WhatsApp, do email, ou só o link `gocarmo.com/#pacote=…`): a página seleciona os espaços e mostra num resumo os
-espaços, a marca, o nome, o NIF (e se o último algarismo confere), a forma de pagamento, a referência e o total, com
+espaços, a marca, o nome, o email, o telefone, o NIF (e se o último algarismo confere), a forma de pagamento, a referência e o total, com
 um aviso quando o total ou um preço já não batem com os de agora, ou quando um espaço já está reservado ou vendido.
 Dois botões: **Reservar 48 h** (abre a reserva com a marca e a data de daqui a 48 horas) e **Marcar como vendido**
 (abre a venda com a marca). Os espaços saem do link do pedido; se não houver link, das linhas `• 21 Topo do capacete`.
@@ -214,8 +215,9 @@ mensagem fala do pedido …, que é de outros espaços: não o uso.» e os botõ
 **Pedidos.** Aparece quando o site recebe as compras sozinho (ver **Compras automáticas**). Na primeira vez pede a
 chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. O
 GitHub não mostra a `ADMIN_KEY` outra vez: guarda-a nas Palavras-passe do telemóvel, que a preenchem sozinhas. Cada
-pedido mostra o logótipo, a marca, os espaços, o total, a data, o canal, a forma de pagamento, o nome e o NIF, a
-mensagem e quanto tempo falta para a reserva acabar.
+pedido mostra o logótipo, a marca, os espaços, o total, a data, o canal, a forma de pagamento, o nome, o email, o
+telefone e o NIF, a mensagem e quanto tempo falta para a reserva acabar. Um pedido de antes de 31.10.2026 pode não ter
+email nem telefone.
 - **Confirmar compra**: abre a venda com a marca e o logótipo do pedido, com «Pago a» (hoje, por defeito) e
   «Montante recebido» (o total do pedido, por defeito). Ao guardar, é uma venda como as outras (um commit com o teu
   token, o logótipo vai para o site), o pedido fica confirmado e o Worker regista o patrocínio, que aparece em
@@ -227,6 +229,10 @@ mensagem e quanto tempo falta para a reserva acabar.
 - **Prolongar 48 h**: mais dois dias de reserva, no site também.
 - **Cancelar**: depois de confirmares, os espaços que ainda estão reservados por esse pedido voltam a ficar livres.
   O pedido fica em «Fechados». Num pedido falso, marca «bloquear quem o fez durante 30 dias».
+- **Eliminar** (só em «Fechados», num pedido confirmado ou cancelado): depois de confirmares («Usa isto para testes ou
+  enganos: um pedido pago deve ser registado. Não se pode desfazer.»), o pedido e o logótipo dele saem do serviço dos
+  pedidos. Um pedido com patrocínio registado não se elimina (a página diz para apagar primeiro o registo em
+  Patrocínios); um pedido aberto cancela-se. Num pedido cancelado, a pausa de 7 dias desse endereço continua até ao fim.
 Reservar ou vender um espaço de um pedido do site pela lista, sem ser pelo pedido, pergunta antes: o pedido deixa de
 controlar a reserva, e uma venda assim fica sem o logótipo do pedido.
 
@@ -276,14 +282,23 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 (`https://gocarmo-pedidos.rgvduarte.workers.dev`). Com `requestsApi: ''` o pedido volta a ser só mensagem, como antes.
 
 **O que a marca vê.**
-1. Escolhe os espaços (ou o fato completo) e carrega em **Reservar**. No passo 1 escreve a marca e junta o
-   **logótipo**, que é obrigatório: no telemóvel a caixa abre as fotografias, no computador também se pode arrastar o
+1. Escolhe os espaços (ou o fato completo) e carrega em **Reservar**. No passo 1 escreve a empresa ou marca, junta o
+   **logótipo** e escreve o nome, o email e o telefone (tudo obrigatório; o NIF e a mensagem ficam em «+ Adicionar NIF
+   ou mensagem», opcionais). O logótipo: no telemóvel a caixa abre as fotografias, no computador também se pode arrastar o
    ficheiro para lá. Serve PNG, JPG, WebP ou SVG (até 20 MB). O site desenha-o num PNG com o fundo transparente que
    tiver, até 1200 px de lado e no máximo 400 KB (uma imagem pesada fica mais pequena até caber), e mostra-o na caixa
-   com o nome e o tamanho. Ao fechar o pedido vê-o no espaço do fato ou do capacete 3D. Enquanto faltar a marca ou o
-   logótipo, os botões ficam esbatidos e a linha por baixo diz o que falta; um toque mostra o erro no campo.
+   com o nome e o tamanho. Ao fechar o pedido vê-o no espaço do fato ou do capacete 3D. Enquanto faltar a marca, o
+   nome, o email, o telefone ou o logótipo, os botões ficam esbatidos e a linha por baixo diz o que falta («Para
+   enviar, escreve o teu nome, o email e o telefone.»); um toque mostra o erro em cada campo e põe o cursor no
+   primeiro. As regras (as mesmas no site e no Worker): o nome com pelo menos 2 letras (até 80); o email com uma @, um
+   ponto no domínio e sem espaços (até 120); o telefone com 9 a 15 algarismos, espaços e um + no início, se quiser (um
+   número português, ou com o indicativo; até 30). Os erros: «Escreve o teu nome.», «Escreve o teu nome (pelo menos 2
+   letras).», «Escreve o teu email.», «Confirma o email: por exemplo, nome@empresa.pt.», «Escreve o teu número de
+   telefone.», «Confirma o número: 9 algarismos, ou + e o indicativo do país.» (em inglês, «Add your name.», …).
 2. Carrega em WhatsApp, Email ou Instagram. O site manda o pedido ao Worker («A reservar…») com os espaços, a marca,
-   o nome, o NIF, a mensagem, a forma de pagar e o logótipo. O Worker reserva os espaços por 48 horas (um commit no
+   o nome, o email, o telefone, o NIF, a mensagem, a forma de pagar e o logótipo. A mensagem leva, por baixo de
+   `Marca:`, as linhas `Nome:`, `Email:` e `Telefone:` (em inglês `Name:`, `Email:`, `Phone:`), que a página de admin
+   lê ao colar (uma mensagem antiga, sem elas, lê-se como antes). O Worker reserva os espaços por 48 horas (um commit no
    `data/spots.json`) e responde com o número do pedido. O passo 2 diz **Reservado até domingo, 25 de outubro**, o
    número do pedido e «Paga e envia-me o comprovativo por WhatsApp ou email até essa data (48 horas a contar do
    pedido) para o patrocínio ficar fechado» (no fato completo: «Antes de pagares, envio-te o acordo escrito. A reserva
@@ -301,7 +316,7 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    browser escreve (`assets/js/receipt.js`, que só carrega quando a marca carrega no botão, com as letras Helvetica de
    qualquer leitor de PDF e o emblema GOCARMO desenhado), `gocarmo-pedido-<número>.pdf`. No telemóvel abre a folha de
    partilha (Ficheiros, WhatsApp, email); no computador descarrega. Leva o cabeçalho GOCARMO, «Comprovativo do pedido
-   de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome e o NIF (se os deu),
+   de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome, o email, o telefone e o NIF (se o deu),
    cada espaço com o número, o nome, fato ou capacete e o preço, o período da época, o desconto de época (a partir de
    fevereiro de 2027, com o mês e a percentagem), o desconto de pacote, o total, «Reservado até …», como
    pagar (transferência para o IBAN e o titular de `SITE`, MB WAY até `SITE.mbwayMax`, o montante e a referência
@@ -322,7 +337,7 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    guardado, o cartão já vem aberto e uma linha diz para tirar o screenshot; se não der para guardar, o passo 2 diz isso
    e abre o cartão. Um duplo toque no botão entrega o PDF uma vez só. Depois de recarregar a página, o passo 2 volta
    com o mesmo comprovativo (o número, o dia, a hora e os espaços vêm de `gc.claim.req`; sem reserva, a hora do envio
-   vem de `gc.claim.at`; o nome e o NIF, do rascunho). Não é obrigatório, mas no passo 2 **Feito** pergunta uma vez se
+   vem de `gc.claim.at`; o nome, o email, o telefone e o NIF, do rascunho). Não é obrigatório, mas no passo 2 **Feito** pergunta uma vez se
    a marca ainda não o guardou nem partilhou: «Ainda não guardaste o comprovativo.», com **Guardar comprovativo**
    (guarda e fecha) e **Fechar sem guardar** (fecha como antes). Nada disto sai do aparelho da marca: não há pedido à
    rede, e o único dado novo guardado é a hora do envio (`gc.claim.at`, no separador, ao lado da nota do pedido
@@ -335,7 +350,7 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 5. Se recarregar a página (ou voltar do WhatsApp com a página recarregada), o pedido volta ao passo 2, reservado. O
    número do pedido fica guardado nesse separador: o mesmo pacote nunca é enviado duas vezes, nem com dois toques
    seguidos, nem com «Voltar» (os botões só enviam outra vez a mensagem). O que escreveu e o logótipo também ficam
-   guardados no separador, no máximo 6 horas; «Feito» apaga o nome, o NIF, a mensagem e o logótipo.
+   guardados no separador, no máximo 6 horas; «Feito» apaga o nome, o email, o telefone, o NIF, a mensagem e o logótipo.
 6. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: outra marca reservou
    entretanto o espaço (sai do pacote, escolhe outro; o espaço fica reservado na página mesmo antes de o GitHub Pages
    o mostrar), mais de 6 espaços (escolhe o fato completo ou fala comigo), um campo a corrigir, um logótipo que não
@@ -406,7 +421,8 @@ recusar todos os pedidos** (o site diria «A verificação contra spam falhou»)
    and variables → Actions) e corre **Actions → Deploy pedidos → Run workflow**. O Worker passa a exigir o token e
    deixa 2 pedidos abertos por endereço em vez de 1. Para desligar, apaga o secret e corre a action outra vez.
 
-**Privacidade.** O nome e o NIF servem só para o recibo. Cada pedido fica guardado 180 dias no Cloudflare e depois
+**Privacidade.** O nome, o email e o telefone servem para responder à marca e tratar do patrocínio; o nome e o NIF,
+também para o recibo. A página de privacidade diz o que o pedido leva, nas duas línguas. Cada pedido fica guardado 180 dias no Cloudflare e depois
 apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. O registo de um patrocínio pago fica no mesmo
 serviço até 31 de dezembro do ano a seguir à época (31 de dezembro de 2028 para a época 2027) e depois apaga-se
 sozinho; a página de privacidade diz isto nas duas línguas. Se mudares esse prazo (`contractExpiry` em
@@ -562,8 +578,8 @@ teu.
 confirmas um pedido pago em **Pedidos** (com a data e o montante) ou à mão, em **Novo patrocínio**, para um acordo
 fechado por email, WhatsApp, em pessoa ou em produto. Guarda a marca, os espaços e os preços desse dia, o desconto de
 época e o de pacote, o montante pago (pode ser outro, num acordo; em produto pode ser 0, com a descrição), a data e a
-forma do pagamento, a época e o período, o estado da renovação, o contacto (nome, canal, email, telefone ou conta, só
-o que houver), o NIF se o deu, a língua, se o logótipo em vetor já chegou, as notas, o número do pedido e o histórico
+forma do pagamento, a época e o período, o estado da renovação, o contacto (nome, email e telefone e, se houver, o canal e a
+conta), o NIF se o deu, a língua, se o logótipo em vetor já chegou, as notas, o número do pedido e o histórico
 das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
 
 **O que a página mostra.**
@@ -571,7 +587,9 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   faltam («Recebido»); um patrocinador cujo pedido (ou, à mão, o pagamento) foi depois de 15 de janeiro e ainda sem a
   prova a partir da qual o logótipo entra no equipamento («Falta combinar a prova do logótipo», «Editar»); um espaço
   vendido sem logótipo no site; um contrato cujos espaços não estão vendidos a essa marca no site; um pedido confirmado
-  sem registo («Registar»); de 1 de setembro a 31 de outubro, as propostas de 2028 por enviar («Enviei a proposta»;
+  sem registo («Registar» ou, num pedido de teste ou feito por engano, «Eliminar», que pergunta antes e apaga o pedido
+  do serviço dos pedidos: «Eliminar o pedido … de …? Usa isto para testes ou enganos: um pedido pago deve ser
+  registado. Não se pode desfazer.»); de 1 de setembro a 31 de outubro, as propostas de 2028 por enviar («Enviei a proposta»;
   nas duas últimas semanas, «ainda por enviar», com o prazo); nas duas últimas semanas antes de 31 de outubro, as
   respostas que faltam («Renova», «Não renova»); a partir de 1 de novembro, os espaços para libertar (também os de quem
   nunca recebeu proposta); de 1 de novembro a 15 de janeiro, as renovações de 2028 por pagar («Renovação de 2028 por
@@ -604,6 +622,10 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   registo feito por engano; pergunta antes). Depois de «Renova», o pagamento: «Pagar até 15 jan. 2028» (em aviso nas
   duas últimas semanas), «Renovação de 2028 paga a …» (quando há um patrocínio de 2028 da mesma marca nos mesmos
   espaços) ou «Renovação de 2028 por pagar desde 16 jan. 2028: o espaço fica livre». E a linha da montra, «Montra: 2 de 3 produtos», com o botão **Montra**.
+- **Novo patrocínio** pede o contacto: o nome (pelo menos 2 letras), o email e o telefone (9 a 15 algarismos) são
+  obrigatórios, como no pedido do site; o canal e a conta de Instagram são opcionais. Num registo vindo de um pedido do
+  site, o contacto vem do pedido (nome, email, telefone e canal) e **Editar** mostra-o preenchido. Um registo de antes
+  de 31.10.2026 sem email ou telefone pode continuar sem eles, mas um campo preenchido não fica vazio.
 - **Novo patrocínio** na época 2028, também para uma marca que renovou: a tabela de 2028, como para todos (com o
   desconto de pacote, como sempre).
 - **Exportar CSV**: `gocarmo-patrocinios-<época>-<data>.csv`, separado por `;`, que o Excel em português abre
@@ -611,7 +633,8 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   iPhone descarrega para Ficheiros (nunca passa pela folha de partilha, porque leva os contactos e os NIF). É a tua
   cópia de segurança: guarda-a e apaga as antigas até ao fim do prazo dos registos.
 - **Confirmação (PDF)**: a «Confirmação de patrocínio» que envias à marca depois do pagamento, feita no telemóvel como
-  o comprovativo: marca, espaços e preços, desconto de época e de pacote (só quando o montante é o da tabela), montante
+  o comprovativo: marca, o nome, o email e o telefone do contacto, espaços e preços, desconto de época e de pacote (só
+  quando o montante é o da tabela), montante
   e data do pagamento, período, prazo do logótipo, preferência na renovação e o seu prazo (à tabela de 2028), o prazo
   do pagamento da renovação (15 de janeiro de 2028) e o link para as condições.
   Em português, ou em inglês se a marca escreveu em inglês (escolhes antes de gerar). A seguir, em anexo, as condições

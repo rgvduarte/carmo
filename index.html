@@ -69,23 +69,23 @@
   "./assets/js/admin-analytics-map.js": "./assets/js/admin-analytics-map.js?v=a6e8f1b4",
   "./assets/js/admin-analytics-panels.js": "./assets/js/admin-analytics-panels.js?v=7b54e2bb",
   "./assets/js/admin-analytics.js": "./assets/js/admin-analytics.js?v=65a73629",
-  "./assets/js/admin-confirm-pdf.js": "./assets/js/admin-confirm-pdf.js?v=4c9d7f83",
-  "./assets/js/admin-contracts.js": "./assets/js/admin-contracts.js?v=887575a5",
-  "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=8d4ca3b5",
+  "./assets/js/admin-confirm-pdf.js": "./assets/js/admin-confirm-pdf.js?v=55422306",
+  "./assets/js/admin-contracts.js": "./assets/js/admin-contracts.js?v=4c2ab396",
+  "./assets/js/admin-core.js": "./assets/js/admin-core.js?v=2a256128",
   "./assets/js/admin-documentos-store.js": "./assets/js/admin-documentos-store.js?v=95823a00",
   "./assets/js/admin-documentos.js": "./assets/js/admin-documentos.js?v=d399c3d7",
   "./assets/js/admin-gh.js": "./assets/js/admin-gh.js?v=aac86619",
   "./assets/js/admin-montra-core.js": "./assets/js/admin-montra-core.js?v=65ac1320",
   "./assets/js/admin-montra.js": "./assets/js/admin-montra.js?v=b8a5f267",
-  "./assets/js/admin-patrocinios.js": "./assets/js/admin-patrocinios.js?v=4e287c78",
+  "./assets/js/admin-patrocinios.js": "./assets/js/admin-patrocinios.js?v=c4a946a5",
   "./assets/js/admin-photo.js": "./assets/js/admin-photo.js?v=534d6c65",
   "./assets/js/admin-report-model.js": "./assets/js/admin-report-model.js?v=858f77a3",
   "./assets/js/admin-report-pdf.js": "./assets/js/admin-report-pdf.js?v=3ade1f26",
   "./assets/js/admin-report-text.js": "./assets/js/admin-report-text.js?v=2da9f491",
   "./assets/js/admin-report.js": "./assets/js/admin-report.js?v=9bb7f896",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
-  "./assets/js/admin.js": "./assets/js/admin.js?v=e6854a42",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=0225baf6",
+  "./assets/js/admin.js": "./assets/js/admin.js?v=c41fad39",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=77a63350",
   "./assets/js/analytics.js": "./assets/js/analytics.js?v=640b44e0",
   "./assets/js/cartao.js": "./assets/js/cartao.js?v=3afab20e",
   "./assets/js/charts.js": "./assets/js/charts.js?v=0498e3d5",
@@ -94,7 +94,7 @@
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=ce358705",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=3075630b",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=fd650a72",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
@@ -104,7 +104,7 @@
   "./assets/js/pdf-kit.js": "./assets/js/pdf-kit.js?v=bc162515",
   "./assets/js/privacy.js": "./assets/js/privacy.js?v=95de7df4",
   "./assets/js/races.js": "./assets/js/races.js?v=de409e59",
-  "./assets/js/receipt.js": "./assets/js/receipt.js?v=f6b133d7",
+  "./assets/js/receipt.js": "./assets/js/receipt.js?v=75c9ad8f",
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
   "./assets/js/season-rules.js": "./assets/js/season-rules.js?v=2761de48",
   "./assets/js/stats-fb.js": "./assets/js/stats-fb.js?v=87cd2e59",
@@ -840,7 +840,7 @@
           <p class="cl-hint" id="cl-pay-cap" hidden></p>
         </div>
         <div class="cl-fields">
-          <div class="field"><label for="cl-brand" data-i18n="cl.brand">Marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" maxlength="60" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
+          <div class="field"><label for="cl-brand" data-i18n="cl.brand">Empresa ou marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" maxlength="60" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
           <!-- the logo goes with the request (SITE.requestsApi): the whole box is the file input, so a tap opens the
                photos on a phone and a file dropped on it on a computer is taken as picked. Shown only with the Worker on -->
           <div class="field cl-logo" id="cl-logo-f" hidden>
@@ -853,7 +853,10 @@
             </div>
             <p class="err" id="cl-logo-err" hidden></p>
           </div>
-          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome (opcional)</label><input id="cl-name" autocomplete="name" maxlength="80" enterkeyhint="done"></div>
+          <!-- who to answer: the buyer's name, email and phone, all required (adspace.js formOk), with the company or brand -->
+          <div class="field"><label for="cl-name" data-i18n="cl.name">O teu nome</label><input id="cl-name" autocomplete="name" maxlength="80" enterkeyhint="next" required aria-describedby="cl-name-err"><p class="err" id="cl-name-err" hidden></p></div>
+          <div class="field"><label for="cl-email" data-i18n="cl.email">Email</label><input id="cl-email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" maxlength="120" enterkeyhint="next" required aria-describedby="cl-email-err"><p class="err" id="cl-email-err" hidden></p></div>
+          <div class="field"><label for="cl-phone" data-i18n="cl.phone">Telefone</label><input id="cl-phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="30" enterkeyhint="done" required aria-describedby="cl-phone-err"><p class="err" id="cl-phone-err" hidden></p></div>
           <button type="button" class="link cl-add" id="cl-add" aria-expanded="false" aria-controls="cl-extra"><span aria-hidden="true">+</span> <span data-i18n="cl.add">Adicionar NIF ou mensagem</span></button>
           <div class="cl-extra" id="cl-extra" hidden>
             <div class="field"><label for="cl-nif" data-i18n="cl.nif">NIF para o recibo</label><input id="cl-nif" inputmode="numeric" autocomplete="off" maxlength="20" enterkeyhint="next"></div>

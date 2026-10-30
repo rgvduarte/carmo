@@ -75,7 +75,7 @@ export function checkSelector(v) {
 }
 const lastStep = (sel) => sel.slice(Math.max(sel.lastIndexOf(' '), -1) + 1);
 // the form fields of the booking window and the logo try-on (index.html): never a click record
-const FIELD_IDS = new Set(['cl-brand', 'cl-name', 'cl-nif', 'cl-msg', 'logo-file', 'logo-bg', 'logo-inv']);
+const FIELD_IDS = new Set(['cl-brand', 'cl-name', 'cl-email', 'cl-phone', 'cl-nif', 'cl-msg', 'logo-file', 'logo-bg', 'logo-inv']);
 function isField(sel, sec) {
   const last = lastStep(sel);
   if (last.startsWith('#')) return FIELD_IDS.has(last.slice(1));
