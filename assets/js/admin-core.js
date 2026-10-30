@@ -297,18 +297,21 @@ export function totalNote(t) {
 //   Espaços:                                     or   Fato completo (Title partner): 3 000 €
 //   • 21 Topo do capacete (6×13 cm) · 400 €           (the email may leave the sizes out)
 //   Total: 540 € (600 € −10%)
-//   Marca: … / Nome: … / NIF: …
+//   Marca: … / Nome: … / Email: … / Telefone: … / NIF: …     (Email and Telefone since 31.10.2026; EN Phone)
 //   Referência: CARMO 21 22                          (KONA 21 22 in an older request)
 //   Pagamento: transferência ou MB WAY                («MB WAY», «transferência bancária»; EN «Payment: …»)
 //
 //   the buyer's own message, then the link: https://gocarmo.com/#pacote=capacete-topo,… or …/#fato/title
 // The link names the spots by id, so it wins over the list (unless it was cut short); the list is read by name, then by
 // number; the CARMO line comes last. A text with none of this is a bare payment reference: parseRef, as before.
-// parsePaste() returns { kind: 'ref' | 'link' | 'request', ids, from, unknown, notes, brand, name, nif, nifOk, pay, ref,
-// stated, lang, request }; for kind 'ref', parseRef's { ids, unknown, note }.
+// parsePaste() returns { kind: 'ref' | 'link' | 'request', ids, from, unknown, notes, brand, name, email, phone, nif, nifOk,
+// pay, ref, stated, lang, request } (email and phone '' in a message from before they were asked for); for kind 'ref',
+// parseRef's { ids, unknown, note }.
 const LINE = {
   brand: /^(?:marca|brand)\s*:\s*(.*)$/i,
   name: /^(?:nome|name)\s*:\s*(.*)$/i,
+  email: /^e-?mail\s*:\s*(.*)$/i,
+  phone: /^(?:telefone|telem[oó]vel|phone|tel\.?)\s*:\s*(.*)$/i,
   nif: /^(?:nif|nipc|vat(?:\s*(?:number|no\.?))?)\s*:\s*(.*)$/i,
   ref: /^(?:refer[eê]ncia|reference)\s*:\s*(.*)$/i,
   pay: /^(?:pagamento|payment)\s*:\s*(.*)$/i,
@@ -323,7 +326,7 @@ const LINE = {
   spots: /^(?:espa[cç]os|spots)\s*:\s*$/i,
   bullet: /^[•·*\-–]\s*(\d{1,2})\s+(.+)$/,
 };
-const PT_KEYS = /^(?:ola|espacos|marca|nome|referencia|pagamento|fato|desconto)\b/;   // on fold()ed text
+const PT_KEYS = /^(?:ola|espacos|marca|nome|telefone|telemovel|referencia|pagamento|fato|desconto)\b/;   // on fold()ed text
 // month names in a season line, folded: [['janeiro', 'january'], …]
 const MONTH_WORDS = [['janeiro', 'january'], ['fevereiro', 'february'], ['marco', 'march'], ['abril', 'april'], ['maio', 'may'], ['junho', 'june'], ['julho', 'july'], ['agosto', 'august'], ['setembro', 'september'], ['outubro', 'october'], ['novembro', 'november'], ['dezembro', 'december']];
 // a copied WhatsApp chat starts each message with '[14:05, 23/10/2026] Nome: ' (or '23/10/26, 14:05 - Nome: ' in an
@@ -367,7 +370,7 @@ function spotOfLine(data, n, label) {
 export function parsePaste(text, data) {
   const src = String(text || '');
   const lines = src.split(/\r?\n/).map((l) => l.replace(QUOTE, '').replace(WA_COPY, '').replace(WA_EXPORT, '').trim());
-  const out = { kind: 'request', ids: [], from: '', unknown: [], notes: [], brand: '', name: '', nif: '', nifOk: null, pay: '', ref: '', stated: null, lang: '', request: '' };
+  const out = { kind: 'request', ids: [], from: '', unknown: [], notes: [], brand: '', name: '', email: '', phone: '', nif: '', nifOk: null, pay: '', ref: '', stated: null, lang: '', request: '' };
   const linkTitle = /#fato\/title(?![\w-])/i.test(src);
   const pk = src.match(/#pacote=([A-Za-z0-9%,_-]+)/i);
   const one = pk || linkTitle ? null : src.match(/gocarmo\.com\/?#(?:fato|capacete)\/([a-z0-9-]+)/i);
@@ -408,18 +411,21 @@ export function parsePaste(text, data) {
       if (named >= 0 && named + 1 !== n) out.notes.push(`O mês escrito no desconto de época não bate com o mês ${n}.`);
       continue;
     }
-    for (const k of ['brand', 'name', 'nif', 'ref', 'pay', 'total', 'title']) {
+    for (const k of ['brand', 'name', 'email', 'phone', 'nif', 'ref', 'pay', 'total', 'title']) {
       if (seen.has(k) || !(m = l.match(LINE[k]))) continue;
       seen.add(k); looks = true;
       const v = m[1].trim();
       if (k === 'brand') out.brand = normBrand(v);
       else if (k === 'name') out.name = v.slice(0, 80);
+      // (a mail app may have turned it into a link: «nome@marca.pt <mailto:nome@marca.pt>»)
+      else if (k === 'email') out.email = ((v.match(/[^\s<>()"':]+@[^\s<>()"']+/) || [v])[0]).slice(0, 120);
+      else if (k === 'phone') out.phone = v.slice(0, 30);
       else if (k === 'nif') out.nif = v.slice(0, 20);
       else if (k === 'ref') out.ref = v.slice(0, 40);
       else if (k === 'pay') out.pay = payOf(v);
       else if (k === 'total') out.stated = parseMoney(v);
       else titleLine = parseMoney(v);
-      if (k !== 'nif' && k !== 'total') lang(l);
+      if (k !== 'nif' && k !== 'total' && k !== 'email') lang(l);
       break;
     }
   }

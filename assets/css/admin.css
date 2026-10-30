@@ -207,6 +207,7 @@ input::placeholder { color: var(--dim); }
 .req-season { margin: 0; font-size: 13px; color: var(--gold); overflow-wrap: anywhere; }
 .req-contract { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 14px; color: var(--muted); }
 .req-contract a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); }
+.req-erase { display: flex; margin: 0; }
 /* the payment of a request: «Pago a» and «Montante recebido» side by side (sale sheet, «Pagamento») */
 .paid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 10px; }
 .paid .field { min-width: 0; margin-bottom: 8px; }

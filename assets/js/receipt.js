@@ -185,9 +185,11 @@ export async function prepareAnnex(date) {
 }
 
 export function receiptPdf(m, now = new Date()) {
-  // everything on one page: a long list (a package sent as a message only can have many spots) makes the type smaller
+  // everything on one page: a long list (a package sent as a message only can have many spots) makes the type smaller,
+  // down to 60% (since 31.10.2026 the buyer's email and phone are two more rows: all 24 spots take 68%, the longest
+  // contact with them a little less)
   let out = null;
-  for (let s = 1; s >= 0.69; s -= 0.04) { out = page(m, s); if (out.fits) break; }
+  for (let s = 1; s >= 0.59; s -= 0.04) { out = page(m, s); if (out.fits) break; }
   const info = { lang: m.lang, title: m.docTitle, subject: m.title, author: m.head.name, now };
   // the annex: only the version the request named (terms-text.js, or the older text prepareAnnex fetched), in the
   // language of the request; without that text, page 1 alone, never another version's text

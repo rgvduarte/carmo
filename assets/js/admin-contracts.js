@@ -214,7 +214,8 @@ export function calendar(rules, day) {
 // contracts: GET /contratos; requests: GET /pedidos (or null when not read); data: data/spots.json (or null); rules: the
 // season in force (rulesOf(data)); day: today in Lisbon. Returns [{ key, kind: 'warn' | 'info', text, id?, acts:
 // [{ op, label, state? }] }] in the order of the season. op: 'logo' (the vector logo arrived), 'renovacao' (with state),
-// 'registar' (a confirmed request without a record: confirmar again), 'espacos' (go to /admin/).
+// 'registar' (a confirmed request without a record: confirmar again), 'apagar-pedido' (that request out of the Worker: a
+// test, a mistake), 'espacos' (go to /admin/).
 const sameBrand = (a, b) => fold(a).trim().replace(/\s+/g, ' ') === fold(b).trim().replace(/\s+/g, ' ');
 export function dueNow(contracts, requests, data, rules, day) {
   const out = [], list = (Array.isArray(contracts) ? contracts : []).filter((c) => c && typeof c === 'object');
@@ -225,7 +226,7 @@ export function dueNow(contracts, requests, data, rules, day) {
   for (const r of Array.isArray(requests) ? requests : []) {
     if (!r || r.status !== 'confirmado') continue;
     if (list.some((c) => c.id === r.id || (c.request && c.request === r.id))) continue;
-    add({ key: `registar:${r.id}`, kind: 'warn', id: r.id, text: `Pedido confirmado sem registo: ${r.brand || 'sem marca'} (pedido ${r.id})`, acts: [{ op: 'registar', label: 'Registar' }], request: r });
+    add({ key: `registar:${r.id}`, kind: 'warn', id: r.id, text: `Pedido confirmado sem registo: ${r.brand || 'sem marca'} (pedido ${r.id})`, acts: [{ op: 'registar', label: 'Registar' }, { op: 'apagar-pedido', label: 'Eliminar' }], request: r });
   }
 
   // the vector logo for the printed suit and helmet: up to the season's deadline, and for a sponsor whose request (or, by
@@ -411,7 +412,7 @@ const L = {
   pt: {
     title: 'Confirmação de patrocínio', doc: (b) => `Confirmação de patrocínio · ${b}`, file: 'confirmacao',
     seasonH: (y) => `Patrocinador da época ${y}`, thanks: (b) => `Obrigado, ${b}. O patrocínio está confirmado.`,
-    brand: 'Marca', level: 'Nível', period: 'Período', periodV: (r) => `Época ${r.season}, de ${ptLong(r.start).replace(/ de \d{4}$/, '')} a ${ptLong(r.end)}`,
+    brand: 'Marca', name: 'Nome', email: 'Email', phone: 'Telefone', level: 'Nível', period: 'Período', periodV: (r) => `Época ${r.season}, de ${ptLong(r.start).replace(/ de \d{4}$/, '')} a ${ptLong(r.end)}`,
     paidAt: 'Pago a', agreedAt: 'Combinado a', pay: 'Pagamento', nif: 'NIF', ref: 'Registo',
     cols: ['Espaço', 'Equipamento', 'Preço'], suit: 'Fato', helmet: 'Capacete', whole: 'Fato completo (Title partner)',
     seasonRow: (m, bp) => `Desconto de época (${PT_MONTHS[m - 1]}, −${pctText(bp, ',')}%)`, bundleRow: (p) => `Desconto de pacote (−${p}%)`, paid: 'Montante pago',
@@ -442,7 +443,7 @@ const L = {
   en: {
     title: 'Sponsorship confirmation', doc: (b) => `Sponsorship confirmation · ${b}`, file: 'confirmation',
     seasonH: (y) => `${y} season sponsor`, thanks: (b) => `Thank you, ${b}. The sponsorship is confirmed.`,
-    brand: 'Brand', level: 'Level', period: 'Period', periodV: (r) => `${r.season} season, ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
+    brand: 'Brand', name: 'Name', email: 'Email', phone: 'Phone', level: 'Level', period: 'Period', periodV: (r) => `${r.season} season, ${enLong(r.start).replace(/ \d{4}$/, '')} to ${enLong(r.end)}`,
     paidAt: 'Paid on', agreedAt: 'Agreed on', pay: 'Payment', nif: 'Tax number (NIF)', ref: 'Record',
     cols: ['Spot', 'Kit', 'Price'], suit: 'Suit', helmet: 'Helmet', whole: 'Whole suit (Title partner)',
     seasonRow: (m, bp) => `Mid-season discount (${EN_MONTHS[m - 1]}, −${pctText(bp, '.')}%)`, bundleRow: (p) => `Bundle discount (−${p}%)`, paid: 'Amount paid',
@@ -494,7 +495,9 @@ export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {
   // paid in kind (nothing in money): «Combinado a», and the total row says «Em produto», never «Montante pago 0 €»
   const kind = c.pay === 'produto' && !(Number(c.amount) > 0);
   const pay = c.pay === 'produto' && c.inKind ? w.inKind(c.inKind) : w.pays[c.pay] || '';
-  const info = [[w.brand, brand], [w.level, levelName(c.level, lg, data)], [w.period, w.periodV(r)], [kind ? w.agreedAt : w.paidAt, c.paidAt ? longDate(c.paidAt, lg) : ''], [w.pay, pay]];
+  // the brand and who it is for: the name, email and phone of the contact (a record without them: those rows are left out)
+  const ct = c.contact || {};
+  const info = [[w.brand, brand], [w.name, String(ct.name || '')], [w.email, String(ct.email || '')], [w.phone, String(ct.phone || '')], [w.level, levelName(c.level, lg, data)], [w.period, w.periodV(r)], [kind ? w.agreedAt : w.paidAt, c.paidAt ? longDate(c.paidAt, lg) : ''], [w.pay, pay]];
   if (c.nif) info.push([w.nif, c.nif]);
   info.push([w.ref, String(c.id || '')]);
   const ids = idsOf(c), what = title ? w.renewWhat.title : ids.length > 1 ? w.renewWhat.many : ids.length === 1 ? w.renewWhat.one : w.renewWhat.none;

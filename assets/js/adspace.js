@@ -1130,6 +1130,7 @@ function kindKey() {
 function message({ sizes = true, extra = null } = {}) {
   const { list, net, gross, discPct, midSeason, m, seasonBp, day } = totals(), R = rules();
   const brand = $('#cl-brand').value.trim(), name = $('#cl-name').value.trim(), nif = $('#cl-nif').value.trim();
+  const email = $('#cl-email').value.trim(), phone = $('#cl-phone').value.trim();
   extra ??= $('#cl-msg').value.trim();
   const lines = [t(`msg.hi${kindKey()}`, R.season), ''];
   // the amount to pay first, then how it was reached: «Total: 928 € (1 100 € −6,25% −10%)» (the admin page reads the
@@ -1141,8 +1142,12 @@ function message({ sizes = true, extra = null } = {}) {
     for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name}${sizes ? ` (${sizeOf(s, '×')})` : ''} · ${money(s.price)}`);
     lines.push(`${t('msg.total')}: ${money(net)}${how}`);
   }
+  // who is asking: the company or brand, then the buyer's name, email and phone (all four required: formOk), then the NIF
+  // (the admin page reads each line: admin-core.js LINE)
   if (brand) lines.push(`${t('msg.brand')}: ${brand}`);
   if (name) lines.push(`${t('msg.name')}: ${name}`);
+  if (email) lines.push(`${t('msg.email')}: ${email}`);
+  if (phone) lines.push(`${t('msg.phone')}: ${phone}`);
   if (nif) lines.push(`${t('msg.nif')}: ${nif}`);
   lines.push(`${t('msg.ref')}: ${payRef()}`);
   // the way the buyer picked in step 1, so Gonçalo knows where to look for the money
@@ -1267,7 +1272,7 @@ function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
     const add = $('#cl-add');
     $('#cl-extra').hidden = true; add.hidden = false; add.setAttribute('aria-expanded', 'false');
   }
-  brandErr(false);
+  for (const f of FIELDS) showErr(f, '');
   goStep(step, { focus: false });
   for (const m of models()) m.hold(true);
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
@@ -1330,7 +1335,7 @@ function renderClaim() {
     $('#cl-closed-mail').href = `mailto:${SITE.email}?subject=${encodeURIComponent(t('cl.closedSubj', R))}&body=${encodeURIComponent(t('cl.closedAsk', R))}`;
     $('#cl-closed-wa').href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(t('cl.closedAsk', R))}`;
   }
-  if (!$('#cl-brand-err').hidden) $('#cl-brand-err').textContent = t(brandErrKey);
+  for (const f of FIELDS) if (errKeys[f]) $(`#cl-${f}-err`).textContent = t(errKeys[f]);
   // the request: a package already held from this tab says so; the logo field, its error, what is missing, the note
   const r = heldReq(), k = kOf();
   const h1 = $('#cl-held1');
@@ -1493,23 +1498,44 @@ const shownText = (el) => [...el.childNodes].filter((n) => !n.hidden).map((n) =>
 // a polite word for a screen reader when something shows up on its own (the WhatsApp line above)
 function say(text) { const el = $('#cl-live'); el.textContent = ''; setTimeout(() => { el.textContent = text; }, 60); }
 
-// the brand is the one thing a request cannot go without
-let brandErrKey = 'cl.err';
-function brandErr(on, key = 'cl.err') {
-  const er = $('#cl-brand-err');
-  brandErrKey = key;
-  er.hidden = !on; er.textContent = on ? t(key) : '';
-  $('#cl-brand').setAttribute('aria-invalid', String(on));
+// What a request cannot go without: the company or brand, and the buyer's name, email and phone (the owner's request of
+// 30.10.2026), each with its error under it (#cl-<field>-err) and aria-invalid; with the Worker, the logo too. The rules
+// are the Worker's own (worker/requests.js, POST /pedido): a name of 2 characters or more; an email with one @, a dot in
+// its domain and no spaces; a phone of 9 to 15 digits, with spaces and an optional + in front (a Portuguese number, or
+// one with its country code).
+const FIELDS = ['brand', 'name', 'email', 'phone'];
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+const phoneOk = (v) => /^\+?[0-9 ]+$/.test(v) && /^\d{9,15}$/.test(v.replace(/\D/g, ''));
+// field -> the key of the error it shows ('' none), said again in the other language (renderClaim)
+const errKeys = {};
+function showErr(f, key = '') {
+  const er = $(`#cl-${f}-err`);
+  errKeys[f] = key;
+  er.hidden = !key; er.textContent = key ? t(key) : '';
+  $(`#cl-${f}`).setAttribute('aria-invalid', String(!!key));
 }
-// the brand, and with the Worker the logo (not for a package already held: its logo went with the request)
-function brandOk() {
-  const el = $('#cl-brand'), ok = !!el.value.trim(), noLogo = !!API && !buyerLogo && !heldReq();
+const brandErr = (on, key = 'cl.err') => showErr('brand', on ? key : '');
+// the field's error now ('' when it will do)
+function fieldKey(f) {
+  const v = $(`#cl-${f}`).value.trim();
+  if (f === 'brand') return v ? '' : 'cl.err';
+  if (f === 'name') return !v ? 'cl.errName' : Array.from(v.replace(/\s+/g, ' ')).length < 2 ? 'cl.errNameShort' : '';
+  if (f === 'email') return !v ? 'cl.errEmail' : EMAIL_RE.test(v) ? '' : 'cl.errEmailBad';
+  return !v ? 'cl.errPhone' : phoneOk(v) ? '' : 'cl.errPhoneBad';
+}
+// before any send action: every field checked at once, each error under its field, and the first one in the order of the
+// form (the brand, the logo, the name, the email, the phone) takes the focus, so a screen reader hears its label and its
+// error. The logo with the Worker only, and not for a package already held (its logo went with the request).
+function formOk() {
+  const keys = Object.fromEntries(FIELDS.map((f) => [f, fieldKey(f)])), noLogo = !!API && !buyerLogo && !heldReq();
+  const bad = FIELDS.filter((f) => keys[f]);
   // the email and Instagram actions also sit in step 2 (when WhatsApp did not open): the fields are back in step 1
-  if ((!ok || noLogo) && clStep !== 1) goStep(1, { focus: false });
-  brandErr(!ok);
+  if ((bad.length || noLogo) && clStep !== 1) goStep(1, { focus: false });
+  for (const f of FIELDS) showErr(f, keys[f]);
   logoErr(noLogo ? 'cl.logoErr' : '');
-  if (!ok) el.focus(); else if (noLogo) $('#cl-logo').focus();
-  return ok && !noLogo;
+  const first = keys.brand ? '#cl-brand' : noLogo ? '#cl-logo' : bad.length ? `#cl-${bad[0]}` : '';
+  if (first) $(first).focus();
+  return !first;
 }
 
 // The transfer description: the spot numbers, so a payment can be matched to its spots at a glance.
@@ -1751,7 +1777,7 @@ let draftT = 0;
 function saveDraft() {
   clearTimeout(draftT);
   draftT = setTimeout(() => {
-    const d = { at: Date.now(), brand: $('#cl-brand').value, name: $('#cl-name').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
+    const d = { at: Date.now(), brand: $('#cl-brand').value, name: $('#cl-name').value, email: $('#cl-email').value, phone: $('#cl-phone').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
     const L = buyerLogo;
     try { sessionStorage.setItem(DRAFT, JSON.stringify(L ? { ...d, logo: { dataUrl: L.dataUrl, w: L.w, h: L.h, name: L.name, size: L.size } } : d)); } catch (_) {
       try { sessionStorage.setItem(DRAFT, JSON.stringify(d)); } catch (__) {}   // full: the words at least
@@ -1763,7 +1789,7 @@ async function restoreDraft() {
   try { d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); } catch (_) {}
   if (!d || typeof d !== 'object') return;
   if (!(Date.now() - Number(d.at) < DRAFT_KEEP)) { try { sessionStorage.removeItem(DRAFT); } catch (_) {} return; }
-  for (const [k, q] of [['brand', '#cl-brand'], ['name', '#cl-name'], ['nif', '#cl-nif'], ['msg', '#cl-msg']]) if (typeof d[k] === 'string' && d[k] && !$(q).value) $(q).value = d[k];
+  for (const [k, q] of [['brand', '#cl-brand'], ['name', '#cl-name'], ['email', '#cl-email'], ['phone', '#cl-phone'], ['nif', '#cl-nif'], ['msg', '#cl-msg']]) if (typeof d[k] === 'string' && d[k] && !$(q).value) $(q).value = d[k];
   if ($('#cl-nif').value.trim() || $('#cl-msg').value.trim()) { $('#cl-extra').hidden = false; $('#cl-add').hidden = true; $('#cl-add').setAttribute('aria-expanded', 'true'); }
   const L = d.logo;
   if (L && typeof L.dataUrl === 'string' && L.dataUrl.startsWith('data:image/png;base64,') && !buyerLogo) {
@@ -1771,12 +1797,12 @@ async function restoreDraft() {
   }
   if ($('#claim').open) renderClaim();
 }
-// the request is over: the name, the NIF, the message and the logo go, from the fields and from the tab (the brand stays
-// in its field for another package, but is no longer stored)
+// the request is over: the name, the email, the phone, the NIF, the message and the logo go, from the fields and from the
+// tab (the brand stays in its field for another package, but is no longer stored)
 function forgetDraft() {
   clearTimeout(draftT);   // a save still on its way would write it back
   try { sessionStorage.removeItem(DRAFT); } catch (_) {}
-  for (const q of ['#cl-name', '#cl-nif', '#cl-msg']) $(q).value = '';
+  for (const q of ['#cl-name', '#cl-email', '#cl-phone', '#cl-nif', '#cl-msg']) $(q).value = '';
   setLogo(null, { save: false });
 }
 
@@ -1802,9 +1828,10 @@ function renderNeed() {
   const need = $('#cl-need'), acts = [$('#cl-wa'), $('#cl-mail'), $('#cl-ig')];
   let text = '';
   if (rqBusy) { text = t('cl.busy'); $$('#cl-s1 .cl-busy-t').forEach((x) => { x.textContent = text; }); }
-  else if (API) {
-    const b = !$('#cl-brand').value.trim(), l = !buyerLogo && !heldReq();
-    text = b && l ? t('cl.needBL') : b ? t('cl.needB') : l ? t('cl.needL') : '';
+  else {
+    // the fields still empty, in the order of the form, and with the Worker the logo
+    const miss = FIELDS.filter((f) => !$(`#cl-${f}`).value.trim()), l = !!API && !buyerLogo && !heldReq();
+    text = miss.length || l ? t('cl.need', miss, l) : '';
   }
   // the season closed for requests: the note above the buttons says why (#cl-closed), and nothing more is asked for
   const closed = shut();
@@ -1883,8 +1910,8 @@ async function book(by) {
   setNote(null);
   const body = {
     ...(wantTitle ? { title: true } : { items: list.map((s) => s.id) }),
-    brand: $('#cl-brand').value.trim(), name: $('#cl-name').value.trim(), nif: $('#cl-nif').value.trim(), message: $('#cl-msg').value.trim(),
-    pay: payNow(), lang: getLang(), channel: CHANNEL[by], logo: buyerLogo.dataUrl, website: '',
+    brand: $('#cl-brand').value.trim(), name: $('#cl-name').value.trim(), email: $('#cl-email').value.trim(), phone: $('#cl-phone').value.trim(),
+    nif: $('#cl-nif').value.trim(), message: $('#cl-msg').value.trim(), pay: payNow(), lang: getLang(), channel: CHANNEL[by], logo: buyerLogo.dataUrl, website: '',
   };
   // on its way until its answer is read: a reload meanwhile, or no answer at all, keeps its spots in the package
   // (pruneBasket) while their hold may be this request's own
@@ -1954,7 +1981,10 @@ function failed(res, j, by, r) {
     case 'limite-site': toMsg(() => t('rq.limiteSite')); return;
     case 'muitos': toMsg(() => t('rq.muitos', Number(j.max) || MAX_ITEMS)); return;
     case 'marca': brandErr(true, 'rq.marca'); $('#cl-brand').focus(); return;
-    case 'nome': fieldErr('#cl-name', 'rq.nome'); return;
+    // (a page that checked them already: only a rule changed on the Worker gets here)
+    case 'nome': showErr('name', 'rq.nome'); $('#cl-name').focus(); return;
+    case 'email': showErr('email', 'rq.email'); $('#cl-email').focus(); return;
+    case 'telefone': showErr('phone', 'rq.telefone'); $('#cl-phone').focus(); return;
     case 'nif': openExtra(); fieldErr('#cl-nif', 'rq.nif'); return;
     case 'mensagem': openExtra(); fieldErr('#cl-msg', 'rq.mensagem'); return;
     case 'pagamento': setNote(() => t('rq.pagamento')); $('#cl-pay input:not(:disabled)')?.focus(); return;
@@ -2038,7 +2068,7 @@ function rcptModel() {
   const at = (r && Date.parse(r.at)) || sentAt, when = new Date(at || Date.now()), day = r ? longDay(r.until, true) : '';
   // (the season's period right under the date: what the request is for)
   const rows = [[t(at ? 'rcpt.date' : 'rcpt.dateNow'), atLisbon(when)], [t('rcpt.period'), t('rcpt.periodV', R)], [t('msg.brand'), (r && r.brand) || $('#cl-brand').value.trim()]];
-  for (const [key, q] of [['msg.name', '#cl-name'], ['msg.nif', '#cl-nif']]) { const v = $(q).value.trim(); if (v) rows.push([t(key), v]); }
+  for (const [key, q] of [['msg.name', '#cl-name'], ['msg.email', '#cl-email'], ['msg.phone', '#cl-phone'], ['msg.nif', '#cl-nif']]) { const v = $(q).value.trim(); if (v) rows.push([t(key), v]); }
   if (!r && openReq) rows.push([t('msg.open'), openReq]);
   const items = wantTitle ? [{ n: '', name: t('msg.title'), model: t('z.suit'), price: money(gross) }]
     : list.map((s) => ({ n: pad2(s.n), name: pick(s).name, model: t(itemOf(s) === 'helmet' ? 'z.helmet' : 'z.suit'), price: money(s.price) }));
@@ -2386,7 +2416,7 @@ function bindUI() {
   // takes no second tap.
   $('#cl-wa').addEventListener('click', (e) => {
     if (shut()) { e.preventDefault(); closedTap(); return; }
-    if (rqBusy || !brandOk()) { e.preventDefault(); return; }
+    if (rqBusy || !formOk()) { e.preventDefault(); return; }
     if (needsPost()) { e.preventDefault(); book('wa'); return; }
     const a = e.currentTarget;
     a.href = waUrl();
@@ -2400,7 +2430,7 @@ function bindUI() {
   // in step 1 and, after a WhatsApp link that did not open, at the top of step 2.
   $$('#claim [data-send="mail"]').forEach((a) => a.addEventListener('click', (e) => {
     if (shut()) { e.preventDefault(); closedTap(); return; }
-    if (rqBusy || !brandOk()) { e.preventDefault(); return; }
+    if (rqBusy || !formOk()) { e.preventDefault(); return; }
     if (needsPost()) { e.preventDefault(); book('mail'); return; }
     e.currentTarget.href = mailUrl();
     sent('mail'); setTimeout(() => goStep(2), 0);
@@ -2409,7 +2439,7 @@ function bindUI() {
     // (refused, or held back for the Worker: like the two links, the tap is marked, so analytics.js does not count it
     // as sent)
     if (shut()) { e.preventDefault(); closedTap(); return; }
-    if (rqBusy || !brandOk()) { e.preventDefault(); return; }
+    if (rqBusy || !formOk()) { e.preventDefault(); return; }
     if (needsPost()) { e.preventDefault(); book('ig'); return; }
     const text = message();
     sent('ig');
@@ -2453,10 +2483,11 @@ function bindUI() {
     e.preventDefault();
     if (!$('#cl-logo-f').hidden && clStep === 1) takeLogo(e.dataTransfer.files[0]);
   });
-  // the draft follows what is typed; a field a request refused clears its mark as it changes
-  for (const q of ['#cl-brand', '#cl-name', '#cl-nif', '#cl-msg']) $(q).addEventListener('input', (e) => {
+  // the draft follows what is typed; a field a request refused clears its mark as it changes (the four required fields:
+  // their own error, gone once there is something in the field, checked again at the next send)
+  for (const q of ['#cl-brand', '#cl-name', '#cl-email', '#cl-phone', '#cl-nif', '#cl-msg']) $(q).addEventListener('input', (e) => {
     saveDraft();
-    if (q !== '#cl-brand' && e.target.getAttribute('aria-invalid') === 'true') { e.target.removeAttribute('aria-invalid'); setNote(null); }
+    if ((q === '#cl-nif' || q === '#cl-msg') && e.target.getAttribute('aria-invalid') === 'true') { e.target.removeAttribute('aria-invalid'); setNote(null); }
   });
   document.addEventListener('visibilitychange', () => waSeen(document.visibilityState === 'visible'));
   // back on the page after a while (another tab, the phone asleep): what other brands held meanwhile
@@ -2465,7 +2496,7 @@ function bindUI() {
   addEventListener('focus', () => waSeen(document.visibilityState === 'visible'));
   addEventListener('pagehide', waGone);
   addEventListener('pageshow', waBack);
-  $('#cl-brand').addEventListener('input', (e) => { if (e.target.value.trim()) brandErr(false); renderNeed(); });
+  for (const f of FIELDS) $(`#cl-${f}`).addEventListener('input', (e) => { if (e.target.value.trim()) showErr(f, ''); renderNeed(); });
   $('#cl-msg').addEventListener('input', mailCutHint);
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });
@@ -2473,7 +2504,7 @@ function bindUI() {
   $('#cl-sent').addEventListener('click', () => { if (shut() || (API && rqMode === 'api' && !heldReq())) return; sent(''); goStep(2); });
   $('#cl-back').addEventListener('click', () => goStep(1));
   // «Feito» ends the request: the package empties and its bar slides away under the thank-you toast (× and Esc keep it),
-  // and the draft goes (name, NIF, message, logo). The bar's «Reservar» goes with it, so focus moves on to the rate card
+  // and the draft goes (name, email, phone, NIF, message, logo). The bar's «Reservar» goes with it, so focus moves on to the rate card
   // heading. A held package whose message never went out says that it still has to.
   const finish = () => {
     if (!$('#claim').open) return;

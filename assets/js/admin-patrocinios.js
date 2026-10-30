@@ -57,6 +57,8 @@ async function call(method, path, body) {
   if (!res.ok) throw new ApiError(res.status, j && typeof j.error === 'string' ? j.error : '', j && typeof j.campo === 'string' ? j.campo : '');
   return j || {};
 }
+// a plausible email: one @, no spaces, a dot inside its domain (the site's own rule, adspace.js formOk)
+const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 const FIELD_TEXT = {
   brand: 'Escreve o nome da marca (até 60 letras).', items: 'Escolhe os espaços, o fato completo, ou escreve uma descrição em «Outro».', season: 'A época tem de ser a desta tabela ou a seguinte (e só muda num registo ainda sem alterações).',
   amount: 'O montante é em euros, sem cêntimos, até 100 000 €.', paidAt: 'A data do pagamento tem de ser de 1 jan. 2026 a amanhã.', pay: 'Escolhe a forma de pagamento.', inKind: 'A descrição do pagamento em produto vai até 200 letras.',
@@ -71,6 +73,8 @@ function errText(e) {
   if (e.status === 429) return 'Demasiadas tentativas. Espera 10 minutos.';
   if (e.code === 'campos') return FIELD_TEXT[e.campo] || 'Um dos campos não foi aceite.';
   if (e.code === 'existe') return 'Esse pedido já tem um contrato registado.';
+  if (e.code === 'contrato') return 'Este pedido tem um patrocínio registado: apaga primeiro esse registo.';
+  if (e.code === 'estado') return 'Este pedido ainda está aberto: cancela-o em Espaços, nos Pedidos.';
   if (e.code === 'muitos') return 'Há registos a mais guardados (900). Exporta o CSV e apaga os das épocas que acabaram.';
   if (e.code === 'nada' || e.status === 404) return 'Este registo já não existe. Atualiza a lista.';
   if (e.code === 'tamanho') return 'O registo é grande demais (as notas são longas?).';
@@ -210,6 +214,7 @@ function nowAct(it, a) {
   if (a.op === 'logo') return patch(it.id, { action: 'editar', set: { logo: { vector: true } } }, 'Logótipo em vetor recebido.');
   if (a.op === 'renovacao') return renew(it.id, a.state);
   if (a.op === 'registar') return register(it.request);
+  if (a.op === 'apagar-pedido') return eraseRequest(it.request);
   if (a.op === 'editar') { const c = findC(it.id); if (c) openSheet(c); }
 }
 
@@ -404,6 +409,19 @@ async function register(r) {
   } catch (e) { authLost(e) || toast(errText(e)); }
   setBusy(r.id, false);
 }
+// a confirmed request with no record that should not have one (a test, a mistake): out of the Worker, after a question
+async function eraseRequest(r) {
+  if (!r || S.busy.has(r.id)) return;
+  if (!(await ask(`Eliminar o pedido ${r.id} de ${r.brand || 'sem marca'}?`, 'Usa isto para testes ou enganos: um pedido pago deve ser registado. Não se pode desfazer.', 'Eliminar'))) return;
+  setBusy(r.id, true);
+  const drop = () => { if (Array.isArray(S.requests)) S.requests = S.requests.filter((x) => x.id !== r.id); };
+  try { await call('POST', `/pedidos/${encodeURIComponent(r.id)}`, { action: 'apagar' }); drop(); toast(`Pedido ${r.id} eliminado.`); } catch (e) {
+    // gone already (another tab): out of the panel as well
+    if (e instanceof ApiError && e.status === 404) drop();
+    authLost(e) || toast(e instanceof ApiError && e.status === 404 ? `O pedido ${r.id} já não existe.` : errText(e));
+  }
+  setBusy(r.id, false);
+}
 function authLost(e) {
   if (!(e instanceof ApiError) || e.status !== 401) return false;
   dropKey(); S.key = ''; S.contracts = null; S.requests = null;
@@ -466,6 +484,8 @@ function openSheet(c = null) {
   $('#c-email').value = c?.contact?.email || '';
   $('#c-phone').value = c?.contact?.phone || '';
   $('#c-handle').value = c?.contact?.handle || '';
+  // required in a new record; a record from before keeps empty what it never had (sheetBody)
+  for (const [q, k] of [['#c-cname', 'name'], ['#c-email', 'email'], ['#c-phone', 'phone']]) $(q).required = !c || !!String(c.contact?.[k] || '').trim();
   $('#c-nif').value = c?.nif || '';
   $$('input[name="c-lang"]').forEach((i) => { i.checked = i.value === (c?.lang === 'en' ? 'en' : 'pt'); });
   $('#c-vector').checked = c?.logo?.vector === true;
@@ -531,9 +551,17 @@ function sheetBody() {
   let url = '';
   try { url = normUrl($('#c-url').value); } catch (x) { err(x.message, '#c-url'); }
   if (url && !/^https:\/\//.test(url)) err('O link da marca tem de começar por https://.', '#c-url');
-  const email = $('#c-email').value.trim(), phone = $('#c-phone').value.trim(), nif = $('#c-nif').value.trim();
-  if (email && !/^[^\s@]+@[^\s@]+$/.test(email)) err('O email não é válido.', '#c-email');
+  // the sponsor's name, email and phone: required in a new record (as the site asks them in every request since
+  // 31.10.2026); in a record from before, a field it never had may stay empty, but one it has cannot be emptied
+  const cname = $('#c-cname').value.trim().replace(/\s+/g, ' '), email = $('#c-email').value.trim(), phone = $('#c-phone').value.trim(), nif = $('#c-nif').value.trim();
+  const was = S.sheet && S.sheet.id ? findC(S.sheet.id)?.contact || {} : null, need = (k) => !was || !!String(was[k] || '').trim();
+  if (!cname && need('name')) err('Escreve o nome do contacto.', '#c-cname');
+  if (cname && Array.from(cname).length < 2) err('O nome do contacto tem pelo menos 2 letras.', '#c-cname');
+  if (!email && need('email')) err('Escreve o email do contacto.', '#c-email');
+  if (email && !EMAIL_RE.test(email)) err('O email não é válido.', '#c-email');
+  if (!phone && need('phone')) err('Escreve o telefone do contacto.', '#c-phone');
   if (phone && !/^[0-9 +()-]*$/.test(phone)) err('O telefone só leva algarismos, espaços, +, ( ) e -.', '#c-phone');
+  if (phone && !/^\d{9,15}$/.test(phone.replace(/\D/g, ''))) err('O telefone tem de 9 a 15 algarismos.', '#c-phone');
   if (nif && !/^[A-Za-z0-9 .\-/]+$/.test(nif)) err('O NIF só leva letras, algarismos, espaços, pontos, / e -.', '#c-nif');
   const pay = $('#c-pay').value;
   const lang = $$('input[name="c-lang"]').find((i) => i.checked)?.value === 'en' ? 'en' : 'pt';
@@ -541,7 +569,7 @@ function sheetBody() {
   return {
     brand, season: $('#c-season').value, ...(ids[0] === TITLE ? { title: true } : { title: false, items: ids }), label,
     amount: paid.amount, paidAt: paid.paidAt, pay, inKind: pay === 'produto' || pay === 'outro' ? $('#c-inkind').value.trim() : '', url,
-    contact: { name: $('#c-cname').value.trim(), channel: $('#c-channel').value, email, phone, handle },
+    contact: { name: cname, channel: $('#c-channel').value, email, phone, handle },
     nif, lang, notes: $('#c-notes').value.trim(), logo: { vector: $('#c-vector').checked, fromRace: $('#c-race').value.trim() },
   };
 }
@@ -566,7 +594,7 @@ async function submitSheet(e) {
   } catch (x) {
     if (authLost(x)) return;
     errBox.textContent = errText(x);
-    const map = { brand: '#c-brand', amount: '#c-amount', paidAt: '#c-paid', url: '#c-url', 'contact.email': '#c-email', 'contact.phone': '#c-phone', nif: '#c-nif', notes: '#c-notes', label: '#c-label', season: '#c-season' };
+    const map = { brand: '#c-brand', amount: '#c-amount', paidAt: '#c-paid', url: '#c-url', 'contact.name': '#c-cname', 'contact.email': '#c-email', 'contact.phone': '#c-phone', nif: '#c-nif', notes: '#c-notes', label: '#c-label', season: '#c-season' };
     const f = x instanceof ApiError && map[x.campo] && $(map[x.campo]);
     if (f) f.focus();
   } finally { btn.disabled = false; btn.textContent = id ? 'Guardar' : 'Registar'; }
