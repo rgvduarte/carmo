@@ -1,7 +1,7 @@
 {
   "season": "2027",
   "currency": "EUR",
-  "updated": "2026-10-27",
+  "updated": "2026-10-30",
   "seasonRules": {
     "start": "2027-01-01",
     "end": "2027-12-31",
@@ -453,7 +453,7 @@
       "h": 3,
       "area": "back",
       "price": 60,
-      "status": "available",
+      "status": "reserved",
       "vis": {
         "bike": 2,
         "run": 1,
@@ -467,7 +467,10 @@
       "en": {
         "name": "Nape",
         "pitch": "A discreet spot, seen in shots from behind."
-      }
+      },
+      "brand": "Buildity",
+      "until": "2026-11-01",
+      "request": "TNQH9KN39S"
     },
     {
       "id": "costas-topo",
