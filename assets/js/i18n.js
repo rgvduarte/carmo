@@ -236,7 +236,7 @@ const EN = {
   "media.note": "Engagement rate is likes plus comments per post, divided by followers on the same day. Likes, comments and best post from the 12 latest posts on @goncalo.carmo99, as of 22 October 2026. Followers as of 29 October 2026.",
   "sup.k": "07 · Support",
   "sup.h": "Carmo<br>Crew",
-  "sup.p": "You don't need to be a brand to help me make a living from triathlon. Contributions go towards race entries, travel, coaching and kit for the 2027 season.",
+  "sup.p": "You don't need to be a brand to help me make a living from triathlon. On GoFundMe, contributions go towards coaching and kit for the 2027 season.",
   "sup.b1": "Support on GoFundMe",
   "sup.b2": "In-kind support",
   "gfm.k": "GoFundMe campaign",
