@@ -63,6 +63,18 @@ export const needsRace = (c, data = null) => logoLate(c) && !noRaces(c, data);
 // the package has the suit (a suit spot or the whole suit); the helmet is not used in training
 // the levels with the logo on the training kit (the home page's Principal card, «Tudo o que o Principal … inclui»)
 export const TRAINING_KIT = ['principal', 'title'];
+// the terms of 29.10.2026 gave Principal and the whole suit of 2027 the 2027 price on renewal; the terms of 30.10.2026
+// withdrew it (every level renews at the next rate card). Such a contract's annex still says so, while page 1 of the
+// confirmation says the 2028 rate card: the card and the PDF dialog ask to settle it in writing (README «Renovação»)
+export const LOCK_TERMS = '2026-10-29';
+export const lockedByTerms = (c) => !!c && c.terms === LOCK_TERMS && String(c.season) === '2027' && (isTitle(c) || c.level === 'principal');
+// the card's line while the renewal is still open or agreed ('' for every other contract, and once the renewal is lost)
+export function lockWarning(c, day) {
+  if (!lockedByTerms(c)) return '';
+  const v = renewalView(c, day);
+  if (v.state === 'nao-renova' || (v.state === 'terminado' && v.outcome !== 'renova')) return '';
+  return 'Condições de 29.10.2026: davam a este patrocínio o preço de 2027 na renovação para 2028. Combina-o por escrito antes de enviar a proposta.';
+}
 export const hasSuit = (c) => isTitle(c) || (Array.isArray(c?.spots) && c.spots.some((s) => s && s.item !== 'helmet'));
 // whether the season discount line belongs on the card and in the CSV: only when the amount paid is the table's price
 export const paidTable = (c) => !!c && !!c.price && Number.isFinite(Number(c.price.total)) && Number(c.amount) === Number(c.price.total);

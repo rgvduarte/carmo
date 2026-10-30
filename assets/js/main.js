@@ -1,5 +1,5 @@
 // Page bootstrap: language, nav, smooth scroll, scroll-driven scenes, data blocks and the sponsor studio.
-import { initLang, onLang, t, pick, money, moneyRange, numFmt, getLang, fmtDay } from './i18n.js';
+import { initLang, onLang, t, pick, money, moneyRange, moneyRangeSr, numFmt, getLang, fmtDay } from './i18n.js';
 import { SITE, RESULTS, SEASON, BUDGET, SOCIAL } from './data.js';
 import { weekMultiples, heatmap } from './charts.js';
 import { racesBlock } from './races.js';
@@ -255,6 +255,14 @@ function greatCircleKm(a, b) {
 const lo = (b) => (Array.isArray(b.eur) ? b.eur[0] : b.eur);
 const hi = (b) => (Array.isArray(b.eur) ? b.eur[1] : b.eur);
 const eurText = (a, z) => (a === z ? money(a) : moneyRange(a, z));
+// a range is shown with its dash and read out in words (screen readers skip the en dash: two amounts, not a range)
+function eurInto(host, a, z) {
+  host.textContent = '';
+  if (a === z) { host.textContent = money(a); return; }
+  const seen = document.createElement('span'); seen.setAttribute('aria-hidden', 'true'); seen.textContent = eurText(a, z);
+  const said = document.createElement('span'); said.className = 'sr-only'; said.textContent = moneyRangeSr(a, z);
+  host.append(seen, said);
+}
 function renderBudget() {
   const host = $('#budget-rows');
   host.textContent = '';
@@ -262,7 +270,7 @@ function renderBudget() {
   for (const b of BUDGET) {
     const r = document.createElement('div'); r.className = 'row';
     const n = document.createElement('b'); n.textContent = pick(b);
-    const v = document.createElement('span'); v.textContent = eurText(lo(b), hi(b));
+    const v = document.createElement('span'); eurInto(v, lo(b), hi(b));
     const tr = document.createElement('div'); tr.className = 'track';
     const i = document.createElement('i'); i.style.width = `${(lo(b) / max) * 100}%`; tr.appendChild(i);
     if (hi(b) > lo(b)) { i.className = 'lo'; const u = document.createElement('i'); u.className = 'up'; u.style.width = `${((hi(b) - lo(b)) / max) * 100}%`; tr.appendChild(u); }
@@ -271,7 +279,7 @@ function renderBudget() {
     host.appendChild(r);
   }
   const sum = (f) => BUDGET.reduce((a, b) => a + f(b), 0);
-  $('#budget-total').textContent = eurText(sum(lo), sum(hi));
+  eurInto($('#budget-total'), sum(lo), sum(hi));
 }
 
 // ---------- Strava ----------

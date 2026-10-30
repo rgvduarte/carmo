@@ -512,10 +512,12 @@ proposta a partir de 1 de setembro de 2027; quem disser que sim até 31 de outub
 de 1 de novembro de 2027 os não renovados ficam livres. Todos os níveis renovam ao preço da tabela de 2028, o
 Principal e o fato completo também (decisão de 29.10.2026, nas condições de 30.10.2026); o desconto de pacote conta
 como em qualquer pedido. Quem renova paga até 15 de janeiro de 2028 (`renewPayBy`, o prazo do logótipo de 2028); sem o
-pagamento até lá, o espaço fica livre a partir de 16 de janeiro. A mensagem, o comprovativo e a confirmação (PDF)
-dizem a tabela de 2028 e o prazo do pagamento. A página Patrocínios lembra cada passo. Quem fez o pedido com as
-condições de 29.10.2026 tem em anexo essa versão, que dava o preço de 2027 ao Principal e ao fato completo; se houver
-um, combina-o por escrito.
+pagamento até lá, o espaço fica livre a partir de 16 de janeiro. O comprovativo e a confirmação (PDF) dizem a tabela
+de 2028 e o prazo do pagamento; a mensagem diz a preferência e os prazos da resposta e do pagamento. A página
+Patrocínios lembra cada passo. Quem fez o pedido com as condições de 29.10.2026 tem em anexo essa versão, que dava o
+preço de 2027 ao Principal e ao fato completo; se houver um, combina-o por escrito. A página Patrocínios assinala esses
+contratos, no cartão e na janela do PDF. Um pedido feito numa página aberta antes da publicação pode trazer na mensagem
+«versão de 29.10.2026» com o registo em 30.10.2026: trata-o da mesma forma.
 
 **Outubro, sem triatlos.** O calendário de triatlos de 2027 acaba em setembro (`racesUntil`, 30 de setembro). Os pedidos
 continuam abertos até 31 de outubro, mas de 1 a 31 de outubro o passo 1 do pedido, a mensagem e o comprovativo dizem

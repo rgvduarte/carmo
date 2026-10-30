@@ -233,7 +233,7 @@ const EN = {
   "media.s3": "Engagement rate",
   "media.s4": "Best post",
   "media.likes": "likes",
-  "media.note": "Engagement rate is likes plus comments per post, divided by followers. Average of the 12 latest posts on @goncalo.carmo99, October 2026.",
+  "media.note": "Engagement rate is likes plus comments per post, divided by followers on the same day. Likes, comments and best post from the 12 latest posts on @goncalo.carmo99, as of 22 October 2026. Followers as of 29 October 2026.",
   "sup.k": "07 · Support",
   "sup.h": "Carmo<br>Crew",
   "sup.p": "You don't need to be a brand to help me make a living from triathlon. Contributions go towards race entries, travel, coaching and kit for the 2027 season.",
@@ -755,6 +755,10 @@ export function numFmt(n, d = 0) {
 // Intl's formatRange, which spaces the dash and repeats the sign)
 export function moneyRange(a, b) {
   return lang === 'en' ? `${money(a)}–${numFmt(b)}` : `${numFmt(a)}–${money(b)}`;
+}
+// the same range in words for screen readers, which skip the en dash: «de 8 000 a 9 500 €» / «€8,000 to €9,500»
+export function moneyRangeSr(a, b) {
+  return lang === 'en' ? `${money(a)} to ${money(b)}` : `de ${numFmt(a)} a ${money(b)}`;
 }
 
 export function setLang(next, { save = true } = {}) {

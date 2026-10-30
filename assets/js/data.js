@@ -29,7 +29,7 @@ export const SITE = {
   // Google Analytics 4 Measurement ID, e.g. G-XXXXXXXXXX. Empty = no analytics, no banner.
   // (Set up in the README, "Google Analytics". The tag loads only after the visitor accepts: analytics.js.)
   ga: '',
-  updated: '2026-10-22',
+  updated: '2026-10-29',
 };
 
 // Official results (timing companies / IRONMAN), checked 22 Oct 2026. They feed the marks stage and the
@@ -76,7 +76,8 @@ export const RESULTS = [
 
 // Instagram @goncalo.carmo99: followers read on 2026-10-29 (screenshot, followersAsOf); likes, comments and the best
 // post from the 12 most recent posts, read on 2026-10-22 (asOf), when the account had 1 921 followers (postsFollowers,
-// which the engagement rate divides by, so the rate never mixes two dates).
+// which the engagement rate divides by, so the rate never mixes two dates). The page dates each: media.note (index.html,
+// and EN in i18n.js) names both days; change it with them.
 export const SOCIAL = { followers: 1953, followersAsOf: '2026-10-29', likesPerPost: 329, commentsPerPost: 43, bestPost: 881, postsFollowers: 1921, asOf: '2026-10-22' };
 
 // 2027 season, in date order. status: planned | entry (won on merit) | registered (entry paid and confirmed) | pending |
@@ -98,7 +99,7 @@ export const SEASON = [
 // races of the season: Kona (2028) is not in it.
 export const BUDGET = [
   { pt: 'Viagens e alojamento', en: 'Travel and accommodation', eur: [8000, 9500], note: { pt: 'As sete provas de 2027, com o Japão: voos, alojamento e deslocações', en: 'The seven 2027 races, Japan included: flights, accommodation and local travel' } },
-  { pt: 'Inscrições', en: 'Race entries', eur: [2200, 2500], note: { pt: 'As sete provas. Setúbal e Sines já estão garantidas por mérito e não contam.', en: 'The seven races. Setúbal and Sines are already earned on merit and are not counted.' } },
+  { pt: 'Inscrições', en: 'Race entries', eur: [2200, 2500], note: { pt: 'As sete provas. Setúbal e Sines já estão garantidas por mérito e não contam.', en: 'The seven races. The Setúbal and Sines entries are already earned on merit and are not counted.' } },
   { pt: 'Treino, nutrição e saúde', en: 'Coaching, nutrition and health', eur: 3000, note: { pt: 'Treinador, suplementação, fisioterapia e testes', en: 'Coach, nutrition, physio and testing' } },
   { pt: 'Material e manutenção', en: 'Equipment and maintenance', eur: 2500, note: { pt: 'Pneus, transmissão, sapatilhas, fato de neoprene', en: 'Tyres, drivetrain, shoes, wetsuit' } },
 ];

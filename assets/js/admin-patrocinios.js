@@ -307,6 +307,9 @@ function card(c, day) {
     ren.appendChild(b);
   }
   li.appendChild(ren);
+  // a Principal or whole suit under the terms of 29.10.2026, which kept the 2027 price on renewal: settle it in writing
+  const lockW = A.lockWarning(c, day);
+  if (lockW) li.appendChild(el('p', 'ct-paystate warn ct-oldterms', lockW));
   // the renewal's payment by renewPayBy (every level renews at the next season's rate card)
   const pay = A.payLine(c, S.contracts, day, S.data);
   if (pay) li.appendChild(el('p', `ct-paystate ${pay.kind}`, pay.text));
@@ -611,6 +614,10 @@ function openPdf(c) {
   // the annex: which version goes with the PDF (the request's, or the written agreement's), or why none does
   const line = $('#pdf-annex'), id = c.id, of = c.history?.[0]?.from === 'manual' ? 'a do acordo' : 'a do pedido';
   line.textContent = isDay(c.terms) ? `A preparar o anexo com as condições na versão de ${dotDay(c.terms)}…` : 'Sem anexo: este registo não diz a versão das condições que aceitou.';
+  // page 1 says the 2028 rate card for every level; the terms of 29.10.2026 said otherwise for this one
+  const lock = $('#pdf-lock');
+  lock.hidden = !A.lockedByTerms(c);
+  lock.textContent = lock.hidden ? '' : 'Atenção: as condições de 29.10.2026 davam a este nível o preço de 2027 na renovação para 2028, e a página 1 diz a tabela de 2028. Combina-o por escrito antes de enviar o PDF.';
   S.annex = { id, p: loadAnnex(c) };
   S.annex.p.then((x) => {
     if (S.pdf !== id || !isDay(c.terms)) return;

@@ -575,6 +575,8 @@ section { position: relative; }
 .race .badge { max-width: 100%; }
 .race.goal { background: var(--ink-dark); color: var(--paper); padding-left: 16px; padding-right: 16px; border-left: 0; }
 .race.goal .when, .race.goal p { color: rgba(242,241,236,0.7); }
+/* the goal's label wraps to two or three lines in a narrow column («2028 · garantindo a qualificação»): room between them */
+.race.goal .when { line-height: 1.35; }
 .race.goal h3 { color: var(--gold); }
 .race.goal .badge { border-color: rgba(230,180,80,0.6); color: var(--gold); }
 .race .main { position: absolute; top: -26px; left: 16px; font: 500 11px/1 var(--mono); letter-spacing: .14em; color: var(--muted-dark); text-transform: uppercase; }

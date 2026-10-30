@@ -89,6 +89,7 @@ fieldset.field > legend { padding: 0; }
 .pt-seg { display: flex; gap: 8px; }
 .pt-seg .chip { flex: 1; justify-content: center; }
 .hint.bad { color: var(--bad); }
+.hint.warn { color: #f3e3c0; }
 #c-use { min-height: 36px; padding: 0; }
 .pt-sheet textarea { min-height: 96px; resize: vertical; }
 
