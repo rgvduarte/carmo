@@ -453,7 +453,7 @@
       "h": 3,
       "area": "back",
       "price": 60,
-      "status": "reserved",
+      "status": "available",
       "vis": {
         "bike": 2,
         "run": 1,
@@ -467,10 +467,7 @@
       "en": {
         "name": "Nape",
         "pitch": "A discreet spot, seen in shots from behind."
-      },
-      "brand": "Buildity",
-      "until": "2026-11-01",
-      "request": "TNQH9KN39S"
+      }
     },
     {
       "id": "costas-topo",
