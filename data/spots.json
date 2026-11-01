@@ -1,7 +1,7 @@
 {
   "season": "2027",
   "currency": "EUR",
-  "updated": "2026-10-30",
+  "updated": "2026-11-01",
   "seasonRules": {
     "start": "2027-01-01",
     "end": "2027-12-31",
@@ -531,7 +531,7 @@
       "h": 6,
       "area": "back",
       "price": 100,
-      "status": "available",
+      "status": "reserved",
       "vis": {
         "bike": 1,
         "run": 2,
@@ -545,7 +545,10 @@
       "en": {
         "name": "Lower back",
         "pitch": "On the run it faces everyone behind. On the bike the race number can partly cover it."
-      }
+      },
+      "brand": "Gp cars",
+      "until": "2026-11-03",
+      "request": "TNUDBPB67P"
     },
     {
       "id": "gluteos",
@@ -675,7 +678,7 @@
       "rot": 180,
       "area": "helmet",
       "price": 100,
-      "status": "available",
+      "status": "reserved",
       "vis": {
         "bike": 2,
         "run": 0,
@@ -691,7 +694,10 @@
         "name": "Helmet rear",
         "short": "Rear",
         "pitch": "What the riders behind me see on the bike."
-      }
+      },
+      "brand": "Gp cars",
+      "until": "2026-11-03",
+      "request": "TNUDBPB67P"
     }
   ]
 }
