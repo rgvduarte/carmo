@@ -799,6 +799,24 @@ cada documento: a data, o que mudou, o tamanho, e a mais recente marcada «mais 
 isso os ficheiros vão **cifrados** para o ramo órfão `docs` (nunca para o `gh-pages`) e só abrem nesta página, com a
 frase-passe. A página tem ligação nas outras páginas de admin («Documentos: o cofre»).
 
+**Com o repositório privado** (desde 02.11.2026), o GitHub responde «não existe» a tudo o que se pede sem token. Por
+isso a página pede o token do GitHub logo para abrir o cofre («Repositório privado. Para abrir o cofre, entra com o
+token do GitHub.») e nunca oferece criar um cofre que não conseguiu ler. Para abrir chega um token fine-grained só de
+leitura (Contents: Read-only em `rgvduarte/carmo`); para guardar (criar o cofre, mudar a frase-passe, um cofre novo) tem
+de ser Read and write. Só a conta dona do repositório consegue criar um token fine-grained para ele (ver «Página de
+admin»). Um token clássico só com `public_repo` não chega a um repositório privado, e a página recusa um clássico com
+mais do que isso. Com um token só de leitura, a página diz logo que não consegue guardar, antes de fazer contas e sem
+escrever nada, com o botão «Entrar com outro token» na própria mensagem: o cofre fica aberto e o que escreveste fica
+lá. Com token, a página lê tudo pela API do GitHub; sem token (um repositório público) lê de
+`raw.githubusercontent.com`, como antes.
+- Um token que o GitHub recusa (expirou, foi revogado, não chega ao repositório) sai deste browser, e a página diz porquê
+  e pede outro. A meio de uma descarga, as partes que já chegaram ficam para «Continuar»; o mesmo com «Sair do GitHub».
+- Sem token, o GitHub só aceita 60 pedidos por hora de cada rede (num telemóvel, muitas vezes partilhada). Quando
+  acabam, a página pede o token, que tem o seu próprio limite, e diz até que horas dura o limite sem ele.
+- Se o ramo `docs` existe mas o `vault.json` não chega à página, ela pergunta à API se ele lá está antes de oferecer
+  «Criar o cofre»; se estiver, mostra «Tentar outra vez». E antes de criar um cofre num ramo que já existe, pergunta
+  outra vez: se houver um `vault.json`, não escreve nada (um cofre que não se conseguiu ler nunca é substituído).
+
 **Como funciona, em curto.** A página cria no browser um par de chaves (ECDH P-256; a chave privada fica fechada com a
 frase-passe, PBKDF2-SHA-256 com 1 000 000 de iterações) e guarda no ramo `docs` o `vault.json`: a chave pública e a
 chave privada fechada. O computador só conhece a chave pública: cifra cada ficheiro com uma chave nova (AES-256-GCM, em
@@ -904,6 +922,7 @@ Se o script disser que o cofre mudou e não foste tu, não publiques: alguém co
 
 ### O que um estranho vê no repositório público
 
+Com o repositório privado, só quem tem acesso a ele vê isto; o que esteve público até 02.11.2026 pode continuar em cópias.
 Que há um cofre, a chave pública, a chave privada fechada com a frase-passe (pode tentar adivinhá-la no computador dele,
 por isso tem de ser comprida), quantos ficheiros e partes há e o tamanho aproximado de cada um, e quando se publica.
 Não vê títulos, nomes de ficheiros, versões, datas dos documentos, mudanças nem o conteúdo (nem quantos documentos há:
@@ -1381,7 +1400,8 @@ Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script re
 
 A página do cofre (`/admin/documentos/`) recebe o mesmo mapa de importação, os mesmos hashes e a mesma CSP, e no
 `connect-src` só `'self'`, `https://api.github.com` (o ramo `docs` e os dois commits da página) e
-`https://raw.githubusercontent.com` (os ficheiros cifrados, com pedidos simples, sem cabeçalhos).
+`https://raw.githubusercontent.com` (os ficheiros cifrados quando o browser não tem token e o repositório é público:
+pedidos simples, sem cabeçalhos; com token, os ficheiros vêm pela API).
 
 O script verifica também a época: o bloco `seasonRules` de `data/spots.json` (datas reais e por ordem), a data das
 condições (a mesma em `/condicoes/` nas duas línguas, em `cl.terms` e em `seasonRules.termsDate`; a linha `msg.terms`

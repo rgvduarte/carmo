@@ -34,8 +34,9 @@
 //    builds it from an active product). The Patrocínios page may reach api.github.com and gocarmo.com (its montra editor
 //    commits through the GitHub API and then waits for the site).
 // 6. The documents page (/admin/documentos/, the cofre) gets the same import map, hashes and CSP, and its connect-src
-//    reaches api.github.com (the head of the orphan branch «docs», and the vault's commits) and raw.githubusercontent.com
-//    (the encrypted files, read at that commit). stampCofrePages() does it, after the main loop.
+//    reaches api.github.com (the head of the orphan branch «docs», the vault's commits, and with a token every file:
+//    the only way into a private repository) and raw.githubusercontent.com (the encrypted files, read at that commit,
+//    without a token: a public repository only). stampCofrePages() does it, after the main loop.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
