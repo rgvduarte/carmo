@@ -33,10 +33,12 @@ export async function ghFailure(res) {
   let json = null;
   try { json = await res.json(); } catch (_) {}
   const h = (k) => res.headers.get(k);
-  // primary limit: remaining 0 until x-ratelimit-reset; secondary limit (403 or 429): retry-after seconds
+  // primary limit: remaining 0 until x-ratelimit-reset; secondary limit (403 or 429): retry-after seconds, or neither
+  // header (GitHub then says to wait a minute), which only its message tells apart from a token without access
+  const msg = json && typeof json.message === 'string' ? json.message : '';
   const spent = h('x-ratelimit-remaining') === '0', retry = Number(h('retry-after')) || 0;
-  const limited = res.status === 429 || (res.status === 403 && (spent || retry > 0));
-  return new GhError(res.status, json && typeof json.message === 'string' ? json.message : '', limited ? { reset: spent ? Number(h('x-ratelimit-reset')) || 0 : 0, retry } : null);
+  const limited = res.status === 429 || (res.status === 403 && (spent || retry > 0 || /rate limit/i.test(msg)));
+  return new GhError(res.status, msg, limited ? { reset: spent ? Number(h('x-ratelimit-reset')) || 0 : 0, retry } : null);
 }
 // One wrapper holds the header: every call with the token goes through here. Errors carry the status and GitHub's own
 // message only, never the token. An abort (signal) stays an AbortError, so a «Cancelar» is not a network error.
@@ -67,16 +69,28 @@ export async function ghBytes(path, { signal } = {}) {
   try { return new Uint8Array(await res.arrayBuffer()); } catch (e) { if (e && e.name === 'AbortError') throw e; throw new GhError(0, 'network'); }
 }
 
+// Whether the token in use can write here. A fine-grained token shows what it may do only when it writes: the empty blob
+// already exists in the repo (.nojekyll), so asking for it again changes nothing. false: GitHub refused (a read-only
+// token, or one that does not reach the repo); a rate limit or no answer is thrown.
+export async function canWrite() {
+  try { await gh('POST', '/git/blobs', { content: '', encoding: 'utf-8' }); return true; } catch (x) {
+    if (x instanceof GhError && (x.status === 403 || x.status === 404) && !x.rate) return false;
+    throw x;
+  }
+}
+
 export const UNKNOWN = 'Não sei se ficou guardado: a ligação falhou logo depois de o pedido seguir. Quando a rede voltar, carrega em «Tentar outra vez»: primeiro vejo no GitHub, e não guardo duas vezes.';
 
 const pad2 = (n) => String(n).padStart(2, '0');
 const hhmm = (d) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+// when a rate limit (GhError.rate) ends, as hh:mm on this phone's clock (a secondary limit without a time: a minute)
+export const retryAt = (rate) => hhmm(rate.retry || !rate.reset ? new Date(Date.now() + (rate.retry || 60) * 1000) : new Date(rate.reset * 1000));
 export function errText(e, kind = 'read') {
   if (e instanceof UiError || e instanceof RuleError) return e.message;
   if (!(e instanceof GhError)) return 'Algo correu mal nesta página. Recarrega-a e tenta outra vez.';
   const tail = kind === 'write' ? ' O site não mudou.' : '';
   if (e.status === 0) return kind === 'write' ? 'Sem ligação. O site não mudou.' : 'Sem ligação ao GitHub. Verifica a rede e tenta outra vez.';
-  if (e.rate) return `Demasiados pedidos ao GitHub. Tenta depois das ${hhmm(e.rate.retry || !e.rate.reset ? new Date(Date.now() + (e.rate.retry || 60) * 1000) : new Date(e.rate.reset * 1000))}.`;
+  if (e.rate) return `Demasiados pedidos ao GitHub. Tenta depois das ${retryAt(e.rate)}.`;
   if (e.status === 401) return 'O token expirou ou foi revogado. Cria um novo.';
   if (kind === 'write' && (e.status === 403 || e.status === 404)) return 'O token não tem permissão de escrita (Contents: Read and write).';
   if (e.status === 404) return 'O token não chega ao repositório rgvduarte/carmo.';
@@ -88,29 +102,35 @@ export function errText(e, kind = 'read') {
 // ---------- sign-in ----------
 // The checks of a token typed by hand (t: trimmed). It becomes the token in use while they run; on any failure the
 // token in use is cleared and the error thrown (signInText() words it). Nothing is stored here: keepToken() after.
-// { write: false }: a token only to read (the cofre of a private repository opens with a read-only one, which may be
-// all Gonçalo has): it must reach the repository, and the account's push right and the write probe are skipped. Its
-// first write then fails with 403, before anything changes.
+// { write: false }: a token only to read (the cofre of a private repository opens with a read-only one): it must reach
+// the repository, and the account's push right and the write probe are skipped. The cofre page probes again (canWrite)
+// before it writes, so a read-only token is told so before anything changes.
+// A private repository takes no classic token here: it would need «repo», which reaches every private repository of
+// the account, and the most this page takes is public_repo. The messages say so, rather than send the person from one
+// refused classic token to the other. Only the account that owns the repository can make a fine-grained token for it.
+const FINE_GRAINED = 'só serve um token fine-grained, criado pela conta dona de rgvduarte/carmo.';
 export async function checkToken(t, { write = true } = {}) {
   if (!TOKEN_RE.test(t)) throw new UiError('Isto não parece um token do GitHub (começa por github_pat_).', { format: true });
+  const classic = t.startsWith('ghp_');
   token = t;
   try {
-    const { json: repo, headers } = await ghRes('GET', '');
+    let repo, headers;
+    try { ({ json: repo, headers } = await ghRes('GET', '')); } catch (x) {
+      if (classic && x instanceof GhError && x.status === 404) throw new UiError(`Um token clássico só com public_repo não chega a um repositório privado: ${FINE_GRAINED}`);
+      throw x;
+    }
     if (write && repo && repo.permissions && repo.permissions.push !== true) throw new UiError('A tua conta não pode escrever neste repositório. Pede ao dono acesso de escrita.');
     // A classic token reaches every repository the account can write to: take one that can do no more than this page
     // needs (public_repo), so a lost token does less harm.
-    if (t.startsWith('ghp_') && headers.get('x-oauth-scopes') !== null) {
+    if (classic && headers.get('x-oauth-scopes') !== null) {
       const extra = headers.get('x-oauth-scopes').split(',').map((x) => x.trim()).filter((x) => x && x !== 'public_repo');
-      if (extra.length) throw new UiError(`Este token clássico pode mais do que esta página precisa (${extra.join(', ')}). Apaga-o no GitHub e cria outro só com public_repo e 7 dias de validade.`);
-    }
-    // A fine-grained token shows what it may do only when it writes: the empty blob already exists in the repo
-    // (.nojekyll), so asking for it again changes nothing.
-    if (write) {
-      try { await gh('POST', '/git/blobs', { content: '', encoding: 'utf-8' }); } catch (x) {
-        if (x instanceof GhError && (x.status === 403 || x.status === 404) && !x.rate) throw new UiError('O token só pode ler. Em «Permissions», o Contents tem de estar em «Read and write».');
-        throw x;
+      if (extra.length) {
+        throw new UiError(repo && repo.private === true
+          ? `Este token clássico pode mais do que esta página precisa (${extra.join(', ')}). Apaga-o no GitHub: com o repositório privado, ${FINE_GRAINED}`
+          : `Este token clássico pode mais do que esta página precisa (${extra.join(', ')}). Apaga-o no GitHub e cria outro só com public_repo e 7 dias de validade.`);
       }
     }
+    if (write && !(await canWrite())) throw new UiError('O token só pode ler. Em «Permissions», o Contents tem de estar em «Read and write».');
   } catch (x) { token = null; throw x; }
   return true;
 }

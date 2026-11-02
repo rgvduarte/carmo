@@ -11,8 +11,10 @@
 //   and no Range.
 // A private repository answers 404 to every read without a token, the same as a missing branch: a 404 on the branch
 // is only «no cofre yet» once the repository itself is visible; otherwise the page asks for the token (needToken), and
-// never offers to create a cofre. When the API is rate-limited the page reads the branch by name (…/docs/<path>) from
-// raw.githubusercontent.com, which may be up to 5 minutes old (public repository only).
+// never offers to create a cofre. Nor does a branch whose vault.json did not read: the tree is asked first (unread).
+// When the API is rate-limited the page reads the branch by name (…/docs/<path>) from raw.githubusercontent.com, which
+// may be up to 5 minutes old (public repository only); without a token, a vault.json not found there asks for the
+// token too (a private repository, or no cofre: either way the token's own limit gets in).
 // Writes go through gh() of admin-gh.js (the admin's token), never commitFiles(), which is bound to gh-pages. The
 // publisher (scripts/docs-publish.mjs) force-pushes the branch as one orphan commit and carries vault.json byte for byte;
 // the page only ever writes vault.json (and README.md when it creates the branch), and never over a vault.json it
@@ -50,8 +52,9 @@ async function repoVisible(withToken) {
 }
 
 // the head of «docs» -> { sha } | { sha: null } (no branch) | { sha: null, fallback: true, rate } (rate-limited: read by name)
-//   | { sha: null, needToken: true, tokenNoAccess?, tokenExpired? } (a private repository: the page asks for the token
-//   and never offers to create a cofre; the flags say why this browser's token, if it had one, was set aside)
+//   | { sha: null, needToken: true } (a private repository: the page asks for the token and never offers to create a
+//   cofre). tokenNoAccess / tokenExpired, on any of them: this browser's token was set aside, and why (the page then
+//   forgets it: it would only be refused again, here and on Espaços).
 export async function readHead() {
   try { return await headOf(); } catch (e) {
     if (e instanceof GhError && e.rate) return { sha: null, fallback: true, rate: e.rate };
@@ -59,7 +62,7 @@ export async function readHead() {
   }
 }
 async function headOf() {
-  let dropped = '';
+  let dropped = {};
   if (getToken()) {
     try { return { sha: (await gh('GET', `/git/ref/heads/${BRANCH}`)).object.sha }; } catch (e) {
       if (!(e instanceof GhError) || e.rate) throw e;
@@ -70,19 +73,26 @@ async function headOf() {
         return { sha: null, needToken: true, tokenNoAccess: true };
       }
       if (e.status !== 401 && e.status !== 403) throw e;
-      // 401: expired or revoked; 403: it sees the repository but may not read it (no Contents). Read without it: a
-      // public repository still opens (a new token is asked for only to write), a private one asks for it now
+      // 401: expired or revoked; 403 (not a rate limit): it sees the repository but may not read it (no Contents).
+      // Read without it: a public repository still opens (a new token is asked for only to write), a private one asks
+      // for it now
       setToken(null);
-      dropped = e.status === 401 ? 'tokenExpired' : 'tokenNoAccess';
+      dropped = e.status === 401 ? { tokenExpired: true } : { tokenNoAccess: true };
     }
   }
-  const res = await getPlain(`/git/ref/heads/${BRANCH}`);
-  if (res.status === 404) return (await repoVisible(false)) ? { sha: null } : { sha: null, needToken: true, ...(dropped ? { [dropped]: true } : {}) };
-  let json = null;
-  try { json = await res.json(); } catch (_) {}
-  // GitHub answers a missing ref with the refs that start with it (an array): that is no branch
-  if (!json || Array.isArray(json) || !json.object || !/^[0-9a-f]{40}$/.test(json.object.sha)) return { sha: null };
-  return { sha: json.object.sha };
+  try {
+    const res = await getPlain(`/git/ref/heads/${BRANCH}`);
+    if (res.status === 404) return (await repoVisible(false)) ? { sha: null, ...dropped } : { sha: null, needToken: true, ...dropped };
+    let json = null;
+    try { json = await res.json(); } catch (_) {}
+    // GitHub answers a missing ref with the refs that start with it (an array): that is no branch
+    if (!json || Array.isArray(json) || !json.object || !/^[0-9a-f]{40}$/.test(json.object.sha)) return { sha: null, ...dropped };
+    return { sha: json.object.sha, ...dropped };
+  } catch (e) {
+    // the same fallback as readHead(), keeping why the token was set aside
+    if (e instanceof GhError && e.rate) return { sha: null, fallback: true, rate: e.rate, ...dropped };
+    throw e;
+  }
 }
 
 // bytes -> what readRaw() was asked for
@@ -115,17 +125,55 @@ export async function readRaw(ref, path, { signal, as = 'bytes' } = {}) {
 }
 const maybe = async (p) => { try { return await p; } catch (e) { if (e instanceof Missing) return null; throw e; } };
 
-// the branch as the page needs it -> { sha, ref, fallback, rate, vault, vaultText, envelope }
+// whether the tree at `head` holds a vault.json, asked of the API itself (the commit, then its tree: a few entries);
+// get: a GET of the API -> its JSON (a GhError when it is not ok), with the token by default
+async function treeHasVault(head, get = (path) => gh('GET', path)) {
+  const c = await get(`/git/commits/${head}`);
+  const t = await get(`/git/trees/${c.tree.sha}`);
+  return !!(t && Array.isArray(t.tree) && t.tree.some((e) => e && e.path === 'vault.json'));
+}
+const plainJson = async (path) => {
+  const res = await getPlain(path);
+  if (res.status === 404) throw new GhError(404, 'Not Found');
+  return res.json();
+};
+// The branch is there and its vault.json did not read: is there one? -> true (or maybe: the commit left the branch in
+// between, a publish, whose tree always holds one) | false | null (read without a token, the repository stopped
+// answering: it went private)
+async function vaultInTree(head) {
+  const withToken = !!getToken();
+  try { return await treeHasVault(head, withToken ? undefined : plainJson); } catch (e) {
+    if (!(e instanceof GhError) || e.status !== 404) throw e;
+    if (!withToken && !(await repoVisible(false))) return null;
+    return true;
+  }
+}
+
+// the branch as the page needs it -> { sha, ref, fallback, rate, vault, vaultText, envelope, tokenNoAccess, tokenExpired }
 //   vault/vaultText null: no cofre yet; envelope null: nothing published yet; vault undefined with vaultText: not JSON
-//   needToken (with tokenNoAccess / tokenExpired): a private repository that this browser cannot read yet
+//   needToken: a private repository that this browser cannot read yet (rate: the limit without a token ran out)
+//   unread: the branch holds a vault.json that did not read (the page offers «Tentar outra vez», never «create»)
 export async function loadBranch() {
   const head = await readHead();
+  const none = { sha: null, ref: null, fallback: false, rate: null, vault: null, vaultText: null, envelope: null, tokenNoAccess: !!head.tokenNoAccess, tokenExpired: !!head.tokenExpired };
+  if (head.needToken) return { ...none, needToken: true };
   const ref = head.sha || (head.fallback ? BRANCH : null);
-  if (head.needToken) return { sha: null, ref: null, fallback: false, needToken: true, tokenNoAccess: !!head.tokenNoAccess, tokenExpired: !!head.tokenExpired, vault: null, vaultText: null, envelope: null };
-  if (!ref) return { sha: null, ref: null, fallback: false, vault: null, vaultText: null, envelope: null };
+  if (!ref) return none;
   const v = await maybe(readRaw(ref, 'vault.json', { as: 'json' }));
+  if (!v && head.fallback) {
+    // rate-limited, read by name from raw.githubusercontent.com: 404 there is a private repository or no cofre. Without
+    // a token, only the token gets in now (its own 5000 an hour); with one, the page says when to try again
+    return getToken() ? { ...none, ref, fallback: true, rate: head.rate } : { ...none, needToken: true, rate: head.rate };
+  }
+  if (!v) {
+    // A vault.json that did not read is never «no cofre» until the tree says so: a raw read a moment behind a push, a
+    // repository made private in between. Creating would put a new vault.json over the real one.
+    const there = await vaultInTree(head.sha);
+    if (there === null) return { ...none, needToken: true };
+    if (there) return { ...none, sha: head.sha, ref, unread: true };
+  }
   const m = v ? await maybe(readRaw(ref, 'manifest.json', { as: 'json' })) : null;
-  return { sha: head.sha, ref, fallback: !!head.fallback, rate: head.rate || null, vault: v ? v.json : null, vaultText: v ? v.text : null, envelope: m ? (m.json === undefined ? { broken: true } : m.json) : null };
+  return { ...none, sha: head.sha, ref, fallback: !!head.fallback, rate: head.rate || null, vault: v ? v.json : null, vaultText: v ? v.text : null, envelope: m ? (m.json === undefined ? { broken: true } : m.json) : null };
 }
 
 // ---------- writing ----------
@@ -136,13 +184,6 @@ export const CHANGED = 'O cofre mudou noutro aparelho enquanto guardavas. Recarr
 export const CREATED_ELSEWHERE = 'Entretanto foi criado um cofre noutro aparelho. Recarreguei a página: abre-o com a frase-passe dele.';
 export const UNSURE = 'Não sei se ficou guardado: a ligação falhou logo depois de o pedido seguir. Quando a rede voltar, carrega em «Tentar outra vez»: primeiro vejo no GitHub, e não guardo duas vezes.';
 export const UNREAD = 'Já há um cofre no GitHub, que esta página não conseguiu ler: não o substituí. Recarreguei a página; abre-o com a frase-passe dele.';
-
-// whether the tree at `head` holds a vault.json, asked of the API itself (the commit, then its tree: a few entries)
-async function treeHasVault(head) {
-  const c = await gh('GET', `/git/commits/${head}`);
-  const t = await gh('GET', `/git/trees/${c.tree.sha}`);
-  return !!(t && Array.isArray(t.tree) && t.tree.some((e) => e && e.path === 'vault.json'));
-}
 
 // One commit that writes vault.json to «docs» (and README.md when the branch is new).
 //   expect: the vault.json text the page started from (null: there is no vault yet). If the branch holds another one
@@ -155,9 +196,9 @@ export async function commitVault(vault, { expect = null, message }) {
   const text = vaultText(vault);
   let unsure = false;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    let head;
-    try { head = await headWithToken(); } catch (e) { if (unsure && transient(e)) throw new UiError(UNSURE, { unknown: true }); throw e; }
-    const cur = head ? await vaultAt(head) : null;
+    // after a write without an answer (unsure), a read that fails cannot say «nothing changed»: it may have landed
+    let head, cur;
+    try { head = await headWithToken(); cur = head ? await vaultAt(head) : null; } catch (e) { if (unsure && transient(e)) throw new UiError(UNSURE, { unknown: true }); throw e; }
     if (cur === text) return { commit: head, already: unsure || attempt > 1 };
     if ((cur || null) !== (expect || null)) throw new UiError(expect ? CHANGED : CREATED_ELSEWHERE, { conflict: true, reload: true });
     if (attempt === 3) break;

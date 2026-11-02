@@ -8,7 +8,7 @@ import './internal.js';   // this browser is the owner's: the public pages never
 import { V, VaultError, checkVault, fingerprint, newVault, unlockVault, rewrapVault, importPublic, unwrapKey, decryptChunk, openManifest, chunkCount, keyMatches, weakPass, suggestPass } from './vault-crypto.js';
 import { WORDS } from './vault-words.js';
 import * as store from './admin-documentos-store.js';
-import { getToken, setToken, readToken, keepToken, forgetToken, checkToken, errText, signInText, UiError, GhError } from './admin-gh.js';
+import { getToken, setToken, readToken, keepToken, forgetToken, checkToken, canWrite, errText, signInText, retryAt, UiError, GhError } from './admin-gh.js';
 
 const $ = (s, el = document) => el.querySelector(s);
 const h = (tag, attrs = {}, ...kids) => {
@@ -41,10 +41,13 @@ const T = {
   remembered: 'A chave fica lembrada neste aparelho.',
   oldKey: (fp) => `Este cofre é novo e os documentos ainda estão fechados com a chave antiga. Publica outra vez no computador com --accept-vault "${fp}".`,
   badVault: (why) => `O vault.json não é válido (${why}). Não o uses.`,
-  // the private repository: why this browser's token was set aside, and a write with a token that only reads
+  // the private repository: why this browser's token was set aside (or the limit without one ran out), and a write
+  // with a token that only reads
   tokenNoAccess: 'O token deste browser não chega ao repositório rgvduarte/carmo, ou não pode ler o que lá está. Entra com outro.',
   tokenExpired: 'O token deste browser expirou ou foi revogado. Entra com um novo.',
-  readOnly: 'O token deste browser só pode ler: abre o cofre, mas não guarda. Para guardar, carrega em «Sair do GitHub» (em baixo) e entra com um token com Contents: Read and write.',
+  limited: (at) => `Sem token, o GitHub não aceita mais pedidos desta rede até às ${at}. Com o token, abre já.`,
+  readOnly: 'O token deste browser só pode ler: abre o cofre, mas não guarda. Para guardar, entra com um token com Contents: Read and write.',
+  unread: 'Há um cofre no GitHub, mas esta página não o conseguiu ler agora. Tenta outra vez daqui a pouco.',
 };
 const cmdOf = (fp) => `node scripts/docs-publish.mjs --accept-vault "${fp}"`;
 
@@ -120,9 +123,23 @@ async function copy(text) {
 const passOf = (input) => input.value.normalize('NFC');
 // '' when the new passphrase is good enough, else the sentence that says why not
 const passProblem = (p) => { const why = weakPass(p); return why ? (why === 'curta' ? T.short : T.weak[why]) : ''; };
-// a failed write in words, ending with what did not change. A 403 that is not a rate limit: this browser's token only
-// reads (one accepted to open the cofre of a private repository); GitHub refused the first write, nothing changed.
-const writeErr = (x, unchanged) => (x instanceof GhError && x.status === 403 && !x.rate ? `${T.readOnly} ${unchanged}` : errText(x, 'write').replace('O site não mudou.', unchanged));
+// a failed write in words, ending with what did not change
+const writeErr = (x, unchanged) => errText(x, 'write').replace('O site não mudou.', unchanged);
+// A token that only reads (one accepted to open the cofre of a private repository): GitHub refused the write probe,
+// before the slow part, and nothing changed. The way out sits in the message itself, inside the open sheet: «Entrar com
+// outro token» keeps the open cofre and what was typed, and saves again with the new token.
+function readOnlyErr(err, form, unchanged) {
+  err.replaceChildren(`${T.readOnly} ${unchanged}`, h('button', { class: 'btn sm ghost dc-retoken', type: 'button', onclick: () => otherToken(err, form) }, 'Entrar com outro token'));
+}
+async function otherToken(err, form) {
+  err.textContent = '';
+  if (await ensureToken({ write: true, replace: true })) form.requestSubmit();
+}
+// a failed write: the read-only case with its button, any other in words
+function failWrite(err, form, x, unchanged) {
+  if (x instanceof GhError && x.status === 403 && !x.rate) readOnlyErr(err, form, unchanged);
+  else err.textContent = writeErr(x, unchanged);
+}
 
 // «Mostrar» next to every passphrase field (typed twice on a phone keyboard: a typo must be seen), and «Sugerir uma
 // frase-passe»: five words drawn here from vault-words.js
@@ -167,16 +184,17 @@ const S = {
 
 // ---------- the GitHub token ----------
 // To write (create, change the passphrase, a new key pair) it must be able to write. In a private repository it is also
-// needed to read: then ({ write: false }) a read-only token is enough.
-let tokenWait = null, tokenWrite = true;
-function ensureToken({ write = true } = {}) {
-  if (getToken()) return Promise.resolve(true);
-  tokenWrite = write;
+// needed to read: then ({ write: false }) a read-only token is enough. replace: another token, over the one in use
+// (which stays in use until the new one is accepted: a download may be reading with it).
+let tokenWait = null, tokenWrite = true, tokenPrev = null;
+function ensureToken({ write = true, replace = false } = {}) {
+  if (getToken() && !replace) return Promise.resolve(true);
+  tokenWrite = write; tokenPrev = getToken();
   const d = $('#d-token');
   $('#t-err').textContent = ''; $('#t-tok').value = '';
   d.showModal();
   setTimeout(() => $('#t-tok').focus(), 50);
-  return new Promise((ok) => { tokenWait = ok; d.addEventListener('close', () => { if (tokenWait) { tokenWait(false); tokenWait = null; } }, { once: true }); });
+  return new Promise((ok) => { tokenWait = ok; d.addEventListener('close', () => { if (tokenWait) { tokenWait(false); tokenWait = null; setToken(tokenPrev); } }, { once: true }); });
 }
 $('#token-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -186,17 +204,28 @@ $('#token-form').addEventListener('submit', async (e) => {
   try {
     await checkToken(t, { write: tokenWrite });
     keepToken(t, $('#t-remember').checked);
-    const ok = tokenWait; tokenWait = null;
+    const ok = tokenWait; tokenWait = null; tokenPrev = null;
     $('#d-token').close();
     $('#gh-line').hidden = false;
     if (ok) ok(true);
-  } catch (x) { $('#t-err').textContent = signInText(x); } finally { busy(btn, false); }
+  } catch (x) {
+    // a refused token is out of use (checkToken), the one from before is back
+    setToken(tokenPrev);
+    $('#t-err').textContent = signInText(x);
+  } finally { busy(btn, false); }
 });
+// After a step the person took (the token dialog, «Sair do GitHub»), focus goes to where the next one is, never to a
+// button that has just been hidden.
+function focusNext() {
+  const to = [['#unlock', '#u-pass'], ['#private', '#private-go'], ['#create', '#c-pass'], ['#open', '#more'], ['#problem', '#retry']].find(([s]) => !$(s).hidden);
+  if (to) $(to[1]).focus();
+}
 $('#gh-out').addEventListener('click', async () => {
   forgetToken(); setToken(null); $('#gh-line').hidden = true;
   toast('Saíste do GitHub neste browser. O cofre continua como estava.');
-  // a private repository no longer reads without it: show that now, not at the next download (none is cut short)
-  if (!running) await boot({ keepOpen: true });
+  // a private repository no longer reads without it: the page says so now. A download under way stops at its next
+  // part, keeping the parts it has (download())
+  if (!running) { await boot({ keepOpen: true }); focusNext(); }
 });
 
 // ---------- loading ----------
@@ -207,9 +236,13 @@ async function boot({ keepOpen = false } = {}) {
   let b;
   try { b = await store.loadBranch(); } catch (e) { problem(errText(e)); return; }
   S.branch = b;
+  // a token GitHub refused (expired, revoked, no access) leaves this browser too: it would be sent again on every
+  // visit, here and on Espaços, and «Sair do GitHub» is not shown without a token in use
+  if (b.tokenExpired || b.tokenNoAccess) forgetToken();
   // a private repository that this browser cannot read: ask for the token, and never offer to create a cofre on top
   // of one it could not read
   if (b.needToken) { S.vault = null; S.vaultText = null; S.priv = null; showPrivate(b); return; }
+  if (b.unread) { S.vault = null; S.vaultText = null; S.priv = null; problem(T.unread); return; }
   if (b.vaultText == null) {
     S.vault = null; S.vaultText = null; S.priv = null;
     if (b.fallback) { problem(errText(new GhError(403, '', b.rate))); return; }
@@ -236,12 +269,14 @@ async function boot({ keepOpen = false } = {}) {
   showUnlock();
 }
 function showPrivate(b) {
-  const why = b.tokenNoAccess ? T.tokenNoAccess : b.tokenExpired ? T.tokenExpired : '';
+  const dropped = b.tokenNoAccess || b.tokenExpired;
+  const why = b.tokenNoAccess ? T.tokenNoAccess : b.tokenExpired ? T.tokenExpired : b.rate ? T.limited(retryAt(b.rate)) : '';
   $('#private-why').textContent = why;
   $('#private-why').hidden = !why;
+  $('#private-go').textContent = dropped ? 'Entrar com outro token' : 'Entrar com o token';
   show('private');
 }
-$('#private-go').addEventListener('click', async () => { if (await ensureToken({ write: false })) await boot(); });
+$('#private-go').addEventListener('click', async () => { if (await ensureToken({ write: false })) { await boot(); focusNext(); } });
 function showUnlock() {
   $('#u-err').textContent = ''; $('#u-pass').value = '';
   $('#u-kept').hidden = !S.remembered;
@@ -260,12 +295,14 @@ $('#create').addEventListener('submit', async (e) => {
   if (weak) { err.textContent = weak; $('#c-pass').focus(); return; }
   if (p !== p2) { err.textContent = T.differ; $('#c-pass2').focus(); return; }
   if (!(await ensureToken())) { err.textContent = 'Sem o token do GitHub não consigo guardar o cofre.'; return; }
-  await createVault({ pass: p, remember: $('#c-remember').checked, expect: null, btn, err, message: 'Cofre: criado' });
+  await createVault({ pass: p, remember: $('#c-remember').checked, expect: null, btn, err, form: $('#create'), message: 'Cofre: criado' });
 });
 // newVault -> commit -> «Cofre pronto» with the fingerprint (also the lost-passphrase path, on top of the old vault)
-async function createVault({ pass, remember, expect, btn, err, message }) {
+async function createVault({ pass, remember, expect, btn, err, form, message }) {
   busy(btn, true, 'A preparar a chave…');
   try {
+    // a token that only reads is told so now, before the new key pair, and nothing is written
+    if (!(await canWrite())) { readOnlyErr(err, form, 'O cofre não mudou.'); return false; }
     const made = S.pending && S.pending.pass === pass ? S.pending.made : await newVault(pass);
     S.pending = { pass, made };
     btn.lastChild.textContent = 'A guardar no GitHub…';
@@ -289,7 +326,7 @@ async function createVault({ pass, remember, expect, btn, err, message }) {
   } catch (x) {
     if (x instanceof VaultError && x.code === 'curta') err.textContent = T.short;
     else if (x instanceof UiError && x.reload) { S.pending = null; closeDialogs(); await boot(); toast(x.message); err.textContent = x.message; }
-    else err.textContent = writeErr(x, 'O cofre não mudou.');
+    else failWrite(err, form, x, 'O cofre não mudou.');
     return false;
   } finally { busy(btn, false); }
 }
@@ -461,8 +498,18 @@ async function download(dl, d, v) {
     if (x && x.name === 'AbortError') { keep(); idle(dl, d, v); return; }
     if (x instanceof store.Missing) {
       await boot({ keepOpen: true });
-      // the branch moved under the list; unless the page now asks for the token (it lost the private repository)
-      if (!S.branch || !S.branch.needToken) { toast(T.moved); if (S.manifest) openNote(T.moved); }
+      // The page now asks for the token («Sair do GitHub» mid-download, in a private repository): the same file at the
+      // same commit, so the parts stay for «Continuar» once it is back. Otherwise the branch moved under the list.
+      if (S.branch && S.branch.needToken) { keep(); focusNext(); return; }
+      toast(T.moved); if (S.manifest) openNote(T.moved);
+      return;
+    }
+    if (x instanceof GhError && getToken() && (x.status === 401 || (x.status === 403 && !x.rate))) {
+      // the token was refused mid-download (expired, revoked, access taken away): the page checks it as when it opens
+      // (a private repository then asks for another), and the parts stay for «Continuar»
+      keep();
+      await boot({ keepOpen: true });
+      if (S.branch && S.branch.needToken) focusNext(); else toast(errText(x));
       return;
     }
     if (x instanceof VaultError) { idle(dl, d, v, x.code === 'versao' ? T.newer : T.broken); return; }
@@ -541,6 +588,8 @@ $('#pass-form').addEventListener('submit', async (e) => {
   if (!(await ensureToken())) { err.textContent = 'Sem o token do GitHub não consigo guardar a frase-passe nova.'; return; }
   busy(btn, true, 'A mudar…');
   try {
+    // a token that only reads is told so now, before PBKDF2 (seconds on a phone), and nothing is written
+    if (!(await canWrite())) { readOnlyErr(err, $('#pass-form'), 'A frase-passe não mudou.'); return; }
     const re = S.pendingRewrap && S.pendingRewrap.old === old && S.pendingRewrap.p === p ? S.pendingRewrap.vault : await rewrapVault(S.vault, old, p);
     S.pendingRewrap = { old, p, vault: re };
     await store.commitVault(re, { expect: S.vaultText, message: 'Cofre: frase-passe mudada' });
@@ -552,7 +601,7 @@ $('#pass-form').addEventListener('submit', async (e) => {
   } catch (x) {
     if (x instanceof VaultError) err.textContent = x.code === 'frase' ? 'A frase-passe atual não abre o cofre. Confirma maiúsculas e espaços.' : x.code === 'curta' ? T.short : T.badVault(x.message);
     else if (x instanceof UiError && x.reload) { S.pendingRewrap = null; $('#d-pass').close(); await boot({ keepOpen: true }); toast(x.message); }
-    else err.textContent = writeErr(x, 'A frase-passe não mudou.');
+    else failWrite(err, $('#pass-form'), x, 'A frase-passe não mudou.');
   } finally { busy(btn, false); }
 });
 
@@ -576,7 +625,7 @@ $('#new-form').addEventListener('submit', async (e) => {
   if (weak) { err.textContent = weak; return; }
   if (p !== p2) { err.textContent = T.differ; return; }
   if (!(await ensureToken())) { err.textContent = 'Sem o token do GitHub não consigo guardar o cofre novo.'; return; }
-  await createVault({ pass: p, remember: $('#n-remember').checked, expect: S.vaultText, btn: $('#n-go'), err, message: 'Cofre: chave nova' });
+  await createVault({ pass: p, remember: $('#n-remember').checked, expect: S.vaultText, btn: $('#n-go'), err, form: $('#new-form'), message: 'Cofre: chave nova' });
 });
 
 // ---------- dialogs, network, start ----------
