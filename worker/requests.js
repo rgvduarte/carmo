@@ -23,6 +23,11 @@
 //   POST /contratos           (admin) a contract entered by hand (a deal by email, WhatsApp, in kind)
 //   POST /contratos/<id>      (admin) { action: 'editar' | 'renovacao' | 'apagar', ... }
 //   GET  /estado              which pieces are set up (true / false only), for the deploy check
+//   GET  /apoiantes           public: { v: 1, on } (on: at least one published supporter's name; no count)
+//   GET  /apoiantes/nomes     public: { v: 1, names: [{ id, name }] }, the published names only, A to Z (pt collation)
+//   GET  /apoiantes/admin     (admin) every name with its state ('espera' | 'publicado'), the cap and the expiry day
+//   POST /apoiantes/admin     (admin) { action: 'importar', names: [..], publicar?: true } | { action: 'adicionar',
+//                             name, publicar?: false } | { action: 'publicar' } | { action: 'retirar', id }
 //
 // Admin calls carry "Authorization: Bearer <ADMIN_KEY>". A request holds a name, an email, a phone and a NIF, so: it expires from KV after
 // 180 days, only an admin call returns it, the address it came from is kept only as a keyed hash (of its /64 for IPv6),
@@ -43,6 +48,7 @@
 // does not know ("seasonRules" among them) keep their place and value.
 
 import { TITLE, quote, rulesOf, defaultRules, lisbonDay, addDays, salesOpen, seasonMonth, levelOf, contractExpiry, brandLink } from '../assets/js/season-rules.js';
+import * as APO from '../assets/js/apoiantes-core.js';
 
 // The first Lisbon date builds an Intl time-zone formatter, about 13 ms of CPU once per isolate, and the first price
 // compiles the rules: both done here, in the global scope (the isolate's start-up, which has its own limit), so no
@@ -108,6 +114,16 @@ async function route(request, env) {
     return reply(request, env, { ok: true, kv: !!env.PEDIDOS, github: !!env.SPOTS_GITHUB_TOKEN, admin: keyOk(env), turnstile: !!env.TURNSTILE_SECRET, limites: !!env.RL_PEDIDO && !!env.RL_ADMIN, contratos: !!env.PEDIDOS });
   }
   if (path === '/pedido') return method === 'POST' ? create(request, env) : reply(request, env, { error: 'metodo' }, 405);
+  // the supporters' wall: two public reads (no key, no names in the first), then the admin's list and changes
+  if (path === '/apoiantes' || path === '/apoiantes/nomes') return method === 'GET' ? apoPublic(request, env, path === '/apoiantes/nomes') : reply(request, env, { error: 'metodo' }, 405);
+  if (path === '/apoiantes/admin') {
+    if (request.headers.get('Origin') && !originOf(request, env)) return reply(request, env, { error: 'origem' }, 403);
+    const no = await admin(request, env);
+    if (no) return no;
+    if (method === 'GET') return apoList(request, env);
+    if (method === 'POST') return apoAct(request, env);
+    return reply(request, env, { error: 'metodo' }, 405);
+  }
   const m = path.match(/^\/pedidos(?:\/([^/]+)(\/logo)?)?$/), c = path.match(/^\/contratos(?:\/([^/]+))?$/);
   if (!m && !c) return reply(request, env, { error: 'nada' }, 404);
   // the admin's calls, /pedidos and /contratos alike: the site's Origin (or none, as curl), the burst limit, the key
@@ -994,4 +1010,90 @@ async function actContract(request, env, id) {
   const values = {};
   for (const k of ['amount', 'paidAt', 'pay', 'season']) if (changed.includes(k)) values[k] = c[k];
   return done({ action: 'editar', fields: changed, ...values });
+}
+
+// ---------- the supporters' wall («Quem apoia», KV apo:<season>) ----------
+// One document per season: { v: 1, season, names: [{ id, name, state: 'espera' | 'publicado' }] }, nothing else about a
+// person (no amount, no date, no email, no consent note: the owner's decision of 02.11.2026 puts every non-anonymous
+// name of the GoFundMe list in, short form «Nome I.»). It expires with the season's contracts, at the end of 31
+// December of the year after the season (contractExpiry). A removal deletes the entry at once (no tombstone).
+// Writes are read-modify-write on one key: the last of two writes in the same second wins, which only the owner's two
+// tabs could cause, and an import is safe to repeat (repeated names are skipped).
+const APO_KEY = `apo:${APO.SEASON}`;
+const APO_BODY = 128 * 1024;            // an import of MAX names of NAME_MAX characters fits
+const APO_ACTIONS = ['importar', 'adicionar', 'publicar', 'retirar'];
+const APO_PUBLIC = { 'Cache-Control': 'public, max-age=300', 'X-Robots-Tag': 'noindex, nofollow' };
+async function apoRead(env, cacheTtl) {
+  const doc = env.PEDIDOS ? await env.PEDIDOS.get(APO_KEY, cacheTtl ? { type: 'json', cacheTtl } : { type: 'json' }) : null;
+  return doc && Array.isArray(doc.names) ? doc : { v: 1, season: APO.SEASON, names: [] };
+}
+async function apoWrite(env, doc, now) {
+  const problems = APO.checkDoc(doc);
+  if (problems.length) throw new Error('apo');            // never a bad document in KV (the caller answers 'interno')
+  const expiration = Math.max(contractExpiry(APO.SEASON), Math.floor(now / 1000) + 120);
+  await env.PEDIDOS.put(APO_KEY, JSON.stringify(doc), { expiration });
+}
+// The public reads: the same answer for everyone, cached 5 minutes by the browser (KV's own edge cache, 60 s, keeps a
+// busy page from reading the key on every visit). No names in /apoiantes, which the site asks on every visit near
+// «Apoiar»; the names only after the tap «Vê quem apoiou». Never indexed. A Worker without KV says off.
+async function apoPublic(request, env, names) {
+  const view = APO.publicView(await apoRead(env, 60));
+  const body = names ? view : { v: 1, on: view.names.length >= APO.MIN_SHOWN };
+  return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', ...BASE, ...APO_PUBLIC, ...cors(request, env) } });
+}
+function apoView(doc) {
+  const names = APO.sortNames(doc.names.map((x) => ({ id: x.id, name: x.name, state: x.state })));
+  const day = new Date(contractExpiry(APO.SEASON) * 1000).toISOString().slice(0, 10);
+  return { v: 1, season: APO.SEASON, names, max: APO.MAX, expira: day, on: APO.isOn(doc) };
+}
+async function apoList(request, env) { return reply(request, env, apoView(await apoRead(env))); }
+function apoId(taken) {
+  for (;;) {
+    const rnd = crypto.getRandomValues(new Uint8Array(6));
+    const id = Array.from(rnd, (b) => APO.ID_CHARS[b % APO.ID_CHARS.length]).join('');
+    if (!taken.has(id)) return id;
+  }
+}
+async function apoAct(request, env) {
+  const { v: b, error } = await readJson(request, APO_BODY);
+  if (error) return fail(request, env, error, error === 'tamanho' ? 413 : 400);
+  if (!APO_ACTIONS.includes(b.action)) return fail(request, env, 'acao');
+  if (b.publicar !== undefined && (typeof b.publicar !== 'boolean' || !['importar', 'adicionar'].includes(b.action))) return fail(request, env, 'acao');
+  const now = Date.now(), doc = await apoRead(env);
+  const ids = new Set(doc.names.map((x) => x.id)), keys = new Map(doc.names.map((x) => [APO.foldKey(x.name), x]));
+  if (b.action === 'importar' || b.action === 'adicionar') {
+    const list = b.action === 'importar' ? b.names : [b.name];
+    if (!Array.isArray(list) || !list.length || list.length > APO.MAX) return fail(request, env, 'campos', 400, { campo: b.action === 'importar' ? 'names' : 'name' });
+    const state = (b.publicar ?? b.action === 'importar') ? 'publicado' : 'espera';
+    let added = 0, repetidos = 0;
+    const recusados = [];
+    for (let i = 0; i < list.length; i++) {
+      const why = typeof list[i] === 'string' ? APO.nameProblem(list[i]) : 'vazio';
+      if (why) { recusados.push({ i, motivo: why }); continue; }
+      const name = APO.normName(list[i]), k = APO.foldKey(name);
+      if (keys.has(k)) { repetidos++; continue; }
+      if (doc.names.length >= APO.MAX) return fail(request, env, 'muitos', 409, { max: APO.MAX });
+      const x = { id: apoId(ids), name, state };
+      ids.add(x.id); keys.set(k, x); doc.names.push(x); added++;
+    }
+    if (b.action === 'adicionar') {
+      if (recusados.length) return fail(request, env, 'nome', 400, { motivo: recusados[0].motivo });
+      if (repetidos) return fail(request, env, 'existe', 409, { id: keys.get(APO.foldKey(b.name)).id });
+    }
+    if (added) await apoWrite(env, doc, now);
+    return reply(request, env, { ...apoView(doc), added, repetidos, recusados }, added ? 201 : 200);
+  }
+  if (b.action === 'publicar') {
+    let n = 0;
+    for (const x of doc.names) if (x.state === 'espera') { x.state = 'publicado'; n++; }
+    if (n) await apoWrite(env, doc, now);
+    return reply(request, env, { ...apoView(doc), published: n });
+  }
+  // retirar: the entry leaves KV at once; the public answer follows within the caches (KV 60 s, browsers 5 min)
+  if (typeof b.id !== 'string' || !APO.ID_RE.test(b.id)) return fail(request, env, 'campos', 400, { campo: 'id' });
+  const at = doc.names.findIndex((x) => x.id === b.id);
+  if (at < 0) return fail(request, env, 'nada', 404);
+  doc.names.splice(at, 1);
+  await apoWrite(env, doc, now);
+  return reply(request, env, { ...apoView(doc), removed: b.id });
 }

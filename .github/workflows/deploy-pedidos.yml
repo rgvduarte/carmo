@@ -1,8 +1,9 @@
 name: Deploy pedidos
 
 # Publishes worker/ (the booking-request Worker) to Cloudflare, on its workers.dev address. Runs on a push to gh-pages
-# that touches worker/, assets/js/season-rules.js (the price and the season's dates, which wrangler bundles into the
-# Worker) or this file, and by hand: Actions > Deploy pedidos > Run workflow. data/spots.json is not here: the Worker
+# that touches worker/, assets/js/season-rules.js (the price and the season's dates) or assets/js/apoiantes-core.js (the
+# supporters' name rules), which wrangler bundles into the
+# Worker, or this file, and by hand: Actions > Deploy pedidos > Run workflow. data/spots.json is not here: the Worker
 # reads it on every request. The secrets are listed in
 # worker/README.md. The KV namespace «gocarmo-pedidos» is found (or created the first time) and its id goes into
 # worker/wrangler.toml for this run only. The run ends with the Worker's address in the job summary: it goes into
@@ -13,6 +14,7 @@ on:
     paths:
       - 'worker/**'
       - 'assets/js/season-rules.js'
+      - 'assets/js/apoiantes-core.js'
       - '.github/workflows/deploy-pedidos.yml'
   workflow_dispatch:
 
