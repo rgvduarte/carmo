@@ -180,8 +180,9 @@ que não conhece, e manda só a mensagem, como quando o Worker não responde.
 
 O link da marca (desde 02.11.2026), opcional: `link` com a regra de `assets/js/season-rules.js` `brandLink`, a mesma do
 site e da página de admin: `https://` (um domínio sem ele ganha-o), ou `@marca` (o Instagram); nunca outro esquema
-(`http:`, `javascript:`, `data:`, `mailto:`…), espaços, um endereço IP, uma porta ou `gocarmo.com`; até 200 caracteres
-depois de normalizado (`link`, 400, sem nada escrito). Fica no pedido normalizado (`link: ""` sem ele); um pedido
+(`http:`, `javascript:`, `data:`, `mailto:`…), espaços, um endereço IP, uma porta, um nome de rede local (`.local`,
+`.internal`…) ou `gocarmo.com`; até 200 caracteres
+depois de normalizado (senão, 400 `link`, e nada fica reservado). Fica no pedido normalizado (`link: ""` sem ele); um pedido
 guardado antes não tem o campo, e a página de admin lê-o como sem link. Uma página aberta antes da mudança não o
 manda: o pedido vale como antes.
 

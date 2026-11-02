@@ -209,10 +209,19 @@ export function contractExpiry(season) { return Date.UTC(Number(season) + 1, 11,
 // spot (data/spots.json "url"): https only, or an Instagram handle. One rule for every writer and for the site, which
 // checks the file again before it renders a link (defence in depth).
 export const LINK_MAX = 200;
-// social networks and messaging: no gocarmo tag on a link to them (their subdomains too: www., m., pt.linkedin.com)
-export const LINK_NETWORKS = ['instagram.com', 'facebook.com', 'tiktok.com', 'linkedin.com', 'wa.me', 'x.com', 'youtube.com'];
+// social networks, messaging and link pages: no gocarmo tag on a link to them (their subdomains too: www., m.,
+// pt.linkedin.com), the short names of each network included (instagr.am, fb.com, twitter.com, youtu.be, lnkd.in…)
+export const LINK_NETWORKS = ['instagram.com', 'instagr.am', 'facebook.com', 'fb.com', 'fb.me', 'm.me', 'tiktok.com', 'linkedin.com', 'lnkd.in',
+  'wa.me', 'whatsapp.com', 'x.com', 'twitter.com', 'youtube.com', 'youtu.be', 'threads.net', 'threads.com', 'linktr.ee'];
+// link shorteners and redirect pages: the page they lead to can change after the owner checks the link (the admin pages
+// say so; the site adds no gocarmo tag to them either)
+export const LINK_REDIRECTORS = ['bit.ly', 'bitly.com', 't.co', 'tinyurl.com', 'goo.gl', 'ow.ly', 'buff.ly', 'is.gd', 'cutt.ly', 'rebrand.ly',
+  'tiny.cc', 'shorturl.at', 's.id', 'lnkd.in', 'l.instagram.com', 'l.facebook.com', 'lm.facebook.com', 'l.messenger.com'];
 const LINK_HIDDEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/;
-const LINK_HANDLE = /^[A-Za-z0-9._]{1,30}$/;
+// an Instagram name: letters, digits, «.» and «_», at least one letter or digit, no «.» first, last or twice in a row
+const LINK_HANDLE = /^(?!\.)(?!.*\.\.)(?!.*\.$)(?=.*[A-Za-z0-9])[A-Za-z0-9._]{1,30}$/;
+// names for a local network, a test or a hidden service, never a page of the open web (router.local, nas.home.arpa…)
+const LINK_PRIVATE = /\.(?:localhost|local|internal|lan|home|corp|test|example|invalid|onion|alt|arpa)$/;
 // brandLink(raw) -> { url: '' } (nothing typed) | { url: 'https://…' } (normalised) | { error } with error one of
 // 'esquema' (http:, javascript:, data:, mailto:, …), 'espacos' (a space or an invisible character inside), 'longo' (over
 // LINK_MAX characters, typed or once normalised), 'invalido' (not a page of the open web: no real domain, an address,
@@ -236,7 +245,7 @@ export function brandLink(raw) {
   try { u = new URL(href); } catch (_) { return { error: 'invalido' }; }
   const host = u.hostname.toLowerCase().replace(/\.$/, '');
   if (u.protocol !== 'https:' || u.username || u.password || u.port || !host || host.startsWith('[') || /^[\d.]+$/.test(host)
-    || host === 'gocarmo.com' || host.endsWith('.gocarmo.com') || !/\.(?:[a-z]{2,}|xn--[a-z0-9-]+)$/.test(host)) return { error: 'invalido' };
+    || host === 'gocarmo.com' || host.endsWith('.gocarmo.com') || !/\.(?:[a-z]{2,}|xn--[a-z0-9-]+)$/.test(host) || LINK_PRIVATE.test(host)) return { error: 'invalido' };
   if (u.href.length > LINK_MAX) return { error: 'longo' };
   return { url: u.href };
 }
@@ -246,6 +255,17 @@ export function linkHost(url) {
 }
 // a link to a network (instagram.com, …) rather than to the brand's own website
 export const isNetwork = (url) => { const h = linkHost(url); return !!h && LINK_NETWORKS.some((n) => h === n || h.endsWith(`.${n}`)); };
+// a link through a shortener or a redirect page (bit.ly, l.instagram.com, google.com/url?q=…, youtube.com/redirect?q=…):
+// where it leads can change after the owner approves it
+export function isRedirector(url) {
+  let u;
+  try { u = new URL(String(url || '')); } catch (_) { return false; }
+  const h = linkHost(url);
+  if (!h) return false;
+  if (LINK_REDIRECTORS.some((r) => h === r || h.endsWith(`.${r}`))) return true;
+  if (/^(?:[a-z0-9-]+\.)?google(?:\.[a-z]{2,3}){1,2}$/.test(h) && u.pathname === '/url') return true;
+  return (h === 'youtube.com' || h.endsWith('.youtube.com')) && u.pathname === '/redirect';
+}
 // a link as a person reads it: 'padaria.pt/loja', 'instagram.com/marca' (no https://, no www., no last slash)
 export function linkShown(url) {
   let u;
@@ -254,14 +274,14 @@ export function linkShown(url) {
   return `${linkHost(url)}${path === '/' ? '' : path}`;
 }
 // The href the site renders for a sponsor's url (data/spots.json), '' for anything that is not a valid https link
-// (never rendered). A link to the brand's own website gets the gocarmo tag (utm_source=gocarmo.com, utm_medium=patrocinio,
-// utm_campaign=epoca-<season>) unless it carries utm_ parameters already; a network link goes as it is. The tag is joined
+// (never rendered). A link to the brand's own website (not a network, not a shortener) gets the gocarmo tag (utm_source=gocarmo.com, utm_medium=patrocinio,
+// utm_campaign=epoca-<season>) unless it carries utm_ parameters already; a network or shortener link goes as it is. The tag is joined
 // as text, so the brand's own query is kept byte for byte, and the fragment stays last.
 export function sponsorHref(url, season) {
   if (typeof url !== 'string' || !/^https:\/\//i.test(url.trim())) return '';
   const L = brandLink(url);
   if (!L.url) return '';
-  if (isNetwork(L.url)) return L.url;
+  if (isNetwork(L.url) || isRedirector(L.url)) return L.url;
   const u = new URL(L.url);
   if ([...u.searchParams.keys()].some((k) => /^utm_/i.test(k))) return L.url;
   const y = /^\d{4}$/.test(String(season ?? '')) ? `-${season}` : '';

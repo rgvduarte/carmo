@@ -89,7 +89,10 @@ export function comparable(range, prev, oldest) {
 
 // ---------- brands (DESIGN §2.4) ----------
 // Networks whose links are shared by many brands: a click there cannot be told apart by brand.
-const SHARED = { 'instagram.com': 'Instagram', 'facebook.com': 'Facebook', 'tiktok.com': 'TikTok', 'linkedin.com': 'LinkedIn', 'x.com': 'X', 'twitter.com': 'X', 'youtube.com': 'YouTube', 'linktr.ee': 'Linktree' };
+// (the short names too, as season-rules.js LINK_NETWORKS lists them: instagr.am, fb.com, youtu.be, …)
+const SHARED = { 'instagram.com': 'Instagram', 'instagr.am': 'Instagram', 'facebook.com': 'Facebook', 'fb.com': 'Facebook', 'fb.me': 'Facebook',
+  'm.me': 'Messenger', 'tiktok.com': 'TikTok', 'linkedin.com': 'LinkedIn', 'lnkd.in': 'LinkedIn', 'wa.me': 'WhatsApp', 'whatsapp.com': 'WhatsApp',
+  'x.com': 'X', 'twitter.com': 'X', 'youtube.com': 'YouTube', 'youtu.be': 'YouTube', 'threads.net': 'Threads', 'threads.com': 'Threads', 'linktr.ee': 'Linktree' };
 export const bareHost = (h) => String(h || '').toLowerCase().replace(/^www\./, '').replace(/\.$/, '');
 // the host a sold spot's link sends clicks to, or { shared: 'Instagram' } for a network link (@handle included)
 export function linkHost(url) {
@@ -106,7 +109,8 @@ export function linkHost(url) {
 export const hostMatches = (clicked, hosts) => { const c = bareHost(clicked); return !!c && (hosts || []).some((h) => c === h || c.endsWith(`.${h}`)); };
 
 // brandsFor(spotsJson, montraJson, season?) -> [{ key, name, montraIds, hosts, shared, spots: [{id, item, pt, en}], title,
-// spotIds }] (spotIds: the ids its logo clicks are counted by, sponsor_click: its spots, and 'title' for the whole suit)
+// spotIds, since }] (spotIds: the ids its logo clicks are counted by, sponsor_click: its spots, and 'title' for the whole
+// suit; since: { id: 'YYYY-MM-DD' }, the day each of them went to the brand, when the sale wrote it)
 // every brand with sold spots of the season in data/spots.json (and the whole suit), plus every brand of
 // data/montra.json; sorted by name. season: the season of the report (default: the spots file's own).
 export function brandsFor(spotsJson, montraJson, season) {
@@ -114,7 +118,8 @@ export function brandsFor(spotsJson, montraJson, season) {
   const ssn = String(season ?? sp.season ?? '');
   const list = [];
   const find = (name) => list.find((b) => sameBrand(b.name, name));
-  const add = (name) => { let b = find(name); if (!b) { b = { name: String(name).trim(), montraIds: [], hosts: [], shared: '', spots: [], title: false, spotIds: [] }; list.push(b); } return b; };
+  const add = (name) => { let b = find(name); if (!b) { b = { name: String(name).trim(), montraIds: [], hosts: [], shared: '', spots: [], title: false, spotIds: [], since: {} }; list.push(b); } return b; };
+  const day = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
   const link = (b, url) => {
     const r = linkHost(url);
     if (!r) return;
@@ -123,12 +128,13 @@ export function brandsFor(spotsJson, montraJson, season) {
   };
   if (String(sp.season ?? '') === ssn) {
     const T0 = sp.title;
-    if (T0 && T0.status === 'sold' && T0.brand) { const b = add(T0.brand); b.title = true; if (!b.spotIds.includes('title')) b.spotIds.push('title'); link(b, T0.url); }
+    if (T0 && T0.status === 'sold' && T0.brand) { const b = add(T0.brand); b.title = true; if (!b.spotIds.includes('title')) b.spotIds.push('title'); if (day(T0.since)) b.since.title = day(T0.since); link(b, T0.url); }
     for (const s of Array.isArray(sp.spots) ? sp.spots : []) {
       if (!s || s.status !== 'sold' || !s.brand) continue;
       const b = add(s.brand);
       if (!b.spots.some((x) => x.id === s.id)) b.spots.push({ id: s.id, item: s.item === 'helmet' ? 'helmet' : 'suit', pt: (s.pt && s.pt.name) || s.id, en: (s.en && s.en.name) || s.id });
       if (!b.spotIds.includes(s.id)) b.spotIds.push(s.id);
+      if (day(s.since)) b.since[s.id] = day(s.since);
       link(b, s.url || s.link);
     }
   }
@@ -342,14 +348,16 @@ export function buildModel(o) {
     const mrow = (m) => { const p = mpart(m); return p.cut ? f.range(p.from, p.to) : f.month(m); };
     // the clicks on the brand's logo link: by spot (sponsor_click, since 02.11.2026, Instagram links included) plus, for the
     // days before it, by the host of its own website (logoOld: never a shared network, never a day already counted by
-    // spot); with a counter that does not count by spot yet (no `spots` in its answer), by host as before
+    // spot); with a counter that does not count by spot yet (no `spots` in its answer), by host as before. A spot counts
+    // from the month it went to the brand (its `since`), so a brand never gets the clicks of the spot's earlier holder.
     const sp = d.sponsors, bySpot = !!(sp && Array.isArray(sp.spots)), ids = new Set(brand.spotIds || []);
+    const sinceOf = brand.since || {}, fromMonth = (id) => String(sinceOf[id] || '').slice(0, 7);
     const linked = brand.hosts.length > 0 || !!brand.shared;
     if (sp && (bySpot ? ids.size > 0 && linked : brand.hosts.length > 0)) {
       const byMonth = new Map(months.map((m) => [m, 0]));
       let old = 0;
       if (bySpot) {
-        for (const mo of sp.spots || []) for (const r of mo.rows || []) if (ids.has(r.spot) && byMonth.has(mo.month)) byMonth.set(mo.month, byMonth.get(mo.month) + num(r.clicks));
+        for (const mo of sp.spots || []) for (const r of mo.rows || []) if (ids.has(r.spot) && byMonth.has(mo.month) && mo.month >= fromMonth(r.spot)) byMonth.set(mo.month, byMonth.get(mo.month) + num(r.clicks));
         for (const mo of sp.months || []) for (const r of mo.rows || []) if (hostMatches(r.host, brand.hosts) && byMonth.has(mo.month)) { byMonth.set(mo.month, byMonth.get(mo.month) + num(r.logoOld)); old += num(r.logoOld); }
       } else for (const mo of sp.months || []) for (const r of mo.rows || []) if (hostMatches(r.host, brand.hosts) && byMonth.has(mo.month)) byMonth.set(mo.month, byMonth.get(mo.month) + num(r.logo));
       const lead = bySpot ? t.logoNote : fill(t.logoNoteHost, { hosts: brand.hosts.join(', ') });
@@ -365,8 +373,12 @@ export function buildModel(o) {
           points: months.map((m, i) => ({ label: mlabel(m, i), v: byMonth.get(m), text: f.int(byMonth.get(m)) })), gold: true });
       }
       const note = total === 1 ? fill(t.logoTotal1, { views: f.int(vTotal) }) : fill(t.logoTotal, { v: f.int(total), views: f.int(vTotal) });
+      // a spot that went to the brand after the period began: its clicks count from that month (said, with the month)
+      const named = (id) => (id === 'title' ? t.suitWhole : pick(brand.spots.find((x) => x.id === id) || { pt: id, en: id }));
+      const cut = !bySpot ? [] : [...ids].filter((id) => fromMonth(id) > months[0] && fromMonth(id) <= months[months.length - 1]);
+      const sinceNote = cut.length ? fill(t.logoSince, { list: cut.map((id) => `${named(id)} (${f.month(fromMonth(id))})`).join(', ') }) : '';
       p4.push({ t: 'table', ...(months.length > 1 ? {} : { title: t.logo, lead }), head: t.logoCols, rows, align: ['l', 'r', 'r'], totalRow: months.length > 1,
-        note: oldNote ? `${note} ${oldNote}` : note });
+        note: [note, oldNote, sinceNote].filter(Boolean).join(' ') });
     } else if (!bySpot && !brand.hosts.length && brand.shared) {
       p4.push({ t: 'sec', title: t.logo, text: fill(t.logoShared, { net: brand.shared }) });
     }

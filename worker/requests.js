@@ -335,7 +335,7 @@ function held(raw, ids, { brand, until, id, today }) {
   const data = structuredClone(raw);
   for (const sid of ids) {
     const t = targetOf(data, sid);
-    for (const k of ['brand', 'url', 'until', 'request']) delete t[k];
+    for (const k of ['brand', 'url', 'until', 'request', 'since']) delete t[k];
     t.status = 'reserved';
     delete t.logo; delete t.logoMono;
     t.brand = brand;
@@ -352,7 +352,7 @@ function freed(raw, ids, today) {
   const data = structuredClone(raw);
   for (const sid of ids) {
     const t = targetOf(data, sid);
-    for (const k of ['brand', 'url', 'until', 'request']) delete t[k];
+    for (const k of ['brand', 'url', 'until', 'request', 'since']) delete t[k];
     t.status = 'available';
     delete t.logo; delete t.logoMono;
   }
