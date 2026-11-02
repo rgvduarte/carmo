@@ -477,9 +477,12 @@ export class Kit {
     this.ptr.set(((e.clientX - b.left) / b.width) * 2 - 1 + 1e-4, -((e.clientY - b.top) / b.height) * 2 + 1 + 1e-4);
     this.ray.setFromCamera(this.ptr, this.camera);
     const hit = this.ray.intersectObjects(this.meshes, false)[0];
-    if (!hit || !hit.uv || this.uni.uSpots.value < 0.5) return null;
+    if (!hit || !hit.uv) return null;
+    // with «Espaços» off only a printed sponsor logo answers a tap (it opens its card, with the link to the brand)
+    const all = this.uni.uSpots.value >= 0.5;
     const px = hit.uv.x * this.size, py = (1 - hit.uv.y) * this.size, part = hit.object.userData.part;
     for (const s of this.spots) {
+      if (!all && !(s.status === 'sold' && s._logo)) continue;
       const r = this.rects.get(s.id);
       if (r && r.part === part && px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return s.id;
     }

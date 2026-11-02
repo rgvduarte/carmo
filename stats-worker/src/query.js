@@ -594,7 +594,7 @@ const BUILD = {
 
   montra(w) { return montraOf(w.curAll); },
 
-  sponsors(w) { return sponsorsOf(w.curAll, w.ctx.host); },
+  sponsors(w) { return sponsorsOf(w.curAll, w.ctx.host, w.ctx.spots); },
 
   system(w) {
     const { cur, ctx } = w;
@@ -651,12 +651,37 @@ export function montraOf(acc) {
 // showcase (`out` rows of type patrocinador, keyed by section): `logo` everywhere but the showcase, `shop` in it
 // (#material); and `list`, the page views where the sponsor list came into view (onsuit_view), per month. `host`: only
 // that host and its subdomains.
-export function sponsorsOf(acc, host) {
-  const months = new Map(), totals = new Map(), views = new Map();
+// Since 02.11.2026 a tap on a sponsor's logo link also says its spot (sponsor_click): `spots` gives the clicks per month
+// and spot (`ficha`: the spot's card, from the 3D or a row; `lista`: «Já no fato»), which tell one brand from another
+// even on Instagram. The host rows keep counting every click; `logoOld` is the part of `logo` from days with no
+// sponsor_click at all (the history before the new tracker, and old cached pages), so a report adds spots + logoOld and
+// never counts a click twice. `spotsFrom`: the first day of the period with sponsor_click data ('' when none).
+// `spots` (the filter): only those spot ids in the spot rows.
+const SPONSOR_VIA = ['ficha', 'lista'];
+export function sponsorsOf(acc, host, spots) {
+  const months = new Map(), totals = new Map(), views = new Map(), sMonths = new Map(), sTotals = new Map();
+  const want = Array.isArray(spots) && spots.length ? new Set(spots) : null;
   const mine = (h) => !host || h === host || h.endsWith(`.${host}`);
-  const bump = (map, h, col, v) => { let r = map.get(h); if (!r) map.set(h, (r = { host: h, logo: 0, shop: 0 })); r[col] += v; };
+  const bump = (map, h, col, v) => { let r = map.get(h); if (!r) map.set(h, (r = { host: h, logo: 0, shop: 0, logoOld: 0 })); r[col] += v; };
+  const bumpS = (map, spot, via, v) => { let r = map.get(spot); if (!r) map.set(spot, (r = { spot, ficha: 0, lista: 0 })); if (SPONSOR_VIA.includes(via)) r[via] += v; r.clicks = (r.clicks || 0) + v; };
+  let from = '';
   for (const slot of acc.slots) {
     const month = slot.slice(0, 7);
+    // the day's taps by spot; and whether the day has any (then its host rows are already counted by spot)
+    let bySpot = false;
+    for (const [k, a] of acc.slotRows(slot, 'ev')) {
+      const [n, ps] = splitK(k);
+      if (n !== 'sponsor_click') continue;
+      bySpot = true;
+      const p = {};
+      if (ps) for (const kv of ps.split('&')) { const i = kv.indexOf('='); p[kv.slice(0, i)] = kv.slice(i + 1); }
+      if (!p.spot || (want && !want.has(p.spot)) || !a[0]) continue;
+      let m = sMonths.get(month);
+      if (!m) sMonths.set(month, (m = new Map()));
+      bumpS(m, p.spot, p.via, a[0]);
+      bumpS(sTotals, p.spot, p.via, a[0]);
+    }
+    if (bySpot && (!from || slot < from)) from = slot;
     for (const [k, a] of acc.slotRows(slot, 'out')) {
       const [type, sec, h] = splitK(k);
       if (type !== 'patrocinador' || !h || !mine(h) || !a[0]) continue;
@@ -665,17 +690,23 @@ export function sponsorsOf(acc, host) {
       if (!m) months.set(month, (m = new Map()));
       bump(m, h, col, a[0]);
       bump(totals, h, col, a[0]);
+      if (col === 'logo' && !bySpot) { bump(m, h, 'logoOld', a[0]); bump(totals, h, 'logoOld', a[0]); }
     }
     let u = 0;
     for (const [k, a] of acc.slotRows(slot, 'ev')) if (splitK(k)[0] === 'onsuit_view') u += a[1];
     if (u) views.set(month, (views.get(month) || 0) + u);
   }
-  const out = (map) => [...map.values()].map((r) => ({ host: r.host, logo: int(r.logo), shop: int(r.shop) })).sort((a, b) => cmp(a.host, b.host));
+  const out = (map) => [...map.values()].map((r) => ({ host: r.host, logo: int(r.logo), shop: int(r.shop), logoOld: int(r.logoOld) })).sort((a, b) => cmp(a.host, b.host));
+  const outS = (map) => [...map.values()].map((r) => ({ spot: r.spot, ficha: int(r.ficha), lista: int(r.lista), clicks: int(r.clicks) })).sort((a, b) => cmp(a.spot, b.spot));
   return {
     months: [...months].sort((a, b) => cmp(a[0], b[0])).map(([month, rows]) => ({ month, rows: out(rows) })),
     totals: out(totals),
     list: [...views].sort((a, b) => cmp(a[0], b[0])).map(([month, v]) => ({ month, views: int(v) })),
+    spots: [...sMonths].sort((a, b) => cmp(a[0], b[0])).map(([month, rows]) => ({ month, rows: outS(rows) })),
+    spotTotals: outS(sTotals),
+    spotsFrom: from ? from.slice(0, 10) : '',
     ...(host ? { host } : {}),
+    ...(want ? { spotFilter: [...want].sort() } : {}),
     ignored: ['dev'],
   };
 }

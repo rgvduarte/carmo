@@ -717,6 +717,10 @@ section { position: relative; }
 .stage-foot > * { pointer-events: auto; }
 .hint { font: 500 12px/1.3 var(--sans); color: var(--muted); background: rgba(11,11,12,0.5); padding: 8px 12px; border-radius: 999px; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
 .stage-foot .hint { margin-right: auto; }
+/* «Clica num logótipo para conheceres…»: only while a sold spot of this model links to its brand; on a computer it sits
+   just above the hint and the zoom, on a phone it takes the hint's place in the row (adspace.js renderSponsorNotes) */
+.stage-foot .sp-note { position: absolute; left: 0; bottom: calc(100% + 8px); max-width: min(100%, 440px); border-radius: 14px; color: var(--ink); text-wrap: balance; }
+.stage-foot .sp-note[hidden] { display: none; }
 .zoom { display: flex; gap: 6px; }
 .zoom button { width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: rgba(11,11,12,0.5); color: var(--ink); font-size: 18px; line-height: 1; }
 .callout { position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none; transform: translate(-50%, calc(-100% - 18px)); opacity: 0; transition: opacity .2s; width: max-content; }
@@ -778,6 +782,16 @@ section { position: relative; }
 .vis .bars i { height: 4px; border-radius: 2px; background: var(--line); }
 .vis .bars i.on { background: var(--ink); }
 .spot-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+/* a sold spot: its brand (with its logo, on white so any logo reads) and «Visitar [Marca]» to its page (fillCard) */
+.sd-sponsor { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-2); }
+.sd-sponsor[hidden] { display: none; }
+.sd-mark { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.sd-mark img { display: block; height: 36px; width: auto; max-width: 120px; object-fit: contain; padding: 4px 8px; border-radius: 8px; background: #fff; }
+.sd-mark img[hidden] { display: none; }
+.sd-mark b { font: 650 15px/1.25 var(--sans); overflow-wrap: anywhere; }
+.sd-visit { max-width: 100%; }
+.sd-visit span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-visit[hidden] { display: none; }
 .empty-card { display: grid; place-items: start; gap: 12px; }
 .empty-card p { margin: 0; color: var(--muted); }
 
@@ -1349,6 +1363,14 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
 .onsuit a, .onsuit span:not(.k) { color: var(--ink); text-decoration: none; font-weight: 600; }
 .onsuit a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .onsuit small { margin-left: 6px; font: 500 10px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+/* each brand: its logo on a white chip (any logo reads on the dark chapter) or its name; a link when it has one */
+.onsuit li { align-self: center; }
+.onsuit .os-b { display: inline-flex; align-items: center; gap: 2px; border-radius: 10px; }
+.onsuit .os-logo { display: block; height: 40px; width: auto; max-width: 150px; object-fit: contain; padding: 6px 10px; border-radius: 10px; background: #fff; }
+.onsuit a.os-b:hover { text-decoration: none; }
+.onsuit a.os-b:hover .os-name { text-decoration: underline; text-underline-offset: 3px; }
+.onsuit a.os-b:hover .os-logo { box-shadow: 0 0 0 2px var(--gold); }
+.onsuit a.os-b:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
 /* direct support by transfer */
 .give { margin-top: 28px; max-width: 460px; }
 .give-k { margin: 0 0 10px; font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
@@ -1552,6 +1574,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .stage-ui { justify-content: flex-end; }
   .stage-foot .hint { display: none; }
   .stage-foot { justify-content: flex-end; }
+  .stage-foot .hint.sp-note:not([hidden]) { display: block; position: static; margin-right: auto; max-width: none; flex: 1 1 auto; padding: 7px 11px; font-size: 12px; }
   .panel { padding-bottom: 110px; }
   /* spot details become a bottom sheet over the rate card */
   .spot-card { position: fixed; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); z-index: 47; max-height: 62svh; overflow: auto; overscroll-behavior: contain;
@@ -1637,6 +1660,7 @@ body.pk-on footer { padding-bottom: calc(136px + env(safe-area-inset-bottom)); }
   .stage-ui .seg-tabs, .stage-foot .hint { display: none; }
   .stage-ui { justify-content: flex-end; }
   .stage-foot { justify-content: flex-end; }
+  .stage-foot .hint.sp-note:not([hidden]) { display: block; position: static; margin-right: auto; max-width: none; flex: 1 1 auto; }
   .only-avail { min-height: 58px; padding: 8px 12px 8px 14px; }
   .only-avail .only-n { display: block; margin-top: 2px; font-size: 12px; }
   .only-avail .only-n::before { content: none; }

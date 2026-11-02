@@ -6,7 +6,7 @@ import * as C from './admin-core.js';
 import { GhError, UiError, transient, readToken, forgetToken, keepToken, gh, UNKNOWN, errText, checkToken, signInText, getToken, setToken, commitFiles, readText } from './admin-gh.js';
 import { findBrand, countFor, spotsAllow, retireOver, deletesFor, applyBrand, fileText } from './admin-montra-core.js';
 import { MONTRA_PATH } from './montra-core.js';
-import { lisbonDay, rulesOf, isDay, noRacesLeft } from './season-rules.js';
+import { lisbonDay, rulesOf, isDay, noRacesLeft, brandLink, linkShown } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -308,6 +308,7 @@ function showPaste(p) {
   const row = (k, v, cls) => { if (!v) return; const d = el('div', cls ? `pv-r ${cls}` : 'pv-r'); d.append(el('dt', null, k), el('dd', null, v)); dl.appendChild(d); };
   row('Espaços', ids.map((id) => shortName(raw, id)).join(', '));
   row('Marca', p.brand);
+  row('Link', p.link ? linkShown(p.link) : '');
   row('Nome', p.name);
   row('Email', p.email);
   row('Telefone', p.phone);
@@ -407,6 +408,8 @@ function pasteAct(action) {
   sel = new Set(ids); syncRows();
   openSheet(action, ids);
   if (p.brand) $('#f-brand').value = p.brand;
+  // the brand's link goes with a sale only (a reserved spot never shows one on the site)
+  if (action === 'sold' && p.link) $('#f-url').value = p.link;
   if (action === 'reserved') { $('#f-until').value = C.holdUntil(); sheet.untilTouched = true; }
   refreshSheet();
 }
@@ -569,19 +572,25 @@ function atText(iso) {
   return `${C.fmtDay(`${d.getFullYear()}-${C.pad2(d.getMonth() + 1)}-${C.pad2(d.getDate())}`)}, ${hhmm(d)}`;
 }
 // the request's spots as the list has them now: sold to its brand already (a manual sale), or no longer its own
+// noLink: sold to its brand by hand without the link the request gave (none on the spots, or another one)
 function reqStanding(r) {
-  if (!base) return { soldToBrand: false, noLogo: false, lines: [] };
-  const raw = base.data, v = C.effective(raw, Date.now()), today = C.todayUTC(), ids = reqIds(r), lines = [];
-  let sold = ids.length > 0, noLogo = false;
+  if (!base) return { soldToBrand: false, noLogo: false, noLink: false, lines: [] };
+  const raw = base.data, v = C.effective(raw, Date.now()), today = C.todayUTC(), ids = reqIds(r), lines = [], link = reqLink(r);
+  let sold = ids.length > 0, noLogo = false, noLink = false;
   for (const id of ids) {
     const x = C.targetOf(raw, id), w = C.targetOf(v, id);
     if (!x) { lines.push(`O espaço ${id} já não existe.`); sold = false; continue; }
     if (!(x.status === 'sold' && x.brand === r.brand)) sold = false;
     if (!x.logo) noLogo = true;
+    if (link && (x.url || '') !== link) noLink = true;
     if (r.status === 'novo' && !(x.status === 'reserved' && x.request === r.id) && !(x.status === 'sold' && x.brand === r.brand)) lines.push(`${C.labelOf(raw, id)}: ${C.statusOf(v, w, today).chip}`);
   }
-  return { soldToBrand: sold, noLogo: sold && noLogo, lines };
+  return { soldToBrand: sold, noLogo: sold && noLogo, noLink: sold && noLink, lines };
 }
+// the brand's link a request carries, checked again with the site's rule ('' when none: a request from before links)
+const reqLink = (r) => brandLink(typeof r.link === 'string' ? r.link : '').url || '';
+// the link the spots of a request already show for its brand (sold to it by hand, or an earlier sale), '' when none
+const soldLink = (r) => { if (!base) return ''; for (const id of reqIds(r)) { const x = C.targetOf(base.data, id); if (x && x.status === 'sold' && x.brand === r.brand && x.url) return x.url; } return ''; };
 
 function reqCard(r) {
   const raw = base ? base.data : null, ids = reqIds(r), open = r.status === 'novo';
@@ -599,6 +608,9 @@ function reqCard(r) {
   if (season) li.appendChild(el('p', 'req-season', season));
   const who = [r.name ? `Nome: ${r.name}` : '', r.email ? `Email: ${r.email}` : '', r.phone ? `Telefone: ${r.phone}` : '', r.nif ? `NIF: ${r.nif}${C.nifOk(r.nif) === false ? ' (não confere)' : ''}` : ''].filter(Boolean).join(' · ');
   if (who) li.appendChild(el('p', 'req-who', who));
+  // the brand's link, to open and check before it goes on the logo (it reaches the site only with the sale)
+  const lk = reqLink(r);
+  if (lk) { const p = el('p', 'req-link', 'Link: '), a = el('a', null, linkShown(lk)); a.href = lk; a.target = '_blank'; a.rel = 'noopener noreferrer'; p.appendChild(a); li.appendChild(p); }
   if (r.message) li.appendChild(el('p', 'req-msg', r.message));
   const st = el('span', 'st'), left = C.holdLeft(r.until);
   if (r.status === 'confirmado') { st.classList.add('sold'); st.appendChild(el('span', null, 'Compra confirmada')); }
@@ -627,7 +639,7 @@ function reqCard(r) {
     const acts = el('div', 'req-acts'), busyNow = inbox.busy.has(r.id);
     const add = (cls, label, fn) => { const b = el('button', cls, label); b.type = 'button'; b.disabled = busyNow; b.addEventListener('click', fn); acts.appendChild(b); };
     // sold by hand already: put the request's logo on it (a sale again, to the same brand), or only close the request
-    if (stand.noLogo) { add('btn gold', 'Pôr o logótipo do pedido', () => confirmPurchase(r)); add('btn', 'Marcar como confirmado', () => closeReq(r)); }
+    if (stand.noLogo || stand.noLink) { add('btn gold', stand.noLogo && stand.noLink ? 'Pôr o logótipo e o link do pedido' : stand.noLogo ? 'Pôr o logótipo do pedido' : 'Pôr o link do pedido', () => confirmPurchase(r)); add('btn', 'Marcar como confirmado', () => closeReq(r)); }
     else if (stand.soldToBrand) add('btn gold', 'Marcar como confirmado', () => closeReq(r));
     else { add('btn gold', 'Confirmar compra', () => confirmPurchase(r)); add('btn', 'Prolongar 48 h', () => extendReq(r)); }
     add('btn ghost', 'Cancelar', () => cancelReq(r));
@@ -636,6 +648,7 @@ function reqCard(r) {
   return li;
 }
 
+const URL_HINT = 'Fica no logótipo no site: o site, o Instagram ou a página de contacto da marca. https:// ou @marca.';
 // the logo, fetched with the key (an <img> cannot send it) and shown from a blob: URL
 async function reqLogo(id) {
   const have = inbox.logos.get(id);
@@ -674,6 +687,10 @@ async function confirmPurchase(r) {
   sel = new Set(ids); syncRows();
   openSheet('sold', ids);
   $('#f-brand').value = r.brand || '';
+  // the brand's link: the request's, else the one its spots show already (an earlier sale to it); editable, removable
+  const lk = reqLink(r) || soldLink(r);
+  $('#f-url').value = lk;
+  $('#f-url-hint').textContent = lk ? 'Link do pedido: podes mudar ou apagar. Fica no logótipo no site com esta venda.' : URL_HINT;
   sheet.request = r.id;
   const note = $('#sh-req');
   note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.${!logoLateReq(base.data, r) ? '' : noRaceReq(base.data, r) ? ` ${NO_RACE(base.data, r)}` : ` ${RACE_ASK} Escreve-a depois em Patrocínios (Editar, «A partir da prova»).`}`;
@@ -729,11 +746,20 @@ function askPaid(r, { title, yes, day }) {
     sum.appendChild(el('b', null, typeof r.total === 'number' ? C.money(r.total) : '?'));
     if (season) sum.append(` · ${season}`);
     fillPaid('pay', r, day || lisbonDay());
+    // the brand's link for the contract: the one the spots show for the brand, else the request's (editable, removable)
+    $('#pay-url').value = soldLink(r) || reqLink(r);
     err.textContent = '';
     $('#pay-go').textContent = yes;
     const done = (v) => { form.onsubmit = null; $('#pay-no').onclick = null; $('#pay-x').onclick = null; d.removeEventListener('close', onClose); if (d.open) d.close(); resolve(v); };
     const onClose = () => { if (!d.open) done(null); };
-    form.onsubmit = (e) => { e.preventDefault(); err.textContent = ''; const v = readPaid('pay', err); if (v) done(v); };
+    form.onsubmit = (e) => {
+      e.preventDefault(); err.textContent = '';
+      const v = readPaid('pay', err);
+      if (!v) return;
+      let url;
+      try { url = C.normUrl($('#pay-url').value); } catch (x) { err.textContent = x.message; $('#pay-url').focus(); return; }
+      done({ ...v, url });
+    };
     $('#pay-no').onclick = () => done(null);
     $('#pay-x').onclick = () => done(null);
     d.addEventListener('close', onClose);
@@ -882,6 +908,7 @@ function openSheet(action, ids) {
   const one = held.length === ids.length && new Set(held.map((x) => x.brand)).size === 1;
   $('#f-brand').value = one ? held[0].brand : '';
   $('#f-url').value = one ? (held.find((x) => x.url)?.url || '') : '';
+  $('#f-url-hint').textContent = URL_HINT;
   const until = $('#f-until'); until.min = today; until.value = C.defaultUntil(raw, now, ids, C.normBrand($('#f-brand').value));
   const dl = $('#brands'); dl.textContent = '';
   for (const b of new Set([...raw.spots, raw.title].map((x) => x.brand).filter(Boolean))) { const o = el('option'); o.value = b; dl.appendChild(o); }
@@ -1005,7 +1032,7 @@ function onSheetKey(e) {
   const t = e.target;
   if (e.key !== 'Enter' || e.isComposing || !(t instanceof HTMLInputElement) || ['file', 'checkbox', 'radio', 'button', 'submit'].includes(t.type)) return;
   e.preventDefault();
-  const order = sheet && sheet.action === 'reserved' ? ['f-brand', 'f-url', 'f-until'] : [...(sheet && sheet.request ? ['f-paid-at', 'f-paid-amt'] : []), 'f-brand', 'f-url', 'f-logo'];
+  const order = sheet && sheet.action === 'reserved' ? ['f-brand', 'f-until'] : [...(sheet && sheet.request ? ['f-paid-at', 'f-paid-amt'] : []), 'f-brand', 'f-url', 'f-logo'];
   const i = order.indexOf(t.id), next = i >= 0 && i < order.length - 1 ? document.getElementById(order[i + 1]) : null;
   if (next && !next.closest('[hidden]')) next.focus(); else t.blur();
 }
@@ -1037,7 +1064,8 @@ async function submitSheet(e) {
     logo = { ext: L.ext, b64: C.bytesToB64(L.bytes), bytes: L.bytes, sha: await C.gitBlobSha(L.bytes) };
   }
   if (!sheet) return;
-  run({ action, ids, f, logo, snap: sheet.snap, request: action === 'sold' ? sheet.request : null, paid: action === 'sold' && sheet.request ? paid : null });
+  // (the brand's link of a request's sale goes to its contract too: confirmar's url)
+  run({ action, ids, f, logo, snap: sheet.snap, request: action === 'sold' ? sheet.request : null, paid: action === 'sold' && sheet.request ? { ...paid, url: f.url } : null });
 }
 
 // ---------- save: one commit on gh-pages ----------
@@ -1083,7 +1111,7 @@ async function save(intent) {
         ...res.deletes.map((path) => ({ path, mode: '100644', type: 'blob', sha: null })),
       ],
     });
-    const message = C.commitMessage(raw, ids, action, f);
+    const message = C.commitMessage(raw, ids, action, f, { before: raw, logo: !!logo });
     const made = await gh('POST', '/git/commits', { message, tree: tree.sha, parents: [head] });
     try {
       await gh('PATCH', `/git/refs/heads/${C.BRANCH}`, { sha: made.sha, force: false });

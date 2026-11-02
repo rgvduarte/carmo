@@ -110,8 +110,8 @@ function paintBrandNote() {
   const b = chosenBrand(), lines = [];
   if (!brands.length) lines.push(UI.noBrands);
   else if (b) {
-    if (b.hosts.length) lines.push(fill(UI.brandHosts, { hosts: b.hosts.join(' e ') }));
-    else if (b.shared) lines.push(fill(UI.brandShared, { net: b.shared }));
+    // (since 02.11.2026 the clicks are counted by spot, Instagram links included; the host is only for the days before)
+    if ((b.hosts.length || b.shared) && (b.spotIds || []).length) lines.push(UI.brandSpots);
     else if (b.spots.length || b.title) lines.push(UI.brandNoLink);
     else lines.push(UI.brandNoSpots);
     lines.push(b.montraIds.length ? UI.brandMontra : UI.brandNoMontra);
@@ -135,7 +135,7 @@ async function make(force) {
   const key = JSON.stringify([per.from, per.to, brand ? brand.name : '']);
   const q = { p: 'custom', from: per.from, to: per.to, int: 0, dev: 'all', cmp: 0 };
   const steps = [['overview', { ...q, cmp: 1 }], ['audience', q], ['content', q], ['studio', q]];
-  if (brand && brand.hosts.length) steps.push(['sponsors', q]);
+  if (brand && (brand.hosts.length || brand.shared) && (brand.spotIds || []).length) steps.push(['sponsors', q]);
   if (brand && brand.montraIds.length) steps.push(['montra', q]);
   const n = steps.length + 1;
   busy = true; err(''); $('#rp-go').disabled = true; $('#rp-note').hidden = true;

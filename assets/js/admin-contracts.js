@@ -310,7 +310,7 @@ export function dueNow(contracts, requests, data, rules, day) {
 }
 
 // ---------- CSV (Excel in Portuguese: UTF-8 with BOM, «;», CRLF) ----------
-export const CSV_COLS = ['id', 'epoca', 'marca', 'nivel', 'espacos', 'montante', 'desconto_epoca', 'pago_a', 'forma', 'inicio', 'fim', 'dias_restantes', 'renovacao', 'prazo_logotipo', 'logotipo_vetor', 'contacto', 'canal', 'email', 'telefone', 'conta', 'nif', 'pedido', 'notas'];
+export const CSV_COLS = ['id', 'epoca', 'marca', 'nivel', 'espacos', 'montante', 'desconto_epoca', 'pago_a', 'forma', 'inicio', 'fim', 'dias_restantes', 'renovacao', 'prazo_logotipo', 'logotipo_vetor', 'contacto', 'canal', 'email', 'telefone', 'conta', 'nif', 'pedido', 'notas', 'link'];
 // every cell quoted, «"» doubled; a cell that a spreadsheet would take for a formula starts with «'»
 export function csvCell(v) {
   let s = v === null || v === undefined ? '' : String(v);
@@ -323,7 +323,7 @@ export function csvRow(c, day, data = null) {
   // (the season discount only when the amount is the table's price: a negotiated or in-kind deal had none)
   return [c.id, c.season, c.brand, levelName(c.level, 'pt', data), spotsText(c), Number(c.amount) || 0, paidTable(c) ? seasonCell(c.price) : '', c.paidAt || '', pay, r.start, r.end,
     Math.max(0, left.n), renewalOf(c, day).label, r.logoBy, c.logo?.vector ? 'sim' : 'não', c.contact?.name || '', CHANNEL[c.contact?.channel || ''] || c.contact?.channel || '',
-    c.contact?.email || '', c.contact?.phone || '', c.contact?.handle || '', c.nif || '', c.request || '', c.notes || ''];
+    c.contact?.email || '', c.contact?.phone || '', c.contact?.handle || '', c.nif || '', c.request || '', c.notes || '', c.url || ''];
 }
 export function toCsv(contracts, day, data = null) {
   const lines = [CSV_COLS, ...(Array.isArray(contracts) ? contracts : []).map((c) => csvRow(c, day, data))].map((row) => row.map(csvCell).join(';'));

@@ -24,6 +24,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   que está no ecrã. O capacete só é preparado quando a parte dele se aproxima e, enquanto isso, mostra a imagem do
   capacete e «A carregar o capacete». Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar
   espaços dos dois num pacote, reservar por WhatsApp, email ou Instagram e pagar por transferência ou MB WAY.
+  O logótipo de cada marca que já pagou leva à página dela (ver «O link do logótipo», em «Vender um espaço»).
 - **Apoiar**: GoFundMe (com o valor angariado e a barra até à meta), transferência ou MB WAY (o mesmo IBAN e o mesmo
   número dos pedidos, com o código `CARMO APOIO`, escondidos enquanto houver campanha aberta), apoio em espécie e
   orçamento estimado da época.
@@ -42,7 +43,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, num botão depois dos níveis, na ficha de cada espaço, no cartão do fato
   completo e no fim das tabelas de preços, no rodapé e no passo 1 do pedido, «Ao enviar, aceitas as condições do
-  patrocínio (versão de 30.10.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
+  patrocínio (versão de 02.11.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
   prazo do logótipo, a preferência na renovação, a renovação de todos os níveis à tabela de 2028, o
   pagamento da renovação até 15 de janeiro, o aviso de outubro, já sem triatlos, e a conta das devoluções por meses),
@@ -135,7 +136,8 @@ de uma mensagem que chega sem `Pedido:`:
 
 **Como fechar um espaço pelo telemóvel (sem mexer em código).**
 No GitHub (app ou browser): Issues → New issue → **Atualizar espaço do fato ou do capacete**. Escolhe o espaço e o estado,
-escreve a marca, cola o link e arrasta o logótipo (PNG com fundo transparente). Ao submeter, a action
+escreve a marca, cola o link (só com Vendido: um espaço reservado nunca leva link) e arrasta o logótipo (PNG com fundo
+transparente). Ao submeter, a action
 `Atualizar espaço do fato ou do capacete` muda o `data/spots.json`, guarda o logótipo em `assets/img/brands/`,
 responde no próprio pedido e fecha-o. O site atualiza-se em cerca de um minuto.
 Só funciona para quem gere o repositório e precisa que o branch por defeito seja `gh-pages`
@@ -148,7 +150,7 @@ Só funciona para quem gere o repositório e precisa que o branch por defeito se
 |---|---|---|
 | `status` | `"available"`, `"reserved"`, `"sold"` | Estado do espaço |
 | `brand` | `"Padaria Central"` | Nome mostrado no site |
-| `url` | `"https://padaria.pt"` | Link da marca na lista de marcas («Já no fato» / «Já no capacete») |
+| `url` | `"https://padaria.pt/"` | O link do logótipo da marca (ver «O link do logótipo», mais abaixo). Só num espaço vendido; `https://` (ou `@marca`, escrito como `https://www.instagram.com/marca/`), até 200 caracteres |
 | `logo` | `"assets/img/brands/peito.png"` | Logótipo impresso no fato ou no capacete 3D |
 | `logoMono` | `"#f6f7f9"` | Força uma cor única no logótipo (por defeito, logótipos escuros ficam brancos sobre o preto) |
 | `until` | `"2026-10-31"` | Último dia da reserva |
@@ -165,6 +167,33 @@ metros a contar da bainha), `w` × `h` (cm) e `rot`. O desenho de cada espaço s
 quadrado fica quadrado, em qualquer altura. No capacete: `part: "shell"`, `phi` é o
 ângulo no arco (0 = linha do topo, +90 = lado esquerdo), `t` são metros ao longo do topo a contar da viseira, e `rot`
 pode ser 0, ±90 ou 180.
+
+**O link do logótipo** (decisão de 02.11.2026: mais uma forma de o patrocínio render à marca). Num espaço **vendido**
+(pagamento confirmado), o logótipo leva à página que a marca escolheu: o site, o Instagram ou a página de contacto.
+- **Onde aparece.** No fato e no capacete 3D, um toque (ou clique) num espaço vendido abre a ficha dele com o logótipo,
+  a marca e o botão «Visitar [Marca]» (EN «Visit [Brand]»); sem link, a ficha mostra a marca sem botão. Com «Espaços»
+  desligado, um toque num logótipo impresso também abre a ficha. Na lista «Já no fato» / «Já no capacete» cada marca
+  aparece com o logótipo (ou o nome, sem logótipo), que é o link. Por baixo do fato e do capacete, só quando um espaço
+  vendido desse modelo tem link: «Toca num logótipo para conheceres quem vai comigo em 2027.» («Clica» com rato; EN
+  «Tap a logo to meet the brands coming with me in 2027.»). Sem 3D (a imagem parada), as linhas da tabela abrem a
+  mesma ficha, com o botão; sem JavaScript não há espaços vendidos na página, por isso não há links.
+- **As regras do link** (`assets/js/season-rules.js` `brandLink`, as mesmas no pedido do site, no Worker, na página de
+  admin e no formulário do GitHub): `https://` (um domínio sem `https://`, como `padaria.pt`, ganha-o), ou `@marca`,
+  que passa a `https://www.instagram.com/marca/`; nunca `http:`, `javascript:`, `data:`, `mailto:`, espaços, um
+  endereço IP, uma porta ou `gocarmo.com`; até 200 caracteres. O site volta a confirmar cada `url` do
+  `data/spots.json` antes de o mostrar (`sponsorHref`) e nunca mostra um link de um espaço reservado ou livre;
+  `node scripts/stamp.mjs --check` recusa um `url` que não cumpra as regras.
+- **Como sai o link.** Abre noutro separador, com `rel="sponsored noopener"` (sem `noreferrer`: a marca vê que a visita
+  veio de gocarmo.com) e o nome «Visitar [Marca] (abre noutro separador)» para o leitor de ecrã. Num link para o site
+  da própria marca, o site junta `utm_source=gocarmo.com&utm_medium=patrocinio&utm_campaign=epoca-2027` (se o link não
+  tiver já parâmetros `utm_`); num link para instagram.com, facebook.com, tiktok.com, linkedin.com, wa.me, x.com ou
+  youtube.com (e subdomínios), nada.
+- **Quem o põe.** A marca pode dá-lo no pedido (opcional). Só vai para o site com a venda: «Confirmar compra» (o link do
+  pedido vem preenchido e podes mudá-lo ou apagá-lo), **Vendido** em Espaços, ou o formulário do GitHub com Vendido.
+  Para pôr ou mudar o link de um espaço já vendido, escolhe-o em Espaços e carrega em **Vendido** com a mesma marca: o
+  logótipo fica e o commit diz «Espaço 19: link de Padaria Central atualizado (admin)» («retirado» com o campo vazio). O link
+  fica também no registo do patrocínio (Patrocínios).
+- **Contagem.** Cada toque no link conta por espaço (ver «Estatísticas do site»), também os do Instagram.
 
 **Links diretos.** Cada link abre a parte certa do capítulo 05. `gocarmo.com/#fato/peito` abre um espaço do fato,
 `gocarmo.com/#capacete/capacete-topo` um do capacete, `#o-fato` e `#o-capacete` levam a cada parte e `#capacete` abre a
@@ -198,10 +227,12 @@ origem). Sem isso, ao fechar o separador tens de colar o token outra vez. «Sair
 **Colar pedido ou referência.** Colas a referência do pagamento, por exemplo `CARMO 01 21 22` ou `CARMO FATO` (ou
 uma antiga, `KONA 01 21 22`), e a página seleciona esses espaços e mostra o total esperado. Também podes colar a mensagem inteira do pedido (do
 WhatsApp, do email, ou só o link `gocarmo.com/#pacote=…`): a página seleciona os espaços e mostra num resumo os
-espaços, a marca, o nome, o email, o telefone, o NIF (e se o último algarismo confere), a forma de pagamento, a referência e o total, com
+espaços, a marca, o link da marca (a linha `Link:`, quando a marca o deu), o nome, o email, o telefone, o NIF (e se o
+último algarismo confere), a forma de pagamento, a referência e o total, com
 um aviso quando o total ou um preço já não batem com os de agora, ou quando um espaço já está reservado ou vendido.
 Dois botões: **Reservar 48 h** (abre a reserva com a marca e a data de daqui a 48 horas) e **Marcar como vendido**
-(abre a venda com a marca). Os espaços saem do link do pedido; se não houver link, das linhas `• 21 Topo do capacete`.
+(abre a venda com a marca e o link dela). Os espaços saem do link do pedido; se não houver link, das linhas `• 21 Topo do capacete`.
+Um `Link:` que não seja `https://` ou `@marca` fica de fora, com uma nota no resumo.
 No telemóvel, depois de colar, o teclado fecha e o resumo sobe com os dois botões; enquanto o resumo estiver aberto
 nos espaços do pedido, a barra de baixo esconde-se (os botões do resumo já fazem o mesmo, com a marca do pedido).
 Se os espaços já estiverem reservados por um pedido do site, o resumo diz qual, o primeiro botão passa a
@@ -216,15 +247,19 @@ mensagem fala do pedido …, que é de outros espaços: não o uso.» e os botõ
 chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. O
 GitHub não mostra a `ADMIN_KEY` outra vez: guarda-a nas Palavras-passe do telemóvel, que a preenchem sozinhas. Cada
 pedido mostra o logótipo, a marca, os espaços, o total, a data, o canal, a forma de pagamento, o nome, o email, o
-telefone e o NIF, a mensagem e quanto tempo falta para a reserva acabar. Um pedido de antes de 31.10.2026 pode não ter
-email nem telefone.
-- **Confirmar compra**: abre a venda com a marca e o logótipo do pedido, com «Pago a» (hoje, por defeito) e
-  «Montante recebido» (o total do pedido, por defeito). Ao guardar, é uma venda como as outras (um commit com o teu
-  token, o logótipo vai para o site), o pedido fica confirmado e o Worker regista o patrocínio, que aparece em
-  **Patrocínios** (ver mais abaixo). Se o registo falhar, o pedido diz «Contrato por registar» e o mesmo botão
+telefone e o NIF, o link da marca (abre noutro separador, para o veres antes de o pores no site), a mensagem e quanto
+tempo falta para a reserva acabar. Um pedido de antes de 31.10.2026 pode não ter email nem telefone; um de antes de
+02.11.2026 não tem link.
+- **Confirmar compra**: abre a venda com a marca, o link e o logótipo do pedido, com «Pago a» (hoje, por defeito) e
+  «Montante recebido» (o total do pedido, por defeito). O link vem do pedido («Link do pedido: podes mudar ou apagar»);
+  sem link no pedido, fica vazio e podes escrevê-lo. Ao guardar, é uma venda como as outras (um commit com o teu
+  token, o logótipo e o link vão para o site, em todos os espaços do pedido, ou no `title` num fato completo), o pedido
+  fica confirmado e o Worker regista o patrocínio, com o mesmo link, que aparece em **Patrocínios** (ver mais abaixo). Se o registo falhar, o pedido diz «Contrato por registar» e o mesmo botão
   tenta outra vez; nunca regista duas vezes. Se os espaços já estiverem
-  vendidos a essa marca, o botão é **Marcar como confirmado**, que pede as mesmas duas coisas; se foram vendidos sem
-  logótipo, aparece antes **Pôr o logótipo do pedido**. Um pedido fechado sem registo mostra **Registar contrato**.
+  vendidos a essa marca, o botão é **Marcar como confirmado**, que pede as mesmas duas coisas e o link para o registo
+  (o do site, ou o do pedido; não muda o site); se foram vendidos sem logótipo ou sem o link do pedido, aparece antes
+  **Pôr o logótipo do pedido**, **Pôr o link do pedido** ou **Pôr o logótipo e o link do pedido** (a venda outra vez,
+  com os dois). Um pedido fechado sem registo mostra **Registar contrato**.
   Um pedido com desconto de época mostra «Desconto de época (março): −6,25%» ao lado do total.
 - **Prolongar 48 h**: mais dois dias de reserva, no site também.
 - **Cancelar**: depois de confirmares, os espaços que ainda estão reservados por esse pedido voltam a ficar livres.
@@ -240,7 +275,8 @@ controlar a reserva, e uma venda assim fica sem o logótipo do pedido.
 - **Reservar**: precisa da marca. Por defeito fica reservado três dias (podes mudar a data). Depois desse dia o
   espaço volta a ficar livre sozinho. Se a mesma marca já tiver um espaço reservado por mais tempo, a data
   proposta é essa, e a página pergunta antes de encurtar uma reserva.
-- **Vendido**: precisa da marca. O link é opcional (`https://marca.pt` ou `@marca`) e o logótipo também (PNG,
+- **Vendido**: precisa da marca. O link da marca é opcional (`https://marca.pt` ou `@marca`; as regras de «O link do
+  logótipo») e só existe na venda: **Reservar** não tem link. O logótipo também é opcional (PNG,
   JPG ou WebP, até 3 MB). Antes de guardar, o logótipo aparece sobre branco e sobre preto, e em «Ver no 3D» vês
   como fica no fato ou no capacete. O ficheiro fica em `assets/img/brands/<espaço>.<ext>`. Se venderes outra vez
   à mesma marca sem escolher ficheiro, o logótipo atual fica.
@@ -283,8 +319,9 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 
 **O que a marca vê.**
 1. Escolhe os espaços (ou o fato completo) e carrega em **Reservar**. No passo 1 escreve a empresa ou marca, junta o
-   **logótipo** e escreve o nome, o email e o telefone (tudo obrigatório; o NIF e a mensagem ficam em «+ Adicionar NIF
-   ou mensagem», opcionais). O logótipo: no telemóvel a caixa abre as fotografias, no computador também se pode arrastar o
+   **logótipo** e escreve o nome, o email e o telefone (tudo obrigatório) e, se quiser, o **link da marca** («Link da tua
+   marca (opcional)», «O site, o Instagram ou a página de contacto. Fica no teu logótipo no site depois de o pagamento
+   ser confirmado.»; o NIF e a mensagem ficam em «+ Adicionar NIF ou mensagem», opcionais). O logótipo: no telemóvel a caixa abre as fotografias, no computador também se pode arrastar o
    ficheiro para lá. Serve PNG, JPG, WebP ou SVG (até 20 MB). O site desenha-o num PNG com o fundo transparente que
    tiver, até 1200 px de lado e no máximo 400 KB (uma imagem pesada fica mais pequena até caber), e mostra-o na caixa
    com o nome e o tamanho. Ao fechar o pedido vê-o no espaço do fato ou do capacete 3D. Enquanto faltar a marca, o
@@ -294,11 +331,15 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    ponto no domínio e sem espaços (até 120); o telefone com 9 a 15 algarismos, espaços e um + no início, se quiser (um
    número português, ou com o indicativo; até 30). Os erros: «Escreve o teu nome.», «Escreve o teu nome (pelo menos 2
    letras).», «Escreve o teu email.», «Confirma o email: por exemplo, nome@empresa.pt.», «Escreve o teu número de
-   telefone.», «Confirma o número: 9 algarismos, ou + e o indicativo do país.» (em inglês, «Add your name.», …).
+   telefone.», «Confirma o número: 9 algarismos, ou + e o indicativo do país.» (em inglês, «Add your name.», …). O link
+   segue as regras de «O link do logótipo»: `padaria.pt` vale `https://padaria.pt/` e `@marca` o Instagram; um link
+   errado mostra o erro por baixo dele («Confirma o link: começa por https:// (por exemplo, https://marca.pt), ou
+   escreve @marca.», «O link não leva espaços.», «O link vai até 200 caracteres.») e não deixa enviar, mas nunca põe
+   os botões em espera.
 2. Carrega em WhatsApp, Email ou Instagram. O site manda o pedido ao Worker («A reservar…») com os espaços, a marca,
-   o nome, o email, o telefone, o NIF, a mensagem, a forma de pagar e o logótipo. A mensagem leva, por baixo de
-   `Marca:`, as linhas `Nome:`, `Email:` e `Telefone:` (em inglês `Name:`, `Email:`, `Phone:`), que a página de admin
-   lê ao colar (uma mensagem antiga, sem elas, lê-se como antes). O Worker reserva os espaços por 48 horas (um commit no
+   o nome, o email, o telefone, o NIF, a mensagem, a forma de pagar, o logótipo e, se o deu, o link (`link`). A mensagem
+   leva, por baixo de `Marca:`, a linha `Link:` (só com link) e as linhas `Nome:`, `Email:` e `Telefone:` (em inglês
+   `Name:`, `Email:`, `Phone:`), que a página de admin lê ao colar (uma mensagem antiga, sem elas, lê-se como antes). O Worker reserva os espaços por 48 horas (um commit no
    `data/spots.json`) e responde com o número do pedido. O passo 2 diz **Reservado até domingo, 25 de outubro**, o
    número do pedido e «Paga e envia-me o comprovativo por WhatsApp ou email até essa data (48 horas a contar do
    pedido) para o patrocínio ficar fechado» (no fato completo: «Antes de pagares, envio-te o acordo escrito. A reserva
@@ -316,7 +357,7 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    browser escreve (`assets/js/receipt.js`, que só carrega quando a marca carrega no botão, com as letras Helvetica de
    qualquer leitor de PDF e o emblema GOCARMO desenhado), `gocarmo-pedido-<número>.pdf`. No telemóvel abre a folha de
    partilha (Ficheiros, WhatsApp, email); no computador descarrega. Leva o cabeçalho GOCARMO, «Comprovativo do pedido
-   de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome, o email, o telefone e o NIF (se o deu),
+   de reserva», o número do pedido, a data e a hora do pedido (hora de Lisboa), a marca, o nome, o email, o telefone, o NIF e o link da marca (se os deu),
    cada espaço com o número, o nome, fato ou capacete e o preço, o período da época, o desconto de época (a partir de
    fevereiro de 2027, com o mês e a percentagem), o desconto de pacote, o total, «Reservado até …», como
    pagar (transferência para o IBAN e o titular de `SITE`, MB WAY até `SITE.mbwayMax`, o montante e a referência
@@ -337,7 +378,7 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    guardado, o cartão já vem aberto e uma linha diz para tirar o screenshot; se não der para guardar, o passo 2 diz isso
    e abre o cartão. Um duplo toque no botão entrega o PDF uma vez só. Depois de recarregar a página, o passo 2 volta
    com o mesmo comprovativo (o número, o dia, a hora e os espaços vêm de `gc.claim.req`; sem reserva, a hora do envio
-   vem de `gc.claim.at`; o nome, o email, o telefone e o NIF, do rascunho). Não é obrigatório, mas no passo 2 **Feito** pergunta uma vez se
+   vem de `gc.claim.at`; o nome, o email, o telefone, o NIF e o link, do rascunho). Não é obrigatório, mas no passo 2 **Feito** pergunta uma vez se
    a marca ainda não o guardou nem partilhou: «Ainda não guardaste o comprovativo.», com **Guardar comprovativo**
    (guarda e fecha) e **Fechar sem guardar** (fecha como antes). Nada disto sai do aparelho da marca: não há pedido à
    rede, e o único dado novo guardado é a hora do envio (`gc.claim.at`, no separador, ao lado da nota do pedido
@@ -350,7 +391,8 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 5. Se recarregar a página (ou voltar do WhatsApp com a página recarregada), o pedido volta ao passo 2, reservado. O
    número do pedido fica guardado nesse separador: o mesmo pacote nunca é enviado duas vezes, nem com dois toques
    seguidos, nem com «Voltar» (os botões só enviam outra vez a mensagem). O que escreveu e o logótipo também ficam
-   guardados no separador, no máximo 6 horas; «Feito» apaga o nome, o email, o telefone, o NIF, a mensagem e o logótipo.
+   guardados no separador, no máximo 6 horas (o link também); «Feito» apaga o nome, o email, o telefone, o NIF, a
+   mensagem e o logótipo, e o rascunho (a marca e o link ficam nos campos para outro pacote).
 6. Quando o Worker recusa, o pedido diz porquê e o que fazer, em português ou inglês: outra marca reservou
    entretanto o espaço (sai do pacote, escolhe outro; o espaço fica reservado na página mesmo antes de o GitHub Pages
    o mostrar), mais de 6 espaços (escolhe o fato completo ou fala comigo), um campo a corrigir, um logótipo que não
@@ -372,7 +414,8 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
 1. A mensagem chega com `Pedido: <número>`. O pedido também aparece na página de admin, em **Pedidos**, com o
    logótipo e o tempo que falta.
 2. Quando o pagamento entra (e o comprovativo chega), em **Pedidos** carregas em **Confirmar compra** e em
-   **Guardar**, com a data e o montante do pagamento: o espaço fica vendido no site com o logótipo da marca, o pedido
+   **Guardar**, com a data e o montante do pagamento (abre antes o link da marca, se o deu: tem de ser uma página dela;
+   muda-o ou apaga-o no campo «Link da marca»): o espaço fica vendido no site com o logótipo da marca, o pedido
    fica confirmado e o patrocínio fica registado em **Patrocínios**. Passa o recibo de donativo (nunca uma fatura), com
    o NIF se o pedido o tiver, e envia à marca a **Confirmação (PDF)** desse patrocínio.
 3. Sem pagamento, a reserva acaba sozinha no fim do último dia. **Prolongar 48 h** dá mais dois dias; **Cancelar**
@@ -422,12 +465,12 @@ recusar todos os pedidos** (o site diria «A verificação contra spam falhou»)
    deixa 2 pedidos abertos por endereço em vez de 1. Para desligar, apaga o secret e corre a action outra vez.
 
 **Privacidade.** O nome, o email e o telefone servem para responder à marca e tratar do patrocínio; o nome e o NIF,
-também para o recibo. A página de privacidade diz o que o pedido leva, nas duas línguas. Cada pedido fica guardado 180 dias no Cloudflare e depois
+também para o recibo. A página de privacidade diz o que o pedido leva, nas duas línguas (também o link da marca, opcional). Cada pedido fica guardado 180 dias no Cloudflare e depois
 apaga-se sozinho; só a página de admin, com a `ADMIN_KEY`, o lê. O registo de um patrocínio pago fica no mesmo
 serviço até 31 de dezembro do ano a seguir à época (31 de dezembro de 2028 para a época 2027) e depois apaga-se
 sozinho; a página de privacidade diz isto nas duas línguas. Se mudares esse prazo (`contractExpiry` em
 `assets/js/season-rules.js`), muda a página com ele. No `data/spots.json`, público, só ficam a marca, o
-último dia da reserva e o número do pedido. O que a marca escreve no pedido de reserva (e o logótipo) fica no browser
+último dia da reserva e o número do pedido e, depois da venda, o link da marca. O que a marca escreve no pedido de reserva (e o logótipo) fica no browser
 dela só enquanto o separador estiver aberto. O comprovativo (o PDF e o cartão) faz-se no aparelho dela e não vai para
 lado nenhum.
 
@@ -439,13 +482,13 @@ lado nenhum.
   «Pedir o fato completo». Todos são `.btn.ghost.sm` (o bloco, `.btn.ghost`) e abrem `/condicoes/` noutro separador
   (o 3D, a ficha e o pacote ficam como estavam), em inglês `condicoes/?lang=en`; os links «condições» do texto do 05
   também, e todos dizem ao leitor de ecrã «(abre noutro separador)». O passo 1 do pedido diz «Ao enviar, aceitas as
-  condições do patrocínio (versão de 30.10.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
+  condições do patrocínio (versão de 02.11.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
   no mesmo separador.
-- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 30.10.2026):
-  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 30 October 2026): …?lang=en»), feita de
+- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 02.11.2026):
+  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 2 November 2026): …?lang=en»), feita de
   `seasonRules.termsDate`.
 - **Os PDF.** O comprovativo do pedido e a confirmação do patrocínio têm a primeira página igual à de antes e, a
-  seguir, «Anexo · Condições do patrocínio · versão de 30.10.2026»: o texto inteiro da página, na língua do documento,
+  seguir, «Anexo · Condições do patrocínio · versão de 02.11.2026»: o texto inteiro da página, na língua do documento,
   com títulos, listas, a tabela do desconto de época, «Página 2 de 7» e links (a página no ar, Privacidade, email,
   WhatsApp; o endereço da Privacidade escrito a seguir ao link, para o papel; cada «(em «Duração, prazos e
   renovação»)» leva a esse título do anexo). Em inglês, o anexo diz que vale o texto português e liga para ele
@@ -457,7 +500,7 @@ lado nenhum.
 - **De onde vem o texto.** `assets/js/terms-text.js` é escrito por `node scripts/stamp.mjs` (`scripts/terms-text.mjs`) a
   partir dos dois `<article>` de `condicoes/index.html`: nunca o edites à mão. Só carrega quando se faz um PDF. Quando
   `seasonRules.termsDate` muda, o stamp guarda o texto da versão anterior em `data/terms/<data>.json` (já lá estão
-  26.10.2026, 28.10.2026 e 29.10.2026) e a soma sha256 dele em `data/terms/SHA256SUMS`; daí em diante confere cada
+  26.10.2026, 28.10.2026, 29.10.2026 e 30.10.2026) e a soma sha256 dele em `data/terms/SHA256SUMS`; daí em diante confere cada
   ficheiro com a sua linha, porque as confirmações de contratos antigos anexam esse texto.
 - **O que o stamp recusa:** uma marcação na página que o anexo não sabe desenhar (um `<em>`, um `<ol>`, um `<br>`: ensina
   `scripts/terms-text.mjs` e `assets/js/pdf-annex.js`), texto da página que não chegue ao anexo, o módulo desatualizado,
@@ -533,7 +576,9 @@ de 2028 e o prazo do pagamento; a mensagem diz a preferência e os prazos da res
 Patrocínios lembra cada passo. Quem fez o pedido com as condições de 29.10.2026 tem em anexo essa versão, que dava o
 preço de 2027 ao Principal e ao fato completo; se houver um, combina-o por escrito. A página Patrocínios assinala esses
 contratos, no cartão e na janela do PDF. Um pedido feito numa página aberta antes da publicação pode trazer na mensagem
-«versão de 29.10.2026» com o registo em 30.10.2026: trata-o da mesma forma.
+«versão de 29.10.2026» com o registo em 30.10.2026: trata-o da mesma forma. Do mesmo modo, um pedido feito numa página
+aberta antes da publicação de 02.11.2026 pode trazer «versão de 30.10.2026» com o registo em 02.11.2026: trata-o pela
+versão de 30.10.2026 (a de 02.11.2026 só junta o link do logótipo e o direito de recusar um link).
 
 **Outubro, sem triatlos.** O calendário de triatlos de 2027 acaba em setembro (`racesUntil`, 30 de setembro). Os pedidos
 continuam abertos até 31 de outubro, mas de 1 a 31 de outubro o passo 1 do pedido, a mensagem e o comprovativo dizem
@@ -618,7 +663,9 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   seguinte (Antes das propostas → A propor a partir de 1 de setembro → «Enviei a proposta» → Proposta enviada a <dia>
   → Renova ou Não renova; «Desfazer» volta um passo atrás; depois de 31 de dezembro, Terminado; a 1 de novembro, uma
   proposta sem resposta, ou uma marca a quem a proposta nunca foi enviada, conta como Não renova),
-  o logótipo em vetor (recebido ou em falta), as notas, **Editar**, **Confirmação (PDF)** e **Apagar** (só para um
+  o logótipo em vetor (recebido ou em falta), o link da marca («Link: padaria.pt», que abre noutro separador; quando
+  o site mostra outro link nesses espaços, «O link no site é outro: …» com **Usar o do site**, que o guarda no registo),
+  as notas, **Editar** (com o campo do link: `https://` ou `@marca`), **Confirmação (PDF)** e **Apagar** (só para um
   registo feito por engano; pergunta antes). Depois de «Renova», o pagamento: «Pagar até 15 jan. 2028» (em aviso nas
   duas últimas semanas), «Renovação de 2028 paga a …» (quando há um patrocínio de 2028 da mesma marca nos mesmos
   espaços) ou «Renovação de 2028 por pagar desde 16 jan. 2028: o espaço fica livre». E a linha da montra, «Montra: 2 de 3 produtos», com o botão **Montra**.
@@ -629,7 +676,8 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
 - **Novo patrocínio** na época 2028, também para uma marca que renovou: a tabela de 2028, como para todos (com o
   desconto de pacote, como sempre).
 - **Exportar CSV**: `gocarmo-patrocinios-<época>-<data>.csv`, separado por `;`, que o Excel em português abre
-  direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas). No
+  direito, com uma linha por patrocínio (montante, desconto de época, datas, renovação, contacto, NIF, notas e, na
+  última coluna, `link`, o link da marca). No
   iPhone descarrega para Ficheiros (nunca passa pela folha de partilha, porque leva os contactos e os NIF). É a tua
   cópia de segurança: guarda-a e apaga as antigas até ao fim do prazo dos registos.
 - **Confirmação (PDF)**: a «Confirmação de patrocínio» que envias à marca depois do pagamento, feita no telemóvel como
@@ -1096,9 +1144,13 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
   sem minutos. As mensagens de erro só ficam quando vêm de um ficheiro do site, sem endereços, números nem emails.
 - Na montra, só os ids públicos da marca e do produto (os de `data/montra.json`), nunca o código nem o link inteiro.
   Cada marca recebe só os totais dela, por mês; nunca de onde vieram, onde estão ou que aparelho usam.
+- No link do logótipo de um patrocinador (desde 02.11.2026), o evento `sponsor_click` leva só o id público do espaço
+  (`lombar`, ou `title` para o fato completo), onde foi o toque (`ficha`: a ficha do espaço, vinda do 3D ou de uma
+  linha da tabela; `lista`: «Já no fato») e o fato ou o capacete; nunca a marca, o link nem o endereço (o clique
+  continua a guardar só o nome do site, como antes). Cada marca recebe só os totais dela, por mês.
 - Às marcas que patrocinam pode ir um relatório com os totais do site (visitas, visualizações, visitantes por dia em
   média, tipos de origem, países e cidades com as pequenas juntas, aparelhos, tempo e até onde se lê) e os cliques
-  delas por mês (link, montra). Nunca o funil dos pedidos, nunca menos do que um mês nos cliques de uma marca
+  delas por mês (logótipo, montra). Nunca o funil dos pedidos, nunca menos do que um mês nos cliques de uma marca
   (ver «Relatório PDF para marcas», em baixo, e o `[CONFIRMAR]` de `privacidade/index.html`).
 - 30 dias de registos de cada visita; depois só totais por dia, durante 25 meses; depois totais por mês, sem cidades.
 - Quem tem Global Privacy Control ou Do Not Track ligado não é contado, nem quem carrega em «Não contar as minhas
@@ -1135,17 +1187,23 @@ O que tem: visitas, visualizações, visitantes por dia (média), tempo ativo (m
 visitas (tipos de origem, sites, países e aparelhos em visitas; cidades em visualizações, com o nome em português no PDF
 em português; países, cidades e sites com menos de 3 visitantes no período juntos); o que fazem no site (tempo ativo,
 até onde descem, quantas visualizações chegam ao capítulo do patrocínio, o estúdio 3D); com uma marca, os espaços dela,
-os cliques no link dela por mês (o nome da marca na lista «Já no fato» / «Já no capacete» é um link) e a montra por mês
+os «Cliques no logótipo» por mês (o logótipo da marca no fato e no capacete 3D e na lista «Já no fato» / «Já no
+capacete» leva ao link dela) e a montra por mês
 e por produto; no fim, «Como contamos». Cada bloco diz a unidade no título («Países (visitas)», «Cidades
 (visualizações)»). Sem comparação com o período anterior, «Por tipo de origem» passa para a primeira página. **Nunca tem o funil dos pedidos, nem «pessoas», «alcance» ou «únicos»**: o contador não usa cookies e o
 código de cada visitante muda todos os dias, por isso conta visitas, visualizações e visitantes por dia, nunca pessoas
 num mês. Um teste verifica estas palavras no texto do PDF. A página de privacidade (PT e EN) diz que os totais do site
 podem ser mostrados às marcas que patrocinam; publica-a antes de enviar o primeiro relatório.
 
-Os cliques no link contam-se pelo endereço do link da marca (e subdomínios), com `GET /admin/v1/sponsors`. Uma marca
-cujo link é do Instagram (ou de outra rede) não tem cliques próprios: os cliques nessa rede juntam-se aos de outras
-marcas, e o diálogo e o PDF dizem-no; uma marca vendida sem link não tem cliques, e o diálogo diz isso. Os cliques por
-mês precisam da versão nova do contador; até publicares, o PDF sai sem esse bloco e o diálogo explica porquê. No
+Os cliques no logótipo contam-se por espaço (`sponsor_click`, desde 02.11.2026), com `GET /admin/v1/sponsors`: os
+espaços da marca (e `title`, no fato completo) somam os cliques dela, também os de um link do Instagram ou de outra
+rede. Os dias antes disso (o contador antigo, ou uma página aberta antes da publicação) contam pelo endereço do link da
+marca (e subdomínios), só para um link do site da própria marca e só nos dias sem nenhum `sponsor_click`
+(`logoOld`), por isso nenhum clique conta duas vezes; o PDF diz «Antes de …, os cliques contam-se pelo endereço do
+link». Um espaço que mudou de marca no período conta para a marca de agora. Uma marca vendida sem link não tem
+cliques, e o diálogo diz isso. Com o contador anterior (sem contagem por espaço), o PDF conta pelo endereço, como
+antes, e uma marca só com Instagram fica sem esse bloco. Os cliques por mês precisam da versão nova do contador; até
+publicares, o PDF sai sem esse bloco e o diálogo explica porquê. No
 telemóvel, o estado («A juntar os números (2 de 6)», «PDF pronto», um erro) fica por cima dos botões, e o botão mostra o
 passo.
 
@@ -1270,7 +1328,7 @@ que espaço entrou ou saiu do pacote, `gc:basket`, e que um link foi partilhado,
 | `begin_checkout` | o pedido abre no passo 1 | `currency` (EUR), `value` (o total, já com desconto), `items` (os espaços) |
 | `add_payment_info` | escolhes Transferência ou MB WAY, ou copias uma linha do pagamento (uma vez por forma, em cada pedido) | os de cima e `payment_type` (`transfer` ou `mbway`) |
 | `generate_lead` | o pedido sai, uma vez por pedido: o Worker reservou os espaços, ou, sem reserva (Worker desligado ou em baixo), a mensagem foi por WhatsApp, email ou Instagram. Um envio recusado por faltar a marca ou o logótipo não conta, nem mandar o mesmo pedido por outra via, nem a mensagem depois da reserva | `currency`, `value`, `method` (`whatsapp`, `email` ou `instagram`) |
-| `outbound_click` | um link para fora, exceto os do pedido | `link_type` (`whatsapp`, `email`, `instagram`, `strava`, `gofundme`, `spotify`, `tiktok` ou `other`), `link_domain`, `link_location` (a secção, `nav` ou `footer`) |
+| `outbound_click` | um link para fora, exceto os do pedido | `link_type` (`whatsapp`, `email`, `instagram`, `strava`, `gofundme`, `spotify`, `tiktok`, `sponsor`, o link do logótipo de um patrocinador, mesmo no Instagram, ou `other`), `link_domain`, `link_location` (a secção, `nav` ou `footer`) |
 | `donation_intent` | em Apoiar: copias o IBAN ou o número MB WAY, ou carregas no botão do GoFundMe | `method` (`transfer`, `mbway`, `gofundme`, ou `whatsapp` enquanto não houver campanha) |
 | `language_change` | PT / EN | `new_language` |
 

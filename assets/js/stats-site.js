@@ -8,7 +8,7 @@ const CAP = {};
   '1:item studio_near studio_seen studio_show studio_wait studio_rotate 3d_ready 3d_fail|' +
   '3 studio_pinch pkg_bar claim_done kit_print print|' +
   '5 menu_open back_top hero_cta results_all strava_table tour_start tour_end pkg_clear title_click logo_remove claim_open claim_items claim_extra claim_back claim_close bf_return give_kind gl_lost gl_back|' +
-  '10 entry_click studio_auto studio_spots rc_sort rc_avail try_open logo_try logo_opt mockup_download spot_share claim_step claim_error claim_send pay_tab give_copy lang_switch toast_err asset_fail montra_shop montra_code|' +
+  '10 entry_click studio_auto studio_spots rc_sort rc_avail try_open logo_try logo_opt mockup_download spot_share claim_step claim_error claim_send pay_tab give_copy lang_switch toast_err asset_fail montra_shop montra_code sponsor_click|' +
   '20 nav_click marks_jump studio_zoom studio_view chapter spot_close pay_copy|30 studio_tap pkg_add pkg_remove|' +
   '40 spot_select').split('|').forEach((g) => {
   const [c, ...ns] = g.split(' '), [m, k] = c.split(':');
@@ -296,6 +296,9 @@ export function init(api) {
     // stats.js sends the shop tap's beacon once this dispatch is over, with this event in it
     ['.mt-shop', (el) => montra('montra_shop', el)],
     ['.mt-cp', (el) => montra('montra_code', el)],
+    // a sponsor's link (since 02.11.2026): its public spot id (or 'title') and where it was tapped, never the brand, the
+    // link or its host; stats.js sends that tap's beacon once this dispatch is over, with this event in it
+    ['a[data-sponsor]', (el) => { const spot = el.dataset.sponsor; if (spot === 'title' || SPOT.test(spot)) ev('sponsor_click', { spot, via: el.dataset.via === 'lista' ? 'lista' : 'ficha', item: /^capacete-/.test(spot) ? 'helmet' : 'suit' }); }],
     ['[data-lang]', (el) => {
       const from = H.lang.startsWith('pt') ? 'pt' : 'en', to = el.dataset.lang;
       if (to !== from) ev('lang_switch', { from, to, s: bucket(A.st().eng, [0, 10, 30, 60]) });

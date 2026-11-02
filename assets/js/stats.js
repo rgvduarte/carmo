@@ -203,13 +203,13 @@ function start() {
     if (o && !o.closest('#claim')) {
       const h = o.hostname.toLowerCase().replace(/^www\./, ''), u = o.protocol;
       const out = u === 'mailto:' ? 'mailto' : u === 'tel:' ? 'tel' : /^(wa\.me|api\.whatsapp\.com)$/.test(h) ? 'whatsapp' : /^https?:$/.test(u) && o.host !== L.host && HOST.test(h) && h;
-      if (out) { r.out = out; if (o.closest('#onsuit-list, #material')) r.osp = 1; }
+      if (out) { r.out = out; if (o.closest('#onsuit-list, #material, [data-sponsor]')) r.osp = 1; }
     }
     if (!push(r)) return;
     pend.push(r);
     api.oc ? api.oc([r, t, T, x, y]) : CQ.push([r, t, T, x, y]);
     setTimeout(() => { const k = pend.indexOf(r); if (k >= 0) { pend.splice(k, 1); buf.push(r); more(); } }, 1000);
-    if (r.out) o.closest('#material') ? setTimeout(() => send('x')) : send('x');   // with montra_shop
+    if (r.out) o.closest('#material, [data-sponsor]') ? setTimeout(() => send('x')) : send('x');   // with montra_shop, sponsor_click
   }, cap, D);
 
   // queued for stats-site.js

@@ -60,7 +60,7 @@ ${opts}
     id: url
     attributes:
       label: Link da marca
-      description: Site ou Instagram (por exemplo https://marca.pt ou @marca). Opcional.
+      description: O site, o Instagram ou a página de contacto da marca (https://marca.pt ou @marca). Só para Vendido, fica no logótipo no site. Opcional.
   - type: textarea
     id: logo
     attributes:
@@ -102,10 +102,30 @@ if (!status) fail('estado inválido.');
 const brand = field('Marca').replace(/\s+/g, ' ').slice(0, 60);
 if (status === 'sold' && !brand) fail('para marcar como vendido, preciso do nome da marca.');
 
-let url = field('Link da marca').trim();
-if (url.startsWith('@')) url = `https://www.instagram.com/${url.slice(1).replace(/[^\w.]/g, '')}/`;
-else if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-if (url) { try { url = new URL(url).href; } catch (_) { fail('o link da marca não é válido.'); } }
+// the brand's link: the rule of assets/js/season-rules.js brandLink (the site, the booking Worker and the admin page),
+// copied here because this script runs on its own (https://, a bare domain or @marca; no spaces; at most 200 characters;
+// a real domain, never an address, a port or gocarmo.com). It goes on the spot with a sale only (Vendido).
+function brandLink(raw) {
+  const s0 = String(raw ?? '').normalize('NFC').trim();
+  if (!s0) return { url: '' };
+  if (Array.from(s0).length > 200) return { error: 'longo' };
+  if (/\s/.test(s0) || /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/.test(s0)) return { error: 'espacos' };
+  let href;
+  if (s0.startsWith('@')) { if (!/^[A-Za-z0-9._]{1,30}$/.test(s0.slice(1))) return { error: 'invalido' }; href = `https://www.instagram.com/${s0.slice(1)}/`; }
+  else if (/^https:\/\//i.test(s0)) href = s0;
+  else if (/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(s0)) return { error: 'esquema' };
+  else href = `https://${s0}`;
+  let u;
+  try { u = new URL(href); } catch (_) { return { error: 'invalido' }; }
+  const host = u.hostname.toLowerCase().replace(/\.$/, '');
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !host || host.startsWith('[') || /^[\d.]+$/.test(host)
+    || host === 'gocarmo.com' || host.endsWith('.gocarmo.com') || !/\.(?:[a-z]{2,}|xn--[a-z0-9-]+)$/.test(host)) return { error: 'invalido' };
+  if (u.href.length > 200) return { error: 'longo' };
+  return { url: u.href };
+}
+const L = brandLink(field('Link da marca'));
+if (L.error) fail(L.error === 'espacos' ? 'o link da marca não leva espaços.' : L.error === 'longo' ? 'o link da marca vai até 200 caracteres.' : 'o link da marca tem de começar por https:// (ou @marca).');
+const url = L.url;
 
 let until = field('Reservado até');
 if (status === 'reserved') {
@@ -143,7 +163,7 @@ target.status = status;
 // a logo belongs to the brand that bought the spot: it goes when the spot is freed, held or changes hands
 if (status !== 'sold' || brand !== prevBrand) { delete target.logo; delete target.logoMono; await clearLogos(); }
 if (brand && status !== 'available') target.brand = brand;
-if (url && status !== 'available') target.url = url;
+if (url && status === 'sold') target.url = url;   // the logo's link goes live with the sale only
 if (status === 'reserved') target.until = until;
 if (status === 'sold') { const logo = await saveLogo(); if (logo) target.logo = logo; }
 data.updated = new Date().toISOString().slice(0, 10);

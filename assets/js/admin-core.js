@@ -3,7 +3,7 @@
 // statement, so data/spots.json comes out byte for byte as the bot would write it and the public site
 // (adspace.js) renders it unchanged. The price of a package is season-rules.js quote(), the one the site and the
 // booking Worker use (the mid-season discount, then the bundle discount, then one rounding).
-import { quote, seasonBp, pctText } from './season-rules.js';
+import { quote, seasonBp, pctText, brandLink } from './season-rules.js';
 
 export const REPO = 'rgvduarte/carmo';
 export const BRANCH = 'gh-pages';
@@ -16,7 +16,9 @@ export const SITE = 'https://gocarmo.com';
 export const MSG = {
   needBrandSold: 'Para marcar como vendido, escreve o nome da marca.',
   needBrandReserve: 'Para reservar, escreve o nome da marca.',
-  badUrl: 'O link não é válido (ex.: https://marca.pt ou @marca).',
+  badUrl: 'O link tem de começar por https:// (ex.: https://marca.pt ou @marca).',
+  badUrlSpace: 'O link não leva espaços.',
+  badUrlLong: 'O link vai até 200 caracteres.',
   badDate: 'Data inválida (usa o calendário).',
   pastDate: 'Essa data já passou.',
   logoType: 'O logótipo tem de ser PNG, JPG, WebP ou SVG.',
@@ -56,15 +58,12 @@ export const liveLink = (data, id) => (id === TITLE ? `${SITE}/#fato` : `${SITE}
 // ---------- inputs, normalised exactly like the bot ----------
 export const normBrand = (s) => String(s ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
 
+// the brand's link: season-rules.js brandLink, the rule of the booking form and the Worker (https://, a bare domain or
+// @marca; at most 200 characters). Every message names «link» (admin.js puts the cursor in #f-url by it).
 export function normUrl(s) {
-  let url = String(s ?? '').trim();
-  if (url.startsWith('@')) {
-    const handle = url.slice(1).replace(/[^\w.]/g, '');
-    if (!handle) throw new RuleError(MSG.badUrl);   // stricter than the bot: a bare "@" is no link
-    url = `https://www.instagram.com/${handle}/`;
-  } else if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-  if (url) { try { url = new URL(url).href; } catch (_) { throw new RuleError(MSG.badUrl); } }
-  return url;
+  const r = brandLink(s);
+  if (r.error) throw new RuleError(r.error === 'espacos' ? MSG.badUrlSpace : r.error === 'longo' ? MSG.badUrlLong : MSG.badUrl);
+  return r.url;
 }
 
 export function normUntil(s, today) {
@@ -75,12 +74,13 @@ export function normUntil(s, today) {
   return u;
 }
 
-// action: 'reserved' | 'sold' | 'available'. Both holds need a brand here (the bot asks for one only on a sale).
+// action: 'reserved' | 'sold' | 'available'. Both holds need a brand here (the bot asks for one only on a sale). The link
+// goes with a sale only: a reserved spot never shows one on the site.
 export function normalize(action, { brand = '', url = '', until = '' } = {}, today) {
   if (action === 'available') return { brand: '', url: '', until: '' };
   const b = normBrand(brand);
   if (!b) throw new RuleError(action === 'sold' ? MSG.needBrandSold : MSG.needBrandReserve);
-  return { brand: b, url: normUrl(url), until: action === 'reserved' ? normUntil(until, today) : '' };
+  return { brand: b, url: action === 'sold' ? normUrl(url) : '', until: action === 'reserved' ? normUntil(until, today) : '' };
 }
 
 // ---------- the write (scripts/spot-update.mjs, "apply") ----------
@@ -102,7 +102,7 @@ export function applyAction(raw, ids, action, f, { today, brandFiles = [], logoE
     // a logo belongs to the brand that bought the spot: it goes when the spot is freed, held or changes hands
     if (action !== 'sold' || f.brand !== prevBrand) { delete target.logo; delete target.logoMono; filesOf(id).forEach((p) => deletes.add(p)); }
     if (f.brand && action !== 'available') target.brand = f.brand;
-    if (f.url && action !== 'available') target.url = f.url;
+    if (f.url && action === 'sold') target.url = f.url;   // the logo's link goes live with the sale only
     if (action === 'reserved') target.until = f.until;
     if (action === 'sold' && logoExt) {
       filesOf(id).forEach((p) => deletes.add(p));
@@ -297,18 +297,21 @@ export function totalNote(t) {
 //   Espaços:                                     or   Fato completo (Title partner): 3 000 €
 //   • 21 Topo do capacete (6×13 cm) · 400 €           (the email may leave the sizes out)
 //   Total: 540 € (600 € −10%)
-//   Marca: … / Nome: … / Email: … / Telefone: … / NIF: …     (Email and Telefone since 31.10.2026; EN Phone)
+//   Marca: … / Link: … / Nome: … / Email: … / Telefone: … / NIF: …     (Email and Telefone since 31.10.2026; EN Phone;
+//                                                                    Link, the brand's link, since 02.11.2026, when given)
 //   Referência: CARMO 21 22                          (KONA 21 22 in an older request)
 //   Pagamento: transferência ou MB WAY                («MB WAY», «transferência bancária»; EN «Payment: …»)
 //
 //   the buyer's own message, then the link: https://gocarmo.com/#pacote=capacete-topo,… or …/#fato/title
 // The link names the spots by id, so it wins over the list (unless it was cut short); the list is read by name, then by
 // number; the CARMO line comes last. A text with none of this is a bare payment reference: parseRef, as before.
-// parsePaste() returns { kind: 'ref' | 'link' | 'request', ids, from, unknown, notes, brand, name, email, phone, nif, nifOk,
-// pay, ref, stated, lang, request } (email and phone '' in a message from before they were asked for); for kind 'ref',
+// parsePaste() returns { kind: 'ref' | 'link' | 'request', ids, from, unknown, notes, brand, link, name, email, phone, nif,
+// nifOk, pay, ref, stated, lang, request } (email and phone '' in a message from before they were asked for; link '' when
+// the message has none, or one that is not https:// or @marca, with a note); for kind 'ref',
 // parseRef's { ids, unknown, note }.
 const LINE = {
   brand: /^(?:marca|brand)\s*:\s*(.*)$/i,
+  link: /^link\s*:\s*(.*)$/i,   // the brand's link (never the package link at the end, which has no label)
   name: /^(?:nome|name)\s*:\s*(.*)$/i,
   email: /^e-?mail\s*:\s*(.*)$/i,
   phone: /^(?:telefone|telem[oó]vel|phone|tel\.?)\s*:\s*(.*)$/i,
@@ -370,10 +373,12 @@ function spotOfLine(data, n, label) {
 export function parsePaste(text, data) {
   const src = String(text || '');
   const lines = src.split(/\r?\n/).map((l) => l.replace(QUOTE, '').replace(WA_COPY, '').replace(WA_EXPORT, '').trim());
-  const out = { kind: 'request', ids: [], from: '', unknown: [], notes: [], brand: '', name: '', email: '', phone: '', nif: '', nifOk: null, pay: '', ref: '', stated: null, lang: '', request: '' };
-  const linkTitle = /#fato\/title(?![\w-])/i.test(src);
-  const pk = src.match(/#pacote=([A-Za-z0-9%,_-]+)/i);
-  const one = pk || linkTitle ? null : src.match(/gocarmo\.com\/?#(?:fato|capacete)\/([a-z0-9-]+)/i);
+  const out = { kind: 'request', ids: [], from: '', unknown: [], notes: [], brand: '', link: '', name: '', email: '', phone: '', nif: '', nifOk: null, pay: '', ref: '', stated: null, lang: '', request: '' };
+  // the package link is looked for outside the brand's own «Link:» line (its page could carry anything after a #)
+  const pkgSrc = lines.filter((l) => !LINE.link.test(l)).join('\n');
+  const linkTitle = /#fato\/title(?![\w-])/i.test(pkgSrc);
+  const pk = pkgSrc.match(/#pacote=([A-Za-z0-9%,_-]+)/i);
+  const one = pk || linkTitle ? null : pkgSrc.match(/gocarmo\.com\/?#(?:fato|capacete)\/([a-z0-9-]+)/i);
   let linkIds = null;
   if (pk || one) {
     let raw = pk ? pk[1] : one[1];
@@ -409,6 +414,13 @@ export function parsePaste(text, data) {
       // the month's name, when the line has one, against its number
       const named = MONTH_WORDS.findIndex((w) => w.some((x) => fold(l.slice(0, l.indexOf(')'))).split(' ').includes(x)));
       if (named >= 0 && named + 1 !== n) out.notes.push(`O mês escrito no desconto de época não bate com o mês ${n}.`);
+      continue;
+    }
+    if (!seen.has('link') && (m = l.match(LINE.link))) {
+      seen.add('link'); looks = true;
+      // (a mail app may have added its own copy: «https://marca.pt/ <https://marca.pt/>»)
+      const v = m[1].trim().split(/\s+/)[0].replace(/^<(.*)>$/, '$1'), r = brandLink(v);
+      if (r.error) out.notes.push(`O link da marca no pedido não serve (${v.slice(0, 60)}): não o uso.`); else out.link = r.url;
       continue;
     }
     for (const k of ['brand', 'name', 'email', 'phone', 'nif', 'ref', 'pay', 'total', 'title']) {
@@ -513,10 +525,16 @@ export function holdLeft(until, now = Date.now()) {
 
 // ---------- commit message: 'Espaços 01 e 21 vendidos a Marca X (admin)' ----------
 export const joinPT = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).join(', ')} e ${xs[xs.length - 1]}`);
-export function commitMessage(data, ids, action, f) {
+// before: the file the sale was made on; logo: a new logo goes with it. A sale again to the same brand where only the link
+// changed says so: 'Espaço 19: link de Padaria Central atualizado (admin)' (removed: '… retirado').
+export function commitMessage(data, ids, action, f, { before = null, logo = false } = {}) {
   const sorted = sortTargets(data, ids), many = sorted.length > 1;
   const label = sorted[0] === TITLE ? 'Fato completo' : `${many ? 'Espaços' : 'Espaço'} ${joinPT(sorted.map((id) => pad2(targetOf(data, id).n)))}`;
   const s = many ? 's' : '';
+  if (action === 'sold' && before && !logo) {
+    const was = sorted.map((id) => targetOf(before, id));
+    if (was.every((x) => x && x.status === 'sold' && x.brand === f.brand) && was.some((x) => (x.url || '') !== (f.url || ''))) return `${label}: link de ${f.brand} ${f.url ? 'atualizado' : 'retirado'} (admin)`;
+  }
   if (action === 'sold') return `${label} vendido${s} a ${f.brand} (admin)`;
   if (action === 'reserved') return `${label} reservado${s} para ${f.brand} até ${f.until} (admin)`;
   return `${label} libertado${s} (admin)`;

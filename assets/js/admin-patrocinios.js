@@ -9,7 +9,7 @@
 // through the GitHub API with the owner's token (admin-gh.js). Every piece of a record is shown with textContent only.
 import * as A from './admin-contracts.js';
 import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError } from './admin-core.js';
-import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText } from './season-rules.js';
+import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, brandLink, linkShown } from './season-rules.js';
 import { initMontra, montraLine, loadFile as loadMontra, retireFor, montraOver } from './admin-montra.js';
 import { forgetToken, setToken } from './admin-gh.js';
 import { SITE } from './data.js';
@@ -330,6 +330,20 @@ function card(c, day) {
 
   const who = [c.contact?.name, A.CHANNEL[c.contact?.channel || ''], c.contact?.email, c.contact?.phone, c.contact?.handle].filter(Boolean).join(' · ');
   if (who) li.appendChild(el('p', 'ct-who', who));
+  // the brand's link (its logo's link on the site, since 02.11.2026): the record's, and the site's when it is another
+  const lk = brandLink(c.url || '').url || '', site = siteLink(c);
+  if (lk || site) {
+    const p = el('p', 'ct-link');
+    const open = (u) => { const a = el('a', null, linkShown(u)); a.href = u; a.target = '_blank'; a.rel = 'noopener noreferrer'; return a; };
+    if (lk) p.append('Link: ', open(lk));
+    if (site && site !== lk) {
+      p.append(lk ? ' · O link no site é outro: ' : 'Link no site: ', open(site));
+      const b = el('button', 'link ct-uselink', 'Usar o do site'); b.type = 'button'; b.disabled = busy;
+      b.addEventListener('click', () => patch(c.id, { action: 'editar', set: { url: site } }, 'Link guardado no registo.'));
+      p.append(' ', b);
+    }
+    li.appendChild(p);
+  }
   if (c.notes) {
     const n = el('p', 'ct-notes', c.notes);
     li.appendChild(n);
@@ -373,6 +387,15 @@ function put(c) {
   if (!c || !c.id) return;
   const i = S.contracts.findIndex((x) => x.id === c.id);
   if (i >= 0) S.contracts[i] = c; else S.contracts.unshift(c);
+}
+// the link the site shows for a contract's spots (sold to its brand), '' when none or not a valid one
+function siteLink(c) {
+  const d = S.data;
+  if (!d || !Array.isArray(d.spots)) return '';
+  const same = (a, b) => String(a || '').toLowerCase().replace(/\s+/g, ' ').trim() === String(b || '').toLowerCase().replace(/\s+/g, ' ').trim();
+  const xs = c.title ? [d.title] : (c.spots || []).map((x) => d.spots.find((s) => s.id === x.id));
+  for (const x of xs) if (x && x.status === 'sold' && same(x.brand, c.brand) && x.url) { const u = brandLink(x.url).url; if (u) return u; }
+  return '';
 }
 async function patch(id, body, done) {
   if (S.busy.has(id)) return;

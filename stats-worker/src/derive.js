@@ -47,7 +47,7 @@ const GESTURE = { studio_rotate: 'rotate', studio_tap: 'tap', studio_pinch: 'pin
   studio_auto: 'auto', studio_spots: 'spots', chapter: 'chapter', tour_start: 'tour' };
 // meaningful actions (2.7): a studio gesture, the listed events, an outbound click, a feedback answer
 const MEANINGFUL = new Set([...Object.keys(GESTURE), 'spot_select', 'pkg_add', 'claim_open', 'give_copy', 'lang_switch', 'kit_print',
-  'montra_shop', 'montra_code']);
+  'montra_shop', 'montra_code', 'sponsor_click']);
 
 const parse = (s, dflt) => { if (s === null || s === undefined || s === '') return dflt; try { return JSON.parse(s); } catch (_) { return dflt; } };
 

@@ -85,7 +85,7 @@ test('the diagnostic card and the sponsors\' clicks: day and month totals only, 
   const day = d.days.find((x) => x.day === DAY);
   assert.ok(day.counted && day.req >= 2 && day.ok >= 2, JSON.stringify(day));
   const s = (await api(mf, `sponsors?p=custom&from=${DAY}&to=${DAY}`, { now: LATER })).json;
-  assert.deepEqual(s.totals.find((r) => r.host === 'marca.pt'), { host: 'marca.pt', logo: 1, shop: 0 });
+  assert.deepEqual(s.totals.find((r) => r.host === 'marca.pt'), { host: 'marca.pt', logo: 1, shop: 0, logoOld: 1 });
   for (const text of [JSON.stringify(d), JSON.stringify(s)]) {
     for (const n of ['10.124', 'DiagMarker', 'Pixel', 'Leiria', 'PT', 'mobile', '"hr"', 'android']) assert.ok(!text.includes(n), n);
   }

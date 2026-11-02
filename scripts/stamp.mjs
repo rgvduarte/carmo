@@ -62,6 +62,20 @@ if (ruleProblems.length) {
   console.error(`data/spots.json "seasonRules" (assets/js/season-rules.js checkRules):\n  ${ruleProblems.join('\n  ')}`);
   process.exit(1);
 }
+// the sponsors' links (data/spots.json "url", the link of a sold spot's logo): every one a valid brand link, as the admin
+// page, the issue bot and the booking Worker write it (season-rules.js brandLink, already normalised). The site renders
+// only a valid one anyway (sponsorHref); a link left on a spot that is not sold is only reported (the site ignores it).
+const linkProblems = [];
+for (const x of [...(Array.isArray(SPOTS.spots) ? SPOTS.spots : []), SPOTS.title]) {
+  if (!x || x.url === undefined) continue;
+  const name = x === SPOTS.title ? 'title' : `spot ${x.id}`, r = SR.brandLink(x.url);
+  if (typeof x.url !== 'string' || r.error || r.url !== x.url) linkProblems.push(`data/spots.json ${name}: url «${String(x.url).slice(0, 80)}» is not a valid brand link (https://, a real domain, at most ${SR.LINK_MAX} characters, normalised: «${r.url || r.error}»)`);
+  else if (x.status !== 'sold') console.warn(`data/spots.json ${name}: a url on a spot that is not sold (${x.status}): the site shows no link until it is sold`);
+}
+if (linkProblems.length) {
+  console.error(`The sponsors' links:\n  ${linkProblems.join('\n  ')}`);
+  process.exit(1);
+}
 const termProblems = checkTerms(SR.rulesOf(SPOTS));
 if (termProblems.length) {
   console.error(`The printed terms do not agree with data/spots.json "seasonRules":\n  ${termProblems.join('\n  ')}`);

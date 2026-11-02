@@ -59,6 +59,8 @@
 .ct-ren .btn { min-height: 44px; padding: 0 14px; font-size: 14px; }
 .ct-logo { min-height: 44px; font-size: 14px; font-weight: 500; }
 .ct-who { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.ct-link { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.ct-link a { color: var(--ink); }
 .ct-notes { margin: 0; padding: 6px 10px; border-left: 2px solid var(--line-2); font-size: 14px; color: #dcdbd5; white-space: pre-line; overflow-wrap: anywhere; }
 .ct-notes.clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: normal; }
 /* clamped, the padding goes to the margin: overflow clips at the padding box, so a vertical padding showed half a third line */

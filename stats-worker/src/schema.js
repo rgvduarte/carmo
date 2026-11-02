@@ -187,6 +187,10 @@ export const EVENTS = {
   montra_view: { p: { brand: slug, prod: slug }, cap: 1, per: 'prod', need: ['brand', 'prod'], rel: prodOfBrand },
   montra_shop: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'], rel: prodOfBrand },
   montra_code: { p: { brand: slug, prod: slug }, cap: 10, need: ['brand', 'prod'], rel: prodOfBrand },
+  // a tap on a sponsor's link (since 02.11.2026): its logo in the 3D's spot card («ficha») or in the «Já no fato» list
+  // («lista»), by the public spot id (`title` for the whole suit's partner), never the brand, the link or its host (the
+  // host is the click's own `out`, as before). Counted by spot, so a link to Instagram is the brand's own too.
+  sponsor_click: { p: { spot, via: oneOf('ficha', 'lista'), item }, cap: 10, need: ['spot'] },
 };
 export const MONTRA_EVENTS = ['montra_view', 'montra_shop', 'montra_code'];
 

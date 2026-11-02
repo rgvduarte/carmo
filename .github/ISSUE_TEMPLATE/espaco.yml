@@ -56,7 +56,7 @@ body:
     id: url
     attributes:
       label: Link da marca
-      description: Site ou Instagram (por exemplo https://marca.pt ou @marca). Opcional.
+      description: O site, o Instagram ou a página de contacto da marca (https://marca.pt ou @marca). Só para Vendido, fica no logótipo no site. Opcional.
   - type: textarea
     id: logo
     attributes:

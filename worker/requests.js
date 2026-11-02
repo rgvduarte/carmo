@@ -8,11 +8,14 @@
 //                             for 180 days. JSON in, 201 { id, until, total, m, seasonBp, day } out. The total is
 //                             quote(data, ids, { day }).net of season-rules.js, day = the Lisbon date of the request,
 //                             so it is the site's total to the euro. From the day after seasonRules.requestsUntil:
-//                             409 { error: 'epoca', season, until }.
+//                             409 { error: 'epoca', season, until }. An optional `link` (the brand's website, Instagram
+//                             or contact page: season-rules.js brandLink) is kept with the request, never written to the
+//                             file: a held spot carries no link (400 'link' for one that is not https or @handle).
 //   GET  /pedidos             (admin) the requests kept, newest first, without the logos
 //   GET  /pedidos/<id>/logo   (admin) the request's logo, a PNG
 //   POST /pedidos/<id>        (admin) { action: 'confirmar' | 'cancelar' | 'prolongar' | 'apagar', bloquear?: true (with
-//                             cancelar), paidAt?: 'YYYY-MM-DD', amount?: euros (with confirmar) }. confirmar also creates
+//                             cancelar), paidAt?: 'YYYY-MM-DD', amount?: euros, url?: the brand's link or '' (with
+//                             confirmar: the contract's url; without it, the request's own link) }. confirmar also creates
 //                             the sponsor contract c:<id> once (the same call again creates it if KV failed the first
 //                             time). apagar deletes a closed request (confirmado or cancelado) and its logo, when no
 //                             contract names it: 409 'estado' for an open one, 409 { error: 'contrato', id } otherwise
@@ -39,7 +42,7 @@
 // plus "request": <id> on each held spot. Any later admin action on that spot drops the "request" key. Keys the Worker
 // does not know ("seasonRules" among them) keep their place and value.
 
-import { TITLE, quote, rulesOf, defaultRules, lisbonDay, addDays, salesOpen, seasonMonth, levelOf, contractExpiry } from '../assets/js/season-rules.js';
+import { TITLE, quote, rulesOf, defaultRules, lisbonDay, addDays, salesOpen, seasonMonth, levelOf, contractExpiry, brandLink } from '../assets/js/season-rules.js';
 
 // The first Lisbon date builds an Intl time-zone formatter, about 13 ms of CPU once per isolate, and the first price
 // compiles the rules: both done here, in the global scope (the isolate's start-up, which has its own limit), so no
@@ -52,7 +55,8 @@ const HOLD_H = 48;
 const MAX_BODY = 600 * 1024;             // the whole POST (a 400 KB logo is 534 KB of base64)
 const MAX_LOGO = 400 * 1024;             // the logo, decoded: small enough for the 10 ms of CPU of Workers Free
 const MAX_SIDE = 4096;                   // px, either side of the logo
-const CAPS = { brand: 60, name: 80, email: 120, phone: 30, nif: 20, message: 2000 };   // characters, after trimming
+const CAPS = { brand: 60, name: 80, email: 120, phone: 30, nif: 20, message: 2000, link: 400 };   // characters, after trimming
+                                         // (the link's own cap, 200 once normalised, is brandLink's LINK_MAX)
 const MAX_ITEMS = 6;                     // spots in one request; more only as the whole suit (title: true)
 const MAX_HELD = 8;                      // spots held at once by the site's unpaid requests (MAX_HELD in wrangler.toml)
 const PER_IP_DAY = 3;                    // requests placed per address per UTC day
@@ -477,6 +481,9 @@ async function create(request, env) {
   if (!name || Array.from(name).length < 2) return fail(request, env, 'nome');
   if (nif === null || (nif && !/^[A-Za-z0-9 .\-/]+$/.test(nif))) return fail(request, env, 'nif');
   if (message === null) return fail(request, env, 'mensagem');
+  // the brand's link, optional (a page from before it existed sends none): the site's own rule, normalised
+  const lk = text(p.link, CAPS.link), link = lk === null ? { error: 'link' } : brandLink(lk);
+  if (link.error) return fail(request, env, 'link');
   if (!PAYS.includes(p.pay)) return fail(request, env, 'pagamento');
   if (p.lang !== undefined && p.lang !== 'pt' && p.lang !== 'en') return fail(request, env, 'lingua');
   if (p.channel !== undefined && p.channel !== '' && !CHANNELS.includes(p.channel)) return fail(request, env, 'canal');
@@ -528,7 +535,7 @@ async function create(request, env) {
   // the price of the public file for now; the write below sets it from the committed file
   const q0 = live ? quote(live, ids0, { day: lday }) : null;
   const record = {
-    id, at, until, ...(title ? { title: true } : { items: [...items] }), brand, name, email, phone, nif, message, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
+    id, at, until, ...(title ? { title: true } : { items: [...items] }), brand, name, email, phone, nif, message, link: link.url, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
     channel: p.channel || '', total: q0 ? q0.net : 0,
     season: q0 ? q0.season : '', day: lday, m: q0 ? q0.m : 0, seasonBp: q0 ? q0.seasonBp : 0, gross: q0 ? q0.gross : 0, discPct: q0 ? q0.discPct : 0,
     terms: live ? rulesOf(live).termsDate : '', prices: live ? snapshotOf(live, ids0) : [],
@@ -640,16 +647,19 @@ async function act(request, env, id) {
   if (error) return fail(request, env, error, error === 'tamanho' ? 413 : 400);
   if (!ACTIONS.includes(b.action)) return fail(request, env, 'acao');
   if (b.bloquear !== undefined && (typeof b.bloquear !== 'boolean' || b.action !== 'cancelar')) return fail(request, env, 'acao');
-  if ((b.paidAt !== undefined || b.amount !== undefined) && b.action !== 'confirmar') return fail(request, env, 'acao');
+  if ((b.paidAt !== undefined || b.amount !== undefined || b.url !== undefined) && b.action !== 'confirmar') return fail(request, env, 'acao');
   const now = Date.now(), at = new Date(now).toISOString(), today = todayUTC(now), lday = lisbonDay(now);
   if (b.paidAt !== undefined && !paidOk(b.paidAt, lday)) return fail(request, env, 'campos', 400, { campo: 'paidAt' });
   if (b.amount !== undefined && !amountOk(b.amount)) return fail(request, env, 'campos', 400, { campo: 'amount' });
+  // the brand's link for the contract, as the admin left it in the sale ('' takes it out)
+  const url = b.url === undefined ? undefined : typeof b.url === 'string' ? brandLink(b.url) : { error: 'url' };
+  if (url && url.error) return fail(request, env, 'campos', 400, { campo: 'url' });
   const r = await env.PEDIDOS.get(`p:${id}`, { type: 'json' });
   if (!r) return fail(request, env, 'nada', 404);
   const ids = idsOf(r);
   const step = (extra = {}) => { r.history = [...(r.history || []), { at, action: b.action, ...extra }].slice(-20); r.updated = at; };
 
-  if (b.action === 'confirmar') return confirm(request, env, r, { paidAt: b.paidAt === undefined ? lday : b.paidAt, amount: b.amount === undefined ? Number(r.total) || 0 : b.amount, now, step });
+  if (b.action === 'confirmar') return confirm(request, env, r, { paidAt: b.paidAt === undefined ? lday : b.paidAt, amount: b.amount === undefined ? Number(r.total) || 0 : b.amount, url: url ? url.url : undefined, now, step });
   if (b.action === 'apagar') return erase(request, env, r, now);
   if (b.action === 'cancelar' && r.status === 'cancelado') {
     const blocked = b.bloquear === true ? await block(env, r) : false;
@@ -728,8 +738,9 @@ async function erase(request, env, r, now) {
 // needs no address any more) and creates its contract c:<id> once. Allowed on a request confirmed before contracts
 // existed: that is how one gets its record. The contract goes to KV before the request, so the request's "contract"
 // always names a record that exists: two writes. If the contract cannot be written, the request still closes and the
-// answer says contrato: null, erro: 'contrato'; the same call again creates it.
-async function confirm(request, env, r, { paidAt, amount, now, step }) {
+// answer says contrato: null, erro: 'contrato'; the same call again creates it. url: the brand's link the admin confirmed
+// with the sale (undefined: the request's own link); an existing contract is never rewritten here (Patrocínios edits it).
+async function confirm(request, env, r, { paidAt, amount, url, now, step }) {
   const at = new Date(now).toISOString(), id = r.id;
   const closing = r.status !== 'confirmado' || !!r.ip;
   if (closing) { r.status = 'confirmado'; r.closed = r.closed || at; delete r.ip; step({ paidAt, amount }); }
@@ -737,7 +748,7 @@ async function confirm(request, env, r, { paidAt, amount, now, step }) {
   try {
     contrato = await env.PEDIDOS.get(`c:${id}`, { type: 'json' });
     if (!contrato) {
-      const c = contractOfRequest(r, await spotsData(env), { paidAt, amount, at });
+      const c = contractOfRequest(r, await spotsData(env), { paidAt, amount, at, url });
       if (c) { await putContract(env, c, now); contrato = c; criado = true; }
     }
   } catch (_) { contrato = null; criado = false; }
@@ -785,8 +796,9 @@ function contractShape({ id, kind, request, season, rules, brand, url = '', titl
     history: [{ at, action: 'criado', from }],
   };
 }
-// the contract of a site request: its price snapshot (a request from before contracts: the file's spots now)
-function contractOfRequest(r, data, { paidAt, amount, at }) {
+// the contract of a site request: its price snapshot (a request from before contracts: the file's spots now). Its url: the
+// one confirmed with the sale, else the request's own link (checked again: a record from before links has none)
+function contractOfRequest(r, data, { paidAt, amount, at, url }) {
   const ids = idsOf(r), season = String(r.season || (data ? rulesOf(data).season : ''));
   if (!/^\d{4}$/.test(season)) return null;
   const spots = Array.isArray(r.prices) && r.prices.length ? r.prices : data ? snapshotOf(data, ids) : [];
@@ -798,7 +810,8 @@ function contractOfRequest(r, data, { paidAt, amount, at }) {
   else return null;
   const level = r.level || (data ? levelOf(pricedAs(data, spots), ids) : '');
   return contractShape({
-    id: r.id, kind: 'site', request: r.id, season, rules: rulesFor(data, season), brand: r.brand, title: r.title === true, spots, level, price,
+    id: r.id, kind: 'site', request: r.id, season, rules: rulesFor(data, season), brand: r.brand, url: url !== undefined ? url : brandLink(typeof r.link === 'string' ? r.link : '').url || '',
+    title: r.title === true, spots, level, price,
     amount, paidAt, pay: r.pay, contact: { name: r.name || '', channel: r.channel || '', email: r.email || '', phone: r.phone || '' }, nif: r.nif || '', lang: r.lang === 'en' ? 'en' : 'pt',
     terms: r.terms || '', at, from: 'pedido',
   });
@@ -826,12 +839,8 @@ function contractInput(p, data, lday, create) {
   if (create || has('paidAt')) { if (!paidOk(p.paidAt, lday)) return bad('paidAt'); set.paidAt = p.paidAt; }
   if (create || has('pay')) { if (!PAY_KINDS.includes(p.pay)) return bad('pay'); set.pay = p.pay; }
   if (has('inKind')) { const v = text(p.inKind, 200); if (v === null) return bad('inKind'); set.inKind = v; }
-  if (has('url')) {
-    const v = text(p.url, 200);
-    if (v === null) return bad('url');
-    if (v) { let u = null; try { u = new URL(v); } catch (_) {} if (!u || u.protocol !== 'https:' || !/^https:\/\//i.test(v)) return bad('url'); }
-    set.url = v;
-  }
+  // the brand's link: the site's rule (https:// or @marca, at most 200 characters), stored normalised
+  if (has('url')) { const v = typeof p.url === 'string' ? brandLink(p.url) : { error: 'url' }; if (v.error) return bad('url'); set.url = v.url; }
   if (has('contact')) {
     const c = p.contact;
     if (!c || typeof c !== 'object' || Array.isArray(c)) return bad('contact');

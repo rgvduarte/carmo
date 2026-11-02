@@ -5,7 +5,7 @@
 import { t, pick, money, numFmt, onLang, getLang, fmtDay } from './i18n.js';
 import { SITE } from './data.js';
 import { flowSet } from './flow.js';
-import { quote, rulesOf, lisbonDay, salesOpen, logoOpen, noRacesLeft, levelOf, TITLE } from './season-rules.js';
+import { quote, rulesOf, lisbonDay, salesOpen, logoOpen, noRacesLeft, levelOf, TITLE, brandLink, sponsorHref } from './season-rules.js';
 import { D, GLFail, fail, mark, note, setNo3d, glSupport, msgKey, fixable, release, startProfile, rememberLite, rememberHp, hp, setUp, LITE, isIOS, inApp, appName } from './gl3d.js';
 
 // for stats.js (and analytics.js later): a named event the page tracker may count; never personal data
@@ -92,12 +92,12 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
     basket = new Set(ids.filter((id) => { const s = byId(id); return !!s && (s.status === 'available' || ownHold(s) || mine(s)); }));
   } catch (_) {}
   readHash();
-  renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); renderSeasonCopy();
+  renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); renderSponsorNotes(); renderSeasonCopy();
   bindUI();
   if (selected) select(selected);
   resumeClaim();
   onLang(() => {
-    renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); renderSeasonCopy();
+    renderStats(); renderLegend(); renderRateCard(); renderCard(); renderPackage(); renderOnSuit(); renderSponsorNotes(); renderSeasonCopy();
     if ($('#claim').open) renderClaim();
     for (const m of models()) { m.labels = kitLabels(); m.money = money; m.drawOverlay(); m.kick(); }
     const ld = $('#item-loading span'); if (ld) ld.textContent = t('helmet.loading');
@@ -141,9 +141,11 @@ export async function initAdspace({ onSuitReady, scrollTo = null, nudge = null }
 // suit spot (held: until the same day; sold: under the title partner's name, with its logo on the chest)
 function normalize(D) {
   for (const x of [...D.spots, D.title]) if (lapsed(x)) x.status = 'available';
+  for (const s of D.spots) delete s.byTitle;
   if (D.title.status === 'reserved') for (const s of D.spots) if (itemOf(s) === 'suit' && s.status === 'available') Object.assign(s, { status: 'reserved', until: D.title.until });
   if (D.title.status === 'sold') {
-    for (const s of D.spots) if (itemOf(s) === 'suit' && s.status !== 'sold') Object.assign(s, { status: 'sold', brand: D.title.brand, url: D.title.url });
+    // (byTitle: the spot is the title partner's, so a click on its link counts for the whole suit)
+    for (const s of D.spots) if (itemOf(s) === 'suit' && s.status !== 'sold') Object.assign(s, { status: 'sold', brand: D.title.brand, url: D.title.url, byTitle: true });
     const top = D.spots.find((s) => s.top);
     if (top && D.title.logo && !top.logo) Object.assign(top, { logo: D.title.logo, logoMono: D.title.logoMono });
   }
@@ -184,7 +186,7 @@ async function refreshSpots() {
 }
 // everything on the page that shows who holds what
 function refreshViews() {
-  renderStats(); renderRateCard(); renderCard(); renderOnSuit(); renderPackage();
+  renderStats(); renderRateCard(); renderCard(); renderOnSuit(); renderSponsorNotes(); renderPackage();
   for (const m of models()) { m.drawOverlay(); m.kick(); }
   placeCallout();
 }
@@ -771,26 +773,54 @@ function inkOf(c) {
   return wt ? sum / wt : 255;
 }
 
-// "Já no fato" (or "no capacete", or both): the brands that have closed a spot, with a link to each.
-// A brand that is only on the helmet, or on both, says so.
+// ---------- the sponsors' links (owner decision of 02.11.2026: a sponsor's logo links to its page) ----------
+// A SOLD spot links to its brand's page: the url of data/spots.json, checked again here (season-rules.js sponsorHref:
+// a valid https link only, the gocarmo tag on the brand's own website, never on a network). A reserved or free spot
+// never links, whatever the file says. Each link opens in a new tab, rel="sponsored noopener" (no noreferrer: the brand
+// sees that the visit came from gocarmo.com), with an accessible name that says so; stats-site.js counts a click by its
+// spot (data-sponsor) and where it was (data-via: «ficha», the spot's card from the 3D or a row; «lista», «Já no fato»).
+const liveLink = (s) => (s && s.status === 'sold' && s.brand ? sponsorHref(s.url, DATA.season) : '');
+// a logo the page shows only from assets/img/brands/ (where the admin page and the issue bot put them)
+const logoOk = (p) => typeof p === 'string' && /^assets\/img\/brands\/[a-z0-9-]+\.(?:png|jpe?g|webp)$/.test(p);
+// the id a click counts for: the spot, or 'title' for a spot the whole suit's partner holds
+const sponsorOf = (s) => (s.byTitle ? 'title' : s.id);
+function sponsorLink(a, href, brand, spot, via) {
+  a.href = href; a.target = '_blank'; a.rel = 'sponsored noopener';
+  a.dataset.sponsor = spot; a.dataset.via = via;
+  a.setAttribute('aria-label', t('sd.visitA', brand));
+}
+
+// "Já no fato" (or "no capacete", or both): the brands that have closed a spot, each one its logo (or its name, with no
+// logo) and, with a valid link, a link to its page. A brand that is only on the helmet, or on both, says so.
 function renderOnSuit() {
   const host = $('#onsuit');
   if (!host) return;
   const list = $('#onsuit-list'); list.textContent = '';
-  const brands = new Map();
-  if (DATA.title.status === 'sold' && DATA.title.brand) brands.set(DATA.title.brand, { brand: DATA.title.brand, url: DATA.title.url, title: true, items: new Set(['suit']) });
+  const brands = new Map(), T = DATA.title;
+  if (T.status === 'sold' && T.brand) brands.set(T.brand, { brand: T.brand, href: liveLink(T), spot: 'title', logo: logoOk(T.logo) ? T.logo : '', title: true, items: new Set(['suit']) });
+  // (the most expensive spot first: its link and its logo stand for the brand)
   for (const s of SPOTS.slice().sort((a, b) => b.price - a.price)) {
     if (s.status !== 'sold' || !s.brand) continue;
-    if (!brands.has(s.brand)) brands.set(s.brand, { brand: s.brand, url: s.url, items: new Set() });
-    brands.get(s.brand).items.add(itemOf(s));
+    let b = brands.get(s.brand);
+    if (!b) brands.set(s.brand, (b = { brand: s.brand, href: '', spot: '', logo: '', items: new Set() }));
+    b.items.add(itemOf(s));
+    if (!b.href && !s.byTitle) { const h = liveLink(s); if (h) { b.href = h; b.spot = s.id; } }
+    if (!b.logo && logoOk(s.logo)) b.logo = s.logo;
   }
   const items = new Set();
   for (const b of brands.values()) {
     b.items.forEach((x) => items.add(x));
     const li = document.createElement('li');
-    const el = document.createElement(b.url ? 'a' : 'span');
-    if (b.url) { el.href = b.url; el.target = '_blank'; el.rel = 'noopener'; }
-    el.textContent = b.brand;
+    const el = document.createElement(b.href ? 'a' : 'span');
+    el.className = `os-b${b.logo ? ' has-logo' : ''}`;
+    if (b.href) { sponsorLink(el, b.href, b.brand, b.spot, 'lista'); el.dataset.trackLabel = 'patrocinador'; el.title = b.brand; }
+    if (b.logo) {
+      const img = document.createElement('img');
+      img.src = b.logo; img.alt = b.href ? '' : b.brand; img.loading = 'lazy'; img.decoding = 'async'; img.className = 'os-logo';
+      // a logo that does not load leaves the name
+      img.addEventListener('error', () => { const n = document.createElement('span'); n.className = 'os-name'; n.textContent = b.brand; img.replaceWith(n); el.classList.remove('has-logo'); }, { once: true });
+      el.appendChild(img);
+    } else { const n = document.createElement('span'); n.className = 'os-name'; n.textContent = b.brand; el.appendChild(n); }
     const tags = [];
     if (b.title) tags.push('Title partner');
     if (b.items.has('helmet')) tags.push(t(b.items.has('suit') ? 'on.both' : 'on.helmet'));
@@ -799,6 +829,17 @@ function renderOnSuit() {
   }
   $('#onsuit .k').textContent = t(items.has('helmet') ? (items.has('suit') ? 'on.kB' : 'on.kH') : 'on.k');
   host.hidden = !brands.size;
+}
+// under each model, while one of its sold spots links out: «Toca num logótipo para conheceres quem vai comigo em 2027.»
+// («Clica» with a mouse). Inside the stage's foot, so a stage without 3D (the still picture, no logos) hides it too.
+function renderSponsorNotes() {
+  for (const it of ITEMS) {
+    const n = $(`.stage[data-item="${it}"] .sp-note`);
+    if (!n) continue;
+    const on = ofItem(it).some((s) => !!liveLink(s));
+    n.hidden = !on;
+    n.textContent = on ? t(touch() ? 'sp.noteT' : 'sp.noteC', DATA.season) : '';
+  }
 }
 
 const statusText = (s) => {
@@ -1008,6 +1049,20 @@ function fillCard(s) {
   add.textContent = basket.has(s.id) ? t('spot.added') : t('spot.add');
   add.disabled = s.status !== 'available';
   $('#sd-try').disabled = s.status === 'sold';
+  // a sold spot: its brand (with its logo) and, with a valid link, «Visitar [Marca]» to its page; a free or reserved spot
+  // shows none of this
+  const sold = s.status === 'sold' && !!s.brand, href = liveLink(s), box = $('#sd-sponsor');
+  box.hidden = !sold;
+  if (!sold) return;
+  $('#sd-brand').textContent = s.brand;
+  const img = $('#sd-logo'), lg = logoOk(s.logo) ? s.logo : '';
+  img.hidden = !lg;
+  img.onerror = () => { img.hidden = true; };
+  if (lg) { if (img.getAttribute('src') !== lg) img.src = lg; } else img.removeAttribute('src');
+  const a = $('#sd-visit');
+  a.hidden = !href;
+  if (href) { sponsorLink(a, href, s.brand, sponsorOf(s), 'ficha'); $('#sd-visit-t').textContent = t('sd.visit', s.brand); }
+  else { a.removeAttribute('href'); delete a.dataset.sponsor; }
 }
 
 function placeCallout() {
@@ -1130,7 +1185,7 @@ function kindKey() {
 function message({ sizes = true, extra = null } = {}) {
   const { list, net, gross, discPct, midSeason, m, seasonBp, day } = totals(), R = rules();
   const brand = $('#cl-brand').value.trim(), name = $('#cl-name').value.trim(), nif = $('#cl-nif').value.trim();
-  const email = $('#cl-email').value.trim(), phone = $('#cl-phone').value.trim();
+  const email = $('#cl-email').value.trim(), phone = $('#cl-phone').value.trim(), link = buyerLink();
   extra ??= $('#cl-msg').value.trim();
   const lines = [t(`msg.hi${kindKey()}`, R.season), ''];
   // the amount to pay first, then how it was reached: «Total: 928 € (1 100 € −6,25% −10%)» (the admin page reads the
@@ -1142,9 +1197,10 @@ function message({ sizes = true, extra = null } = {}) {
     for (const s of list) lines.push(`• ${String(s.n).padStart(2, '0')} ${pick(s).name}${sizes ? ` (${sizeOf(s, '×')})` : ''} · ${money(s.price)}`);
     lines.push(`${t('msg.total')}: ${money(net)}${how}`);
   }
-  // who is asking: the company or brand, then the buyer's name, email and phone (all four required: formOk), then the NIF
-  // (the admin page reads each line: admin-core.js LINE)
+  // who is asking: the company or brand (and its link, when given: the logo's link on the site once paid), then the
+  // buyer's name, email and phone (all four required: formOk), then the NIF (the admin page reads each line: admin-core.js LINE)
   if (brand) lines.push(`${t('msg.brand')}: ${brand}`);
+  if (link) lines.push(`${t('msg.link')}: ${link}`);
   if (name) lines.push(`${t('msg.name')}: ${name}`);
   if (email) lines.push(`${t('msg.email')}: ${email}`);
   if (phone) lines.push(`${t('msg.phone')}: ${phone}`);
@@ -1272,7 +1328,7 @@ function openClaim({ step = 1, pay = null, tab = null, waNav = false } = {}) {
     const add = $('#cl-add');
     $('#cl-extra').hidden = true; add.hidden = false; add.setAttribute('aria-expanded', 'false');
   }
-  for (const f of FIELDS) showErr(f, '');
+  for (const f of [...FIELDS, 'link']) showErr(f, '');
   goStep(step, { focus: false });
   for (const m of models()) m.hold(true);
   if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
@@ -1335,7 +1391,7 @@ function renderClaim() {
     $('#cl-closed-mail').href = `mailto:${SITE.email}?subject=${encodeURIComponent(t('cl.closedSubj', R))}&body=${encodeURIComponent(t('cl.closedAsk', R))}`;
     $('#cl-closed-wa').href = `https://wa.me/${SITE.whatsapp}?text=${encodeURIComponent(t('cl.closedAsk', R))}`;
   }
-  for (const f of FIELDS) if (errKeys[f]) $(`#cl-${f}-err`).textContent = t(errKeys[f]);
+  for (const f of [...FIELDS, 'link']) if (errKeys[f]) $(`#cl-${f}-err`).textContent = t(errKeys[f]);
   // the request: a package already held from this tab says so; the logo field, its error, what is missing, the note
   const r = heldReq(), k = kOf();
   const h1 = $('#cl-held1');
@@ -1523,15 +1579,24 @@ function fieldKey(f) {
   if (f === 'email') return !v ? 'cl.errEmail' : EMAIL_RE.test(v) ? '' : 'cl.errEmailBad';
   return !v ? 'cl.errPhone' : phoneOk(v) ? '' : 'cl.errPhoneBad';
 }
+// The brand's link (owner decision of 02.11.2026), optional: the brand's website, Instagram or contact page, on its logo
+// on the site once the payment is confirmed. The rule is season-rules.js brandLink, the Worker's own: https:// (a bare
+// domain gets it), or @marca for Instagram; never another scheme, a space, or more than 200 characters.
+const LINK_ERR = { esquema: 'cl.errLink', invalido: 'cl.errLink', espacos: 'cl.errLinkSpace', longo: 'cl.errLinkLong' };
+const linkKey = () => { const r = brandLink($('#cl-link').value); return r.error ? LINK_ERR[r.error] || 'cl.errLink' : ''; };
+// the link as it goes in the message, the request and the comprovativo ('' when none, or while it is not valid)
+const buyerLink = () => brandLink($('#cl-link').value).url || '';
 // before any send action: every field checked at once, each error under its field, and the first one in the order of the
-// form (the brand, the logo, the name, the email, the phone) takes the focus, so a screen reader hears its label and its
-// error. The logo with the Worker only, and not for a package already held (its logo went with the request).
+// form (the brand, the logo, the name, the email, the phone, the link) takes the focus, so a screen reader hears its label
+// and its error. The logo with the Worker only, and not for a package already held (its logo went with the request). The
+// link never makes the buttons look on hold (it is optional), but a bad one stops the send like the other fields.
 function formOk() {
   const keys = Object.fromEntries(FIELDS.map((f) => [f, fieldKey(f)])), noLogo = !!API && !buyerLogo && !heldReq();
-  const bad = FIELDS.filter((f) => keys[f]);
+  keys.link = linkKey();
+  const bad = [...FIELDS, 'link'].filter((f) => keys[f]);
   // the email and Instagram actions also sit in step 2 (when WhatsApp did not open): the fields are back in step 1
   if ((bad.length || noLogo) && clStep !== 1) goStep(1, { focus: false });
-  for (const f of FIELDS) showErr(f, keys[f]);
+  for (const f of [...FIELDS, 'link']) showErr(f, keys[f]);
   logoErr(noLogo ? 'cl.logoErr' : '');
   const first = keys.brand ? '#cl-brand' : noLogo ? '#cl-logo' : bad.length ? `#cl-${bad[0]}` : '';
   if (first) $(first).focus();
@@ -1777,7 +1842,7 @@ let draftT = 0;
 function saveDraft() {
   clearTimeout(draftT);
   draftT = setTimeout(() => {
-    const d = { at: Date.now(), brand: $('#cl-brand').value, name: $('#cl-name').value, email: $('#cl-email').value, phone: $('#cl-phone').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
+    const d = { at: Date.now(), brand: $('#cl-brand').value, link: $('#cl-link').value, name: $('#cl-name').value, email: $('#cl-email').value, phone: $('#cl-phone').value, nif: $('#cl-nif').value, msg: $('#cl-msg').value };
     const L = buyerLogo;
     try { sessionStorage.setItem(DRAFT, JSON.stringify(L ? { ...d, logo: { dataUrl: L.dataUrl, w: L.w, h: L.h, name: L.name, size: L.size } } : d)); } catch (_) {
       try { sessionStorage.setItem(DRAFT, JSON.stringify(d)); } catch (__) {}   // full: the words at least
@@ -1789,7 +1854,7 @@ async function restoreDraft() {
   try { d = JSON.parse(sessionStorage.getItem(DRAFT) || 'null'); } catch (_) {}
   if (!d || typeof d !== 'object') return;
   if (!(Date.now() - Number(d.at) < DRAFT_KEEP)) { try { sessionStorage.removeItem(DRAFT); } catch (_) {} return; }
-  for (const [k, q] of [['brand', '#cl-brand'], ['name', '#cl-name'], ['email', '#cl-email'], ['phone', '#cl-phone'], ['nif', '#cl-nif'], ['msg', '#cl-msg']]) if (typeof d[k] === 'string' && d[k] && !$(q).value) $(q).value = d[k];
+  for (const [k, q] of [['brand', '#cl-brand'], ['link', '#cl-link'], ['name', '#cl-name'], ['email', '#cl-email'], ['phone', '#cl-phone'], ['nif', '#cl-nif'], ['msg', '#cl-msg']]) if (typeof d[k] === 'string' && d[k] && !$(q).value) $(q).value = d[k];
   if ($('#cl-nif').value.trim() || $('#cl-msg').value.trim()) { $('#cl-extra').hidden = false; $('#cl-add').hidden = true; $('#cl-add').setAttribute('aria-expanded', 'true'); }
   const L = d.logo;
   if (L && typeof L.dataUrl === 'string' && L.dataUrl.startsWith('data:image/png;base64,') && !buyerLogo) {
@@ -1798,7 +1863,7 @@ async function restoreDraft() {
   if ($('#claim').open) renderClaim();
 }
 // the request is over: the name, the email, the phone, the NIF, the message and the logo go, from the fields and from the
-// tab (the brand stays in its field for another package, but is no longer stored)
+// tab (the brand and its link stay in their fields for another package, but are no longer stored)
 function forgetDraft() {
   clearTimeout(draftT);   // a save still on its way would write it back
   try { sessionStorage.removeItem(DRAFT); } catch (_) {}
@@ -1913,6 +1978,9 @@ async function book(by) {
     brand: $('#cl-brand').value.trim(), name: $('#cl-name').value.trim(), email: $('#cl-email').value.trim(), phone: $('#cl-phone').value.trim(),
     nif: $('#cl-nif').value.trim(), message: $('#cl-msg').value.trim(), pay: payNow(), lang: getLang(), channel: CHANNEL[by], logo: buyerLogo.dataUrl, website: '',
   };
+  // the brand's link only when given (a request without it is as before)
+  const link = buyerLink();
+  if (link) body.link = link;
   // on its way until its answer is read: a reload meanwhile, or no answer at all, keeps its spots in the package
   // (pruneBasket) while their hold may be this request's own
   try { sessionStorage.setItem(PENDING, JSON.stringify({ key, at: Date.now() })); } catch (_) {}
@@ -1985,6 +2053,7 @@ function failed(res, j, by, r) {
     case 'nome': showErr('name', 'rq.nome'); $('#cl-name').focus(); return;
     case 'email': showErr('email', 'rq.email'); $('#cl-email').focus(); return;
     case 'telefone': showErr('phone', 'rq.telefone'); $('#cl-phone').focus(); return;
+    case 'link': showErr('link', 'rq.link'); $('#cl-link').focus(); return;
     case 'nif': openExtra(); fieldErr('#cl-nif', 'rq.nif'); return;
     case 'mensagem': openExtra(); fieldErr('#cl-msg', 'rq.mensagem'); return;
     case 'pagamento': setNote(() => t('rq.pagamento')); $('#cl-pay input:not(:disabled)')?.focus(); return;
@@ -2069,6 +2138,9 @@ function rcptModel() {
   // (the season's period right under the date: what the request is for)
   const rows = [[t(at ? 'rcpt.date' : 'rcpt.dateNow'), atLisbon(when)], [t('rcpt.period'), t('rcpt.periodV', R)], [t('msg.brand'), (r && r.brand) || $('#cl-brand').value.trim()]];
   for (const [key, q] of [['msg.name', '#cl-name'], ['msg.email', '#cl-email'], ['msg.phone', '#cl-phone'], ['msg.nif', '#cl-nif']]) { const v = $(q).value.trim(); if (v) rows.push([t(key), v]); }
+  // the brand's link, one row, only when given
+  const lk = buyerLink();
+  if (lk) rows.push([t('msg.link'), lk]);
   if (!r && openReq) rows.push([t('msg.open'), openReq]);
   const items = wantTitle ? [{ n: '', name: t('msg.title'), model: t('z.suit'), price: money(gross) }]
     : list.map((s) => ({ n: pad2(s.n), name: pick(s).name, model: t(itemOf(s) === 'helmet' ? 'z.helmet' : 'z.suit'), price: money(s.price) }));
@@ -2485,7 +2557,7 @@ function bindUI() {
   });
   // the draft follows what is typed; a field a request refused clears its mark as it changes (the four required fields:
   // their own error, gone once there is something in the field, checked again at the next send)
-  for (const q of ['#cl-brand', '#cl-name', '#cl-email', '#cl-phone', '#cl-nif', '#cl-msg']) $(q).addEventListener('input', (e) => {
+  for (const q of ['#cl-brand', '#cl-link', '#cl-name', '#cl-email', '#cl-phone', '#cl-nif', '#cl-msg']) $(q).addEventListener('input', (e) => {
     saveDraft();
     if ((q === '#cl-nif' || q === '#cl-msg') && e.target.getAttribute('aria-invalid') === 'true') { e.target.removeAttribute('aria-invalid'); setNote(null); }
   });
@@ -2497,6 +2569,8 @@ function bindUI() {
   addEventListener('pagehide', waGone);
   addEventListener('pageshow', waBack);
   for (const f of FIELDS) $(`#cl-${f}`).addEventListener('input', (e) => { if (e.target.value.trim()) showErr(f, ''); renderNeed(); });
+  // the link's error goes as it is changed (checked again at the next send)
+  $('#cl-link').addEventListener('input', () => { if (errKeys.link) showErr('link', ''); });
   $('#cl-msg').addEventListener('input', mailCutHint);
   $('#cl-add').addEventListener('click', (e) => { e.currentTarget.setAttribute('aria-expanded', 'true'); $('#cl-extra').hidden = false; e.currentTarget.hidden = true; $('#cl-nif').focus(); });
   $('#cl-more').addEventListener('click', () => { const items = $('#cl-items'); items.hidden = !items.hidden; renderClaim(); });

@@ -42,10 +42,10 @@ test('logo and shop by section, months across a month boundary, the list views',
   assert.equal(s.ok, true);
   assert.deepEqual(s.ignored, ['dev']);
   assert.deepEqual(s.months, [
-    { month: `${Y}-03`, rows: [{ host: 'loja.marca.pt', logo: 1, shop: 0 }, { host: 'marca.pt', logo: 2, shop: 1 }, { host: 'outra.pt', logo: 1, shop: 0 }] },
-    { month: `${Y}-04`, rows: [{ host: 'marca.pt', logo: 1, shop: 1 }] },
+    { month: `${Y}-03`, rows: [{ host: 'loja.marca.pt', logo: 1, shop: 0, logoOld: 1 }, { host: 'marca.pt', logo: 2, shop: 1, logoOld: 2 }, { host: 'outra.pt', logo: 1, shop: 0, logoOld: 1 }] },
+    { month: `${Y}-04`, rows: [{ host: 'marca.pt', logo: 1, shop: 1, logoOld: 1 }] },
   ]);
-  assert.deepEqual(s.totals, [{ host: 'loja.marca.pt', logo: 1, shop: 0 }, { host: 'marca.pt', logo: 3, shop: 2 }, { host: 'outra.pt', logo: 1, shop: 0 }]);
+  assert.deepEqual(s.totals, [{ host: 'loja.marca.pt', logo: 1, shop: 0, logoOld: 1 }, { host: 'marca.pt', logo: 3, shop: 2, logoOld: 3 }, { host: 'outra.pt', logo: 1, shop: 0, logoOld: 1 }]);
   assert.deepEqual(s.list, [{ month: `${Y}-03`, views: 2 }, { month: `${Y}-04`, views: 1 }]);
   // the same numbers as «Contactos» (one total per host for the period)
   const c = await get(`contacts?${range(M1, addDays(T, -1))}`);
@@ -55,7 +55,7 @@ test('logo and shop by section, months across a month boundary, the list views',
 test('host: the host and its subdomains, «www.» dropped, nothing else', async () => {
   const s = await get(`sponsors?${range(M1, addDays(T, -1))}&host=www.marca.pt`);
   assert.equal(s.host, 'marca.pt');
-  assert.deepEqual(s.totals, [{ host: 'loja.marca.pt', logo: 1, shop: 0 }, { host: 'marca.pt', logo: 3, shop: 2 }]);
+  assert.deepEqual(s.totals, [{ host: 'loja.marca.pt', logo: 1, shop: 0, logoOld: 1 }, { host: 'marca.pt', logo: 3, shop: 2, logoOld: 3 }]);
   assert.deepEqual(s.months.map((m) => m.rows.map((r) => r.host)), [['loja.marca.pt', 'marca.pt'], ['marca.pt']]);
   // the list views are the page's, not the brand's: the same with a host
   assert.deepEqual(s.list, [{ month: `${Y}-03`, views: 2 }, { month: `${Y}-04`, views: 1 }]);
@@ -69,8 +69,8 @@ test('host: the host and its subdomains, «www.» dropped, nothing else', async 
 
 test('int honoured, dev ignored, today refused, an empty period', async () => {
   const q = range(M2, M2);
-  assert.deepEqual((await get(`sponsors?${q}`)).totals, [{ host: 'marca.pt', logo: 1, shop: 1 }]);
-  assert.deepEqual((await get(`sponsors?${q}&int=1`)).totals, [{ host: 'marca.pt', logo: 2, shop: 1 }]);
+  assert.deepEqual((await get(`sponsors?${q}`)).totals, [{ host: 'marca.pt', logo: 1, shop: 1, logoOld: 1 }]);
+  assert.deepEqual((await get(`sponsors?${q}&int=1`)).totals, [{ host: 'marca.pt', logo: 2, shop: 1, logoOld: 2 }]);
   assert.deepEqual((await get(`sponsors?${q}&int=1`)).list, [{ month: `${Y}-04`, views: 2 }]);
   const all = await get(`sponsors?${q}`), mob = await get(`sponsors?${q}&dev=mobile`);
   assert.deepEqual(mob.months, all.months, 'the desktop visit stays with dev=mobile');
@@ -92,7 +92,7 @@ test('sponsorsOf: keys of `out`, only patrocinador, onsuit_view by page view', (
   a.add(`${Y}-02-01`, 'out', 'patrocinador\tmaterial\tb.marca.pt', 2, 1, 0);
   a.add(`${Y}-02-01`, 'ev', 'onsuit_view', 9, 7, 0);
   const s = sponsorsOf(a, 'marca.pt');
-  assert.deepEqual(s.months, [{ month: `${Y}-01`, rows: [{ host: 'marca.pt', logo: 3, shop: 1 }] }, { month: `${Y}-02`, rows: [{ host: 'b.marca.pt', logo: 0, shop: 2 }] }]);
+  assert.deepEqual(s.months, [{ month: `${Y}-01`, rows: [{ host: 'marca.pt', logo: 3, shop: 1, logoOld: 3 }] }, { month: `${Y}-02`, rows: [{ host: 'b.marca.pt', logo: 0, shop: 2, logoOld: 0 }] }]);
   assert.deepEqual(s.list, [{ month: `${Y}-02`, views: 7 }]);
   assert.deepEqual(sponsorsOf(new Acc([`${Y}-01-31`])).months, []);
 });

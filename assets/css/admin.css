@@ -188,6 +188,9 @@ input::placeholder { color: var(--dim); }
 .req-total { margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; }
 .req-meta, .req-who { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .req-who { color: var(--ink); }
+/* the brand's link the request gave (it reaches the site's logo with the sale) */
+.req-link { margin: 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
+.req-link a { color: var(--ink); }
 .req-msg { margin: 0; max-height: 7.6em; overflow: auto; padding: 6px 10px; border-left: 2px solid var(--line-2); font-size: 14px; color: #dcdbd5; white-space: pre-line; overflow-wrap: anywhere; }
 .req .st { justify-self: start; }
 .req .notes li { font-size: 13px; }

@@ -17,7 +17,7 @@ import { sanitizeBeacon, sanitizeFeedback } from './sanitize.js';
 import { isBot, parseUA, channelOf, truncIp, hashIp } from './ua.js';
 import { clock, period } from './time.js';
 import { CSV_TABLES } from './csv.js';
-import { slug } from './schema.js';
+import { slug, SPOT_SET } from './schema.js';
 import { ENDPOINT_NAMES } from './query.js';
 
 export { Store };
@@ -289,6 +289,12 @@ async function admin(request, env, url) {
     const h = String(q.host).toLowerCase().replace(/^www\./, '');
     if (!/^[a-z0-9.-]{1,64}$/.test(h) || !/[a-z0-9]/.test(h)) return reply(request, env, { error: 'filtro' }, 400);
     P.host = h;
+  }
+  // and the clicks by spot: only these spot ids (data/spots.json's, or `title`), at most 25
+  if (path === 'sponsors' && q.spots !== undefined) {
+    const xs = String(q.spots).split(',').filter(Boolean);
+    if (!xs.length || xs.length > 25 || !xs.every((x) => SPOT_SET.has(x))) return reply(request, env, { error: 'filtro' }, 400);
+    P.spots = [...new Set(xs)].sort();
   }
   if (path === 'notes') {
     if (method === 'GET') return reply(request, env, await call('notes', 'list', {}));

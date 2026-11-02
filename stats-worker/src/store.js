@@ -658,7 +658,7 @@ export class Store extends DurableObject {
     const windows = plan(endpoint, { period: per, dev: P.dev, int: P.int, vw: P.vw });
     if (!windows) return { error: 'nada' };
     const accs = this.collect(windows, P);
-    const ctx = { range: per.range, prev: per.prev, filters: { dev: P.dev, int: P.int, cmp: P.cmp }, vw: P.vw, today: P.clock.day, notes: [], host: P.host };
+    const ctx = { range: per.range, prev: per.prev, filters: { dev: P.dev, int: P.int, cmp: P.cmp }, vw: P.vw, today: P.clock.day, notes: [], host: P.host, spots: P.spots };
     if (endpoint === 'overview' || endpoint === 'system') ctx.notes = this.noteList();
     if (endpoint === 'system') ctx.system = this.systemInfo(P);
     const body = build(endpoint, { ...accs, ctx });

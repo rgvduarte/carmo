@@ -216,12 +216,24 @@ cortado em ontem; `null` em `24h`), lidos como os painéis os leem, separados pe
 `kpi.visits.v` do `overview` com `int=0`, e `ext + int` o de `int=1`. Os dias passados ficam em memória até uma escrita
 nesse dia; o período até ao resumo seguinte (o polling de 60 s do painel não lê 14 dias de linhas de cada vez).
 
+O link do logótipo de um patrocinador (desde 02.11.2026; mudança de privacidade, a página `privacidade/` diz-o): o evento
+`sponsor_click` (até 10 por visualização) com `spot` (o id público do espaço, ou `title` para o fato completo;
+obrigatório), `via` (`ficha`: a ficha do espaço, vinda do 3D ou de uma linha da tabela; `lista`: «Já no fato») e
+`item` (`suit` ou `helmet`). Nunca leva a marca, o link nem o domínio: o clique do mesmo toque continua a guardar o
+domínio na linha `out` (`osp`), como antes. Guarda-se na métrica `ev` (sem tabela nova nem mudança de esquema). O campo
+`cl-link` do pedido conta como os outros campos: pelo id, nunca pelo que se escreve.
+
 **Patrocinadores** (`GET /admin/v1/sponsors`, dias completos só, todos os aparelhos, `int` respeitado, `host=<domínio>`
-opcional: esse domínio e os subdomínios, `www.` tirado). Lê o que já se guardava: as linhas `out` do tipo
-`patrocinador` (ligações dentro de `#onsuit-list` e `#material`, por secção e domínio) e o evento `onsuit_view`.
-Responde `{ months: [{ month, rows: [{ host, logo, shop }] }], totals: [{ host, logo, shop }], list: [{ month, views
-}], ignored: ['dev'] }`: `logo` são os cliques fora da montra (a lista «Já no fato»), `shop` os da montra, `views` as
-visualizações em que a lista apareceu no ecrã. Nada novo é recolhido.
+opcional: esse domínio e os subdomínios, `www.` tirado; `spots=<id,id>` opcional, até 25 ids de espaços ou `title`:
+só esses nas linhas por espaço, `400 filtro` com outro valor). Lê as linhas `out` do tipo `patrocinador` (ligações
+dentro de `#onsuit-list`, `#material` e com `data-sponsor`, por secção e domínio), o evento `onsuit_view` e o evento
+`sponsor_click`. Responde `{ months: [{ month, rows: [{ host, logo, shop, logoOld }] }], totals: [{ host, logo, shop,
+logoOld }], list: [{ month, views }], spots: [{ month, rows: [{ spot, ficha, lista, clicks }] }], spotTotals: [{ spot,
+ficha, lista, clicks }], spotsFrom, ignored: ['dev'] }`: `logo` são os cliques fora da montra (o logótipo e a lista
+«Já no fato»), `shop` os da montra, `views` as visualizações em que a lista apareceu no ecrã; `spots` os cliques por
+espaço (exatos, também num link do Instagram); `logoOld` a parte de `logo` dos dias sem nenhum `sponsor_click` (o
+histórico, contado pelo domínio), para um relatório somar `spots` + `logoOld` sem contar um clique duas vezes;
+`spotsFrom`, o primeiro dia do período com `sponsor_click` (`''` sem nenhum).
 
 Os dois chegam ao ar só quando o `gh-pages` muda `stats-worker/` (a action **Deploy stats** testa e publica). Até lá
 respondem `404 nada`, e o painel e o relatório dizem que precisam da versão nova.

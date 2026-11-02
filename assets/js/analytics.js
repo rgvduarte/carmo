@@ -278,6 +278,8 @@ function linkKind(a) {
   try { u = new URL(a.href); } catch (_) { return null; }
   if (!/^https?:$/.test(u.protocol) || u.hostname === location.hostname) return null;
   const host = u.hostname.replace(/^www\./, '');
+  // a sponsor's link (its logo in the spot card or in «Já no fato»): never taken for Gonçalo's own Instagram
+  if (a.matches('[data-sponsor]')) return { type: 'sponsor', domain: host };
   return { type: (LINKS.find(([, re]) => re.test(host)) || ['other'])[0], domain: host };
 }
 const where = (el) => (el.closest('footer') ? 'footer' : el.closest('#nav') ? 'nav' : el.closest('section[id]')?.id || 'page');

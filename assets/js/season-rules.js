@@ -14,6 +14,9 @@
 //   openFrom          spots not renewed are open to everyone
 //   renewPayBy        last day to pay the next season's renewal (the next season's logo deadline); unpaid, the spot is free
 //   termsDate         the date of the sponsorship terms (/condicoes/) in force
+//
+// Also here: the brand's link (brandLink, sponsorHref), the one rule of the booking form, the booking Worker, the admin
+// page and the site's logo links (the issue-form bot, scripts/spot-update.mjs, keeps a copy of it).
 // A missing or broken block never breaks a price: rulesOf() falls back to the defaults of the season.
 //
 // The price (the mid-season discount, «desconto de época»): from the day after fullPriceUntil, the price drops by one
@@ -27,7 +30,7 @@
 export const TITLE = 'fato';
 export const TZ = 'Europe/Lisbon';
 export const SEASON_DIV = 48;
-const TERMS_DEFAULT = '2026-10-30';
+const TERMS_DEFAULT = '2026-11-02';
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'racesUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom', 'renewPayBy', 'termsDate'];
 
@@ -200,3 +203,70 @@ export function keyDates(rules) {
 // KV expiration (seconds) of a contract record of `season`: the end of 31 December of the following year, Lisbon time
 // (UTC+0 in December)
 export function contractExpiry(season) { return Date.UTC(Number(season) + 1, 11, 31, 23, 59, 59) / 1000; }
+
+// ---------- the brand's link (owner decision of 02.11.2026: the sponsor's logo links to the sponsor's page) ----------
+// The link a brand gives with its request (the booking form, worker/requests.js) and the one the admin writes on a sold
+// spot (data/spots.json "url"): https only, or an Instagram handle. One rule for every writer and for the site, which
+// checks the file again before it renders a link (defence in depth).
+export const LINK_MAX = 200;
+// social networks and messaging: no gocarmo tag on a link to them (their subdomains too: www., m., pt.linkedin.com)
+export const LINK_NETWORKS = ['instagram.com', 'facebook.com', 'tiktok.com', 'linkedin.com', 'wa.me', 'x.com', 'youtube.com'];
+const LINK_HIDDEN = /[\u0000-\u001f\u007f-\u009f\u00ad\u061c\u180e\u200b-\u200f\u2028-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/;
+const LINK_HANDLE = /^[A-Za-z0-9._]{1,30}$/;
+// brandLink(raw) -> { url: '' } (nothing typed) | { url: 'https://…' } (normalised) | { error } with error one of
+// 'esquema' (http:, javascript:, data:, mailto:, …), 'espacos' (a space or an invisible character inside), 'longo' (over
+// LINK_MAX characters, typed or once normalised), 'invalido' (not a page of the open web: no real domain, an address,
+// a port, a user name, gocarmo.com itself, a bad @handle).
+//   '@marca'      -> https://www.instagram.com/marca/
+//   'https://…'   -> as it is (any case)
+//   'padaria.pt'  -> https://padaria.pt/ (a bare domain, with or without a path)
+export function brandLink(raw) {
+  const s = String(raw ?? '').normalize('NFC').trim();
+  if (!s) return { url: '' };
+  if (Array.from(s).length > LINK_MAX) return { error: 'longo' };
+  if (/\s/.test(s) || LINK_HIDDEN.test(s)) return { error: 'espacos' };
+  let href;
+  if (s.startsWith('@')) {
+    if (!LINK_HANDLE.test(s.slice(1))) return { error: 'invalido' };
+    href = `https://www.instagram.com/${s.slice(1)}/`;
+  } else if (/^https:\/\//i.test(s)) href = s;
+  else if (/^[a-z][a-z0-9+.-]*:(?!\d)/i.test(s)) return { error: 'esquema' };   // (padaria.pt:8080 is a port, not a scheme)
+  else href = `https://${s}`;
+  let u;
+  try { u = new URL(href); } catch (_) { return { error: 'invalido' }; }
+  const host = u.hostname.toLowerCase().replace(/\.$/, '');
+  if (u.protocol !== 'https:' || u.username || u.password || u.port || !host || host.startsWith('[') || /^[\d.]+$/.test(host)
+    || host === 'gocarmo.com' || host.endsWith('.gocarmo.com') || !/\.(?:[a-z]{2,}|xn--[a-z0-9-]+)$/.test(host)) return { error: 'invalido' };
+  if (u.href.length > LINK_MAX) return { error: 'longo' };
+  return { url: u.href };
+}
+// the bare host of a link, without «www.» ('' when it is not one)
+export function linkHost(url) {
+  try { return new URL(String(url || '')).hostname.toLowerCase().replace(/\.$/, '').replace(/^www\./, ''); } catch (_) { return ''; }
+}
+// a link to a network (instagram.com, …) rather than to the brand's own website
+export const isNetwork = (url) => { const h = linkHost(url); return !!h && LINK_NETWORKS.some((n) => h === n || h.endsWith(`.${n}`)); };
+// a link as a person reads it: 'padaria.pt/loja', 'instagram.com/marca' (no https://, no www., no last slash)
+export function linkShown(url) {
+  let u;
+  try { u = new URL(String(url || '')); } catch (_) { return ''; }
+  const path = `${u.pathname}${u.search}`.replace(/\/$/, '');
+  return `${linkHost(url)}${path === '/' ? '' : path}`;
+}
+// The href the site renders for a sponsor's url (data/spots.json), '' for anything that is not a valid https link
+// (never rendered). A link to the brand's own website gets the gocarmo tag (utm_source=gocarmo.com, utm_medium=patrocinio,
+// utm_campaign=epoca-<season>) unless it carries utm_ parameters already; a network link goes as it is. The tag is joined
+// as text, so the brand's own query is kept byte for byte, and the fragment stays last.
+export function sponsorHref(url, season) {
+  if (typeof url !== 'string' || !/^https:\/\//i.test(url.trim())) return '';
+  const L = brandLink(url);
+  if (!L.url) return '';
+  if (isNetwork(L.url)) return L.url;
+  const u = new URL(L.url);
+  if ([...u.searchParams.keys()].some((k) => /^utm_/i.test(k))) return L.url;
+  const y = /^\d{4}$/.test(String(season ?? '')) ? `-${season}` : '';
+  const tag = `utm_source=gocarmo.com&utm_medium=patrocinio&utm_campaign=epoca${y}`;
+  const i = L.url.indexOf('#'), base = i < 0 ? L.url : L.url.slice(0, i), frag = i < 0 ? '' : L.url.slice(i);
+  const join = !base.includes('?') ? '?' : /[?&]$/.test(base) ? '' : '&';
+  return `${base}${join}${tag}${frag}`;
+}

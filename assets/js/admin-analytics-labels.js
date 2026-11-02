@@ -197,6 +197,7 @@ export const EVENT = {
   fb_close: 'Fechou a pergunta', '3d_ready': '3D pronto', '3d_fail': '3D falhou', gl_lost: '3D perdido', gl_back: '3D recuperado',
   asset_fail: 'Ficheiro falhou', boot_retry: 'Recarregou para atualizar', boot_fail: 'A página não arrancou',
   montra_view: 'Montra: viu o cartão de um produto', montra_shop: 'Montra: abriu a loja da marca', montra_code: 'Montra: copiou o código de desconto',
+  sponsor_click: 'Abriu o link de um patrocinador',
 };
 
 // the showcase's brands and products by id, from data/montra.json (the panel loads it). A row of the stats is «known»
