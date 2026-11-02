@@ -28,6 +28,10 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
 - **Apoiar**: GoFundMe (com o valor angariado e a barra até à meta), transferência ou MB WAY (o mesmo IBAN e o mesmo
   número dos pedidos, com o código `CARMO APOIO`, escondidos enquanto houver campanha aberta), apoio em espécie e
   orçamento estimado da época.
+- **Quem apoia** (`#apoiantes`, dentro de Apoiar, por baixo do resto): o símbolo da lua e do sol em contorno e, depois
+  de um toque em «Vê quem apoiou», os nomes de quem apoiou a enchê-lo, de A a Z, com a lista e «Encontra o teu nome».
+  Só aparece com pelo menos um nome publicado; sem nomes, não há nada no site (nem bloco, nem link). Ver «Apoiantes
+  («Quem apoia»)», mais abaixo.
 - **Montra «O meu material»** (`#material`, entre Apoiar e Contacto, com «Material» no menu; em inglês «My gear»):
   os produtos que o Gonçalo usa das marcas que o patrocinam, um cartão por produto com a fotografia, uma linha dele
   sobre como o usa (PT e EN), o link para a loja da marca com a etiqueta gocarmo e, se a marca quiser, um código de
@@ -73,6 +77,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Patrocínios pagos (contratos, renovações) | página `/admin/patrocinios/`, guardados no Worker dos pedidos (ver «Patrocínios») |
 | Montra «O meu material» (os produtos dos parceiros e as fotografias) | `data/montra.json` e `assets/img/montra/`, sempre pelo editor da página `/admin/patrocinios/` (botão «Montra» no cartão de cada patrocínio; ver «Montra «O meu material»») |
 | Link do GoFundMe e números da campanha | `data/gofundme.json` (ver «GoFundMe», mais abaixo) |
+| Nomes de «Quem apoia» | no Painel (`/admin/`, largar a lista do GoFundMe) ou em `/admin/apoiantes/`; guardados no Worker dos pedidos, nunca no GitHub (ver «Apoiantes («Quem apoia»)») |
 | Estatísticas do site (o endereço do Worker `gocarmo-api` e o modo) | `assets/js/data.js` → `SITE.stats` (`url` vazio = não mede nada; depois de mudar, `node scripts/stamp.mjs`; ver «Estatísticas do site») |
 | Google Analytics (ID de medição `G-…`) | `assets/js/data.js` → `SITE.ga` (vazio = sem Google Analytics e sem aviso de cookies; ver «Google Analytics») |
 | Página de privacidade (PT e EN) | `privacidade/index.html` |
@@ -210,11 +215,33 @@ pode ser 0, ±90 ou 180.
 parte do capacete. `#fato/title` pede o fato completo. `#pacote=peito,capacete-topo` abre um pacote: se for só de um dos
 dois, leva à parte dele; com espaços do fato e do capacete, ao início do capítulo, onde estão os dois cartões.
 
-## Página de admin
+## Painel (`/admin/`)
 
-**Onde.** `gocarmo.com/admin/`. Não tem link no site e os motores de busca não a mostram (`noindex` e
-`robots.txt`). Funciona no telemóvel. Serve para reservar, vender e libertar espaços do fato e do capacete
-com o site no ar, sem mexer em código.
+**Onde.** `gocarmo.com/admin/` (desde 02.11.2026; antes era a página Espaços, que passou para `/admin/espacos/`). Não
+tem link no site e os motores de busca não o mostram (`noindex` e `robots.txt`). Feito para o telemóvel. É a porta de
+entrada: só lê, e cada coisa abre a página certa.
+- **Avisos**, no topo, calculados a cada visita; cada linha leva ao sítio exato: pedidos à espera de pagamento
+  (Espaços, Pedidos), reservas que acabam em menos de 48 horas (o pedido delas, ou o filtro Reservados), pagamentos por
+  registar e os avisos de Patrocínios (logótipos em falta, propostas, renovações, contratos a acabar em 30 dias),
+  apoiantes à espera de publicar, e dados do Strava com mais de 2 dias. Sem nada: «Nada pendente.» Os avisos só existem
+  aqui, sem email nem notificações.
+- **Números**: espaços vendidos, reservados e livres (fato e capacete), o valor da época pela tabela (e o recebido,
+  pelos contratos), visitas e cliques nos logótipos dos últimos 7 dias, o GoFundMe (`data/gofundme.json`) e os nomes no
+  mural.
+- **Páginas**: um cartão por página (Espaços, Patrocínios, Estatísticas, Documentos, Apoiantes, Strava), cada um com uma
+  linha do estado de agora. Todas as páginas do admin têm «← Painel» no topo.
+- **Juntar apoiantes**: largar o Excel ou o CSV (ver «Apoiantes («Quem apoia»)»).
+
+As chaves são as de sempre e ficam só no separador: a chave dos pedidos (`ADMIN_KEY`; o Painel pede-a se faltar, e a
+mesma serve Espaços, Patrocínios e Apoiantes) e a chave das estatísticas (entra-se em Estatísticas; sem ela, as visitas
+e os cliques mostram «—»). O Painel não usa o token do GitHub. Cada parte sem os seus dados mostra «—» e o resto
+funciona. Um link antigo para `/admin/#…` ou `/admin/?…` vai sozinho para `/admin/espacos/` com o mesmo `#…`.
+
+## Página Espaços (`/admin/espacos/`)
+
+**Onde.** `gocarmo.com/admin/espacos/` (o cartão Espaços do Painel). Funciona no telemóvel. Serve para reservar, vender
+e libertar espaços do fato e do capacete com o site no ar, sem mexer em código. `#pedidos` abre nos Pedidos e
+`#reservados` (ou `#vendidos`, `#livres`) nesse filtro, sem o guardar: é assim que os Avisos do Painel a abrem.
 
 **A chave (uma vez, com a conta dona do repositório).**
 1. Abre https://github.com/settings/personal-access-tokens/new.
@@ -621,8 +648,8 @@ aceita pedidos (a época 2027 fechou a 31 de outubro de 2027).
 
 ## Patrocínios
 
-**Onde.** `gocarmo.com/admin/patrocinios/` (link «Patrocínios» no fim de `/admin/`, das estatísticas e do Strava).
-Só em português, feita para o telemóvel. Usa a mesma chave dos Pedidos (a `ADMIN_KEY`): vindo de `/admin/` no mesmo
+**Onde.** `gocarmo.com/admin/patrocinios/` (cartão «Patrocínios» do Painel e a linha de links no fim de cada página).
+Só em português, feita para o telemóvel. Usa a mesma chave dos Pedidos (a `ADMIN_KEY`): vindo do Painel ou de Espaços no mesmo
 separador já está lá; senão, a página pede-a, e as Palavras-passe do iPhone preenchem-na. Para ver e gerir os
 patrocínios não precisa do token do GitHub; só a montra o pede, ao publicar (ver «Montra «O meu material»»).
 «Esquecer a chave e o token», no fim da página, apaga a chave dos pedidos e também o token do GitHub que a montra
@@ -739,8 +766,8 @@ Gonçalo usa.
    nem data, nem aparelho). O Safari do iPhone não grava WebP: aí fica só JPEG, de 600 e 1200 px, e o site mostra-o
    na mesma. Precisa de pelo menos 600 px no lado menor e de menos de 60 megapíxeis. Para fotografar: fundo liso e
    luz de janela, sem logótipos de outras marcas.
-4. **Publicar na montra**. Na primeira vez pede o token do GitHub (o mesmo de `/admin/`, com as mesmas regras e «Lembrar neste
-   telemóvel»; ver «Página de admin»). Faz um commit de `data/montra.json` e das fotografias em `assets/img/montra/`
+4. **Publicar na montra**. Na primeira vez pede o token do GitHub (o mesmo de `/admin/espacos/`, com as mesmas regras e «Lembrar neste
+   telemóvel»; ver «Página Espaços»). Faz um commit de `data/montra.json` e das fotografias em `assets/img/montra/`
    («Montra: Marca, produto «…» (admin)»). Antes, recusa nomes de exemplo (exemplo, amostra, sample, teste, demo,
    fake, genérico, «Marca X»…), links http, para gocarmo.com ou para um endereço IP, mais produtos do que o nível
    deixa, mais de um em destaque, um código sem nota, datas fora da época e espaços que não estão vendidos a essa
@@ -759,9 +786,9 @@ marca, o que vier primeiro; depois sai sozinho, sem commit (a página lê as dat
 vendidos lá (com menos espaços, só os produtos que o nível novo deixa, pela ordem da lista).
 
 **Quando um patrocínio acaba antes do fim da época** (espaço libertado, patrocínio cancelado ou retirado por
-conduta). Os cartões dessa marca saem do site logo que o espaço fica livre em `/admin/` (a página deixa de os mostrar).
+conduta). Os cartões dessa marca saem do site logo que o espaço fica livre em `/admin/espacos/` (a página deixa de os mostrar).
 Para os tirar também do ficheiro (o contador e os relatórios ficam certos):
-1. Ao libertar os espaços em `/admin/`, a página pergunta «Retirar os N produtos de Marca da montra?». **Retirar** faz
+1. Ao libertar os espaços em `/admin/espacos/`, a página pergunta «Retirar os N produtos de Marca da montra?». **Retirar** faz
    um commit que os retira (fim ontem; um que ainda não apareceu sai do ficheiro).
 2. Em Patrocínios, ao apagar o registo de uma marca com produtos no ar, a mesma pergunta abre a montra dela com os
    produtos já retirados na lista: carrega em **Publicar na montra**.
@@ -934,6 +961,40 @@ páginas de admin: quem pudesse escrever no repositório podia pôr lá ficheiro
 avisa, porque guarda a impressão digital). O mesmo endereço (gocarmo.com) serve as páginas públicas e o cofre: a
 Content-Security-Policy das páginas e a marca de visitas internas (sem Google Analytics no browser do dono) são a
 proteção.
+
+## Apoiantes («Quem apoia»)
+
+O símbolo da lua e do sol, em Apoiar, cheio com os nomes de quem apoiou a época (o desenho aprovado: «tipografia»).
+**Decisões do dono (02.11.2026):** os nomes ficam no Worker dos pedidos, nunca no GitHub; entram **todos** os nomes da
+lista do GoFundMe que não sejam anónimos, na forma «Nome I.» (primeiro nome e inicial do último apelido), sem valores,
+datas nem ordem por valor; o bloco aparece desde o **primeiro** nome publicado; os avisos ficam só no Painel.
+
+**Juntar a lista (no Painel).** Larga o Excel (`.xlsx`) ou o CSV na caixa «Juntar apoiantes» (ou toca para o escolher).
+O ficheiro é lido no próprio telemóvel ou computador, sem bibliotecas de fora (`assets/js/apoiantes-import.js`): um
+`.xlsx` é aberto pelo browser (é um zip), um CSV pode ser UTF-8 ou o do Excel em português (`;`, Windows-1252). A página
+encontra as colunas pelo cabeçalho (primeiro nome e apelido, ou nome completo, em português ou inglês, como «Donor First
+Name», «Apelido», «Nome») e a de anónimo («Anonymous», «Anónimo»: sim, yes, true, 1, x); sem cabeçalho, lê a primeira
+coluna, um nome por linha. Ficam de fora os anónimos (a coluna, ou um nome como «Anónimo», «Anonymous»), as linhas sem
+nome válido (algarismos, emails, links) e os repetidos (do ficheiro e do mural, sem contar acentos nem maiúsculas). Mostra
+«X nomes novos, Y anónimos fora, Z repetidos» e os nomes; **Juntar ao mural** pergunta uma vez com o número e envia só
+os nomes curtos, já publicados. Os valores, as datas e os emails nunca saem do aparelho. O GoFundMe não dá uma
+exportação dos donativos a uma angariação pessoal: o ficheiro é o que tiveres (por exemplo, copiado do separador
+Doações para uma folha), e um `.xls` antigo tem de ser guardado como `.xlsx` ou `.csv`.
+
+**Página Apoiantes** (`/admin/apoiantes/`, cartão do Painel): a lista de A a Z com o estado («No site», «À espera»),
+«Adicionar um nome» (como a pessoa o quer; um nome completo serve, a página sugere «Nome I.»; fica à espera, ou no site
+já com «Publicar já»), «Publicar N nomes» (os que estão à espera, de uma vez) e «Retirar» em cada nome, que pergunta e o
+apaga logo (sai do site em até 5 minutos). Um pedido para sair trata-se no próprio dia; a privacidade promete no máximo
+7 dias.
+
+**No site** (`assets/js/apoiantes.js`): nada em `index.html`. Quando Apoiar se aproxima, o site pergunta ao Worker se
+há nomes (`GET /apoiantes`, sem nomes nem contagem); só com um sim cria o bloco e o link «Vê quem apoiou» no cartão do
+GoFundMe. Os nomes só vêm depois do toque (`GET /apoiantes/nomes`). Até 12 nomes, uma lista simples; mais, a procura,
+as letras e o zoom. Sem animação com movimento reduzido, os nomes numa lista verdadeira para leitores de ecrã, nunca um
+nome num atributo nem na contagem de visitas (`data-private`). `node scripts/stamp.mjs --check` falha se aparecer
+marcação do bloco em `index.html`. A secção «Quem apoia» da privacidade (`/privacidade/#apoiantes`) diz tudo isto ao
+visitante. Os nomes de 2027 apagam-se sozinhos a 31 de dezembro de 2028; para outra época, muda `SEASON` em
+`assets/js/apoiantes-core.js` (o Worker publica-se sozinho). Ver também `worker/README.md`, «Apoiantes».
 
 ## GoFundMe
 
@@ -1123,7 +1184,7 @@ Alternativa sem API: em Strava → Settings → My Account → *Download your da
 ## Estatísticas do site
 
 Uma ferramenta nossa conta as visitas, sem cookies, e mostra-as em **https://gocarmo.com/admin/analytics/** (entra
-com a `ADMIN_KEY`, a mesma palavra-passe dos Pedidos; a página de admin tem a ligação «Estatísticas do site»). Não é o
+com a `ADMIN_KEY`, a mesma palavra-passe dos Pedidos; o Painel tem o cartão «Estatísticas»). Não é o
 Google Analytics: não precisa de aviso de cookies nem de autorização, porque fica dentro de regras apertadas (mais
 abaixo). Enquanto `SITE.stats.url` estiver vazio, o site não mede nada e o painel diz que ainda não está ligado.
 
@@ -1156,7 +1217,7 @@ comparação com o período anterior (só quando o contador já tinha dados ness
    (`/health`). Se o estado disser `store: false`, vê «Problemas» em `stats-worker/README.md` antes de haver dados.
 3. Cola esse endereço em `assets/js/data.js`:
    `stats: { url: 'https://gocarmo-api.rgvduarte.workers.dev', mode: 'exempt', campaigns: [] },`
-   e corre `node scripts/stamp.mjs` (deixa `/admin/` e `/admin/analytics/` falarem com o Worker). Faz commit e push.
+   e corre `node scripts/stamp.mjs` (deixa `/admin/`, `/admin/espacos/` e `/admin/analytics/` falarem com o Worker). Faz commit e push.
 4. Abre `/admin/analytics/` e entra com a `ADMIN_KEY`. As primeiras visitas aparecem logo em «Agora no site» e, no
    «Resumo», no período «24 h» (só totais); os outros separadores mostram dias completos, a partir do dia seguinte.
 
@@ -1394,9 +1455,9 @@ Antes de cada commit que mude ficheiros em `assets/js/` ou `assets/css/`, corre 
 node scripts/stamp.mjs
 ```
 
-O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html`, de `admin/analytics/index.html`, de `admin/patrocinios/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
+O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html` (o Painel), de `admin/espacos/index.html`, de `admin/apoiantes/index.html`, de `admin/analytics/index.html`, de `admin/patrocinios/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
-Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/` e `/admin/patrocinios/`, e o das estatísticas (`SITE.stats.url`) em `/admin/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar.
+Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, `/admin/espacos/`, `/admin/patrocinios/` e `/admin/apoiantes/`, e o das estatísticas (`SITE.stats.url`) em `/admin/`, `/admin/espacos/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar.
 
 A página do cofre (`/admin/documentos/`) recebe o mesmo mapa de importação, os mesmos hashes e a mesma CSP, e no
 `connect-src` só `'self'`, `https://api.github.com` (o ramo `docs` e os dois commits da página) e

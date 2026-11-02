@@ -11,7 +11,7 @@ import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
 const FILTER_KEY = 'gc.admin.filter';   // (the token's key and the GitHub calls: admin-gh.js)
-const SITE_ROOT = new URL('../', location.href);   // the page lives at /admin/; logo paths start at the site root
+const SITE_ROOT = new URL('../../', location.href);   // the page lives at /admin/espacos/; logo paths start at the site root
 const POLL_EVERY = 5000, POLL_FOR = 180000;
 const RASTER_SIDES = [1200, 800, 500];              // an SVG logo becomes a PNG this wide (longest side), if it fits 3 MB
 const LIVE_FIELDS = ['status', 'brand', 'url', 'until', 'logo'];
@@ -96,6 +96,17 @@ async function enterApp({ check = false } = {}) {
   await load();
   inboxInit();
   restoreStash();
+  jumpTo();
+}
+// A row of the hub's «Avisos» (/admin/) lands here with a hash: #pedidos on the requests, #reservados (or #vendidos,
+// #livres) on that filter of the list. The filter is not saved: the next visit opens on the one the owner chose.
+// Any other hash (an old /admin/#… link, sent on by the hub) leaves the page as it opens.
+const JUMPS = { reservados: 'reserved', vendidos: 'sold', livres: 'available' };
+function jumpTo() {
+  const h = location.hash.slice(1);
+  if (JUMPS[h]) { filter = JUMPS[h]; render(); }
+  const el = h === 'pedidos' ? $('#inbox') : JUMPS[h] ? $('.filters') : null;
+  if (el && !el.hidden) el.scrollIntoView({ block: 'start' });
 }
 
 async function askSignOut() {
@@ -1217,7 +1228,7 @@ async function montraAfterFree(snap, data) {
     .filter((x) => x && x.status === 'sold' && x.brand).map((x) => x.brand));
   if (!was.size || !data) return;
   let file = null;
-  try { const res = await fetch(new URL(`../${MONTRA_PATH}?ts=${Date.now()}`, location.href).href, { cache: 'no-store', credentials: 'omit' }); file = res.ok ? await res.json() : null; } catch (_) { file = null; }
+  try { const res = await fetch(new URL(`../../${MONTRA_PATH}?ts=${Date.now()}`, location.href).href, { cache: 'no-store', credentials: 'omit' }); file = res.ok ? await res.json() : null; } catch (_) { file = null; }
   if (!file || !Array.isArray(file.brands)) return;
   const day = lisbonDay();
   for (const name of was) {

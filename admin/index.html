@@ -2,20 +2,25 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-GqMGc+wKoKlPlVVtbB1HgDY+j+UTrXIcgrvBGfyyAao='; connect-src 'self' https://api.github.com https://gocarmo.com https://gocarmo-pedidos.rgvduarte.workers.dev https://gocarmo-api.rgvduarte.workers.dev; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-VP97X96wopHz6FhqZjotXudYpyKMSfxF3Awkht2uKb4=' 'sha256-AqmlfRo4UGr25HnlSWf8VoEh0BstkAlR9qHSaf8C5J4='; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://gocarmo-pedidos.rgvduarte.workers.dev https://gocarmo-api.rgvduarte.workers.dev; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <meta name="theme-color" content="#0b0b0c">
-<title>GOCARMO · Admin</title>
+<title>GOCARMO · Painel</title>
+<script>
+// /admin/ was the Espaços page until 02.11.2026: an old link with a hash or a query (/admin/#…, /admin/?…) belongs to
+// it, so it goes on to /admin/espacos/ with the same hash and query before anything else loads. The hub itself never
+// uses either.
+(function () { var l = location; if ((l.hash && l.hash !== '#') || l.search) l.replace('espacos/' + l.search + l.hash); })();
+</script>
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="../assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="../assets/css/admin.css?v=be26a3e5">
+<link rel="stylesheet" href="../assets/css/admin.css?v=6a60364e">
+<link rel="stylesheet" href="../assets/css/admin-hub.css?v=3808fe20">
 <script type="importmap">
 { "imports": {
-  "three": "../assets/vendor/three@0.170.0/build/three.module.min.js",
-  "three/addons/": "../assets/vendor/three@0.170.0/examples/jsm/",
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
   "../assets/js/admin-analytics-api.js": "../assets/js/admin-analytics-api.js?v=77a1a92a",
   "../assets/js/admin-analytics-charts.js": "../assets/js/admin-analytics-charts.js?v=3b35f743",
@@ -24,24 +29,31 @@
   "../assets/js/admin-analytics-map.js": "../assets/js/admin-analytics-map.js?v=a6e8f1b4",
   "../assets/js/admin-analytics-panels.js": "../assets/js/admin-analytics-panels.js?v=7b54e2bb",
   "../assets/js/admin-analytics.js": "../assets/js/admin-analytics.js?v=65a73629",
+  "../assets/js/admin-apoiantes.js": "../assets/js/admin-apoiantes.js?v=f8bd8162",
   "../assets/js/admin-confirm-pdf.js": "../assets/js/admin-confirm-pdf.js?v=55422306",
   "../assets/js/admin-contracts.js": "../assets/js/admin-contracts.js?v=99bf71c0",
   "../assets/js/admin-core.js": "../assets/js/admin-core.js?v=27bf1d8f",
   "../assets/js/admin-documentos-store.js": "../assets/js/admin-documentos-store.js?v=fc6562ef",
   "../assets/js/admin-documentos.js": "../assets/js/admin-documentos.js?v=8a69edcd",
   "../assets/js/admin-gh.js": "../assets/js/admin-gh.js?v=e0121d16",
+  "../assets/js/admin-hub-core.js": "../assets/js/admin-hub-core.js?v=3a08e85d",
+  "../assets/js/admin-hub.js": "../assets/js/admin-hub.js?v=c49a05da",
   "../assets/js/admin-montra-core.js": "../assets/js/admin-montra-core.js?v=65ac1320",
   "../assets/js/admin-montra.js": "../assets/js/admin-montra.js?v=b8a5f267",
-  "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=c86d295b",
+  "../assets/js/admin-patrocinios.js": "../assets/js/admin-patrocinios.js?v=7b180379",
   "../assets/js/admin-photo.js": "../assets/js/admin-photo.js?v=534d6c65",
   "../assets/js/admin-report-model.js": "../assets/js/admin-report-model.js?v=bb74c1b6",
   "../assets/js/admin-report-pdf.js": "../assets/js/admin-report-pdf.js?v=3ade1f26",
   "../assets/js/admin-report-text.js": "../assets/js/admin-report-text.js?v=34cb8052",
   "../assets/js/admin-report.js": "../assets/js/admin-report.js?v=b49cf6c1",
   "../assets/js/admin-strava.js": "../assets/js/admin-strava.js?v=d382a127",
-  "../assets/js/admin.js": "../assets/js/admin.js?v=3e69b63f",
+  "../assets/js/admin-worker.js": "../assets/js/admin-worker.js?v=ad096645",
+  "../assets/js/admin.js": "../assets/js/admin.js?v=de132600",
   "../assets/js/adspace.js": "../assets/js/adspace.js?v=cda500d5",
   "../assets/js/analytics.js": "../assets/js/analytics.js?v=177cfede",
+  "../assets/js/apoiantes-core.js": "../assets/js/apoiantes-core.js?v=530b4786",
+  "../assets/js/apoiantes-import.js": "../assets/js/apoiantes-import.js?v=fa3a3b9b",
+  "../assets/js/apoiantes.js": "../assets/js/apoiantes.js?v=a1847332",
   "../assets/js/cartao.js": "../assets/js/cartao.js?v=3afab20e",
   "../assets/js/charts.js": "../assets/js/charts.js?v=0498e3d5",
   "../assets/js/data.js": "../assets/js/data.js?v=bda2b478",
@@ -49,9 +61,9 @@
   "../assets/js/gl3d.js": "../assets/js/gl3d.js?v=a7737baa",
   "../assets/js/gofundme.js": "../assets/js/gofundme.js?v=23f90aef",
   "../assets/js/helmet.js": "../assets/js/helmet.js?v=df0a53e9",
-  "../assets/js/i18n.js": "../assets/js/i18n.js?v=82c8b5c0",
+  "../assets/js/i18n.js": "../assets/js/i18n.js?v=32a51d78",
   "../assets/js/internal.js": "../assets/js/internal.js?v=0e8677cf",
-  "../assets/js/main.js": "../assets/js/main.js?v=fd650a72",
+  "../assets/js/main.js": "../assets/js/main.js?v=b3401bed",
   "../assets/js/marks.js": "../assets/js/marks.js?v=fdea7b6c",
   "../assets/js/montra-core.js": "../assets/js/montra-core.js?v=56949480",
   "../assets/js/montra.js": "../assets/js/montra.js?v=552e59c7",
@@ -75,260 +87,101 @@
   "../assets/js/vault-words.js": "../assets/js/vault-words.js?v=db8927d5"
 } }
 </script>
-<script type="module" src="../assets/js/admin.js?v=3e69b63f"></script>
+<script type="module" src="../assets/js/admin-hub.js?v=c49a05da"></script>
 </head>
-<body>
-<div class="banner" id="offline" role="status" hidden>Sem ligação. Nada se guarda até voltar a rede.</div>
+<body class="hub">
+<div class="banner" id="offline" role="status" hidden>Sem ligação. Os números ficam como estavam até voltar a rede.</div>
 
-<!-- 1. Entrar -->
-<main class="screen wrap" id="login" hidden>
-  <header class="mast">
-    <span class="mark"><img src="../assets/img/favicon.svg" alt="" width="24" height="24">GOCARMO</span><span class="tag">ADMIN</span>
-  </header>
-  <h1 class="display">Espaços do fato e do capacete</h1>
-  <p class="lead">Reserva, vende e liberta espaços com o site no ar. Cada ação fica guardada no GitHub e o site atualiza-se sozinho em 1 a 2 minutos.</p>
+<header class="top">
+  <div class="top-in hub-wrap">
+    <span class="mark"><img src="../assets/img/favicon.svg" alt="" width="22" height="22">GOCARMO<span class="tag">ADMIN</span></span>
+    <button class="icon" type="button" id="reload" aria-label="Atualizar o painel" title="Atualizar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  </div>
+</header>
 
-  <section class="card steps" aria-labelledby="steps-h">
-    <h2 id="steps-h">Criar a chave de acesso (uma vez)</h2>
-    <ol>
-      <li>Abre <b>github.com/settings/personal-access-tokens/new</b> (botão abaixo) com a conta dona do repositório.</li>
-      <li>Em «Repository access» escolhe «Only select repositories» e depois <b>rgvduarte/carmo</b>. Validade: 90 dias.</li>
-      <li>Em «Permissions» junta <b>Contents</b> e escolhe <b>Read and write</b>. O Metadata fica em Read sozinho.</li>
-      <li>Carrega em «Generate token» e copia o código (começa por <code>github_pat_</code>). O GitHub só o mostra uma vez: guarda-o nas Palavras-passe ou nas Notas do telemóvel e cola-o aqui em baixo.</li>
-    </ol>
-    <a class="btn ghost" id="new-token" href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Criar token no GitHub ↗</a>
+<main class="hub-wrap hub-main" id="main">
+  <h1 class="display hub-h1">Painel</h1>
+  <p class="meta mono" id="meta" aria-live="polite">A ler…</p>
+
+  <!-- Avisos: computed on every load, each row goes to the exact place -->
+  <section class="hub-sec" aria-labelledby="av-h">
+    <h2 class="hub-h2" id="av-h">Avisos <span class="c" id="av-n"></span></h2>
+    <ul class="alerts" id="alerts"></ul>
+    <p class="hub-empty" id="alerts-empty" hidden>Nada pendente.</p>
+    <p class="hint" id="alerts-part" hidden></p>
   </section>
 
-  <form class="card" id="login-form" novalidate>
+  <!-- the booking Worker's key (ADMIN_KEY): asked only here, kept in this tab, the same entry as Espaços and Patrocínios -->
+  <form class="card keyform" id="key-form" novalidate hidden>
+    <p class="why" id="key-why">Para ver pedidos, contratos e apoiantes, escreve a chave dos pedidos.</p>
+    <input type="text" name="username" autocomplete="username" value="pedidos gocarmo" hidden aria-hidden="true" tabindex="-1">
     <div class="field">
-      <label for="tok">Token</label>
-      <input id="tok" name="tok" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_…" enterkeyhint="go">
+      <label for="key">Chave dos pedidos</label>
+      <input id="key" name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-describedby="key-hint">
+      <p class="hint" id="key-hint">A ADMIN_KEY dos pedidos. Fica só neste separador (também para Espaços, Patrocínios e Apoiantes).</p>
     </div>
-    <label class="check"><input type="checkbox" id="remember" aria-describedby="remember-hint"><span>Lembrar neste telemóvel</span></label>
-    <p class="hint" id="remember-hint">Guarda o token neste telemóvel, para todo o site gocarmo.com. Sem isto, ao fechar o separador tens de colar o token outra vez.</p>
-    <button class="btn gold wide" type="submit" id="login-go">Entrar</button>
-    <p class="err" id="login-err" role="alert" aria-live="assertive"></p>
+    <button class="btn wide" type="submit" id="key-go">Abrir</button>
+    <p class="err" id="key-err" role="alert"></p>
   </form>
 
-  <p class="fine">Se o GitHub não te deixar escolher rgvduarte/carmo (és colaborador e não dono), <a href="https://github.com/settings/tokens/new?scopes=public_repo&amp;description=gocarmo%20admin" target="_blank" rel="noopener">cria um token clássico</a> só com public_repo e 7 dias de validade. Atenção: esse token pode escrever em todos os repositórios públicos a que a tua conta tem acesso, não só neste. Apaga-o quando acabares.</p>
-  <p class="fine">Sem token à mão? <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">Usa o formulário do GitHub</a>.</p>
-  <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a> (uma vez, sem token).</p>
-  <p class="fine">Visitas e mapas de calor: <a href="analytics/">Estatísticas do site</a>.</p>
-  <p class="fine">Patrocínios: <a href="patrocinios/">contratos e renovações</a>.</p>
-  <p class="fine">Documentos: <a href="documentos/">o cofre</a>.</p>
-</main>
+  <section class="hub-sec" aria-labelledby="num-h">
+    <h2 class="hub-h2" id="num-h">Números</h2>
+    <ul class="tiles" id="tiles">
+      <li class="tile"><span class="t-k">Vendidos</span><span class="t-v" id="t-sold">—</span><span class="t-s" id="t-sold-s"></span></li>
+      <li class="tile"><span class="t-k">Reservados</span><span class="t-v" id="t-res">—</span><span class="t-s" id="t-res-s"></span></li>
+      <li class="tile"><span class="t-k">Livres</span><span class="t-v" id="t-free">—</span><span class="t-s" id="t-free-s"></span></li>
+      <li class="tile"><span class="t-k">Época, vendido</span><span class="t-v" id="t-rev">—</span><span class="t-s" id="t-rev-s"></span></li>
+      <li class="tile"><span class="t-k">Visitas, 7 dias</span><span class="t-v" id="t-vis">—</span><span class="t-s" id="t-vis-s"></span></li>
+      <li class="tile"><span class="t-k">Cliques em logótipos, 7 dias</span><span class="t-v" id="t-clk">—</span><span class="t-s" id="t-clk-s"></span></li>
+      <li class="tile"><span class="t-k">GoFundMe</span><span class="t-v" id="t-gfm">—</span><span class="t-s" id="t-gfm-s"></span></li>
+      <li class="tile"><span class="t-k">No mural</span><span class="t-v" id="t-apo">—</span><span class="t-s" id="t-apo-s"></span></li>
+    </ul>
+  </section>
 
-<!-- 2. Lista -->
-<div class="screen" id="app" hidden>
-  <header class="top">
-    <div class="top-in wrap">
-      <span class="mark"><img src="../assets/img/favicon.svg" alt="" width="22" height="22">GOCARMO<span class="tag">ADMIN</span></span>
-      <span class="who mono" id="who"></span>
-      <button class="icon" type="button" id="reload" aria-label="Atualizar a lista" title="Atualizar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-      <button class="btn sm ghost logout" type="button" id="logout">Sair</button>
-    </div>
-  </header>
+  <nav class="hub-sec" aria-labelledby="go-h">
+    <h2 class="hub-h2" id="go-h">Páginas</h2>
+    <ul class="hcards">
+      <li><a class="hcard" href="espacos/"><span class="hc-t">Espaços</span><span class="hc-s" id="c-espacos">Reservar, vender e libertar espaços</span></a></li>
+      <li><a class="hcard" href="patrocinios/"><span class="hc-t">Patrocínios</span><span class="hc-s" id="c-patrocinios">Contratos, renovações e montra</span></a></li>
+      <li><a class="hcard" href="analytics/"><span class="hc-t">Estatísticas</span><span class="hc-s" id="c-analytics">Visitas, mapas de calor e relatórios</span></a></li>
+      <li><a class="hcard" href="documentos/"><span class="hc-t">Documentos</span><span class="hc-s" id="c-documentos">O cofre: kits, guiões e manuais</span></a></li>
+      <li><a class="hcard" href="apoiantes/"><span class="hc-t">Apoiantes</span><span class="hc-s" id="c-apoiantes">Os nomes do símbolo «Quem apoia»</span></a></li>
+      <li><a class="hcard" href="strava/"><span class="hc-t">Strava</span><span class="hc-s" id="c-strava">Os treinos no site</span></a></li>
+    </ul>
+  </nav>
 
-  <main class="wrap list-main">
-    <p class="meta mono" id="meta" aria-live="polite">A ler do GitHub…</p>
-    <div class="pub" id="pub" role="status" aria-live="polite" hidden></div>
-    <p class="summary" id="summary"></p>
-
-    <section class="card inbox" id="inbox" aria-labelledby="inbox-h" hidden>
-      <div class="inbox-head">
-        <h2 id="inbox-h">Pedidos <span class="c" id="inbox-n"></span></h2>
-        <button class="icon" type="button" id="inbox-reload" aria-label="Atualizar os pedidos" title="Atualizar" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <!-- the GoFundMe list: read in this browser; only the short names the owner confirms go to the Worker -->
+  <section class="card drop-sec" id="drop-sec" aria-labelledby="drop-h">
+    <h2 class="hub-h2" id="drop-h">Juntar apoiantes</h2>
+    <p class="hint" id="drop-hint">O Excel (.xlsx) ou o CSV com os nomes de quem apoiou no GoFundMe, ou uma lista simples, um nome por linha. Entra cada nome como «Nome I.». Os anónimos ficam de fora; valores e datas nunca saem deste aparelho.</p>
+    <label class="drop" id="drop" for="drop-in">
+      <input type="file" id="drop-in" class="sr-only" accept=".xlsx,.csv,.txt,text/csv,text/plain,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+      <span class="drop-t">Larga aqui o ficheiro</span>
+      <span class="drop-s">ou escolhe-o</span>
+    </label>
+    <p class="err" id="drop-err" role="alert"></p>
+    <div class="drop-out" id="drop-out" hidden>
+      <p class="drop-file mono" id="drop-file"></p>
+      <p class="drop-sum" id="drop-sum" role="status"></p>
+      <ul class="drop-names" id="drop-names" aria-label="Nomes novos"></ul>
+      <p class="hint" id="drop-more" hidden></p>
+      <div class="drop-acts" id="drop-acts">
+        <button type="button" class="btn ghost" id="drop-cancel">Cancelar</button>
+        <button type="button" class="btn gold" id="drop-go">Juntar ao mural</button>
       </div>
-      <p class="hint" id="inbox-off" hidden></p>
-      <form id="inbox-login" novalidate hidden>
-        <p class="why" id="inbox-why" role="status" hidden></p>
-        <input type="text" name="username" autocomplete="username" value="pedidos gocarmo" hidden aria-hidden="true" tabindex="-1">
-        <div class="field">
-          <label for="inbox-key">Chave dos pedidos</label>
-          <input id="inbox-key" name="password" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-describedby="inbox-key-hint">
-          <p class="hint" id="inbox-key-hint">A palavra-passe que guardaste como ADMIN_KEY. O GitHub não a mostra outra vez: guarda-a nas Palavras-passe do telemóvel. Fica só neste separador.</p>
+      <div class="drop-confirm" id="drop-confirm" hidden>
+        <p class="drop-q" id="drop-q"></p>
+        <div class="drop-acts">
+          <button type="button" class="btn ghost" id="drop-back">Voltar</button>
+          <button type="button" class="btn gold" id="drop-yes">Confirmar</button>
         </div>
-        <button class="btn wide" type="submit" id="inbox-go">Abrir pedidos</button>
-        <p class="err" id="inbox-err" role="alert"></p>
-      </form>
-      <div id="inbox-body" hidden>
-        <p class="meta mono" id="inbox-meta" aria-live="polite"></p>
-        <ul class="reqs" id="inbox-list"></ul>
-        <p class="inbox-empty" id="inbox-empty" hidden>Sem pedidos abertos.</p>
-        <details class="closed" id="inbox-closed" hidden><summary>Fechados <span class="c" id="inbox-closed-n"></span></summary><ul class="reqs" id="inbox-closed-list"></ul></details>
-        <p class="inbox-foot"><button type="button" class="link" id="inbox-forget">Esquecer a chave</button></p>
-      </div>
-    </section>
-
-    <section class="card ref">
-      <label for="ref">Colar pedido ou referência</label>
-      <textarea id="ref" rows="1" placeholder="CARMO 01 21 22, ou a mensagem do pedido" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></textarea>
-      <p class="ref-out" id="ref-out" aria-live="polite">É o descritivo da transferência ou do MB WAY, ou a mensagem do pedido (WhatsApp, email ou o link). Seleciona esses espaços.</p>
-      <div class="paste" id="paste" hidden></div>
-    </section>
-
-    <fieldset class="filters">
-      <legend class="sr-only">Mostrar</legend>
-      <label class="chip"><input type="radio" name="filter" value="all" checked>Todos <span class="c" data-count="all"></span></label>
-      <label class="chip"><input type="radio" name="filter" value="available">Livres <span class="c" data-count="available"></span></label>
-      <label class="chip"><input type="radio" name="filter" value="reserved">Reservados <span class="c" data-count="reserved"></span></label>
-      <label class="chip"><input type="radio" name="filter" value="sold">Vendidos <span class="c" data-count="sold"></span></label>
-    </fieldset>
-
-    <div id="groups"></div>
-    <p class="empty" id="empty" hidden>Nenhum espaço neste filtro.</p>
-
-    <p class="fine foot">Se esta página falhar, o <a href="https://github.com/rgvduarte/carmo/issues/new?template=espaco.yml" target="_blank" rel="noopener">formulário do GitHub</a> faz o mesmo, um espaço de cada vez.</p>
-    <p class="fine">Treinos no site: <a href="strava/">Ligar o Strava</a>.</p>
-    <p class="fine">Visitas e mapas de calor: <a href="analytics/">Estatísticas do site</a>.</p>
-    <p class="fine">Patrocínios: <a href="patrocinios/">contratos e renovações</a>.</p>
-    <p class="fine">Documentos: <a href="documentos/">o cofre</a>.</p>
-  </main>
-
-  <div class="bar" id="bar" hidden>
-    <div class="bar-in wrap">
-      <p class="bar-sum"><b id="bar-n"></b><span id="bar-total"></span><button type="button" class="link clear" id="bar-clear">Limpar</button></p>
-      <div class="acts">
-        <button type="button" class="btn" data-act="reserved">Reservar</button>
-        <button type="button" class="btn gold" data-act="sold">Vendido</button>
-        <button type="button" class="btn ghost" data-act="available">Libertar</button>
       </div>
     </div>
-  </div>
-</div>
+    <p class="ok" id="drop-ok" role="status" hidden></p>
+  </section>
 
-<!-- 3-4, 6. Reservar / Vendido / progresso -->
-<dialog class="sheet" id="sheet" aria-labelledby="sh-title">
-  <div class="sh-head">
-    <h2 id="sh-title"></h2>
-    <button type="button" class="x" id="sh-x" aria-label="Fechar">×</button>
-  </div>
-  <form id="sh-form" novalidate>
-    <p class="sh-sum" id="sh-sum"></p>
-    <p class="sh-req" id="sh-req" hidden></p>
-    <div class="paid" id="sh-paid" hidden>
-      <div class="field">
-        <label for="f-paid-at">Pago a</label>
-        <input id="f-paid-at" type="date" enterkeyhint="next">
-      </div>
-      <div class="field">
-        <label for="f-paid-amt">Montante recebido</label>
-        <input id="f-paid-amt" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next" placeholder="€">
-      </div>
-      <p class="hint paid-hint">Ficam no registo do patrocínio, em Patrocínios.</p>
-    </div>
-    <div class="field">
-      <label for="f-brand">Marca</label>
-      <input id="f-brand" type="text" maxlength="60" list="brands" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="next">
-      <datalist id="brands"></datalist>
-    </div>
-    <!-- the brand's link: with a sale only (a reserved spot never shows one on the site); admin-core.js normUrl -->
-    <div class="field" data-only="sold">
-      <label for="f-url">Link da marca <span class="opt">(opcional)</span></label>
-      <input id="f-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://marca.pt ou @marca" enterkeyhint="next" maxlength="400" aria-describedby="f-url-hint">
-      <p class="hint" id="f-url-hint">Fica no logótipo no site: o site, o Instagram ou a página de contacto da marca. https:// ou @marca.</p>
-    </div>
-    <div class="field" data-only="reserved">
-      <label for="f-until">Reservado até</label>
-      <input id="f-until" type="date">
-      <p class="hint">Depois deste dia o espaço volta a ficar livre sozinho.</p>
-      <ul class="holds" id="sh-holds" hidden></ul>
-    </div>
-    <div class="field" data-only="sold">
-      <span class="lbl" id="logo-lbl">Logótipo <span class="opt">(opcional)</span></span>
-      <label class="btn ghost file"><input id="f-logo" type="file" class="sr-only" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-labelledby="logo-lbl">Escolher logótipo</label>
-      <p class="hint">PNG, JPG ou WebP até 3 MB. Um SVG é convertido em PNG.</p>
-      <p class="file-info mono" id="logo-info" hidden></p>
-      <div class="tiles" id="tiles" hidden>
-        <figure class="tile on-white"><img id="tile-w" alt="O logótipo sobre branco"><figcaption>Sobre branco</figcaption></figure>
-        <figure class="tile on-black"><img id="tile-b" alt="O logótipo sobre preto"><figcaption>Sobre preto</figcaption></figure>
-      </div>
-      <button type="button" class="btn sm ghost" id="see3d" hidden>Ver no 3D</button>
-      <div class="current" id="cur-logo" hidden><img id="cur-img" alt="O logótipo atual"><span>Fica o logótipo atual (escolhe outro para trocar).</span></div>
-      <p class="hint" id="logo-note"></p>
-    </div>
-    <ul class="notes" id="sh-warn" aria-live="polite"></ul>
-    <p class="err" id="sh-err" role="alert"></p>
-    <div class="sh-foot">
-      <button type="button" class="btn ghost" id="sh-cancel">Cancelar</button>
-      <button type="submit" class="btn gold" id="sh-go">Guardar</button>
-    </div>
-  </form>
-  <div class="progress" id="sh-progress" hidden>
-    <ol class="ticks">
-      <li id="pr-save"><i aria-hidden="true"></i><span>A guardar no GitHub…</span></li>
-      <li id="pr-req" hidden><i aria-hidden="true"></i><span>Confirmar o pedido</span></li>
-      <li id="pr-pub"><i aria-hidden="true"></i><span>A publicar…</span></li>
-      <li id="pr-live"><i aria-hidden="true"></i><span>No ar</span></li>
-    </ol>
-    <p class="msg" id="pr-msg" role="status" aria-live="polite"></p>
-    <ul class="links" id="pr-links"></ul>
-    <div class="sh-foot">
-      <button type="button" class="btn ghost" id="pr-retry" hidden>Tentar outra vez</button>
-      <button type="button" class="btn ghost" id="pr-check" hidden>Verificar outra vez</button>
-      <button type="button" class="btn gold" id="pr-close">Fechar</button>
-    </div>
-  </div>
-</dialog>
-
-<!-- 5. Confirmação -->
-<dialog class="sheet small" id="confirm" aria-labelledby="cf-title">
-  <div class="sh-head"><h2 id="cf-title"></h2></div>
-  <ul class="cf-list" id="cf-list"></ul>
-  <p class="cf-text" id="cf-text"></p>
-  <label class="check cf-opt" id="cf-opt" hidden><input type="checkbox" id="cf-opt-in"><span id="cf-opt-t"></span></label>
-  <div class="sh-foot">
-    <button type="button" class="btn ghost" id="cf-no">Cancelar</button>
-    <button type="button" class="btn gold" id="cf-yes">Confirmar</button>
-  </div>
-</dialog>
-
-<!-- 5b. Pagamento (Marcar como confirmado, Registar contrato) -->
-<dialog class="sheet small" id="pay" aria-labelledby="pay-title">
-  <div class="sh-head">
-    <h2 id="pay-title">Pagamento</h2>
-    <button type="button" class="x" id="pay-x" aria-label="Fechar">×</button>
-  </div>
-  <form id="pay-form" novalidate>
-    <p class="sh-sum" id="pay-sum"></p>
-    <div class="paid">
-      <div class="field">
-        <label for="pay-at">Pago a</label>
-        <input id="pay-at" type="date" enterkeyhint="next">
-      </div>
-      <div class="field">
-        <label for="pay-amt">Montante recebido</label>
-        <input id="pay-amt" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="€">
-      </div>
-      <p class="hint paid-hint">O pedido fica confirmado e o patrocínio fica registado em Patrocínios, com esta data e este montante.</p>
-    </div>
-    <div class="field">
-      <label for="pay-url">Link da marca <span class="opt">(opcional)</span></label>
-      <input id="pay-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://marca.pt ou @marca" enterkeyhint="done" maxlength="400" aria-describedby="pay-url-hint">
-      <p class="hint" id="pay-url-hint">Fica no registo do patrocínio. Para o pôr ou mudar no site, usa «Pôr o link do pedido» ou Vendido em Espaços.</p>
-    </div>
-    <p class="err" id="pay-err" role="alert"></p>
-    <div class="sh-foot">
-      <button type="button" class="btn ghost" id="pay-no">Cancelar</button>
-      <button type="submit" class="btn gold" id="pay-go">Confirmar</button>
-    </div>
-  </form>
-</dialog>
-
-<!-- 7. 3D -->
-<dialog class="sheet tall" id="v3d" aria-labelledby="v3d-title">
-  <div class="sh-head">
-    <h2 id="v3d-title">Assim fica no site</h2>
-    <button type="button" class="x" id="v3d-x" aria-label="Fechar">×</button>
-  </div>
-  <div class="v3d-tabs" id="v3d-tabs" hidden>
-    <button type="button" class="chip" data-item="suit" aria-pressed="true">Fato</button>
-    <button type="button" class="chip" data-item="helmet" aria-pressed="false">Capacete</button>
-  </div>
-  <div class="stage" id="v3d-stage"><p class="loading" id="v3d-loading">A abrir o modelo 3D…</p></div>
-  <p class="hint" id="v3d-msg">Arrasta para rodar. É o mesmo desenho que o site faz.</p>
-  <div class="sh-foot"><button type="button" class="btn" id="v3d-close">Fechar</button></div>
-</dialog>
+  <p class="fine" id="forget-row" hidden><button type="button" class="link" id="forget">Esquecer a chave dos pedidos</button></p>
+</main>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </body>
