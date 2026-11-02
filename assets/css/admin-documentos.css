@@ -13,7 +13,9 @@
 .dc-acts .btn { flex: 1 1 auto; }
 
 .dc-h { font: 600 18px/1.3 var(--sans); margin: 0 0 10px; }
-.dc-create > p, .dc-created > p, .dc-unlock > p { margin: 0 0 14px; color: #dcdbd5; font-size: 15px; }
+.dc-create > p, .dc-created > p, .dc-unlock > p, .dc-private > p:not(.hint):not(.err) { margin: 0 0 14px; color: #dcdbd5; font-size: 15px; }
+.dc-private > p.hint { margin: 0 0 14px; }
+.dc-private > .dc-why { margin: -4px 0 14px; }
 .dc-check-hint { margin: -6px 0 14px 34px; }
 .dc-space { color: var(--gold); margin: -8px 0 12px; }
 .dc-box { margin: 0 0 14px; }

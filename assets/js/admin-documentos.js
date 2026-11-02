@@ -2,6 +2,8 @@
 // here, on the phone, chunk by chunk. The key pair is made in this browser (vault-crypto.js); its private key is kept in
 // vault.json sealed with the owner's passphrase, and, with «Lembrar neste aparelho», as a non-extractable CryptoKey in
 // IndexedDB. The computer (scripts/docs-publish.mjs) only ever has the public key. README, «Documentos».
+// With the repository private, nothing reads without the GitHub token: the page asks for it first (a read-only one
+// opens the cofre; writing needs Read and write), and never offers to create a cofre it could not read.
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 import { V, VaultError, checkVault, fingerprint, newVault, unlockVault, rewrapVault, importPublic, unwrapKey, decryptChunk, openManifest, chunkCount, keyMatches, weakPass, suggestPass } from './vault-crypto.js';
 import { WORDS } from './vault-words.js';
@@ -39,6 +41,10 @@ const T = {
   remembered: 'A chave fica lembrada neste aparelho.',
   oldKey: (fp) => `Este cofre é novo e os documentos ainda estão fechados com a chave antiga. Publica outra vez no computador com --accept-vault "${fp}".`,
   badVault: (why) => `O vault.json não é válido (${why}). Não o uses.`,
+  // the private repository: why this browser's token was set aside, and a write with a token that only reads
+  tokenNoAccess: 'O token deste browser não chega ao repositório rgvduarte/carmo, ou não pode ler o que lá está. Entra com outro.',
+  tokenExpired: 'O token deste browser expirou ou foi revogado. Entra com um novo.',
+  readOnly: 'O token deste browser só pode ler: abre o cofre, mas não guarda. Para guardar, carrega em «Sair do GitHub» (em baixo) e entra com um token com Contents: Read and write.',
 };
 const cmdOf = (fp) => `node scripts/docs-publish.mjs --accept-vault "${fp}"`;
 
@@ -80,7 +86,7 @@ function busy(btn, on, label) {
     if (btn.dataset.label) btn.textContent = btn.dataset.label;
   }
 }
-const SCREENS = ['create', 'created', 'unlock', 'open'];
+const SCREENS = ['private', 'create', 'created', 'unlock', 'open'];
 function show(which) {
   hideAll();
   for (const id of SCREENS) $(`#${id}`).hidden = id !== which;
@@ -114,6 +120,9 @@ async function copy(text) {
 const passOf = (input) => input.value.normalize('NFC');
 // '' when the new passphrase is good enough, else the sentence that says why not
 const passProblem = (p) => { const why = weakPass(p); return why ? (why === 'curta' ? T.short : T.weak[why]) : ''; };
+// a failed write in words, ending with what did not change. A 403 that is not a rate limit: this browser's token only
+// reads (one accepted to open the cofre of a private repository); GitHub refused the first write, nothing changed.
+const writeErr = (x, unchanged) => (x instanceof GhError && x.status === 403 && !x.rate ? `${T.readOnly} ${unchanged}` : errText(x, 'write').replace('O site não mudou.', unchanged));
 
 // «Mostrar» next to every passphrase field (typed twice on a phone keyboard: a typo must be seen), and «Sugerir uma
 // frase-passe»: five words drawn here from vault-words.js
@@ -156,10 +165,13 @@ const S = {
   shareFiles: false,     // this phone can hand a file to the share sheet (Guardar em Ficheiros on iOS)
 };
 
-// ---------- the GitHub token (only to write: create, change the passphrase, a new key pair) ----------
-let tokenWait = null;
-function ensureToken() {
+// ---------- the GitHub token ----------
+// To write (create, change the passphrase, a new key pair) it must be able to write. In a private repository it is also
+// needed to read: then ({ write: false }) a read-only token is enough.
+let tokenWait = null, tokenWrite = true;
+function ensureToken({ write = true } = {}) {
   if (getToken()) return Promise.resolve(true);
+  tokenWrite = write;
   const d = $('#d-token');
   $('#t-err').textContent = ''; $('#t-tok').value = '';
   d.showModal();
@@ -172,7 +184,7 @@ $('#token-form').addEventListener('submit', async (e) => {
   $('#t-err').textContent = '';
   busy(btn, true, 'A confirmar…');
   try {
-    await checkToken(t);
+    await checkToken(t, { write: tokenWrite });
     keepToken(t, $('#t-remember').checked);
     const ok = tokenWait; tokenWait = null;
     $('#d-token').close();
@@ -180,7 +192,12 @@ $('#token-form').addEventListener('submit', async (e) => {
     if (ok) ok(true);
   } catch (x) { $('#t-err').textContent = signInText(x); } finally { busy(btn, false); }
 });
-$('#gh-out').addEventListener('click', () => { forgetToken(); setToken(null); $('#gh-line').hidden = true; toast('Saíste do GitHub neste browser. O cofre continua como estava.'); });
+$('#gh-out').addEventListener('click', async () => {
+  forgetToken(); setToken(null); $('#gh-line').hidden = true;
+  toast('Saíste do GitHub neste browser. O cofre continua como estava.');
+  // a private repository no longer reads without it: show that now, not at the next download (none is cut short)
+  if (!running) await boot({ keepOpen: true });
+});
 
 // ---------- loading ----------
 async function boot({ keepOpen = false } = {}) {
@@ -190,6 +207,9 @@ async function boot({ keepOpen = false } = {}) {
   let b;
   try { b = await store.loadBranch(); } catch (e) { problem(errText(e)); return; }
   S.branch = b;
+  // a private repository that this browser cannot read: ask for the token, and never offer to create a cofre on top
+  // of one it could not read
+  if (b.needToken) { S.vault = null; S.vaultText = null; S.priv = null; showPrivate(b); return; }
   if (b.vaultText == null) {
     S.vault = null; S.vaultText = null; S.priv = null;
     if (b.fallback) { problem(errText(new GhError(403, '', b.rate))); return; }
@@ -215,6 +235,13 @@ async function boot({ keepOpen = false } = {}) {
   }
   showUnlock();
 }
+function showPrivate(b) {
+  const why = b.tokenNoAccess ? T.tokenNoAccess : b.tokenExpired ? T.tokenExpired : '';
+  $('#private-why').textContent = why;
+  $('#private-why').hidden = !why;
+  show('private');
+}
+$('#private-go').addEventListener('click', async () => { if (await ensureToken({ write: false })) await boot(); });
 function showUnlock() {
   $('#u-err').textContent = ''; $('#u-pass').value = '';
   $('#u-kept').hidden = !S.remembered;
@@ -262,7 +289,7 @@ async function createVault({ pass, remember, expect, btn, err, message }) {
   } catch (x) {
     if (x instanceof VaultError && x.code === 'curta') err.textContent = T.short;
     else if (x instanceof UiError && x.reload) { S.pending = null; closeDialogs(); await boot(); toast(x.message); err.textContent = x.message; }
-    else err.textContent = errText(x, 'write').replace('O site não mudou.', 'O cofre não mudou.');
+    else err.textContent = writeErr(x, 'O cofre não mudou.');
     return false;
   } finally { busy(btn, false); }
 }
@@ -432,7 +459,12 @@ async function download(dl, d, v) {
   } catch (x) {
     running = null;
     if (x && x.name === 'AbortError') { keep(); idle(dl, d, v); return; }
-    if (x instanceof store.Missing) { await boot({ keepOpen: true }); toast(T.moved); if (S.manifest) openNote(T.moved); return; }
+    if (x instanceof store.Missing) {
+      await boot({ keepOpen: true });
+      // the branch moved under the list; unless the page now asks for the token (it lost the private repository)
+      if (!S.branch || !S.branch.needToken) { toast(T.moved); if (S.manifest) openNote(T.moved); }
+      return;
+    }
     if (x instanceof VaultError) { idle(dl, d, v, x.code === 'versao' ? T.newer : T.broken); return; }
     keep();
     idle(dl, d, v, errText(x));
@@ -520,7 +552,7 @@ $('#pass-form').addEventListener('submit', async (e) => {
   } catch (x) {
     if (x instanceof VaultError) err.textContent = x.code === 'frase' ? 'A frase-passe atual não abre o cofre. Confirma maiúsculas e espaços.' : x.code === 'curta' ? T.short : T.badVault(x.message);
     else if (x instanceof UiError && x.reload) { S.pendingRewrap = null; $('#d-pass').close(); await boot({ keepOpen: true }); toast(x.message); }
-    else err.textContent = errText(x, 'write').replace('O site não mudou.', 'A frase-passe não mudou.');
+    else err.textContent = writeErr(x, 'A frase-passe não mudou.');
   } finally { busy(btn, false); }
 });
 

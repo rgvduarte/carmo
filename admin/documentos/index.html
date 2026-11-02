@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-vn8rniGLeokjfQGWMOSdiZ9tU7H52LiMSZ8STbSkZok='; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-JQpR+SMn9oRKj2gfsO2koGS6hbpDgTUdnUKT2RitFvo='; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com https://raw.githubusercontent.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="../../assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="../../assets/css/fonts.css?v=38c3202f">
 <link rel="stylesheet" href="../../assets/css/admin.css?v=35fea0ad">
-<link rel="stylesheet" href="../../assets/css/admin-documentos.css?v=cb59199d">
+<link rel="stylesheet" href="../../assets/css/admin-documentos.css?v=e5fe729b">
 <script type="importmap">
 { "imports": {
   "../../assets/js/admin-3d.js": "../../assets/js/admin-3d.js?v=f6109481",
@@ -26,9 +26,9 @@
   "../../assets/js/admin-confirm-pdf.js": "../../assets/js/admin-confirm-pdf.js?v=55422306",
   "../../assets/js/admin-contracts.js": "../../assets/js/admin-contracts.js?v=4c2ab396",
   "../../assets/js/admin-core.js": "../../assets/js/admin-core.js?v=2a256128",
-  "../../assets/js/admin-documentos-store.js": "../../assets/js/admin-documentos-store.js?v=95823a00",
-  "../../assets/js/admin-documentos.js": "../../assets/js/admin-documentos.js?v=d399c3d7",
-  "../../assets/js/admin-gh.js": "../../assets/js/admin-gh.js?v=aac86619",
+  "../../assets/js/admin-documentos-store.js": "../../assets/js/admin-documentos-store.js?v=c583a2fd",
+  "../../assets/js/admin-documentos.js": "../../assets/js/admin-documentos.js?v=04ef052c",
+  "../../assets/js/admin-gh.js": "../../assets/js/admin-gh.js?v=d96d78f6",
   "../../assets/js/admin-montra-core.js": "../../assets/js/admin-montra-core.js?v=65ac1320",
   "../../assets/js/admin-montra.js": "../../assets/js/admin-montra.js?v=b8a5f267",
   "../../assets/js/admin-patrocinios.js": "../../assets/js/admin-patrocinios.js?v=c4a946a5",
@@ -74,7 +74,7 @@
   "../../assets/js/vault-words.js": "../../assets/js/vault-words.js?v=db8927d5"
 } }
 </script>
-<script type="module" src="../../assets/js/admin-documentos.js?v=d399c3d7"></script>
+<script type="module" src="../../assets/js/admin-documentos.js?v=04ef052c"></script>
 </head>
 <body>
 <div class="banner" id="offline" role="status" hidden>Sem ligação. Os documentos não descarregam até voltar a rede.</div>
@@ -99,6 +99,15 @@
       <button class="btn ghost" type="button" id="problem-new" hidden>Criar um cofre novo</button>
     </div>
   </div>
+
+  <!-- 0. Repositório privado e este browser sem token (ou com um que não chega lá) -->
+  <section class="card dc-private" id="private" hidden aria-labelledby="private-h">
+    <h2 class="dc-h" id="private-h">Repositório privado</h2>
+    <p>O repositório é privado. Para abrir o cofre entra com o token do GitHub.</p>
+    <p class="err dc-why" id="private-why" hidden></p>
+    <p class="hint">Para abrir chega um token só de leitura (Contents: Read-only em rgvduarte/carmo). Para guardar (criar o cofre, mudar a frase-passe) tem de ser Read and write, como o da página Espaços.</p>
+    <button class="btn gold wide" type="button" id="private-go">Entrar com o token</button>
+  </section>
 
   <!-- 1. Sem cofre -->
   <form class="card dc-create" id="create" novalidate hidden>
@@ -272,7 +281,7 @@
 <dialog class="sheet" id="d-token" aria-labelledby="d-token-h">
   <form id="token-form" novalidate>
     <div class="sh-head"><h2 id="d-token-h">Token do GitHub</h2><button class="x" type="button" data-close aria-label="Fechar">×</button></div>
-    <p class="sh-sum">Para guardar o cofre no GitHub. É o mesmo token da página Espaços (Contents: Read and write em rgvduarte/carmo). <a href="../" target="_blank" rel="noopener">Como criar um token</a>.</p>
+    <p class="sh-sum">O repositório é privado: o token serve para abrir o cofre e para o guardar. Para abrir chega um token só de leitura (Contents: Read-only em rgvduarte/carmo). Para guardar (criar o cofre, mudar a frase-passe) tem de ser Read and write, o mesmo token da página Espaços. <a href="../" target="_blank" rel="noopener">Como criar um token</a>.</p>
     <div class="field">
       <label for="t-tok">Token</label>
       <input id="t-tok" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="github_pat_…" enterkeyhint="go">

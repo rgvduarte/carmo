@@ -1,7 +1,8 @@
 // The owner's GitHub token and the GitHub calls of the admin pages (/admin/ and the montra editor of /admin/patrocinios/).
 // Moved out of admin.js so both pages keep one copy of the rules: the token lives in this browser only (sessionStorage,
 // or localStorage with «Lembrar neste telemóvel», under the same key gc.admin.token), it goes in one header and never in
-// an error, a classic token may hold public_repo and nothing more, and a fine-grained one must be able to write.
+// an error, a classic token may hold public_repo and nothing more, and a fine-grained one must be able to write (but to
+// open the cofre of a private repository, where reading needs the token too, a read-only one is enough).
 // commitFiles() makes ONE commit on gh-pages with the Git Data API: blobs, a tree on the head's tree, a commit, a ref
 // update without force; a moved ref (422) re-runs the whole build once on the new head, and a ref update whose answer was
 // lost is remembered (intent.pending), so that no later try commits twice.
@@ -26,28 +27,45 @@ export function forgetToken() { for (const s of stores()) { try { s.removeItem(K
 export function keepToken(t, remember) { forgetToken(); try { (remember ? localStorage : sessionStorage).setItem(KEY, t); } catch (_) {} }
 
 // ---------- GitHub ----------
-// One wrapper holds the header. Errors carry the status and GitHub's own message only, never the token.
-export async function ghRes(method, path, body) {
+// The GhError of an answer that is not ok: its status, GitHub's own message and, when it is a rate limit, when to try
+// again. Also for the cofre's reads without a token (admin-documentos-store.js).
+export async function ghFailure(res) {
+  let json = null;
+  try { json = await res.json(); } catch (_) {}
+  const h = (k) => res.headers.get(k);
+  // primary limit: remaining 0 until x-ratelimit-reset; secondary limit (403 or 429): retry-after seconds
+  const spent = h('x-ratelimit-remaining') === '0', retry = Number(h('retry-after')) || 0;
+  const limited = res.status === 429 || (res.status === 403 && (spent || retry > 0));
+  return new GhError(res.status, json && typeof json.message === 'string' ? json.message : '', limited ? { reset: spent ? Number(h('x-ratelimit-reset')) || 0 : 0, retry } : null);
+}
+// One wrapper holds the header: every call with the token goes through here. Errors carry the status and GitHub's own
+// message only, never the token. An abort (signal) stays an AbortError, so a «Cancelar» is not a network error.
+async function send(method, path, { body, accept = 'application/vnd.github+json', signal } = {}) {
   let res;
   try {
     res = await fetch(path.startsWith('https://') ? path : `${API}${path}`, {
-      method, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer',
-      headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      method, cache: 'no-store', credentials: 'omit', referrerPolicy: 'no-referrer', signal,
+      headers: { Authorization: `Bearer ${token}`, Accept: accept, ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
-  } catch (_) { throw new GhError(0, 'network'); }
+  } catch (e) { if (e && e.name === 'AbortError') throw e; throw new GhError(0, 'network'); }
+  if (!res.ok) throw await ghFailure(res);
+  return res;
+}
+export async function ghRes(method, path, body) {
+  const res = await send(method, path, { body });
   let json = null;
   try { json = await res.json(); } catch (_) {}
-  if (!res.ok) {
-    const h = (k) => res.headers.get(k);
-    // primary limit: remaining 0 until x-ratelimit-reset; secondary limit (403 or 429): retry-after seconds
-    const spent = h('x-ratelimit-remaining') === '0', retry = Number(h('retry-after')) || 0;
-    const limited = res.status === 429 || (res.status === 403 && (spent || retry > 0));
-    throw new GhError(res.status, json && typeof json.message === 'string' ? json.message : '', limited ? { reset: spent ? Number(h('x-ratelimit-reset')) || 0 : 0, retry } : null);
-  }
   return { json, headers: res.headers };
 }
 export const gh = async (method, path, body) => (await ghRes(method, path, body)).json;
+// A file's bytes through the API (GET /contents/<path>?ref=…): the raw media type answers with the file itself, up to
+// 100 MB, where the JSON one stops at 1 MB. This is how the cofre reads a private repository: raw.githubusercontent.com
+// refuses the preflight a token needs.
+export async function ghBytes(path, { signal } = {}) {
+  const res = await send('GET', path, { accept: 'application/vnd.github.raw+json', signal });
+  try { return new Uint8Array(await res.arrayBuffer()); } catch (e) { if (e && e.name === 'AbortError') throw e; throw new GhError(0, 'network'); }
+}
 
 export const UNKNOWN = 'Não sei se ficou guardado: a ligação falhou logo depois de o pedido seguir. Quando a rede voltar, carrega em «Tentar outra vez»: primeiro vejo no GitHub, e não guardo duas vezes.';
 
@@ -70,12 +88,15 @@ export function errText(e, kind = 'read') {
 // ---------- sign-in ----------
 // The checks of a token typed by hand (t: trimmed). It becomes the token in use while they run; on any failure the
 // token in use is cleared and the error thrown (signInText() words it). Nothing is stored here: keepToken() after.
-export async function checkToken(t) {
+// { write: false }: a token only to read (the cofre of a private repository opens with a read-only one, which may be
+// all Gonçalo has): it must reach the repository, and the account's push right and the write probe are skipped. Its
+// first write then fails with 403, before anything changes.
+export async function checkToken(t, { write = true } = {}) {
   if (!TOKEN_RE.test(t)) throw new UiError('Isto não parece um token do GitHub (começa por github_pat_).', { format: true });
   token = t;
   try {
     const { json: repo, headers } = await ghRes('GET', '');
-    if (repo && repo.permissions && repo.permissions.push !== true) throw new UiError('A tua conta não pode escrever neste repositório. Pede ao dono acesso de escrita.');
+    if (write && repo && repo.permissions && repo.permissions.push !== true) throw new UiError('A tua conta não pode escrever neste repositório. Pede ao dono acesso de escrita.');
     // A classic token reaches every repository the account can write to: take one that can do no more than this page
     // needs (public_repo), so a lost token does less harm.
     if (t.startsWith('ghp_') && headers.get('x-oauth-scopes') !== null) {
@@ -84,9 +105,11 @@ export async function checkToken(t) {
     }
     // A fine-grained token shows what it may do only when it writes: the empty blob already exists in the repo
     // (.nojekyll), so asking for it again changes nothing.
-    try { await gh('POST', '/git/blobs', { content: '', encoding: 'utf-8' }); } catch (x) {
-      if (x instanceof GhError && (x.status === 403 || x.status === 404) && !x.rate) throw new UiError('O token só pode ler. Em «Permissions», o Contents tem de estar em «Read and write».');
-      throw x;
+    if (write) {
+      try { await gh('POST', '/git/blobs', { content: '', encoding: 'utf-8' }); } catch (x) {
+        if (x instanceof GhError && (x.status === 403 || x.status === 404) && !x.rate) throw new UiError('O token só pode ler. Em «Permissions», o Contents tem de estar em «Read and write».');
+        throw x;
+      }
     }
   } catch (x) { token = null; throw x; }
   return true;
