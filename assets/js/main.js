@@ -8,6 +8,7 @@ import { flowSet, flowStatic } from './flow.js';
 import { initAdspace, userHasInteracted, landTarget } from './adspace.js';
 import { loadGofundme, renderGofundme } from './gofundme.js';
 import { loadMontra, renderMontra } from './montra.js';
+import { initApoiantes, renderApoiantes } from './apoiantes.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -515,7 +516,7 @@ function renderSocial() {
 }
 const safe = (f) => { try { f(); } catch (e) { console.error(e); } };
 function renderFooter() { $('#ft-date').textContent = fmtDay(SITE.updated); }
-function renderAll() { [renderSocial, renderRaces, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter, renderMontra].forEach(safe); }
+function renderAll() { [renderSocial, renderRaces, renderSeason, renderBudget, renderGofundme, renderStrava, renderFooter, renderMontra, renderApoiantes].forEach(safe); }
 renderAll();
 safe(initRaces);
 onLang(() => { renderAll(); safe(refreshMarks); safe(flowStatic); });
@@ -613,6 +614,9 @@ const startMotion = () => {
     if (location.hash === `#${sec.id}` && !moved) holdAt(sec);
   };
   loadMontra({ addSection, scrollToEl }).catch((e) => console.error(e));
+  // «Quem apoia»: built inside «Apoiar» only when the Worker has a published name (apoiantes.js); it scrolls and holds
+  // its place with the same Lenis-aware helpers as the studio and the montra
+  safe(() => initApoiantes({ scrollToEl, holdAt: (el) => { if (!moved) holdAt(el); }, nudge: (dy) => { if (lenis) lenis.scrollTo(scrollY + dy, { immediate: true, force: true }); else scrollBy(0, dy); } }));
   initAdspace({
     scrollTo: scrollToEl,
     // move the page by dy at once, keeping Lenis in step (a change above the part being read must not push it)

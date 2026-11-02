@@ -585,6 +585,23 @@ const PT_JS = {
   'suit.no3dLockApp': 'O Modo de isolamento desliga a vista 3D nesta app. A tabela tem todos os espaços.',
   'suit.retry': 'Tentar outra vez',
   'suit.loading': 'A carregar o fato',
+  // «Quem apoia», the supporters' wall (apoiantes.js): never an amount, a date or a ranking; anonymous donors are not
+  // shown and not counted
+  'ap.who': 'Vê quem apoiou', 'ap.open': 'Vê quem apoiou', 'ap.h': 'Quem apoia',
+  'ap.p': 'Cada nome neste símbolo é de alguém que apoiou a minha época 2027. Obrigado.',
+  'ap.loading': 'A carregar…', 'ap.err': 'Não consegui carregar os nomes.', 'ap.retry': 'Tentar outra vez',
+  'ap.art0': 'O símbolo da lua e do sol, em contorno.',
+  'ap.art': (s) => `O símbolo da lua e do sol, com ${s} lá dentro. Os nomes estão na lista a seguir.`,
+  'ap.nn': (n, s) => (n === 1 ? '1 nome' : `${s} nomes`), 'ap.lh': (s) => `${s}, de A a Z`, 'ap.lhf': 'De A a Z',
+  'ap.find': 'Encontra o teu nome', 'ap.ph': 'Escreve um primeiro nome',
+  'ap.fn': (n, s) => (n === 1 ? '1 nome encontrado.' : `${s} nomes encontrados.`),
+  'ap.f0': (q) => `Nenhum nome com «${q}». Se apoiaste há pouco, o teu nome entra numa das próximas atualizações.`,
+  'ap.more': (s) => `e mais ${s} na lista`,
+  'ap.hint': 'Toca num nome, ou passa o rato por cima, para o leres.',
+  'ap.zin': 'Aproximar', 'ap.zout': 'Afastar', 'ap.zg': 'Tamanho do símbolo',
+  'ap.anon': 'Quem apoiou como anónimo não aparece aqui, e o obrigado é igual.',
+  'ap.rm': ['Tiro o teu nome a pedido: basta um email para ', '.'],
+  'ap.priv': 'Como trato estes nomes', 'ap.privh': 'privacidade/#apoiantes',
 };
 const EN_JS = {
   'cs.h': 'Cookies', 'cs.p': 'May I use Google Analytics cookies to count visits and see what interests people most on the site? Only with your permission, and never for advertising. They last up to six months and you can change your mind in “Cookie settings” at the bottom of the page.',
@@ -757,6 +774,21 @@ const EN_JS = {
   'suit.no3dLock': 'Lockdown Mode turns the 3D view off. You can turn it off for this site only under aA › Website Settings. The rate card has every spot.',
   'suit.no3dLockApp': 'Lockdown Mode turns the 3D view off in this app. The rate card has every spot.',
   'suit.retry': 'Try again',
+  'ap.who': 'See who backed me', 'ap.open': 'See who backed me', 'ap.h': "Who's backing me",
+  'ap.p': 'Every name in this symbol belongs to someone who backed my 2027 season. Thank you.',
+  'ap.loading': 'Loading…', 'ap.err': "I couldn't load the names.", 'ap.retry': 'Try again',
+  'ap.art0': 'The moon-and-sun symbol, in outline.',
+  'ap.art': (s) => `The moon-and-sun symbol, with ${s} inside it. The names are in the list that follows.`,
+  'ap.nn': (n, s) => (n === 1 ? '1 name' : `${s} names`), 'ap.lh': (s) => `${s}, A to Z`, 'ap.lhf': 'A to Z',
+  'ap.find': 'Find your name', 'ap.ph': 'Type a first name',
+  'ap.fn': (n, s) => (n === 1 ? '1 name found.' : `${s} names found.`),
+  'ap.f0': (q) => `No name matching “${q}”. If you gave recently, your name goes up in one of the next updates.`,
+  'ap.more': (s) => `and ${s} more in the list`,
+  'ap.hint': 'Tap a name, or hover over it, to read it.',
+  'ap.zin': 'Zoom in', 'ap.zout': 'Zoom out', 'ap.zg': 'Symbol size',
+  'ap.anon': 'Anyone who gave anonymously is not shown here, and the thanks is the same.',
+  'ap.rm': ['I take your name off on request: just email ', '.'],
+  'ap.priv': 'How I handle these names', 'ap.privh': 'privacidade/#supporters',
 };
 
 let lang = 'pt';

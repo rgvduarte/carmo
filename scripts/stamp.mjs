@@ -37,6 +37,11 @@
 //    reaches api.github.com (the head of the orphan branch «docs», the vault's commits, and with a token every file:
 //    the only way into a private repository) and raw.githubusercontent.com (the encrypted files, read at that commit,
 //    without a token: a public repository only). stampCofrePages() does it, after the main loop.
+// 7. The admin hub (/admin/, since 02.11.2026; the Espaços page moved to /admin/espacos/) and the supporters' page
+//    (/admin/apoiantes/) are stamped like the other admin pages; the hub's connect-src reaches 'self' and both Workers,
+//    /admin/apoiantes/ the booking Worker only. index.html holds no markup of the supporters' wall (apoiantes.js builds
+//    it only when the Worker has a published name), apoiantes-core.js keeps the owner's rules, and every admin page has
+//    its «← Painel» link.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -125,6 +130,32 @@ function checkMontraFile() {
   if (/\bid="material"/.test(IX)) out.push('index.html: id="material" (the montra section exists only when montra.js builds it)');
   if (/class="[^"]*\bmt-[a-z]/.test(IX)) out.push('index.html: an mt-… class (the montra markup is built only by montra.js)');
   if (/O meu material|My gear/.test(plain(IX))) out.push('index.html: «O meu material» / «My gear» in the static page (the montra is built only by montra.js)');
+  return out;
+}
+// ---------- «Quem apoia» (the supporters' wall) and the admin hub ----------
+const AP = await load('assets/js/apoiantes-core.js');
+const apProblems = checkApoiantes();
+if (apProblems.length) {
+  console.error(`The supporters' wall and the admin hub:\n  ${apProblems.join('\n  ')}`);
+  process.exit(1);
+}
+// The wall is built only by apoiantes.js, from the Worker, and only when a name is published: index.html holds no trace
+// of it (with no name, the public site shows nothing at all). Its rules module answers as the owner decided (from the
+// first name; anonymous rows out; «Nome I.»). Every admin page links back to the hub.
+function checkApoiantes() {
+  const out = [];
+  const IX = readFileSync('index.html', 'utf8');
+  const plain = (html) => html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  if (/\bid="apoiantes"/.test(IX)) out.push('index.html: id="apoiantes" (the wall exists only when apoiantes.js builds it)');
+  if (/class="[^"]*\b(crew|gfm-who)\b/.test(IX)) out.push('index.html: a crew… / gfm-who class (the wall markup is built only by apoiantes.js)');
+  if (/Quem apoia|Vê quem apoiou|Who's backing me/.test(plain(IX))) out.push('index.html: the wall\'s copy in the static page (it is built only by apoiantes.js)');
+  if (AP.MIN_SHOWN !== 1) out.push(`assets/js/apoiantes-core.js: MIN_SHOWN is ${AP.MIN_SHOWN} (owner, 02.11.2026: the block shows from the first published name)`);
+  const v = AP.publicView({ v: 1, names: [{ id: 'ABCDEF', name: 'Zé B.', state: 'publicado' }, { id: 'GHJKMN', name: 'Ana S.', state: 'espera' }] });
+  if (JSON.stringify(v) !== '{"v":1,"names":[{"id":"ABCDEF","name":"Zé B."}]}') out.push('assets/js/apoiantes-core.js: publicView must return only the published names, as { id, name }');
+  if (AP.shortName('ana maria', 'da silva') !== 'Ana S.' || !AP.isAnonName('Anónimo')) out.push('assets/js/apoiantes-core.js: shortName / isAnonName no longer give «Nome I.» or spot an anonymous row');
+  for (const page of ['admin/espacos/index.html', 'admin/apoiantes/index.html', 'admin/patrocinios/index.html', 'admin/analytics/index.html', 'admin/documentos/index.html', 'admin/strava/index.html']) {
+    if (!/<a class="back" href="\.\.\/">← Painel<\/a>/.test(readFileSync(page, 'utf8'))) out.push(`${page}: no «← Painel» link back to the hub (<a class="back" href="../">)`);
+  }
   return out;
 }
 function checkTerms(R) {
@@ -291,8 +322,10 @@ function stamp(s, base) {
 
 // The admin pages reach the Workers only if their CSP lets them. Each address set in assets/js/data.js goes into
 // connect-src, after the fixed ones, and leaves it when the setting is emptied:
-// - SITE.requestsApi, the booking-request Worker (worker/README.md): /admin/;
-// - SITE.stats.url, the statistics Worker (stats-worker/README.md): /admin/ and /admin/analytics/.
+// - SITE.requestsApi, the booking-request Worker (worker/README.md): /admin/ (the hub), /admin/espacos/;
+// - SITE.stats.url, the statistics Worker (stats-worker/README.md): /admin/, /admin/espacos/ and /admin/analytics/.
+// The hub (/admin/) reads the site's own data files ('self'), the Pedidos Worker (requests, contracts, supporters) and
+// the statistics Worker (visits and logo clicks of the last 7 days); it never writes to GitHub, so no api.github.com.
 const DATA = readFileSync('assets/js/data.js', 'utf8');
 function origin(name, re) {
   const m = DATA.match(re);
@@ -306,7 +339,10 @@ function origin(name, re) {
 const worker = origin('SITE.requestsApi', /^\s*requestsApi:\s*'([^']*)'/m);
 const stats = origin('SITE.stats', /^\s*stats:\s*\{\s*url:\s*'([^']*)'/m);
 const CONNECT = {
-  'admin/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker, stats],
+  'admin/index.html': ["'self'", worker, stats],
+  'admin/espacos/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker, stats],
+  // the supporters page talks to the Pedidos Worker only (the names live in its KV, never in git)
+  'admin/apoiantes/index.html': ["'self'", worker],
   'admin/analytics/index.html': ["'self'", stats],
   // - SITE.requestsApi also: /admin/patrocinios/ (the sponsor contracts are kept by the same Worker); its montra editor
   //   commits through the GitHub API and then waits for gocarmo.com, as /admin/ does
@@ -315,7 +351,7 @@ const CONNECT = {
 CONNECT['admin/documentos/index.html'] = ["'self'", 'https://api.github.com', 'https://raw.githubusercontent.com'];
 const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
 
-for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false], ['imprensa/index.html', '../', false], ['press/index.html', '../', false]]) {
+for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/espacos/index.html', '../../', false], ['admin/apoiantes/index.html', '../../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false], ['imprensa/index.html', '../', false], ['press/index.html', '../', false]]) {
   const was = readFileSync(page, 'utf8');
   let now = stamp(withRaces ? bake(was) : was, base);
   if (CONNECT[page]) {

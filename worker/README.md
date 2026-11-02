@@ -1,7 +1,8 @@
 # Pedidos e contratos (Cloudflare Worker)
 
 Recebe as compras feitas no site, guarda os espaços enquanto o Gonçalo espera pelo pagamento e, depois de pago, guarda
-o registo de cada patrocínio (o contrato), que a página de admin **Patrocínios** mostra.
+o registo de cada patrocínio (o contrato), que a página de admin **Patrocínios** mostra. Guarda também os nomes do
+símbolo «Quem apoia» (ver **Apoiantes**).
 
 ## O que faz
 
@@ -71,6 +72,44 @@ de 2028). Se precisares de uma cópia, exporta o CSV em **Patrocínios**; apaga 
 privacidade/ promete isso). Não guarda o código do endereço de internet nem o logótipo. Confirmar gasta 2 escritas no KV
 (o contrato e o pedido); cada mudança num contrato, 1.
 
+## Apoiantes («Quem apoia», desde 02.11.2026)
+
+Os nomes do símbolo «Quem apoia», na secção Apoiar do site. Decisão do dono: entram todos os nomes da lista do
+GoFundMe que não sejam anónimos, na forma curta «Nome I.»; nunca o valor, a data ou a ordem dos donativos. Os nomes
+ficam aqui, no KV, **nunca no GitHub**.
+
+- **Uma chave por época**: `apo:2027`, um só documento `{ v: 1, season, names: [{ id, name, state }] }`, com
+  `state` `"espera"` (ainda não está no site) ou `"publicado"`. Nada mais sobre a pessoa: nem valor, nem data, nem email.
+  Apaga-se sozinho no fim de 31 de dezembro do ano seguinte ao da época (`contractExpiry`, o mesmo prazo dos contratos:
+  os de 2027 a 31 de dezembro de 2028). A época vem de `SEASON` em `assets/js/apoiantes-core.js` (muda-a para a época
+  seguinte; a chave antiga expira sozinha).
+- **Públicos** (sem chave, `Cache-Control: public, max-age=300`, `X-Robots-Tag: noindex, nofollow`, CORS só para o site):
+  `GET /apoiantes` → `{ v: 1, on }` (`on`: há pelo menos um nome publicado; sem contagem nem nomes), que o site pede
+  quando a secção Apoiar se aproxima do ecrã; `GET /apoiantes/nomes` → `{ v: 1, names: [{ id, name }] }`, só os
+  publicados, de A a Z (ordem portuguesa), que o site só pede depois do toque em «Vê quem apoiou». Sem nomes publicados
+  (ou com o Worker em baixo), o site não mostra nada.
+- **Admin** (a `ADMIN_KEY`, a mesma origem e o mesmo limite de rajadas de `/pedidos`): `GET /apoiantes/admin` (todos,
+  com o estado, `max`, `expira` e `on`) e `POST /apoiantes/admin` com
+  `{ action: "importar", names: [..], publicar?: true }` (a lista do Painel; por defeito publicados),
+  `{ action: "adicionar", name, publicar?: false }` (um nome; por defeito à espera),
+  `{ action: "publicar" }` (todos os que estão à espera) ou `{ action: "retirar", id }` (apaga já, sem rasto).
+  Cada nome é visto aqui outra vez (`nameProblem`): 2 a 40 caracteres, só letras, espaços, apóstrofo, hífen e ponto
+  (sem algarismos, @ ou links); «Ana M.» serve, um nome completo também (só a importação do Painel o encurta). Um nome
+  igual a outro (sem contar acentos nem maiúsculas) não entra duas vezes. Até 2 000 nomes (`muitos`, 409). Erros:
+  `acao`, `campos` (com `campo`), `nome` (400, com `motivo`), `existe` (409, com `id`), `nada` (404), `muitos`,
+  `json`, `tamanho` (413), mais os de todas as chamadas de admin. Cada mudança é 1 escrita no KV; uma importação
+  repetida não escreve nada.
+- O documento é lido, mudado e escrito: duas mudanças no mesmo segundo (dois separadores) podem perder uma. A
+  importação pode repetir-se sem estragar nada. Retirar um nome tira-o já do KV; o site deixa de o mostrar em até
+  5 minutos (cache do browser) e a cópia do KV na borda do Cloudflare em até 60 s.
+
+Exemplos (só leitura; troca `<conta>`):
+
+```sh
+curl -s https://gocarmo-pedidos.<conta>.workers.dev/apoiantes
+curl -s -H "Authorization: Bearer $ADMIN_KEY" https://gocarmo-pedidos.<conta>.workers.dev/apoiantes/admin
+```
+
 ## Limites contra abusos
 
 - Até 6 espaços por pedido. Mais do que isso, só o fato completo.
@@ -108,8 +147,10 @@ lista lê cada um, e uma chamada ao Worker faz no máximo 1 000 operações no K
 
 ## Publicar outra vez
 
-Cada push para `gh-pages` que mude `worker/` ou `assets/js/season-rules.js` (a conta do preço, que vai dentro do
-Worker) publica o Worker sozinho. Mudar só o `data/spots.json` (preços, datas da época) não precisa de publicar. À mão: **Actions > Deploy pedidos > Run
+Cada push para `gh-pages` que mude `worker/`, `assets/js/season-rules.js` (a conta do preço) ou
+`assets/js/apoiantes-core.js` (as regras dos nomes de «Quem apoia»), que vão dentro do Worker, publica o Worker
+sozinho. Sem a versão de 02.11.2026 publicada, o site não mostra «Quem apoia» (o `GET /apoiantes` responde 404 e o site
+lê isso como desligado) e as páginas Painel e Apoiantes dizem que o Worker ainda não tem esta parte. Mudar só o `data/spots.json` (preços, datas da época) não precisa de publicar. À mão: **Actions > Deploy pedidos > Run
 workflow** (este botão só aparece se o branch por defeito do repositório for `gh-pages`). No fim, o resumo da action
 mostra o endereço, por exemplo `https://gocarmo-pedidos.<conta>.workers.dev`.
 
@@ -141,13 +182,13 @@ apagam-se sozinhos. O contrato de um patrocínio pago fica até 31 de dezembro d
 apaga-se sozinho (a página `privacidade/` diz o mesmo; se mudares o prazo em `contractExpiry`, muda-a também). Só a página de admin, com a `ADMIN_KEY`, os consegue ler. O Worker não guarda o endereço de
 internet de quem pede: só um código feito com uma chave secreta (do endereço, ou do seu /64 em IPv6), para os
 limites e para «bloquear». Esse código sai do pedido quando a compra é confirmada; nos contadores apaga-se ao fim
-de 30 dias no máximo. O Worker não escreve registos. No `data/spots.json`, que é público, só aparecem a marca, o último dia da reserva e o número do pedido (e, depois da venda, que a página de admin escreve, o link da marca). O link que a marca dá no pedido fica no pedido e no contrato.
+de 30 dias no máximo. Os nomes de «Quem apoia» são públicos por natureza; ficam no KV até ao fim do ano seguinte ao da época e saem logo a pedido (ver **Apoiantes** e `privacidade/`). O Worker não escreve registos. No `data/spots.json`, que é público, só aparecem a marca, o último dia da reserva e o número do pedido (e, depois da venda, que a página de admin escreve, o link da marca). O link que a marca dá no pedido fica no pedido e no contrato.
 
 ## Para quem mexe no código
 
-`requests.js` tem um só import, `../assets/js/season-rules.js` (as datas da época e o preço, os mesmos do site e do
-admin). O `wrangler deploy` junta-o ao Worker (esbuild), por isso a action publica o Worker também quando esse ficheiro
-muda. Escreve o `data/spots.json` como a página de admin (`assets/js/admin-core.js`) e o formulário do GitHub
+`requests.js` tem dois imports, `../assets/js/season-rules.js` (as datas da época e o preço, os mesmos do site e do
+admin) e `../assets/js/apoiantes-core.js` (as regras dos nomes de «Quem apoia», as mesmas do site e do admin). O
+`wrangler deploy` junta-os ao Worker (esbuild), por isso a action publica o Worker também quando um deles muda. Escreve o `data/spots.json` como a página de admin (`assets/js/admin-core.js`) e o formulário do GitHub
 (`scripts/spot-update.mjs`), com mais o campo `request` em cada espaço reservado por um pedido; qualquer ação seguinte
 do admin tira esse campo. As chaves que não conhece (`seasonRules`, por exemplo) ficam no mesmo sítio e iguais.
 
@@ -161,6 +202,10 @@ do admin tira esse campo. As chaves que não conhece (`seasonRules`, por exemplo
 | `POST /contratos` | (admin) um contrato à mão: `201 { contrato }` |
 | `POST /contratos/<id>` | (admin) `{ action: "editar", set: {...} }`, `{ action: "renovacao", state: "" \| "proposta" \| "renova" \| "nao-renova", at? }` ou `{ action: "apagar" }` |
 | `GET /estado` | `{ ok, kv, github, admin, turnstile, limites, contratos }`, só verdadeiro ou falso |
+| `GET /apoiantes` | `{ v: 1, on }` (público; ver **Apoiantes**) |
+| `GET /apoiantes/nomes` | `{ v: 1, names: [{ id, name }] }`, os publicados de A a Z (público) |
+| `GET /apoiantes/admin` | (admin) `{ v, season, names: [{ id, name, state }], max, expira, on }` |
+| `POST /apoiantes/admin` | (admin) `importar`, `adicionar`, `publicar` ou `retirar` (ver **Apoiantes**); a resposta é a lista toda, com `added`, `repetidos`, `recusados`, `published` ou `removed` |
 
 O corpo de `POST /pedido` (JSON, `Content-Type: application/json`, do site `https://gocarmo.com`):
 `{ items: [ids de data.spots, 1 a 6] | title: true, brand, name, email, phone, nif?, message?, link?, pay: "mb" | "tr", lang?: "pt" | "en",

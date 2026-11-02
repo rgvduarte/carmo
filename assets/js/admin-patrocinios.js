@@ -197,7 +197,7 @@ function renderNow(day, r) {
     if (it.acts.length) {
       const acts = el('div', 'now-acts');
       for (const a of it.acts) {
-        if (a.op === 'espacos') { const l = el('a', 'btn sm ghost', a.label); l.href = '../'; acts.appendChild(l); continue; }
+        if (a.op === 'espacos') { const l = el('a', 'btn sm ghost', a.label); l.href = '../espacos/'; acts.appendChild(l); continue; }
         const b = el('button', `btn sm ${a.state === 'nao-renova' ? 'ghost' : ''}`.trim(), a.label);
         b.type = 'button';
         b.disabled = S.busy.has(it.id);
