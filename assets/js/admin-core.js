@@ -16,9 +16,11 @@ export const SITE = 'https://gocarmo.com';
 export const MSG = {
   needBrandSold: 'Para marcar como vendido, escreve o nome da marca.',
   needBrandReserve: 'Para reservar, escreve o nome da marca.',
-  badUrl: 'O link tem de começar por https:// (ex.: https://marca.pt ou @marca).',
+  badUrl: 'O link não serve: escreve um endereço como marca.pt ou https://marca.pt (não http://), ou @marca.',
   badUrlSpace: 'O link não leva espaços.',
   badUrlLong: 'O link vai até 200 caracteres.',
+  // a link through a shortener or a redirect page (season-rules.js isRedirector): shown, never refused
+  urlRedirect: 'Este link passa por um encurtador ou por um redirecionamento: a página a que leva pode mudar depois de o aprovares. Usa o endereço da própria página da marca.',
   badDate: 'Data inválida (usa o calendário).',
   pastDate: 'Essa data já passou.',
   logoType: 'O logótipo tem de ser PNG, JPG, WebP ou SVG.',
@@ -97,12 +99,16 @@ export function applyAction(raw, ids, action, f, { today, brandFiles = [], logoE
     const target = targetOf(data, id);
     if (!target) throw new RuleError(`O espaço "${id}" não existe em data/spots.json.`);
     const prevBrand = target.brand;
-    for (const k of ['brand', 'url', 'until', 'request']) delete target[k];   // request: a hold placed by the site
+    // since: the day the spot went to this brand (the brand report counts its logo's clicks from that month on); a sale
+    // again to the same brand (a new link, a new logo) keeps the day it had, or none
+    const since = action !== 'sold' ? undefined : target.status === 'sold' && f.brand === prevBrand ? target.since : today;
+    for (const k of ['brand', 'url', 'until', 'request', 'since']) delete target[k];   // request: a hold placed by the site
     target.status = action;
     // a logo belongs to the brand that bought the spot: it goes when the spot is freed, held or changes hands
     if (action !== 'sold' || f.brand !== prevBrand) { delete target.logo; delete target.logoMono; filesOf(id).forEach((p) => deletes.add(p)); }
     if (f.brand && action !== 'available') target.brand = f.brand;
     if (f.url && action === 'sold') target.url = f.url;   // the logo's link goes live with the sale only
+    if (since) target.since = since;
     if (action === 'reserved') target.until = f.until;
     if (action === 'sold' && logoExt) {
       filesOf(id).forEach((p) => deletes.add(p));

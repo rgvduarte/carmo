@@ -154,6 +154,7 @@ Só funciona para quem gere o repositório e precisa que o branch por defeito se
 | `logo` | `"assets/img/brands/peito.png"` | Logótipo impresso no fato ou no capacete 3D |
 | `logoMono` | `"#f6f7f9"` | Força uma cor única no logótipo (por defeito, logótipos escuros ficam brancos sobre o preto) |
 | `until` | `"2026-10-31"` | Último dia da reserva |
+| `since` | `"2026-11-02"` | Dia em que o espaço foi vendido a esta marca (escrito pela venda, na página de admin e no formulário do GitHub; uma venda outra vez à mesma marca mantém-no). O relatório da marca conta os cliques no logótipo desse espaço a partir desse mês, nunca os da marca que o tinha antes. Um espaço vendido antes de 02.11.2026 não o tem e conta desde o início |
 | `item` | `"helmet"` | O espaço é no capacete (sem este campo, é no fato) |
 | `pt.short`, `en.short` | `"Lado esquerdo"` | Nome curto na tabela da parte do capacete (opcional; no pedido e na mensagem vai o nome completo) |
 
@@ -175,19 +176,28 @@ pode ser 0, ±90 ou 180.
   desligado, um toque num logótipo impresso também abre a ficha. Na lista «Já no fato» / «Já no capacete» cada marca
   aparece com o logótipo (ou o nome, sem logótipo), que é o link. Por baixo do fato e do capacete, só quando um espaço
   vendido desse modelo tem link: «Toca num logótipo para conheceres quem vai comigo em 2027.» («Clica» com rato; EN
-  «Tap a logo to meet the brands coming with me in 2027.»). Sem 3D (a imagem parada), as linhas da tabela abrem a
+  «Tap a logo to meet the brands coming with me in 2027.»): num computador, no fundo do palco, por cima da dica, sem
+  apanhar cliques; até 1080 px (telemóvel, tablet, telemóvel deitado), no topo do painel, por baixo do modelo, para nunca
+  tapar um espaço. A dica do palco diz «Clica num espaço» com rato e «Toca num espaço» com o dedo. Na lista, cada link
+  tem 44 px de altura e uma seta (↗); a ficha de um espaço vendido diz «Vendido» e o nome da marca uma vez, na caixa da
+  marca. Sem 3D (a imagem parada), as linhas da tabela abrem a
   mesma ficha, com o botão; sem JavaScript não há espaços vendidos na página, por isso não há links.
 - **As regras do link** (`assets/js/season-rules.js` `brandLink`, as mesmas no pedido do site, no Worker, na página de
   admin e no formulário do GitHub): `https://` (um domínio sem `https://`, como `padaria.pt`, ganha-o), ou `@marca`,
   que passa a `https://www.instagram.com/marca/`; nunca `http:`, `javascript:`, `data:`, `mailto:`, espaços, um
   endereço IP, uma porta ou `gocarmo.com`; até 200 caracteres. O site volta a confirmar cada `url` do
   `data/spots.json` antes de o mostrar (`sponsorHref`) e nunca mostra um link de um espaço reservado ou livre;
-  `node scripts/stamp.mjs --check` recusa um `url` que não cumpra as regras.
+  `node scripts/stamp.mjs --check` recusa um `url` que não cumpra as regras. Também recusa nomes de rede local, de
+  teste ou escondidos (`.local`, `.localhost`, `.internal`, `.lan`, `.home`, `.corp`, `.test`, `.example`, `.invalid`,
+  `.onion`, `.alt`, `.arpa`) e um `@` sem letras nem algarismos (`@.`, `@_`). Um link por um encurtador ou um
+  redirecionamento (bit.ly, t.co, tinyurl.com, l.instagram.com, google.com/url…; `isRedirector`) passa, mas a página
+  de admin avisa no pedido, na venda e em Patrocínios que o destino pode mudar depois de o aprovares.
 - **Como sai o link.** Abre noutro separador, com `rel="sponsored noopener"` (sem `noreferrer`: a marca vê que a visita
   veio de gocarmo.com) e o nome «Visitar [Marca] (abre noutro separador)» para o leitor de ecrã. Num link para o site
   da própria marca, o site junta `utm_source=gocarmo.com&utm_medium=patrocinio&utm_campaign=epoca-2027` (se o link não
-  tiver já parâmetros `utm_`); num link para instagram.com, facebook.com, tiktok.com, linkedin.com, wa.me, x.com ou
-  youtube.com (e subdomínios), nada.
+  tiver já parâmetros `utm_`); num link para uma rede (`LINK_NETWORKS`: instagram.com, instagr.am, facebook.com,
+  fb.com, fb.me, m.me, tiktok.com, linkedin.com, lnkd.in, wa.me, whatsapp.com, x.com, twitter.com, youtube.com, youtu.be,
+  threads.net, threads.com, linktr.ee, e subdomínios) ou por um encurtador, nada.
 - **Quem o põe.** A marca pode dá-lo no pedido (opcional). Só vai para o site com a venda: «Confirmar compra» (o link do
   pedido vem preenchido e podes mudá-lo ou apagá-lo), **Vendido** em Espaços, ou o formulário do GitHub com Vendido.
   Para pôr ou mudar o link de um espaço já vendido, escolhe-o em Espaços e carrega em **Vendido** com a mesma marca: o
@@ -333,9 +343,9 @@ instruções em `worker/README.md`), no endereço de `SITE.requestsApi` em `asse
    letras).», «Escreve o teu email.», «Confirma o email: por exemplo, nome@empresa.pt.», «Escreve o teu número de
    telefone.», «Confirma o número: 9 algarismos, ou + e o indicativo do país.» (em inglês, «Add your name.», …). O link
    segue as regras de «O link do logótipo»: `padaria.pt` vale `https://padaria.pt/` e `@marca` o Instagram; um link
-   errado mostra o erro por baixo dele («Confirma o link: começa por https:// (por exemplo, https://marca.pt), ou
-   escreve @marca.», «O link não leva espaços.», «O link vai até 200 caracteres.») e não deixa enviar, mas nunca põe
-   os botões em espera.
+   errado mostra o erro por baixo dele («Confirma o link: escreve um endereço como marca.pt ou https://marca.pt (não
+   http://), ou @marca para o Instagram.», «O link não leva espaços.», «O link vai até 200 caracteres.») e não deixa
+   enviar, mas nunca põe os botões em espera.
 2. Carrega em WhatsApp, Email ou Instagram. O site manda o pedido ao Worker («A reservar…») com os espaços, a marca,
    o nome, o email, o telefone, o NIF, a mensagem, a forma de pagar, o logótipo e, se o deu, o link (`link`). A mensagem
    leva, por baixo de `Marca:`, a linha `Link:` (só com link) e as linhas `Nome:`, `Email:` e `Telefone:` (em inglês
@@ -527,7 +537,7 @@ num só ficheiro, `assets/js/season-rules.js`, que o site, o admin e o Worker im
 | `renewBy` | 2027-10-31 | último dia para o patrocinador dizer que sim e ficar com o espaço |
 | `openFrom` | 2027-11-01 | os espaços não renovados ficam livres para todos |
 | `renewPayBy` | 2028-01-15 | último dia para pagar a renovação de 2028 (o prazo do logótipo de 2028); sem o pagamento, o espaço fica livre a partir do dia seguinte |
-| `termsDate` | 2026-10-30 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
+| `termsDate` | 2026-11-02 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
 
 O fuso é sempre o de Lisboa. `node scripts/stamp.mjs` recusa um bloco com datas impossíveis (fora da época, fora de
 ordem, `fullPriceUntil` que não seja o último dia de um mês, `requestsUntil` em dezembro, `racesUntil` fora da época,
@@ -1200,9 +1210,11 @@ espaços da marca (e `title`, no fato completo) somam os cliques dela, também o
 rede. Os dias antes disso (o contador antigo, ou uma página aberta antes da publicação) contam pelo endereço do link da
 marca (e subdomínios), só para um link do site da própria marca e só nos dias sem nenhum `sponsor_click`
 (`logoOld`), por isso nenhum clique conta duas vezes; o PDF diz «Antes de …, os cliques contam-se pelo endereço do
-link». Um espaço que mudou de marca no período conta para a marca de agora. Uma marca vendida sem link não tem
-cliques, e o diálogo diz isso. Com o contador anterior (sem contagem por espaço), o PDF conta pelo endereço, como
-antes, e uma marca só com Instagram fica sem esse bloco. Os cliques por mês precisam da versão nova do contador; até
+link». Um espaço conta para a marca a partir do mês da venda a ela (`since`), por isso o relatório de uma marca nunca
+leva os cliques da marca que tinha o espaço antes; o PDF diz o mês quando ele cai dentro do período («Um espaço conta a
+partir do mês em que passou a ser da marca: …»). Um espaço vendido antes de haver `since` conta desde o início. Uma
+marca vendida sem link não tem cliques, e o diálogo diz isso. Com o contador anterior (sem contagem por espaço), o PDF
+conta pelo endereço, como antes, e uma marca só com Instagram fica sem esse bloco. Os cliques por mês precisam da versão nova do contador; até
 publicares, o PDF sai sem esse bloco e o diálogo explica porquê. No
 telemóvel, o estado («A juntar os números (2 de 6)», «PDF pronto», um erro) fica por cima dos botões, e o botão mostra o
 passo.

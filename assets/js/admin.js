@@ -6,7 +6,7 @@ import * as C from './admin-core.js';
 import { GhError, UiError, transient, readToken, forgetToken, keepToken, gh, UNKNOWN, errText, checkToken, signInText, getToken, setToken, commitFiles, readText } from './admin-gh.js';
 import { findBrand, countFor, spotsAllow, retireOver, deletesFor, applyBrand, fileText } from './admin-montra-core.js';
 import { MONTRA_PATH } from './montra-core.js';
-import { lisbonDay, rulesOf, isDay, noRacesLeft, brandLink, linkShown } from './season-rules.js';
+import { lisbonDay, rulesOf, isDay, noRacesLeft, brandLink, linkShown, isRedirector } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -611,6 +611,7 @@ function reqCard(r) {
   // the brand's link, to open and check before it goes on the logo (it reaches the site only with the sale)
   const lk = reqLink(r);
   if (lk) { const p = el('p', 'req-link', 'Link: '), a = el('a', null, linkShown(lk)); a.href = lk; a.target = '_blank'; a.rel = 'noopener noreferrer'; p.appendChild(a); li.appendChild(p); }
+  if (lk && isRedirector(lk)) { const n = el('ul', 'notes'); n.appendChild(el('li', null, C.MSG.urlRedirect)); li.appendChild(n); }
   if (r.message) li.appendChild(el('p', 'req-msg', r.message));
   const st = el('span', 'st'), left = C.holdLeft(r.until);
   if (r.status === 'confirmado') { st.classList.add('sold'); st.appendChild(el('span', null, 'Compra confirmada')); }
@@ -690,7 +691,7 @@ async function confirmPurchase(r) {
   // the brand's link: the request's, else the one its spots show already (an earlier sale to it); editable, removable
   const lk = reqLink(r) || soldLink(r);
   $('#f-url').value = lk;
-  $('#f-url-hint').textContent = lk ? 'Link do pedido: podes mudar ou apagar. Fica no logótipo no site com esta venda.' : URL_HINT;
+  $('#f-url-hint').textContent = reqLink(r) ? 'Link do pedido: podes mudar ou apagar. Fica no logótipo no site com esta venda.' : lk ? 'Link que o site já mostra nestes espaços: podes mudar ou apagar.' : URL_HINT;
   sheet.request = r.id;
   const note = $('#sh-req');
   note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.${!logoLateReq(base.data, r) ? '' : noRaceReq(base.data, r) ? ` ${NO_RACE(base.data, r)}` : ` ${RACE_ASK} Escreve-a depois em Patrocínios (Editar, «A partir da prova»).`}`;
@@ -942,6 +943,11 @@ function refreshSheet() {
     for (const m of g.confirms) warn.appendChild(el('li', null, m));
   }
   for (const m of reqNotes(raw, ids, action)) warn.appendChild(el('li', null, m));
+  // a link through a shortener or a redirect page: said right under the link field (it can still be saved)
+  const uw = $('#f-url-warn'), typed = action === 'sold' ? brandLink($('#f-url').value).url : '';
+  uw.textContent = '';
+  if (typed && isRedirector(typed)) uw.appendChild(el('li', null, C.MSG.urlRedirect));
+  uw.hidden = !uw.children.length;
   if (action !== 'sold') return;
   const keeps = sheet.logo ? [] : ids.map((id) => C.targetOf(raw, id)).filter((x) => x.logo && x.brand === brand);
   const cur = $('#cur-logo');

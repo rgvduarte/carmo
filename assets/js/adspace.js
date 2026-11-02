@@ -831,14 +831,15 @@ function renderOnSuit() {
   host.hidden = !brands.size;
 }
 // under each model, while one of its sold spots links out: «Toca num logótipo para conheceres quem vai comigo em 2027.»
-// («Clica» with a mouse). Inside the stage's foot, so a stage without 3D (the still picture, no logos) hides it too.
+// («Clica» with a mouse). Two copies, CSS shows one: in the stage's foot on a computer (a stage without 3D, the still
+// picture with no logos, hides it with the foot) and at the top of the panel up to 1080 px, off the model.
 function renderSponsorNotes() {
   for (const it of ITEMS) {
-    const n = $(`.stage[data-item="${it}"] .sp-note`);
-    if (!n) continue;
     const on = ofItem(it).some((s) => !!liveLink(s));
-    n.hidden = !on;
-    n.textContent = on ? t(touch() ? 'sp.noteT' : 'sp.noteC', DATA.season) : '';
+    for (const n of $$(`.part[data-item="${it}"] .sp-note`)) {
+      n.hidden = !on;
+      n.textContent = on ? t(touch() ? 'sp.noteT' : 'sp.noteC', DATA.season) : '';
+    }
   }
 }
 
@@ -1030,7 +1031,8 @@ function fillCard(s) {
   const tier = $('#sd-tier'); tier.textContent = '';
   for (const [cls, txt] of [['t1', pick(tr)], ['t2', getLang() === 'en' ? `${DATA.season} season` : `época ${DATA.season}`]]) { const sp = document.createElement('span'); sp.className = cls; sp.textContent = txt; tier.appendChild(sp); }
   $('#sd-size').textContent = sizeOf(s);
-  $('#sd-status').textContent = statusText(s);
+  // a sold spot names its brand once, in the sponsor box below: the badge says «Vendido» only
+  $('#sd-status').textContent = s.status === 'sold' && s.brand ? t('st.sold') : statusText(s);
   $('#sd-status').className = `badge${s.status === 'available' ? '' : ' dim'}`;
   $('#sd-top').hidden = s.id !== topId;
   $('#sd-pitch').textContent = pick(s).pitch;

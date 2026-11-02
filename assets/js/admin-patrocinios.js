@@ -8,8 +8,8 @@
 // the brand's montra («O meu material», data/montra.json): its line and its editor are admin-montra.js, which commits
 // through the GitHub API with the owner's token (admin-gh.js). Every piece of a record is shown with textContent only.
 import * as A from './admin-contracts.js';
-import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError } from './admin-core.js';
-import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, brandLink, linkShown } from './season-rules.js';
+import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError, MSG } from './admin-core.js';
+import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, brandLink, linkShown, isRedirector } from './season-rules.js';
 import { initMontra, montraLine, loadFile as loadMontra, retireFor, montraOver } from './admin-montra.js';
 import { forgetToken, setToken } from './admin-gh.js';
 import { SITE } from './data.js';
@@ -62,7 +62,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 const FIELD_TEXT = {
   brand: 'Escreve o nome da marca (até 60 letras).', items: 'Escolhe os espaços, o fato completo, ou escreve uma descrição em «Outro».', season: 'A época tem de ser a desta tabela ou a seguinte (e só muda num registo ainda sem alterações).',
   amount: 'O montante é em euros, sem cêntimos, até 100 000 €.', paidAt: 'A data do pagamento tem de ser de 1 jan. 2026 a amanhã.', pay: 'Escolhe a forma de pagamento.', inKind: 'A descrição do pagamento em produto vai até 200 letras.',
-  url: 'O link da marca tem de começar por https://.', 'contact.email': 'O email não é válido.', 'contact.phone': 'O telefone só leva algarismos, espaços, +, ( ) e -.', 'contact.name': 'O nome vai até 80 letras.',
+  url: 'O link da marca não serve: escreve um endereço como marca.pt ou https://marca.pt (não http://), ou @marca.', 'contact.email': 'O email não é válido.', 'contact.phone': 'O telefone só leva algarismos, espaços, +, ( ) e -.', 'contact.name': 'O nome vai até 80 letras.',
   'contact.handle': 'A conta vai até 60 letras.', nif: 'O NIF só leva letras, algarismos, espaços, pontos, / e -.', notes: 'As notas vão até 2 000 letras.', label: 'A descrição vai até 80 letras.', state: 'Estado da renovação inválido.',
   'logo.fromRace': 'O nome da prova vai até 80 letras.',
 };
@@ -343,6 +343,7 @@ function card(c, day) {
       p.append(' ', b);
     }
     li.appendChild(p);
+    if ([lk, site].some((u) => u && isRedirector(u))) { const n = el('ul', 'notes'); n.appendChild(el('li', null, MSG.urlRedirect)); li.appendChild(n); }
   }
   if (c.notes) {
     const n = el('p', 'ct-notes', c.notes);
@@ -573,7 +574,7 @@ function sheetBody() {
   try { paid = normPaid($('#c-paid').value, $('#c-amount').value, today()); } catch (x) { err(x.message, /montante/i.test(x.message) ? '#c-amount' : '#c-paid'); }
   let url = '';
   try { url = normUrl($('#c-url').value); } catch (x) { err(x.message, '#c-url'); }
-  if (url && !/^https:\/\//.test(url)) err('O link da marca tem de começar por https://.', '#c-url');
+  if (url && !/^https:\/\//.test(url)) err(FIELD_TEXT.url, '#c-url');
   // the sponsor's name, email and phone: required in a new record (as the site asks them in every request since
   // 31.10.2026); in a record from before, a field it never had may stay empty, but one it has cannot be emptied
   const cname = $('#c-cname').value.trim().replace(/\s+/g, ' '), email = $('#c-email').value.trim(), phone = $('#c-phone').value.trim(), nif = $('#c-nif').value.trim();
