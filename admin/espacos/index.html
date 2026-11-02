@@ -2,7 +2,7 @@
 <html lang="pt-PT">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-ybHacKBMUWokesTLPFn3eMzSLBVyaxxX7kf/rDropkk='; connect-src 'self' https://api.github.com https://gocarmo.com https://gocarmo-pedidos.rgvduarte.workers.dev https://gocarmo-api.rgvduarte.workers.dev; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-xO1GhSJ103j5PrzD432ZdMNxYwqwHT/hzOU0EmCelSM='; connect-src 'self' https://api.github.com https://gocarmo.com https://gocarmo-pedidos.rgvduarte.workers.dev https://gocarmo-api.rgvduarte.workers.dev; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'self'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -43,7 +43,7 @@
   "../../assets/js/admin-report.js": "../../assets/js/admin-report.js?v=b49cf6c1",
   "../../assets/js/admin-strava.js": "../../assets/js/admin-strava.js?v=d382a127",
   "../../assets/js/admin-worker.js": "../../assets/js/admin-worker.js?v=ad096645",
-  "../../assets/js/admin.js": "../../assets/js/admin.js?v=de132600",
+  "../../assets/js/admin.js": "../../assets/js/admin.js?v=87212695",
   "../../assets/js/adspace.js": "../../assets/js/adspace.js?v=cda500d5",
   "../../assets/js/analytics.js": "../../assets/js/analytics.js?v=177cfede",
   "../../assets/js/apoiantes-core.js": "../../assets/js/apoiantes-core.js?v=530b4786",
@@ -82,7 +82,7 @@
   "../../assets/js/vault-words.js": "../../assets/js/vault-words.js?v=db8927d5"
 } }
 </script>
-<script type="module" src="../../assets/js/admin.js?v=de132600"></script>
+<script type="module" src="../../assets/js/admin.js?v=87212695"></script>
 </head>
 <body>
 <div class="banner" id="offline" role="status" hidden>Sem ligação. Nada se guarda até voltar a rede.</div>
@@ -228,8 +228,10 @@
     <!-- the brand's link: with a sale only (a reserved spot never shows one on the site); admin-core.js normUrl -->
     <div class="field" data-only="sold">
       <label for="f-url">Link da marca <span class="opt">(opcional)</span></label>
-      <input id="f-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://marca.pt ou @marca" enterkeyhint="next" maxlength="400" aria-describedby="f-url-hint">
+      <input id="f-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="https://marca.pt ou @marca" enterkeyhint="next" maxlength="400" aria-describedby="f-url-hint f-url-warn">
       <p class="hint" id="f-url-hint">Fica no logótipo no site: o site, o Instagram ou a página de contacto da marca. https:// ou @marca.</p>
+      <!-- a shortener or a redirect page (season-rules.js isRedirector): said here, under the link, never refused -->
+      <ul class="notes" id="f-url-warn" aria-live="polite" hidden></ul>
     </div>
     <div class="field" data-only="reserved">
       <label for="f-until">Reservado até</label>

@@ -954,9 +954,12 @@ function refreshSheet() {
     for (const m of g.confirms) warn.appendChild(el('li', null, m));
   }
   for (const m of reqNotes(raw, ids, action)) warn.appendChild(el('li', null, m));
+  // a link through a shortener or a redirect page: said right under the link field (it can still be saved)
+  const uw = $('#f-url-warn'), typed = action === 'sold' ? brandLink($('#f-url').value).url : '';
+  uw.textContent = '';
+  if (typed && isRedirector(typed)) uw.appendChild(el('li', null, C.MSG.urlRedirect));
+  uw.hidden = !uw.children.length;
   if (action !== 'sold') return;
-  const typed = brandLink($('#f-url').value).url;
-  if (typed && isRedirector(typed)) warn.appendChild(el('li', null, C.MSG.urlRedirect));
   const keeps = sheet.logo ? [] : ids.map((id) => C.targetOf(raw, id)).filter((x) => x.logo && x.brand === brand);
   const cur = $('#cur-logo');
   cur.hidden = !keeps.length;
