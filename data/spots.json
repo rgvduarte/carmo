@@ -241,7 +241,7 @@
       "h": 6,
       "area": "shoulders",
       "price": 150,
-      "status": "available",
+      "status": "reserved",
       "vis": {
         "bike": 3,
         "run": 2,
@@ -255,7 +255,10 @@
       "en": {
         "name": "Left shoulder",
         "pitch": "Visible from the front, the side and above."
-      }
+      },
+      "brand": "VilAçaí",
+      "until": "2026-11-04",
+      "request": "TNW6SLH448"
     },
     {
       "id": "ombro-d",
