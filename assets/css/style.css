@@ -864,6 +864,95 @@ section { position: relative; }
 .title-partner .price small { display: block; font: 500 12px/1.3 var(--sans); color: var(--muted); margin-top: 6px; }
 .title-partner .btn { grid-column: 1 / -1; justify-self: start; }
 
+/* the season whole suit when it cannot be asked for (a suit spot taken): quiet, the reason, the way to the race card */
+.title-partner.is-off { background: var(--bg-2); border-color: var(--line); }
+.title-partner.is-off .price { color: var(--muted); }
+.title-partner .tp-off { grid-column: 1 / -1; margin: 0; display: grid; gap: 4px; }
+.title-partner .tp-off[hidden] { display: none; }
+.title-partner .tp-off b { font: 650 15px/1.35 var(--sans); color: var(--ink); }
+.title-partner .tp-off span { font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.tp-acts [hidden] { display: none; }
+.tp-go svg, #hp-go svg { transform: rotate(90deg); }
+
+/* the race partner: the whole suit at one race (adspace.js renderRace) */
+.race-partner { display: grid; gap: 18px; background: linear-gradient(135deg, rgba(230,180,80,0.14), rgba(230,180,80,0.02) 60%), var(--bg-2); border-color: rgba(230,180,80,0.32); }
+.race-partner[hidden], .race-partner [hidden] { display: none; }
+.rp-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 16px; align-items: start; }
+.rp-head h4, .rp-notice h4 { font: 700 20px/1.2 var(--sans); text-wrap: balance; }
+.rp-head h4:focus, .rp-notice h4:focus { outline: none; }
+.rp-head h4:focus-visible, .rp-notice h4:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; border-radius: 4px; }
+.rp-head .price { font: 700 30px/1 var(--sans); letter-spacing: -0.02em; color: var(--gold); text-align: right; white-space: nowrap; padding-top: 22px; }
+.rp-head .price small { display: block; font: 500 12px/1.3 var(--sans); letter-spacing: 0; color: var(--muted); margin-top: 6px; }
+.rp-offer { display: grid; gap: 18px; }
+.rp-lede { margin: -6px 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; text-wrap: pretty; }
+@media (max-width: 640px) { .rp-head .price { font-size: 26px; } }
+.rp-inc { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; line-height: 1.45; color: var(--ink); }
+.rp-inc li { position: relative; padding-left: 18px; text-wrap: pretty; }
+.rp-inc li::before { content: ""; position: absolute; left: 0; top: .7em; width: 8px; height: 1px; background: var(--gold); }
+/* the races: one radio row each, its state on the right (44 px targets, the focus ring on the radio) */
+.rp-pick { margin: 0; padding: 0; border: 0; min-width: 0; }
+.rp-pick legend { padding: 0 0 10px; font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.rp-race { position: relative; display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 0 12px; align-items: start; min-height: 44px; padding: 12px 8px 12px 6px; border-top: 1px solid var(--line); cursor: pointer; }
+.rp-race:last-child { border-bottom: 1px solid var(--line); }
+.rp-race input { appearance: none; -webkit-appearance: none; width: 20px; height: 20px; margin: 0; border-radius: 50%; border: 1.5px solid var(--line-2); background: var(--bg); display: grid; place-items: center; cursor: inherit; }
+.rp-race input:checked { border-color: var(--gold); }
+.rp-race input:checked::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--gold); }
+.rp-race input:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.rp-race.is-sel { background: linear-gradient(90deg, rgba(230,180,80,0.12), transparent 75%); }
+.rp-r-n { display: block; font: 600 15px/1.25 var(--sans); color: var(--ink); text-wrap: balance; }
+.rp-r-d { display: block; margin-top: 3px; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.rp-r-by { display: block; margin-top: 3px; font-size: 12px; line-height: 1.35; color: var(--dim); }
+.rp-r-pr { font: 700 16px/1.25 var(--sans); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-r-pr.q { font: 600 14px/1.25 var(--sans); color: var(--gold); }
+.rp-r-pr .badge { font-size: 12px; }
+.rp-race.is-off { cursor: default; }
+.rp-race.is-off input { opacity: .3; }
+.rp-race.is-off .rp-r-n { color: var(--muted); }
+.rp-race.is-off .rp-r-d { color: var(--dim); }
+@media (max-width: 380px) { .rp-race { grid-template-columns: 22px minmax(0, 1fr); } .rp-r-pr { grid-column: 2; text-align: left; margin-top: 6px; } }
+.rp-banner { margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.08); font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+.rp-lead { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: var(--muted); text-wrap: pretty; }
+.rp-iron { margin: 0; padding-left: 12px; border-left: 2px solid var(--line-2); font-size: 13px; line-height: 1.45; color: var(--muted); text-wrap: pretty; }
+.rp-helm-w { display: grid; gap: 8px; }
+.race-partner .only-avail { margin: 0; background: var(--bg); }
+.rp-helm-p { margin-left: 6px; color: var(--gold); font-weight: 650; white-space: nowrap; }
+.rp-hint { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); text-wrap: pretty; }
+.rp-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-top: 14px; border-top: 1px solid var(--line-2); }
+.rp-total .k { display: block; font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.rp-total .w { display: block; margin-top: 6px; font-size: 14px; line-height: 1.35; color: var(--ink); }
+.rp-total b { font: 700 24px/1 var(--sans); letter-spacing: -0.02em; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.rp-q { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); text-wrap: pretty; }
+.rp-pay { margin: -10px 0 0; font-size: 13px; color: var(--muted); }
+.rp-contact { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.rp-mail { color: var(--muted); font-size: 14px; text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; padding: 10px 4px; }
+.rp-none { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--bg-3); font-size: 14px; color: var(--muted); }
+@media (max-width: 640px) { .rp-acts #rp-btn, .rp-acts #rp-wa { width: 100%; min-height: 48px; } }
+/* once sold: the same card is the public notice */
+.rp-notice { display: grid; gap: 14px; }
+.rp-n-when { margin: 6px 0 0; font-size: 14px; color: var(--muted); }
+.rp-n-p { margin: 0; font: 600 16px/1.4 var(--sans); color: var(--ink); text-wrap: pretty; }
+.race-partner .sd-sponsor { margin: 0; background: var(--bg); }
+.rp-n-season { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+.rp-n-one { margin: 0; font: 500 11px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+/* the helmet part: the option before its price table, and the notice once the helmet add-on is sold */
+.hp-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 20px; align-items: center; }
+.hp-card[hidden], .hp-note[hidden] { display: none; }
+.hp-card h4 { font: 650 17px/1.3 var(--sans); }
+.hp-card p { margin: 4px 0 0; font-size: 14px; line-height: 1.5; color: var(--muted); text-wrap: pretty; }
+@media (max-width: 640px) { .hp-card { grid-template-columns: minmax(0, 1fr); } .hp-card .btn { justify-self: start; } }
+.hp-card .btn svg { transform: rotate(-90deg); }
+.hp-note { display: flex; align-items: center; gap: 12px; margin: 0; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.08); font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+@media (max-width: 640px) { .hp-note { flex-direction: column; align-items: flex-start; } }
+.hp-note img { flex: none; height: 32px; width: auto; max-width: 120px; object-fit: contain; padding: 4px 8px; border-radius: 8px; background: #fff; }
+/* the booking dialog for a race: what happens next, and the exception on a season request after a sale */
+.cl-how { display: grid; gap: 10px; margin-top: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(230,180,80,.45); background: rgba(230,180,80,.06); }
+.cl-how[hidden], .cl-ex[hidden] { display: none; }
+.cl-how h5 { margin: 0; font: 500 11px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--gold); }
+.cl-how ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; counter-reset: s; }
+.cl-how li { position: relative; padding-left: 28px; font-size: 14px; line-height: 1.45; color: var(--ink); text-wrap: pretty; counter-increment: s; }
+.cl-how li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(230,180,80,.6); display: grid; place-items: center; font: 600 10px/1 var(--mono); color: var(--gold); }
+.cl-ex { margin: 8px 0 0; padding-left: 10px; border-left: 2px solid var(--gold); font-size: 13px; line-height: 1.45; color: var(--ink); text-wrap: pretty; }
+
 .package { position: fixed; z-index: 45; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translate(-50%, 140%); width: min(720px, calc(100% - 24px)); background: var(--paper); color: #111; border-radius: 18px; padding: 12px 12px 12px 20px; display: flex; align-items: center; gap: 14px; box-shadow: none; visibility: hidden; transition: transform .5s var(--ease), visibility 0s .5s; }
 .package.on { transform: translate(-50%, 0); visibility: visible; box-shadow: 0 20px 60px rgba(0,0,0,0.5); transition: transform .5s var(--ease); }
 .package .sum { flex: 1; min-width: 0; }

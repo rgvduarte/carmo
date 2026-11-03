@@ -23,7 +23,7 @@
 <link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/css/fonts.css?v=38c3202f">
-<link rel="stylesheet" href="assets/css/style.css?v=cb165ddf">
+<link rel="stylesheet" href="assets/css/style.css?v=ca5304c7">
 <link rel="preload" as="image" href="assets/img/hero-2400.webp" imagesrcset="assets/img/hero-1200.webp 1200w, assets/img/hero-2400.webp 2400w" imagesizes="100vw">
 <script>
   // Reveal-on-scroll hides blocks until main.js shows them. If main.js never boots (a failed file, a blocked
@@ -89,7 +89,7 @@
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
   "./assets/js/admin-worker.js": "./assets/js/admin-worker.js?v=ad096645",
   "./assets/js/admin.js": "./assets/js/admin.js?v=3c6f2e33",
-  "./assets/js/adspace.js": "./assets/js/adspace.js?v=cda500d5",
+  "./assets/js/adspace.js": "./assets/js/adspace.js?v=56884042",
   "./assets/js/analytics.js": "./assets/js/analytics.js?v=177cfede",
   "./assets/js/apoiantes-core.js": "./assets/js/apoiantes-core.js?v=530b4786",
   "./assets/js/apoiantes-import.js": "./assets/js/apoiantes-import.js?v=fa3a3b9b",
@@ -101,7 +101,7 @@
   "./assets/js/gl3d.js": "./assets/js/gl3d.js?v=a7737baa",
   "./assets/js/gofundme.js": "./assets/js/gofundme.js?v=23f90aef",
   "./assets/js/helmet.js": "./assets/js/helmet.js?v=df0a53e9",
-  "./assets/js/i18n.js": "./assets/js/i18n.js?v=32a51d78",
+  "./assets/js/i18n.js": "./assets/js/i18n.js?v=78012ac4",
   "./assets/js/internal.js": "./assets/js/internal.js?v=0e8677cf",
   "./assets/js/main.js": "./assets/js/main.js?v=b3401bed",
   "./assets/js/marks.js": "./assets/js/marks.js?v=fdea7b6c",
@@ -492,6 +492,7 @@
     <div class="card nojs-offer">
       <h3>Os 24 espaços: 20 no fato e 4 no capacete</h3>
       <p>De 60 € a 600 € por espaço, na época 2027. O fato completo (os 20 espaços do fato), com exclusividade de setor, custa 3 000 €. Para ver a tabela e reservar, escreve para <a href="mailto:allez@gocarmo.com">allez@gocarmo.com</a> ou manda mensagem por <a href="https://wa.me/351916395103">WhatsApp</a>.</p>
+      <p id="nojs-rp">Numa prova em Portugal ou Espanha, o fato completo custa 3&nbsp;000&nbsp;€, com a inscrição e a viagem incluídas.</p>
     </div>
 
     <!-- PART A: the suit. One renderer serves both parts: the canvas moves into the stage of the part on screen. -->
@@ -579,13 +580,58 @@
             </div>
           </div>
 
-          <div class="card title-partner rv">
-            <div><span class="eyebrow gold" style="margin:0 0 8px" data-i18n="tp.k">Title partner</span><h4 data-i18n="tp.h">O fato completo</h4><p data-i18n="tp.p">Os 20 espaços do fato, a tua marca ao lado do meu nome na bio, no media kit e no material de imprensa, e exclusividade no teu setor em 2027. Antes de pagares, fechamos tudo num acordo escrito.</p></div>
+          <div class="card title-partner rv" id="tp">
+            <div><span class="eyebrow gold" style="margin:0 0 8px" data-i18n="tp.k">Title partner</span><h4 data-i18n="tp.h">O fato completo</h4><p id="tp-p" data-i18n="tp.p">Os 20 espaços do fato, a tua marca ao lado do meu nome na bio, no media kit e no material de imprensa, e exclusividade no teu setor em 2027. Antes de pagares, fechamos tudo num acordo escrito.</p></div>
             <div class="price"><span id="tp-price">3 000 €</span><small data-i18n="tp.s">por época</small></div>
+            <!-- some suit spot reserved or sold: the season whole suit cannot be asked for; why, and the way to the race card
+                 (adspace.js renderStats) -->
+            <p class="tp-off" id="tp-off" hidden><b id="tp-off-h"></b><span id="tp-off-p"></span></p>
             <div class="tp-acts">
               <button type="button" class="btn gold sm" id="tp-btn" data-i18n="tp.b">Pedir o fato completo</button>
+              <button type="button" class="btn ghost sm tp-go" id="tp-go" hidden><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg><span data-i18n="tp.go">Ver o fato completo numa prova</span></button>
               <a class="btn ghost sm" id="tp-terms" href="condicoes/" target="_blank" rel="noopener" data-i18n-attr="href:tb.href"><svg aria-hidden="true" focusable="false"><use href="#i-doc"/></svg><span data-i18n="tb.tp">Ler as condições</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a>
             </div>
+          </div>
+
+          <!-- the race partner («parceiro de prova», data/spots.json "racePartner"): the whole suit, and the helmet if added,
+               at one race of the season. adspace.js renderRace fills the races and their states, picks one, and turns the
+               card into the public notice once it is sold; without the block in the file the card stays hidden -->
+          <div class="card race-partner" id="rp" role="region" aria-labelledby="rp-h" hidden>
+            <div class="rp-head">
+              <div><span class="eyebrow gold" style="margin:0 0 8px" id="rp-k" data-i18n="rp.k">Parceiro de prova</span><h4 id="rp-h" tabindex="-1" data-i18n="rp.h">O fato completo numa prova</h4></div>
+              <div class="price"><span id="rp-price">3 000 €</span><small data-i18n="rp.s">por prova</small></div>
+            </div>
+            <div class="rp-offer" id="rp-offer">
+              <p class="rp-lede" id="rp-p">Escolhe um triatlo de 2027 e corro-o com o fato completo da tua marca, mesmo que o fato da época já tenha marcas.</p>
+              <ul class="rp-inc">
+                <li data-i18n="rp.i1">Um fato completo com a tua marca, feito para essa prova.</li>
+                <li data-i18n="rp.i2">A tua marca nas minhas publicações dessa prova.</li>
+                <li data-i18n="rp.i3">A tua marca neste site como parceiro de prova, com o logótipo e o link.</li>
+                <li data-i18n="rp.i4">Inscrição e viagem incluídas, sem mais custos para ti (provas em Portugal e Espanha).</li>
+              </ul>
+              <fieldset class="rp-pick" id="rp-races">
+                <legend data-i18n="rp.pick">Escolhe a prova</legend>
+                <p class="rp-banner" id="rp-banner" hidden></p>
+                <div class="rp-rows" id="rp-rows"></div>
+                <p class="rp-lead" data-i18n="rp.lead">Pede pelo menos 6 semanas antes da prova: é o tempo de fazer o teu fato.</p>
+              </fieldset>
+              <div class="rp-helm-w" id="rp-helm-w">
+                <button type="button" class="only-avail" id="rp-helmet" role="switch" aria-checked="false" aria-describedby="rp-helm-hint"><span class="only-t"><span data-i18n="rp.helm">Juntar o capacete nessa prova</span> <span class="rp-helm-p" id="rp-helm-p">+500 €</span></span><span class="sw" aria-hidden="true"><i></i></span></button>
+                <p class="rp-hint" id="rp-helm-hint">O capacete inteiro com a tua marca. Se eu souber antes da prova que as regras dela não aceitam logótipos no capacete, devolvo-te os 500 €.</p>
+              </div>
+              <p class="rp-iron" id="rp-iron" hidden></p>
+              <div class="rp-total" id="rp-total"><span><span class="k" data-i18n="rp.tot">Total</span><span class="w" id="rp-tot-w"></span></span><b id="rp-tot"></b></div>
+              <p class="rp-q" id="rp-q" hidden></p>
+              <p class="rp-pay" id="rp-pay" data-i18n="rp.pay">Só por transferência, depois do acordo escrito.</p>
+              <p class="rp-none" id="rp-none" hidden></p>
+              <div class="tp-acts rp-acts">
+                <button type="button" class="btn gold sm" id="rp-btn" data-i18n="rp.b">Pedir o fato nesta prova</button>
+                <span class="rp-contact" id="rp-contact" hidden><a class="btn gold sm" id="rp-wa" href="https://wa.me/351916395103" rel="noopener"><svg aria-hidden="true" focusable="false"><use href="#i-wa"/></svg><span id="rp-wa-t"></span></a><a class="rp-mail" id="rp-mail" href="mailto:allez@gocarmo.com"></a></span>
+                <a class="btn ghost sm" id="rp-terms" href="condicoes/#parceiro" target="_blank" rel="noopener" data-i18n-attr="href:rp.termsHref"><svg aria-hidden="true" focusable="false"><use href="#i-doc"/></svg><span data-i18n="tb.tp">Ler as condições</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a>
+              </div>
+            </div>
+            <!-- once sold: the public notice the terms promise (the race, the brand, its logo and link; never a held brand) -->
+            <div class="rp-notice" id="rp-notice" hidden></div>
           </div>
 
           <div class="card ratecard" id="ratecard" data-item="suit">
@@ -653,6 +699,13 @@
             </div>
           </div>
 
+          <!-- the helmet at one race (+500 € with the race partner): chosen in the race card above; the notice once sold -->
+          <div class="card hp-card" id="hp" hidden>
+            <div><h4 data-i18n="hp.h">O capacete inteiro numa prova</h4><p id="hp-p">+500 € com o fato completo numa prova: nessa prova, o capacete fica com a tua marca.</p></div>
+            <button type="button" class="btn ghost sm" id="hp-go"><svg aria-hidden="true" focusable="false"><use href="#i-arrow"/></svg><span data-i18n="hp.b">Ver o fato completo numa prova</span></button>
+          </div>
+          <p class="hp-note" id="hp-note" hidden></p>
+
           <div class="card ratecard" id="ratecard-h" data-item="helmet">
             <div class="ratecard-head"><h4 data-i18n="rc.h">Tabela de preços</h4></div>
             <table class="tiers-legend" id="tiers-legend-h" aria-label="Escalões de preço" data-i18n-attr="aria-label:a.tiers"><tbody></tbody></table>
@@ -675,7 +728,7 @@
     <div class="card terms-cta rv" id="terms-cta">
       <div>
         <h3 data-i18n="tb.h">Condições do patrocínio</h3>
-        <p data-i18n="tb.p">O que inclui cada nível, o que fica de fora, como se reserva e paga, e quando uma prova pode ter um parceiro de prova.</p>
+        <p data-i18n="tb.p">O que inclui cada nível, o que fica de fora, como se reserva e paga, e o fato completo numa prova.</p>
       </div>
       <a class="btn ghost" id="terms-btn" href="condicoes/" target="_blank" rel="noopener" data-i18n-attr="href:tb.href"><svg aria-hidden="true" focusable="false"><use href="#i-doc"/></svg><span data-i18n="tb.b">Ler as condições do patrocínio</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a>
     </div>
@@ -839,7 +892,13 @@
                still worth this season (season-rules.js noRacesLeft) -->
           <p class="cl-late" id="cl-late" hidden></p>
           <p class="cl-season" id="cl-season" hidden></p>
+          <!-- the race partner sold, until its race: on a request for season spots, the race where the suit (or the helmet)
+               is the race partner's -->
+          <p class="cl-ex" id="cl-ex" hidden></p>
         </div>
+        <!-- the race partner: what happens after the request, step by step (the first offer only when the season has a title
+             partner or a Principal brand) -->
+        <div class="cl-how" id="cl-how" hidden><h5 data-i18n="cl.rpHow">O que acontece a seguir</h5><ol id="cl-how-l"></ol></div>
         <!-- after the season's last day for requests: the note, first, and one plain way to write for the next season (a
              message only: no request, no hold); the rest of step 1 is hidden (#cl-s1.is-closed) -->
         <div class="cl-closed" id="cl-closed" role="status" hidden>
@@ -859,6 +918,8 @@
         </div>
         <div class="cl-fields">
           <div class="field"><label for="cl-brand" data-i18n="cl.brand">Empresa ou marca</label><input id="cl-brand" autocomplete="organization" enterkeyhint="next" maxlength="60" required aria-describedby="cl-brand-err"><p class="err" id="cl-brand-err" hidden></p></div>
+          <!-- the race partner only: the brand's sector, the first conflict check (worker/requests.js 'setor') -->
+          <div class="field" id="cl-sector-f" hidden><label for="cl-sector" data-i18n="cl.sector">Setor da marca</label><input id="cl-sector" autocomplete="off" enterkeyhint="next" maxlength="60" aria-describedby="cl-sector-hint cl-sector-err"><p class="cl-hint" id="cl-sector-hint" data-i18n="cl.sectorHint">Por exemplo: seguros, ginásio, café. Serve para ver se há conflito com uma marca da época.</p><p class="err" id="cl-sector-err" hidden></p></div>
           <!-- the logo goes with the request (SITE.requestsApi): the whole box is the file input, so a tap opens the
                photos on a phone and a file dropped on it on a computer is taken as picked. Shown only with the Worker on -->
           <div class="field cl-logo" id="cl-logo-f" hidden>
