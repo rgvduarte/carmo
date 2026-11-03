@@ -23,6 +23,38 @@
     "price": 3000,
     "status": "available"
   },
+  "racePartner": {
+    "price": 3000,
+    "helmetPrice": 500,
+    "races": [
+      {
+        "id": "vilamoura",
+        "date": "2027-04-03",
+        "pt": "IRONMAN 70.3 Vilamoura",
+        "en": "IRONMAN 70.3 Vilamoura"
+      },
+      {
+        "id": "setubal",
+        "date": "2027-05-02",
+        "pt": "Lidl Setúbal Triathlon",
+        "en": "Lidl Setúbal Triathlon"
+      },
+      {
+        "id": "japao",
+        "date": "2027-09-12",
+        "pt": "IRONMAN Japan South Hokkaido",
+        "en": "IRONMAN Japan South Hokkaido",
+        "proposal": true
+      },
+      {
+        "id": "sines",
+        "date": "2027-09",
+        "pt": "Triatlo de Sines",
+        "en": "Sines Triathlon"
+      }
+    ],
+    "status": "available"
+  },
   "tiers": [
     {
       "key": "principal",

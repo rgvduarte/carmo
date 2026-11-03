@@ -81,15 +81,16 @@ export const RESULTS = [
 export const SOCIAL = { followers: 1953, followersAsOf: '2026-10-29', likesPerPost: 329, commentsPerPost: 43, bestPost: 881, postsFollowers: 1921, asOf: '2026-10-22' };
 
 // 2027 season, in date order. status: planned | entry (won on merit) | registered (entry paid and confirmed) | pending |
-// tbc | goal
+// tbc | goal. id: the triathlons a race partner can take (data/spots.json "racePartner".races, the same id, date and
+// names: scripts/stamp.mjs checks them; change a date in both places)
 export const SEASON = [
   { date: '2027-02-21', pt: 'Maratona de Sevilha', en: 'Seville Marathon', where: { pt: 'Sevilha, Espanha', en: 'Seville, Spain' }, what: { pt: 'Maratona · 42,2 km', en: 'Marathon · 42.2 km' }, km: 42.2, status: 'planned' },
-  { date: '2027-04-03', pt: 'IRONMAN 70.3 Vilamoura', en: 'IRONMAN 70.3 Vilamoura', where: { pt: 'Vilamoura, Algarve', en: 'Vilamoura, Algarve' }, what: { pt: 'Meia distância · 1.ª edição', en: 'Middle distance · 1st edition' }, km: 113, status: 'pending' },
+  { id: 'vilamoura', date: '2027-04-03', pt: 'IRONMAN 70.3 Vilamoura', en: 'IRONMAN 70.3 Vilamoura', where: { pt: 'Vilamoura, Algarve', en: 'Vilamoura, Algarve' }, what: { pt: 'Meia distância · 1.ª edição', en: 'Middle distance · 1st edition' }, km: 113, status: 'pending' },
   { date: '2027-04-24', pt: 'Mallorca 312', en: 'Mallorca 312', where: { pt: 'Maiorca, Espanha', en: 'Mallorca, Spain' }, what: { pt: 'Ciclismo · 312 km', en: 'Cycling · 312 km' }, km: 312, status: 'pending' },
-  { date: '2027-05-02', pt: 'Lidl Setúbal Triathlon', en: 'Lidl Setúbal Triathlon', where: { pt: 'Setúbal, Portugal', en: 'Setúbal, Portugal' }, what: { pt: 'Meia distância', en: 'Middle distance' }, km: 113, status: 'entry' },
+  { id: 'setubal', date: '2027-05-02', pt: 'Lidl Setúbal Triathlon', en: 'Lidl Setúbal Triathlon', where: { pt: 'Setúbal, Portugal', en: 'Setúbal, Portugal' }, what: { pt: 'Meia distância', en: 'Middle distance' }, km: 113, status: 'entry' },
   { date: '2027-05-09', end: '2027-05-14', pt: 'Gravel Birds XL', en: 'Gravel Birds XL', where: { pt: 'Castro Verde, Alentejo', en: 'Castro Verde, Alentejo' }, what: { pt: 'Ultra gravel · ~1 000 km', en: 'Ultra gravel · ~1,000 km' }, km: 1000, status: 'registered' },
-  { date: '2027-09-12', pt: 'IRONMAN Japan South Hokkaido', en: 'IRONMAN Japan South Hokkaido', where: { pt: 'Hokkaido, Japão', en: 'Hokkaido, Japan' }, what: { pt: 'Distância completa · a vaga para Kona (2028)', en: 'Full distance · Kona slot (2028)' }, km: 226, status: 'planned' },
-  { date: '2027-09', pt: 'Triatlo de Sines', en: 'Sines Triathlon', where: { pt: 'Sines, Portugal', en: 'Sines, Portugal' }, what: { pt: 'Triatlo · 2 · 80 · 18 km', en: 'Triathlon · 2 · 80 · 18 km' }, km: 100, status: 'entry' },
+  { id: 'japao', date: '2027-09-12', pt: 'IRONMAN Japan South Hokkaido', en: 'IRONMAN Japan South Hokkaido', where: { pt: 'Hokkaido, Japão', en: 'Hokkaido, Japan' }, what: { pt: 'Distância completa · a vaga para Kona (2028)', en: 'Full distance · Kona slot (2028)' }, km: 226, status: 'planned' },
+  { id: 'sines', date: '2027-09', pt: 'Triatlo de Sines', en: 'Sines Triathlon', where: { pt: 'Sines, Portugal', en: 'Sines, Portugal' }, what: { pt: 'Triatlo · 2 · 80 · 18 km', en: 'Triathlon · 2 · 80 · 18 km' }, km: 100, status: 'entry' },
   // Kona is the goal: the IRONMAN World Championship in 2028, once the slot is won in Japan. Never a 2027 race, so never
   // counted (renderSeason leaves status 'goal' out of the counts) and never in BUDGET; it stays last
   { date: '', label: { pt: '2028 · garantindo a qualificação', en: '2028 · once qualified' }, pt: 'Kona, Havai', en: 'Kona, Hawaiʻi', where: { pt: 'Campeonato do Mundo IRONMAN', en: 'IRONMAN World Championship' }, what: { pt: '3,8 · 180 · 42,2 km', en: '3.8 · 180 · 42.2 km' }, km: 226, status: 'goal' },
