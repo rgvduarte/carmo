@@ -9,7 +9,7 @@
 // through the GitHub API with the owner's token (admin-gh.js). Every piece of a record is shown with textContent only.
 import * as A from './admin-contracts.js';
 import { normPaid, normUrl, nifOk, FIRST_PAID, RuleError, MSG } from './admin-core.js';
-import { TITLE, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, brandLink, linkShown, isRedirector } from './season-rules.js';
+import { TITLE, PROVA, rulesOf, defaultRules, quote, seasonMonth, lisbonDay, addDays, pctText, brandLink, linkShown, isRedirector, raceOf } from './season-rules.js';
 import { initMontra, montraLine, loadFile as loadMontra, retireFor, montraOver } from './admin-montra.js';
 import { forgetToken, setToken } from './admin-gh.js';
 import { SITE } from './data.js';
@@ -212,6 +212,8 @@ function renderNow(day, r) {
 }
 function nowAct(it, a) {
   if (a.op === 'logo') return patch(it.id, { action: 'editar', set: { logo: { vector: true } } }, 'Logótipo em vetor recebido.');
+  // the race partner: the season sponsors were told today
+  if (a.op === 'avisei') return patch(it.id, { action: 'editar', set: { race: { notice: today() } } }, 'Aviso aos patrocinadores registado.');
   if (a.op === 'renovacao') return renew(it.id, a.state);
   if (a.op === 'registar') return register(it.request);
   if (a.op === 'apagar-pedido') return eraseRequest(it.request);
@@ -299,8 +301,22 @@ function card(c, day) {
     li.appendChild(el('p', 'ct-table', `A tabela pedia ${A.money(c.price.total)}${m > 0 ? ` (desconto de época de ${A.monthName(m)}, −${pctText(Number(c.price.seasonBp) || 0)}%)` : ''}`));
   }
 
-  const left = A.daysLeft(c, day);
-  li.appendChild(el('p', 'ct-period', `${A.ptDay(r.start).replace('.', '')} a ${A.ptDay(r.end).replace('.', '')} ${r.end.slice(0, 4)} · ${left.text}`));
+  const left = A.daysLeft(c, day), race = A.isRace(c);
+  // the race partner: its race and the days to it, the sector, the notice to the season sponsors (no renewal, no montra)
+  if (race) {
+    const rl = A.raceLeft(c, day);
+    li.appendChild(el('p', 'ct-period', [`Prova: ${A.raceDayText(c.race)}`, rl.text].filter(Boolean).join(' · ')));
+    if (c.race.sector) li.appendChild(el('p', 'ct-sector', `Setor: ${c.race.sector}`));
+    const nt = el('p', 'ct-notice');
+    if (c.race.notice) nt.textContent = `Aviso aos patrocinadores da época: enviado a ${A.ptDay(c.race.notice, true)}`;
+    else {
+      nt.append('Aviso aos patrocinadores da época: por enviar ');
+      const b = el('button', 'btn sm', 'Avisei'); b.type = 'button'; b.disabled = busy;
+      b.addEventListener('click', () => patch(c.id, { action: 'editar', set: { race: { notice: today() } } }, 'Aviso aos patrocinadores registado.'));
+      nt.appendChild(b);
+    }
+    li.appendChild(nt);
+  } else li.appendChild(el('p', 'ct-period', `${A.ptDay(r.start).replace('.', '')} a ${A.ptDay(r.end).replace('.', '')} ${r.end.slice(0, 4)} · ${left.text}`));
 
   const ren = el('div', 'ct-ren'), v = A.renewalOf(c, day), chip = el('span', `st ${CHIP[v.state] || ''}`);
   chip.appendChild(el('span', null, v.label));
@@ -319,13 +335,13 @@ function card(c, day) {
   const pay = A.payLine(c, S.contracts, day, S.data);
   if (pay) li.appendChild(el('p', `ct-paystate ${pay.kind}`, pay.text));
   // the brand's montra: «Montra: N de M produtos» and its editor
-  const mt = montraLine(c, day);
+  const mt = race ? null : montraLine(c, day);
   if (mt) li.appendChild(mt);
 
   const logo = el('label', 'check ct-logo'), cb = el('input');
   cb.type = 'checkbox'; cb.checked = c.logo?.vector === true; cb.disabled = busy;
   cb.addEventListener('change', () => patch(c.id, { action: 'editar', set: { logo: { vector: cb.checked } } }, cb.checked ? 'Logótipo em vetor recebido.' : 'Logótipo em vetor em falta.'));
-  logo.append(cb, el('span', null, `Logótipo em vetor: ${c.logo?.vector ? 'recebido' : 'em falta'}${c.logo?.fromRace ? ` · no equipamento a partir da prova: ${c.logo.fromRace}` : A.noRaces(c, S.data) ? ` · sem triatlos em ${c.season} depois do pedido` : A.logoLate(c) ? ' · falta combinar a prova' : ''}`));
+  logo.append(cb, el('span', null, `Logótipo em vetor: ${c.logo?.vector ? 'recebido' : 'em falta'}${race ? (c.race.logoBy ? ` · até ${A.ptDay(c.race.logoBy, true)}, para fazer o fato da prova` : '') : c.logo?.fromRace ? ` · no equipamento a partir da prova: ${c.logo.fromRace}` : A.noRaces(c, S.data) ? ` · sem triatlos em ${c.season} depois do pedido` : A.logoLate(c) ? ' · falta combinar a prova' : ''}`));
   li.appendChild(logo);
 
   const who = [c.contact?.name, A.CHANNEL[c.contact?.channel || ''], c.contact?.email, c.contact?.phone, c.contact?.handle].filter(Boolean).join(' · ');
@@ -394,7 +410,7 @@ function siteLink(c) {
   const d = S.data;
   if (!d || !Array.isArray(d.spots)) return '';
   const same = (a, b) => String(a || '').toLowerCase().replace(/\s+/g, ' ').trim() === String(b || '').toLowerCase().replace(/\s+/g, ' ').trim();
-  const xs = c.title ? [d.title] : (c.spots || []).map((x) => d.spots.find((s) => s.id === x.id));
+  const xs = A.isRace(c) ? [d.racePartner && d.racePartner.race === c.race.id ? d.racePartner : null] : c.title ? [d.title] : (c.spots || []).map((x) => d.spots.find((s) => s.id === x.id));
   for (const x of xs) if (x && x.status === 'sold' && same(x.brand, c.brand) && x.url) { const u = brandLink(x.url).url; if (u) return u; }
   return '';
 }
@@ -467,16 +483,26 @@ function spotChips() {
   };
   if (S.data) {
     add(TITLE, 'Fato completo', S.data.title?.price);
+    // the race partner: one race (and the helmet), below; it goes alone, like the whole suit
+    if (S.data.racePartner) add(PROVA, 'Parceiro de prova', S.data.racePartner.price);
     for (const s of [...S.data.spots].sort((a, b) => a.n - b.n)) add(s.id, `${pad2(s.n)} ${s.pt?.name || s.id}`, s.price);
   }
   add('_outro', 'Outro', null);
 }
 const pickedIds = () => $$('#c-spots input:checked').map((i) => i.value).filter((v) => v !== '_outro');
 function onSpot(inp) {
-  if (inp.checked && inp.value === TITLE) $$('#c-spots input').forEach((i) => { if (i !== inp && i.value !== '_outro') i.checked = false; });
-  else if (inp.checked && inp.value !== '_outro') { const t = $(`#c-spots input[value="${TITLE}"]`); if (t) t.checked = false; }
+  if (inp.checked && (inp.value === TITLE || inp.value === PROVA)) $$('#c-spots input').forEach((i) => { if (i !== inp && i.value !== '_outro') i.checked = false; });
+  else if (inp.checked && inp.value !== '_outro') for (const v of [TITLE, PROVA]) { const t = $(`#c-spots input[value="${v}"]`); if (t) t.checked = false; }
   $('#c-label-box').hidden = !$('#c-spots input[value="_outro"]').checked;
+  $('#c-prova-box').hidden = !$(`#c-spots input[value="${PROVA}"]:checked`);
   sheetHints();
+}
+// the race select: the races of the file (on proposal said so), and the contract's own when the file no longer has it
+function raceOptions(c) {
+  const sel = $('#c-prova'), races = S.data && S.data.racePartner && Array.isArray(S.data.racePartner.races) ? S.data.racePartner.races : [];
+  sel.textContent = '';
+  for (const r of races) { const o = el('option', null, `${r.pt} · ${A.raceDayText(r)}${r.proposal ? ' (sob proposta)' : ''}`); o.value = r.id; sel.appendChild(o); }
+  if (c && A.isRace(c) && !races.some((r) => r.id === c.race.id)) { const o = el('option', null, `${c.race.name || c.race.id} · ${A.raceDayText(c.race)}`); o.value = c.race.id; sel.appendChild(o); }
 }
 function seasonOptions(cur) {
   const sel = $('#c-season'), r = rules(), want = [...new Set([r.season, String(Number(r.season) + 1), ...(cur ? [String(cur)] : [])])].sort();
@@ -495,6 +521,14 @@ function openSheet(c = null) {
   $$('#c-spots input').forEach((i) => { i.checked = i.value === '_outro' ? !!c?.label : ids.includes(i.value); });
   $('#c-label').value = c?.label || '';
   $('#c-label-box').hidden = !c?.label;
+  // a race contract stays one, and a spot contract never becomes one (the Worker's rule: campos race)
+  raceOptions(c);
+  const isR = !!c && A.isRace(c);
+  $$('#c-spots input').forEach((i) => { i.disabled = !!c && (isR ? i.value !== PROVA : i.value === PROVA); });
+  $('#c-prova-box').hidden = !isR;
+  if (isR) $('#c-prova').value = c.race.id;
+  $('#c-prova-helmet').checked = isR && c.race.helmet === true;
+  $('#c-prova-sector').value = isR ? c.race.sector || '' : '';
   $('#c-brand').value = c?.brand || '';
   $('#c-season').value = String(c?.season || rules().season);
   $('#c-paid').value = c?.paidAt || today();
@@ -527,6 +561,8 @@ function openSheet(c = null) {
 function tableQuote() {
   const ids = pickedIds();
   if (!S.data || !ids.length) return null;
+  // the race partner: the race's price and the helmet's, never discounted; on proposal, none (the agreement's amount)
+  if (ids[0] === PROVA) { const q = quote(S.data, [PROVA], { race: $('#c-prova').value, helmet: $('#c-prova-helmet').checked }); return q.proposal ? null : q; }
   const paid = $('#c-paid').value, season = $('#c-season').value, r = rules();
   const c = S.sheet && S.sheet.id ? findC(S.sheet.id) : null, site = !!c && c.kind === 'site' && !!c.price;
   if (site && [...A.idsOf(c)].sort().join() === [...ids].sort().join()) return { net: c.price.total, m: c.price.m, seasonBp: c.price.seasonBp, discPct: c.price.discPct, gross: c.price.gross };
@@ -546,7 +582,7 @@ function sheetHints() {
     const sr = sheetRules(), paidAt = $('#c-paid').value, c0 = S.sheet && S.sheet.id ? findC(S.sheet.id) : null;
     if ((!c0 || c0.kind !== 'site') && paidAt > sr.requestsUntil && paidAt <= sr.end && q.m > 0) hint.textContent += `. Pago depois do fecho das vendas de ${sr.season}: tabela de ${A.monthName(q.m)} (−${pctText(q.seasonBp)}%)`;
     use.hidden = String(q.net) === $('#c-amount').value.trim();
-  } else { hint.textContent = pickedIds().length ? '' : 'Escolhe os espaços para ver o preço da tabela.'; use.hidden = true; }
+  } else { hint.textContent = pickedIds()[0] === PROVA ? 'Sob proposta: escreve o montante do acordo escrito.' : pickedIds().length ? '' : 'Escolhe os espaços para ver o preço da tabela.'; use.hidden = true; }
   const pay = $('#c-pay').value;
   $('#c-inkind-box').hidden = pay !== 'produto' && pay !== 'outro';
   // the race the logo goes on the kit from: after the logo deadline, counted from the request day of a site request (what
@@ -556,7 +592,7 @@ function sheetHints() {
   const ref = site ? c1.price.day : $('#c-paid').value;
   // (after the season's last triathlon no race is agreed: the logo goes on the suit in training)
   const noRace = !!ref && ref > sr2.racesUntil && ref <= sr2.end;
-  $('#c-race-box').hidden = (!(ref && ref > logoBy) || noRace) && !$('#c-race').value;
+  $('#c-race-box').hidden = ((!(ref && ref > logoBy) || noRace) && !$('#c-race').value) || pickedIds()[0] === PROVA;
   $('#c-race-hint').textContent = `${site ? 'Pedido' : 'Pago'} depois de ${A.ptDay(logoBy, true)}: o logótipo vai para o equipamento a partir desta prova, que combinas com a marca antes do pagamento.`;
   const nif = $('#c-nif').value.trim(), ok = nif ? nifOk(nif) : null;
   $('#c-nif-hint').textContent = ok === false ? 'Este NIF não bate certo (o último algarismo não confere). Confirma com a marca.' : '';
@@ -590,8 +626,11 @@ function sheetBody() {
   const pay = $('#c-pay').value;
   const lang = $$('input[name="c-lang"]').find((i) => i.checked)?.value === 'en' ? 'en' : 'pt';
   const handle = $('#c-handle').value.trim();
+  // the race partner: its race, the helmet and the sector, never spots or the whole suit
+  const race = ids[0] === PROVA ? { id: $('#c-prova').value, helmet: $('#c-prova-helmet').checked, sector: $('#c-prova-sector').value.trim().replace(/\s+/g, ' ') } : null;
+  if (race && !race.id) err('Escolhe a prova.', '#c-prova');
   return {
-    brand, season: $('#c-season').value, ...(ids[0] === TITLE ? { title: true } : { title: false, items: ids }), label,
+    brand, season: $('#c-season').value, ...(race ? { race } : ids[0] === TITLE ? { title: true } : { title: false, items: ids }), label,
     amount: paid.amount, paidAt: paid.paidAt, pay, inKind: pay === 'produto' || pay === 'outro' ? $('#c-inkind').value.trim() : '', url,
     contact: { name: cname, channel: $('#c-channel').value, email, phone, handle },
     nif, lang, notes: $('#c-notes').value.trim(), logo: { vector: $('#c-vector').checked, fromRace: $('#c-race').value.trim() },
@@ -618,7 +657,7 @@ async function submitSheet(e) {
   } catch (x) {
     if (authLost(x)) return;
     errBox.textContent = errText(x);
-    const map = { brand: '#c-brand', amount: '#c-amount', paidAt: '#c-paid', url: '#c-url', 'contact.name': '#c-cname', 'contact.email': '#c-email', 'contact.phone': '#c-phone', nif: '#c-nif', notes: '#c-notes', label: '#c-label', season: '#c-season' };
+    const map = { race: '#c-prova', 'race.id': '#c-prova', 'race.sector': '#c-prova-sector', brand: '#c-brand', amount: '#c-amount', paidAt: '#c-paid', url: '#c-url', 'contact.name': '#c-cname', 'contact.email': '#c-email', 'contact.phone': '#c-phone', nif: '#c-nif', notes: '#c-notes', label: '#c-label', season: '#c-season' };
     const f = x instanceof ApiError && map[x.campo] && $(map[x.campo]);
     if (f) f.focus();
   } finally { btn.disabled = false; btn.textContent = id ? 'Guardar' : 'Registar'; }
@@ -769,7 +808,7 @@ function bind() {
   $('#csv').addEventListener('click', saveCsv);
   $('#ics').addEventListener('click', saveIcs);
   $('#sh-form').addEventListener('submit', submitSheet);
-  for (const id of ['#c-paid', '#c-season', '#c-pay', '#c-amount', '#c-nif', '#c-race', '#c-brand']) $(id).addEventListener('input', () => { $('#sh-err').textContent = ''; sheetHints(); });
+  for (const id of ['#c-paid', '#c-season', '#c-pay', '#c-amount', '#c-nif', '#c-race', '#c-brand', '#c-prova', '#c-prova-helmet']) $(id).addEventListener('input', () => { $('#sh-err').textContent = ''; sheetHints(); });
   $('#c-use').addEventListener('click', () => { const q = tableQuote(); if (q) { $('#c-amount').value = String(q.net); sheetHints(); } });
   const closeSheet = () => { const d = $('#sheet'); if (d.open) d.close(); };
   $('#sh-x').addEventListener('click', closeSheet);

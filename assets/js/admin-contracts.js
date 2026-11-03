@@ -4,7 +4,8 @@
 // The records come from the booking Worker (GET /contratos, KV c:<id>, worker/requests.js); the dates and the price rule
 // from season-rules.js. A record's renewal step is stored by hand ('', 'proposta', 'renova', 'nao-renova'); the state
 // shown is renewalView(contract, day).
-import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, isDay, seasonBp, pctText, roundHalfUp, SEASON_DIV } from './season-rules.js';
+import { TITLE, rulesOf, defaultRules, renewalView, keyDates, daysBetween, addDays, lisbonDay, isDay, seasonBp, pctText, roundHalfUp, SEASON_DIV,
+  PROVA, raceOf, raceDay, raceEnd, raceMonthOnly, firstOfferDue } from './season-rules.js';
 
 // ---------- words and dates ----------
 export const PT_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -24,13 +25,13 @@ const pad2 = (n) => String(n).padStart(2, '0');
 const fold = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 // the state chips (the one-tap buttons are named as actions: renewalActs)
-export const RENEWAL = { ativo: 'Antes das propostas', 'a-propor': 'A propor', proposta: 'Proposta enviada', renova: 'Renova', 'nao-renova': 'Não renova', terminado: 'Terminado' };
+export const RENEWAL = { prova: 'Só esta prova (sem renovação)', ativo: 'Antes das propostas', 'a-propor': 'A propor', proposta: 'Proposta enviada', renova: 'Renova', 'nao-renova': 'Não renova', terminado: 'Terminado' };
 export const OUTCOME = { renova: 'renovou', 'nao-renova': 'não renovou', 'sem-resposta': 'sem resposta', 'sem-proposta': 'sem proposta' };
 export const PAY = { mb: 'MB WAY', tr: 'Transferência', produto: 'Em produto', outro: 'Outra' };
 const PAY_EN = { mb: 'MB WAY', tr: 'Bank transfer', produto: 'In kind', outro: 'Other' };
 const PAY_PT_LONG = { mb: 'MB WAY', tr: 'Transferência bancária', produto: 'Em produto', outro: 'Outra' };
 export const CHANNEL = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', site: 'Site', telefone: 'Telefone', pessoal: 'Em pessoa', outro: 'Outro', '': '' };
-const LEVELS = { title: { pt: 'Title partner', en: 'Title partner' }, principal: { pt: 'Principal', en: 'Principal' }, oficial: { pt: 'Oficial', en: 'Official' }, fornecedor: { pt: 'Apoio', en: 'Supporter' } };
+const LEVELS = { prova: { pt: 'Parceiro de prova', en: 'Race partner' }, title: { pt: 'Title partner', en: 'Title partner' }, principal: { pt: 'Principal', en: 'Principal' }, oficial: { pt: 'Oficial', en: 'Official' }, fornecedor: { pt: 'Apoio', en: 'Supporter' } };
 // a level's name: the tiers of data/spots.json when given, else the names of today's tiers
 export function levelName(key, lang = 'pt', data = null) {
   if (!key) return '';
@@ -40,8 +41,25 @@ export function levelName(key, lang = 'pt', data = null) {
 }
 
 // ---------- one contract ----------
-export const isTitle = (c) => !!c && (c.title === true || (Array.isArray(c.spots) && c.spots.some((s) => s && s.id === TITLE)));
-export const idsOf = (c) => (isTitle(c) ? [TITLE] : (Array.isArray(c?.spots) ? c.spots.map((s) => s && s.id).filter(Boolean) : []));
+// a race partner's contract (since 03.11.2026): the whole suit, and the helmet if added, at one race (c.race); it never
+// renews, has no montra and no season logo deadline (its own: race.logoBy)
+export const isRace = (c) => !!c && !!c.race && typeof c.race === 'object';
+export const isTitle = (c) => !!c && !isRace(c) && (c.title === true || (Array.isArray(c.spots) && c.spots.some((s) => s && s.id === TITLE)));
+export const idsOf = (c) => (isRace(c) ? [PROVA] : isTitle(c) ? [TITLE] : (Array.isArray(c?.spots) ? c.spots.map((s) => s && s.id).filter(Boolean) : []));
+// a race's day as the admin writes it: '2 mai. 2027', 'setembro de 2027' while only the month is known
+export const raceDayText = (race, lang = 'pt') => {
+  const d = String(race?.date || '');
+  if (raceMonthOnly({ date: d })) { const m = Number(d.slice(5, 7)), y = d.slice(0, 4); return lang === 'en' ? `${EN_MONTHS[m - 1]} ${y}` : `${PT_MONTHS[m - 1]} de ${y}`; }
+  return isDay(d) ? (lang === 'en' ? enLong(d) : ptDay(d, true)) : '';
+};
+// days to the race on Lisbon day `day` ({ n, text }): «Prova daqui a 180 dias», «Prova hoje», «Prova feita»
+export function raceLeft(c, day) {
+  const r = { date: c?.race?.date }, first = raceDay(r), last = raceEnd(r);
+  if (!first) return { n: null, text: '' };
+  if (day > last) return { n: -1, text: 'Prova feita' };
+  const n = daysBetween(day, first);
+  return { n, text: n <= 0 ? (raceMonthOnly(r) ? 'Prova neste mês' : 'Prova hoje') : n === 1 ? 'Prova amanhã' : `Prova daqui a ${n} dias` };
+}
 // the rules of the contract's own season: its stored period and dates, the season's defaults for anything missing. A
 // record keeps logoBy, proposalsFrom, renewBy and openFrom; the day of the last triathlon (racesUntil) and the renewal's
 // payment deadline (renewPayBy) come from data/spots.json when it is about the contract's season (data), else from the
@@ -80,6 +98,10 @@ export const hasSuit = (c) => isTitle(c) || (Array.isArray(c?.spots) && c.spots.
 export const paidTable = (c) => !!c && !!c.price && Number.isFinite(Number(c.price.total)) && Number(c.amount) === Number(c.price.total);
 // '01 Peito, 21 Topo do capacete', 'Fato completo', or the label of a deal with no spot
 export function spotsText(c, { lang = 'pt', data = null } = {}) {
+  if (isRace(c)) {
+    const r = c.race, name = (lang === 'en' && raceOf(data, r.id)?.en) || r.name || r.id;
+    return lang === 'en' ? `Race partner: ${name} (${raceDayText(r, 'en')})${r.helmet ? ', with the helmet' : ''}` : `Parceiro de prova: ${name} (${raceDayText(r)})${r.helmet ? ', com capacete' : ''}`;
+  }
   if (isTitle(c)) return lang === 'en' ? 'Whole suit' : 'Fato completo';
   const xs = Array.isArray(c?.spots) ? c.spots.filter(Boolean).slice().sort((a, b) => (Number(a.n) || 99) - (Number(b.n) || 99)) : [];
   const name = (s) => { const live = lang === 'en' && Array.isArray(data?.spots) ? data.spots.find((x) => x.id === s.id) : null; return (live && live.en && live.en.name) || s.name || s.id; };
@@ -108,6 +130,7 @@ export function daysLeft(c, day) {
 // the renewal state as shown, with its words: { state, outcome, label }
 export function renewalOf(c, day) {
   const v = renewalView(c, day), at = c?.renewal?.at;
+  if (isRace(c)) return { ...v, label: v.state === 'terminado' ? RENEWAL.terminado : RENEWAL.prova };
   const label = v.state === 'terminado' ? `${RENEWAL.terminado} (${OUTCOME[v.outcome] || OUTCOME['sem-resposta']})`
     : v.state === 'nao-renova' && (v.outcome === 'sem-resposta' || v.outcome === 'sem-proposta') ? `${RENEWAL['nao-renova']} (${OUTCOME[v.outcome]})`
       : v.state === 'proposta' && isDay(at) ? `${RENEWAL.proposta} a ${ptDay(at)}` : RENEWAL[v.state];
@@ -131,9 +154,9 @@ export const renewed = (c, day) => { const v = renewalView(c, day); return v.sta
 // the contract of the next season that pays a renewal: same brand (accents and case do not count), next season, the same
 // spots (any of them) or both the whole suit
 export function renewalContract(c, contracts) {
-  if (!c) return null;
+  if (!c || isRace(c)) return null;
   const next = String(Number(c.season) + 1), ids = idsOf(c), title = isTitle(c);
-  return (Array.isArray(contracts) ? contracts : []).find((x) => x && x !== c && x.id !== c.id && String(x.season) === next && sameBrand(x.brand, c.brand)
+  return (Array.isArray(contracts) ? contracts : []).find((x) => x && !isRace(x) && x !== c && x.id !== c.id && String(x.season) === next && sameBrand(x.brand, c.brand)
     && (title ? isTitle(x) : !isTitle(x) && idsOf(x).some((id) => ids.includes(id)))) || null;
 }
 // the payment of a renewal (owner decision E3): a sponsor who said yes pays the next season by renewPayBy, or the spot is
@@ -155,7 +178,7 @@ export function payLine(c, contracts, day, data = null) {
   return { kind: 'bad', text: `Renovação de ${next} por pagar desde ${ptDay(p.since, true)}: ${isTitle(c) ? 'o fato completo fica livre' : idsOf(c).length > 1 ? 'os espaços ficam livres' : 'o espaço fica livre'}` };
 }
 // ---------- the list ----------
-export const FILTERS = [['todos', 'Todos'], ['ativo', 'Antes das propostas'], ['a-propor', 'A propor'], ['proposta', 'Proposta enviada'], ['renova', 'Renova'], ['nao-renova', 'Não renova'], ['terminado', 'Terminados']];
+export const FILTERS = [['todos', 'Todos'], ['ativo', 'Antes das propostas'], ['a-propor', 'A propor'], ['proposta', 'Proposta enviada'], ['renova', 'Renova'], ['nao-renova', 'Não renova'], ['terminado', 'Terminados'], ['prova', 'Parceiros de prova']];
 // f: { state: a FILTERS key, season: '2027' | 'todas', q: words of the brand (accents and case do not count) }
 export function filterContracts(list, f = {}, day) {
   const state = f.state || 'todos', season = f.season || 'todas', words = fold(f.q).split(/\s+/).filter(Boolean);
@@ -229,11 +252,37 @@ export function dueNow(contracts, requests, data, rules, day) {
     add({ key: `registar:${r.id}`, kind: 'warn', id: r.id, text: `Pedido confirmado sem registo: ${r.brand || 'sem marca'} (pedido ${r.id})`, acts: [{ op: 'registar', label: 'Registar' }, { op: 'apagar-pedido', label: 'Eliminar' }], request: r });
   }
 
+  // the race partner (owner decision of 02.11.2026): an open race request to offer first (with a title partner or a
+  // Principal brand); for each race contract, the season sponsors to tell, its vector logo (race day − 35), the race
+  // week's post (or the renewal discount of those who asked), and the site against the record
+  if (data && firstOfferDue(data)) {
+    const tiers = Array.isArray(data.tiers) ? data.tiers : [], min = Number((tiers.find((t) => t.key === 'principal') || {}).min) || Infinity;
+    const first = [...new Set([data.title && data.title.status === 'sold' ? data.title.brand : '', ...(Array.isArray(data.spots) ? data.spots : []).filter((x) => x.status === 'sold' && Number(x.price) >= min).map((x) => x.brand)].filter(Boolean))];
+    for (const r of Array.isArray(requests) ? requests : []) {
+      if (!r || r.status !== 'novo' || !r.race) continue;
+      add({ key: `prova-oferta:${r.id}`, kind: 'warn', text: `Pedido de parceiro de prova (${r.race.name || r.race.id}): oferece primeiro a ${first.join(', ')} (5 dias úteis, pelo mesmo valor), com a reserva prolongada.`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
+    }
+  }
+  for (const c of list.filter(isRace)) {
+    const r = c.race, first = raceDay({ date: r.date }), last = raceEnd({ date: r.date }), at = `${r.name || r.id} (${raceDayText(r)})`;
+    if (!first || day > last) continue;
+    if (!r.notice) add({ key: `prova-aviso:${c.id}`, kind: 'warn', id: c.id, text: `Avisar os patrocinadores da época: ${c.brand} no ${at}${r.helmet ? ', com o capacete' : ''}.`, acts: [{ op: 'avisei', label: 'Avisei' }] });
+    if (c.logo?.vector !== true && isDay(r.logoBy)) {
+      const left = daysBetween(day, r.logoBy);
+      add({ key: `prova-logo:${c.id}`, kind: left <= 7 ? 'warn' : 'info', id: c.id, text: `Falta o logótipo em vetor para o fato da prova: ${c.brand} (até ${ptDay(r.logoBy, r.logoBy.slice(0, 4) !== day.slice(0, 4))}${left < 0 ? ', já passou' : ''})`, acts: [{ op: 'logo', label: 'Recebido' }] });
+    }
+    if (!raceMonthOnly({ date: r.date }) && day >= addDays(first, -7) && day <= first) add({ key: `prova-semana:${c.id}`, kind: 'info', id: c.id, text: `Semana do ${r.name || r.id}: publicação com o fato da época e as marcas da época (ou o desconto na renovação de quem o pediu).` });
+    const rp = data && data.racePartner;
+    if (rp && rulesOf(data).season === String(c.season) && !(rp.status === 'sold' && sameBrand(rp.brand, c.brand) && rp.race === r.id)) {
+      add({ key: `prova-site:${c.id}`, kind: 'warn', id: c.id, text: `No site, o parceiro de prova não está vendido a ${c.brand} (${r.name || r.id}).`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
+    }
+  }
+
   // the vector logo for the printed suit and helmet: up to the season's deadline, and for a sponsor whose request (or, by
   // hand, payment) came after it (logoLate), in the 30 days after the payment (its logo goes on the kit from a race agreed
   // before the payment); the card keeps saying it after. Such a sponsor with no race written down: agree it and write it.
   for (const c of list) {
-    if (!live(c) || (!idsOf(c).length && !isTitle(c))) continue;
+    if (isRace(c) || !live(c) || (!idsOf(c).length && !isTitle(c))) continue;
     const r = rulesOfContract(c, data), late = logoLate(c), race = String(c.logo?.fromRace || ''), none = noRaces(c, data);
     // (after the season's last triathlon no race is agreed: the logo goes on the suit in training)
     if (late && !race && !none) add({ key: `prova:${c.id}`, kind: 'warn', id: c.id, text: `Falta combinar a prova do logótipo: ${c.brand}`, acts: [{ op: 'editar', label: 'Editar' }] });
@@ -256,7 +305,7 @@ export function dueNow(contracts, requests, data, rules, day) {
     for (const [b, names] of noLogo) add({ key: `site-logo:${b}`, kind: 'info', text: `Sem logótipo no site: ${b} (${names.join(', ')})`, acts: [{ op: 'espacos', label: 'Abrir Espaços' }] });
     const season = rulesOf(data).season;
     for (const c of list) {
-      if (String(c.season) !== season || !live(c) || renewalView(c, day).state === 'nao-renova') continue;
+      if (isRace(c) || String(c.season) !== season || !live(c) || renewalView(c, day).state === 'nao-renova') continue;
       for (const id of idsOf(c)) {
         const x = id === TITLE ? data.title : data.spots.find((s) => s.id === id);
         if (!x) { add({ key: `site:${c.id}:${id}`, kind: 'warn', id: c.id, text: `O espaço ${id} de ${c.brand} já não existe no site.` }); continue; }
@@ -310,7 +359,8 @@ export function dueNow(contracts, requests, data, rules, day) {
 }
 
 // ---------- CSV (Excel in Portuguese: UTF-8 with BOM, «;», CRLF) ----------
-export const CSV_COLS = ['id', 'epoca', 'marca', 'nivel', 'espacos', 'montante', 'desconto_epoca', 'pago_a', 'forma', 'inicio', 'fim', 'dias_restantes', 'renovacao', 'prazo_logotipo', 'logotipo_vetor', 'contacto', 'canal', 'email', 'telefone', 'conta', 'nif', 'pedido', 'notas', 'link'];
+// (prova, the race partner's race since 03.11.2026, last: «setubal 2027-05-02 capacete»; the columns before it unchanged)
+export const CSV_COLS = ['id', 'epoca', 'marca', 'nivel', 'espacos', 'montante', 'desconto_epoca', 'pago_a', 'forma', 'inicio', 'fim', 'dias_restantes', 'renovacao', 'prazo_logotipo', 'logotipo_vetor', 'contacto', 'canal', 'email', 'telefone', 'conta', 'nif', 'pedido', 'notas', 'link', 'prova'];
 // every cell quoted, «"» doubled; a cell that a spreadsheet would take for a formula starts with «'»
 export function csvCell(v) {
   let s = v === null || v === undefined ? '' : String(v);
@@ -321,9 +371,10 @@ export function csvRow(c, day, data = null) {
   const r = rulesOfContract(c), left = daysLeft(c, day);
   const pay = c.pay === 'produto' && c.inKind ? `${PAY.produto}: ${c.inKind}` : PAY[c.pay] || '';
   // (the season discount only when the amount is the table's price: a negotiated or in-kind deal had none)
+  const race = isRace(c) ? [c.race.id, c.race.date, c.race.helmet ? 'capacete' : ''].filter(Boolean).join(' ') : '';
   return [c.id, c.season, c.brand, levelName(c.level, 'pt', data), spotsText(c), Number(c.amount) || 0, paidTable(c) ? seasonCell(c.price) : '', c.paidAt || '', pay, r.start, r.end,
-    Math.max(0, left.n), renewalOf(c, day).label, r.logoBy, c.logo?.vector ? 'sim' : 'não', c.contact?.name || '', CHANNEL[c.contact?.channel || ''] || c.contact?.channel || '',
-    c.contact?.email || '', c.contact?.phone || '', c.contact?.handle || '', c.nif || '', c.request || '', c.notes || '', c.url || ''];
+    Math.max(0, left.n), renewalOf(c, day).label, isRace(c) ? c.race.logoBy || '' : r.logoBy, c.logo?.vector ? 'sim' : 'não', c.contact?.name || '', CHANNEL[c.contact?.channel || ''] || c.contact?.channel || '',
+    c.contact?.email || '', c.contact?.phone || '', c.contact?.handle || '', c.nif || '', c.request || '', c.notes || '', c.url || '', race];
 }
 export function toCsv(contracts, day, data = null) {
   const lines = [CSV_COLS, ...(Array.isArray(contracts) ? contracts : []).map((c) => csvRow(c, day, data))].map((row) => row.map(csvCell).join(';'));
@@ -380,9 +431,16 @@ export function toIcs(contracts, rules, now) {
   const min = (a, b) => (a < b ? a : b);
   const onPropose = min(later(rules.proposalsFrom), rules.renewBy), onAnswer = min(later(addDays(rules.renewBy, -7)), rules.renewBy);
   const onPay = min(later(addDays(rules.renewPayBy, -7)), rules.renewPayBy);
+  // the race partner: its race day and its vector logo's last day, at 9:00 (a month-only race: the logo day only)
+  for (const c of Array.isArray(contracts) ? contracts : []) {
+    if (!isRace(c) || String(c.season) !== String(y)) continue;
+    const r = c.race, name = r.name || r.id;
+    if (isDay(r.date)) lines.push(...icsEvent({ uid: `gocarmo-${y}-rp-${c.id}@gocarmo.com`, day: r.date, summary: `Parceiro de prova: ${c.brand} (${name})`, description: `Nesta prova corro com o fato${r.helmet ? ' e o capacete' : ''} de ${c.brand}.`, stamp, alarms: [AT9] }));
+    if (isDay(r.logoBy)) lines.push(...icsEvent({ uid: `gocarmo-${y}-rpl-${c.id}@gocarmo.com`, day: r.logoBy, summary: `Logótipo em vetor: ${c.brand} (${name})`, description: `Último dia para o logótipo em vetor de ${c.brand}, para fazer o fato do ${name}.`, stamp, alarms: [AT9] }));
+  }
   if (day <= rules.renewPayBy) {
     for (const c of Array.isArray(contracts) ? contracts : []) {
-      if (!c || String(c.season) !== String(y)) continue;
+      if (!c || isRace(c) || String(c.season) !== String(y)) continue;
       const st = renewalView(c, day).state, what = spotsText(c), tag = `${c.brand}${what ? ` (${what})` : ''}`;
       const p = payState(c, contracts, day);
       if (p && p.state === 'a-pagar') {
@@ -439,6 +497,15 @@ const L = {
     terms: (d) => `As condições do patrocínio estão em gocarmo.com/condicoes${d ? ` (atualizadas a ${ptLong(d)})` : ''}.`,
     ct: 'Contacto', foot: 'Esta confirmação não é uma fatura nem um recibo. O recibo de donativo segue à parte.',
     pays: PAY_PT_LONG, inKind: (x) => `Em produto: ${x}`, inKindTotal: ['Pagamento', 'Em produto'],
+    // the race partner (a contract with race)
+    rTitle: 'Confirmação de parceiro de prova', rDoc: (b) => `Confirmação de parceiro de prova · ${b}`, rFile: 'parceiro-de-prova',
+    rBox: (name, d) => `Parceiro de prova · ${name}, ${d}`, rThanks: (b) => `Obrigado, ${b}. O fato completo nesta prova é teu.`,
+    race: 'Prova', rSuit: (name) => `Fato completo numa prova: ${name}`, rHelmet: 'Capacete completo na prova', rNextH: 'A seguir',
+    rLogo: (d, got) => `Para fazer o fato, envia-me o logótipo em vetor (SVG, PDF, AI ou EPS) até ${ptLong(d)}.${got ? ' Já o recebi.' : ''}`,
+    rIncl: 'A inscrição e a viagem estão incluídas, sem mais custos para ti.', rCosts: 'Os custos desta prova (inscrição, viagem e alojamento) são os do nosso acordo escrito.',
+    rOnly: 'Só esta prova: não é um nível da época e não tem preferência na renovação.',
+    rNotice: 'Aviso os patrocinadores da época antes da prova e ponho o aviso no site, na secção do patrocínio, com o teu logótipo e o teu link, até ao fim da época.',
+    rCancel: 'Se a prova for cancelada, se eu não conseguir a inscrição ou não puder partir, vale o que dizem as condições em «O parceiro de prova»: outra prova da época em Portugal ou Espanha, ou a devolução, com as contas por escrito.',
   },
   en: {
     title: 'Sponsorship confirmation', doc: (b) => `Sponsorship confirmation · ${b}`, file: 'confirmation',
@@ -464,6 +531,14 @@ const L = {
     terms: (d) => `The sponsorship terms are at gocarmo.com/condicoes${d ? ` (updated ${enLong(d)})` : ''}.`,
     ct: 'Contact', foot: 'This confirmation is not an invoice or a receipt. The donation receipt is sent separately.',
     pays: PAY_EN, inKind: (x) => `In kind: ${x}`, inKindTotal: ['Payment', 'In kind'],
+    rTitle: 'Race partner confirmation', rDoc: (b) => `Race partner confirmation · ${b}`, rFile: 'race-partner',
+    rBox: (name, d) => `Race partner · ${name}, ${d}`, rThanks: (b) => `Thank you, ${b}. The whole suit at this race is yours.`,
+    race: 'Race', rSuit: (name) => `Whole suit for one race: ${name}`, rHelmet: 'Whole helmet at the race', rNextH: 'What happens next',
+    rLogo: (d, got) => `To make the suit, send me your vector logo (SVG, PDF, AI or EPS) by ${enLong(d)}.${got ? ' I already have it.' : ''}`,
+    rIncl: 'Entry and travel are included, with no other costs for you.', rCosts: 'This race\'s costs (entry, travel and accommodation) are as in our written agreement.',
+    rOnly: 'This race only: it isn\'t a season level and has no renewal option.',
+    rNotice: 'I tell the season sponsors before the race and post the notice in the sponsorship section of the site, with your logo and your link, until the end of the season.',
+    rCancel: 'If the race is cancelled, or if I can\'t get an entry or can\'t start, the terms under “The race partner” apply: another race of the season in Portugal or Spain, or a refund, with the sums in writing.',
   },
 };
 const slug = (s) => fold(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'marca';
@@ -484,6 +559,7 @@ export function priceRows(c, lang = 'pt') {
 // the model the PDF lays out (admin-confirm-pdf.js). opts.data: data/spots.json, for the spots' English names, the
 // tier names and the season the site runs now; opts.site: { name, email, whatsapp } of SITE.
 export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {}) {
+  if (isRace(c)) return raceConfirmation(c, lang, { data, site });
   const lg = lang === 'en' ? 'en' : 'pt', w = L[lg], r = { ...rulesOfContract(c, data), season: String(c.season) };
   const brand = String(c.brand || '');
   const title = isTitle(c);
@@ -521,6 +597,33 @@ export function confirmationModel(c, lang = 'pt', { data = null, site = {} } = {
     rows: info.filter(([, v]) => v), cols: w.cols, items,
     season: rows ? rows.season : null, disc: rows ? rows.disc : null, total: kind ? w.inKindTotal : [w.paid, money(c.amount, lg)],
     next: { h: w.nextH, items: next }, link: { text: 'gocarmo.com/condicoes', uri: TERMS_URL },
+    contact: [w.ct, `WhatsApp ${wa} · ${site.email || 'allez@gocarmo.com'}`], foot: w.foot,
+  };
+}
+// the race partner's confirmation: the race and its day in place of the season, the suit (and the helmet), what was
+// paid, and what happens next (the vector logo, what the price covers, that race only, the notice, the cancelled race)
+function raceConfirmation(c, lang, { data, site }) {
+  const lg = lang === 'en' ? 'en' : 'pt', w = L[lg], race = c.race, brand = String(c.brand || '');
+  const name = (lg === 'en' && raceOf(data, race.id)?.en) || race.name || race.id, when = raceDayText(race, lg);
+  const proposal = !!raceOf(data, race.id)?.proposal || c.price === null;
+  const kind = c.pay === 'produto' && !(Number(c.amount) > 0);
+  const pay = c.pay === 'produto' && c.inKind ? w.inKind(c.inKind) : w.pays[c.pay] || '';
+  const ct = c.contact || {};
+  const info = [[w.brand, brand], [w.name, String(ct.name || '')], [w.email, String(ct.email || '')], [w.phone, String(ct.phone || '')], [w.level, levelName(PROVA, lg)], [w.race, `${name}, ${when}`],
+    [kind ? w.agreedAt : w.paidAt, c.paidAt ? longDate(c.paidAt, lg) : ''], [w.pay, pay]];
+  if (c.nif) info.push([w.nif, c.nif]);
+  info.push([w.ref, String(c.id || '')]);
+  const price = (id) => (Array.isArray(c.spots) ? c.spots.find((x) => x && x.id === id) : null);
+  const items = [{ n: '', name: w.rSuit(name), model: w.suit, price: proposal ? '' : money(price(PROVA)?.price ?? 0, lg) },
+    ...(race.helmet ? [{ n: '', name: w.rHelmet, model: w.helmet, price: proposal ? '' : money(price('prova-capacete')?.price ?? 0, lg) }] : [])];
+  const next = [...(isDay(race.logoBy) ? [w.rLogo(race.logoBy, c.logo?.vector === true)] : []), proposal ? w.rCosts : w.rIncl, w.rOnly, w.rNotice, w.rCancel, w.terms(c.terms || '')];
+  const wa = site.whatsapp ? String(site.whatsapp).replace(/^(\d{3})(\d{3})(\d{3})(\d{3})$/, '+$1 $2 $3 $4') : '+351 916 395 103';
+  return {
+    lang: lg, file: `gocarmo-${w.rFile}-${slug(brand)}-${c.season}.pdf`, docTitle: `${w.rDoc(brand)} · ${site.name || 'Gonçalo Carmo'}`,
+    head: { name: site.name || 'Gonçalo Carmo', site: 'gocarmo.com' },
+    title: w.rTitle, box: { k: w.rBox(name, when), h: w.rThanks(brand) },
+    rows: info.filter(([, v]) => v), cols: w.cols, items, season: null, disc: null, total: kind ? w.inKindTotal : [w.paid, money(c.amount, lg)],
+    next: { h: w.rNextH, items: next }, link: { text: 'gocarmo.com/condicoes', uri: TERMS_URL },
     contact: [w.ct, `WhatsApp ${wa} · ${site.email || 'allez@gocarmo.com'}`], foot: w.foot,
   };
 }

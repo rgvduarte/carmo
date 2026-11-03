@@ -160,3 +160,8 @@ fieldset.field > legend { padding: 0; }
 @media (min-width: 760px) {
   dialog.pt-sheet { width: 620px; }
 }
+/* the race partner (since 03.11.2026): the sheet's race fields, the card's sector and notice to the season sponsors */
+.pt-prova { display: grid; gap: 10px; margin-top: 12px; }
+.pt-prova[hidden] { display: none; }
+.ct-sector { margin: 0; font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+.ct-notice { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; color: var(--muted); }
