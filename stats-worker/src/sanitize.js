@@ -98,7 +98,8 @@ function landOf(v) {
   if (typeof v !== 'string' || v.length > 48) return undefined;
   if (v.startsWith('#')) return ANCHOR_SET.has(v.slice(1)) ? v : undefined;
   if (v.startsWith('spot:')) { const id = v.slice(5); return SPOT_SET.has(id) && id !== 'title' ? v : undefined; }
-  if (v === 'capacete' || v === 'title' || v === 'pacote:1' || v === 'pacote:2' || v === 'pacote:3+') return v;
+  // `prova`: a #fato/prova… link (the race card, since 03.11.2026), never its race
+  if (v === 'capacete' || v === 'title' || v === 'prova' || v === 'pacote:1' || v === 'pacote:2' || v === 'pacote:3+') return v;
   return undefined;
 }
 function refOf(v) {

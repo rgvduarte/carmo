@@ -65,7 +65,7 @@
   "./assets/js/admin-analytics-api.js": "./assets/js/admin-analytics-api.js?v=77a1a92a",
   "./assets/js/admin-analytics-charts.js": "./assets/js/admin-analytics-charts.js?v=3b35f743",
   "./assets/js/admin-analytics-heat.js": "./assets/js/admin-analytics-heat.js?v=7321de53",
-  "./assets/js/admin-analytics-labels.js": "./assets/js/admin-analytics-labels.js?v=573c6b3d",
+  "./assets/js/admin-analytics-labels.js": "./assets/js/admin-analytics-labels.js?v=2a4d7e6d",
   "./assets/js/admin-analytics-map.js": "./assets/js/admin-analytics-map.js?v=a6e8f1b4",
   "./assets/js/admin-analytics-panels.js": "./assets/js/admin-analytics-panels.js?v=7b54e2bb",
   "./assets/js/admin-analytics.js": "./assets/js/admin-analytics.js?v=65a73629",
@@ -82,9 +82,9 @@
   "./assets/js/admin-montra.js": "./assets/js/admin-montra.js?v=b8a5f267",
   "./assets/js/admin-patrocinios.js": "./assets/js/admin-patrocinios.js?v=d1d8b201",
   "./assets/js/admin-photo.js": "./assets/js/admin-photo.js?v=534d6c65",
-  "./assets/js/admin-report-model.js": "./assets/js/admin-report-model.js?v=bb74c1b6",
+  "./assets/js/admin-report-model.js": "./assets/js/admin-report-model.js?v=245cfdaa",
   "./assets/js/admin-report-pdf.js": "./assets/js/admin-report-pdf.js?v=3ade1f26",
-  "./assets/js/admin-report-text.js": "./assets/js/admin-report-text.js?v=34cb8052",
+  "./assets/js/admin-report-text.js": "./assets/js/admin-report-text.js?v=a6691e6f",
   "./assets/js/admin-report.js": "./assets/js/admin-report.js?v=b49cf6c1",
   "./assets/js/admin-strava.js": "./assets/js/admin-strava.js?v=d382a127",
   "./assets/js/admin-worker.js": "./assets/js/admin-worker.js?v=ad096645",
@@ -115,9 +115,9 @@
   "./assets/js/room.js": "./assets/js/room.js?v=b0ef85a2",
   "./assets/js/season-rules.js": "./assets/js/season-rules.js?v=f9084e71",
   "./assets/js/stats-fb.js": "./assets/js/stats-fb.js?v=87cd2e59",
-  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=5116cc0e",
+  "./assets/js/stats-site.js": "./assets/js/stats-site.js?v=15f1a7a3",
   "./assets/js/stats-zones.js": "./assets/js/stats-zones.js?v=0b1a2d6f",
-  "./assets/js/stats.js": "./assets/js/stats.js?v=7bd755fa",
+  "./assets/js/stats.js": "./assets/js/stats.js?v=5ac6d4d8",
   "./assets/js/suit-body.js": "./assets/js/suit-body.js?v=e86b9edf",
   "./assets/js/suit-mesh.js": "./assets/js/suit-mesh.js?v=b3644acd",
   "./assets/js/suit-worker.js": "./assets/js/suit-worker.js?v=41a4b375",
@@ -595,8 +595,9 @@
 
           <!-- the race partner («parceiro de prova», data/spots.json "racePartner"): the whole suit, and the helmet if added,
                at one race of the season. adspace.js renderRace fills the races and their states, picks one, and turns the
-               card into the public notice once it is sold; without the block in the file the card stays hidden -->
-          <div class="card race-partner" id="rp" role="region" aria-labelledby="rp-h" hidden>
+               card into the public notice once it is sold; without the block in the file the card stays hidden. data-private:
+               stats.js labels a click in it by its i18n key or id, never by its text (the races, the partner's name) -->
+          <div class="card race-partner" id="rp" role="region" aria-labelledby="rp-h" data-private hidden>
             <div class="rp-head">
               <div><span class="eyebrow gold" style="margin:0 0 8px" id="rp-k" data-i18n="rp.k">Parceiro de prova</span><h4 id="rp-h" tabindex="-1" data-i18n="rp.h">O fato completo numa prova</h4></div>
               <div class="price"><span id="rp-price">3 000 €</span><small data-i18n="rp.s">por prova</small></div>
@@ -1049,7 +1050,7 @@
 <script src="assets/vendor/gsap@3.13.0/ScrollTrigger.min.js" defer></script>
 <script src="assets/vendor/gsap@3.13.0/ScrambleTextPlugin.min.js" defer></script>
 <script src="assets/vendor/lenis@1.3.4/dist/lenis.min.js" defer></script>
-<script type="module" src="assets/js/stats.js?v=7bd755fa" async data-optional></script>
+<script type="module" src="assets/js/stats.js?v=5ac6d4d8" async data-optional></script>
 <script type="module" src="assets/js/main.js?v=b3401bed"></script>
 <script type="module" src="assets/js/analytics.js?v=177cfede"></script>
 </body>

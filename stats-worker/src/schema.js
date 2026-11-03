@@ -31,14 +31,19 @@ export const SPOTS_SUIT = ['peito', 'clavicula-e', 'clavicula-d', 'abdomen', 'ci
 export const SPOTS_HELMET = ['capacete-topo', 'capacete-lateral-e', 'capacete-lateral-d', 'capacete-traseira'];
 export const SPOT_IDS = [...SPOTS_SUIT, ...SPOTS_HELMET];
 export const SPOTS = [...SPOT_IDS, 'title'];                      // `title` = the whole suit
+// `prova` = the race partner (since 03.11.2026): the whole suit at one race, a public product id like `title`. It is
+// never a spot of the 3D (data-id, data-focus); only a sponsor link's spot and a claim's size say it.
+export const PROVA = 'prova';
 export const SPOT_SET = new Set(SPOTS);
 const HELMET_SET = new Set(SPOTS_HELMET);
 export const itemOfSpot = (id) => (HELMET_SET.has(id) ? 'helmet' : SPOT_SET.has(id) ? 'suit' : null);
 export const ITEMS = ['suit', 'helmet'];
 
 // 4.8: CTA ids (cta_view `id`, click `cta`), in the dashboard's order
-export const CTAS = ['hero-sponsor', 'hero-support', 'nav-sponsor', 'entry-suit', 'entry-helmet', 'title', 'pkg-go',
-  'spot-add', 'spot-try', 'gofundme', 'give-iban', 'give-mb', 'contact-email', 'media-kit', 'strava'];
+// (`prova`: the race card's «Pedir o fato nesta prova»; `prova-contacto`: its WhatsApp or email button, for a race
+// that is asked by message; since 03.11.2026)
+export const CTAS = ['hero-sponsor', 'hero-support', 'nav-sponsor', 'entry-suit', 'entry-helmet', 'title', 'prova',
+  'prova-contacto', 'pkg-go', 'spot-add', 'spot-try', 'gofundme', 'give-iban', 'give-mb', 'contact-email', 'media-kit', 'strava'];
 export const CTA_SET = new Set(CTAS);
 
 export const VW = ['m', 't', 'd', 'w'];
@@ -98,12 +103,14 @@ const bucket = (edges) => (v) => {
 };
 const pkgN = (v) => {
   const s = typeof v === 'number' ? String(v) : v;
-  if (s === '1' || s === '2' || s === '3+' || s === 'title') return s;
+  if (s === '1' || s === '2' || s === '3+' || s === 'title' || s === PROVA) return s;
   if (typeof s === 'string' && /^\d{1,2}$/.test(s) && Number(s) >= 3) return '3+';
   return undefined;
 };
 const item = oneOf('suit', 'helmet');
 const spot = inSet(SPOT_SET);
+// a sponsor link's spot: a spot, `title`, or `prova` (the race partner's notice on the race card)
+const spotOrRace = (v) => (v === PROVA ? v : spot(v));
 const anchor = inSet(ANCHOR_SET);
 const step12 = (v) => { const n = int(1, 2)(v); return n; };
 const assetName = (v) => (typeof v === 'string' && /^[a-z0-9._-]{1,48}$/.test(v) ? v : undefined);
@@ -155,7 +162,7 @@ export const EVENTS = {
   mockup_download: { p: { spot }, cap: 10 },
   spot_share: { p: { spot, how: oneOf('nativo', 'copia') }, cap: 10 },
   onsuit_view: { p: {}, cap: 1 },
-  claim_open: { p: { via: oneOf('pkg', 'title', 'retoma'), n: pkgN, step: step12 }, cap: 5 },
+  claim_open: { p: { via: oneOf('pkg', 'title', 'prova', 'retoma'), n: pkgN, step: step12 }, cap: 5 },
   claim_step: { p: { step: step12 }, cap: 10 },
   claim_items: { p: {}, cap: 5 },
   claim_extra: { p: {}, cap: 5 },
@@ -190,7 +197,9 @@ export const EVENTS = {
   // a tap on a sponsor's link (since 02.11.2026): its logo in the 3D's spot card («ficha») or in the «Já no fato» list
   // («lista»), by the public spot id (`title` for the whole suit's partner), never the brand, the link or its host (the
   // host is the click's own `out`, as before). Counted by spot, so a link to Instagram is the brand's own too.
-  sponsor_click: { p: { spot, via: oneOf('ficha', 'lista'), item }, cap: 10, need: ['spot'] },
+  // Since 03.11.2026 also the race partner's link in the race card's notice: spot `prova`, via `aviso`, item `suit`
+  // (never the race).
+  sponsor_click: { p: { spot: spotOrRace, via: oneOf('ficha', 'lista', 'aviso'), item }, cap: 10, need: ['spot'] },
 };
 export const MONTRA_EVENTS = ['montra_view', 'montra_shop', 'montra_code'];
 

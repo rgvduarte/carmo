@@ -26,7 +26,7 @@ const GA = { select_content: ['spot_select', 'item_id', 'spot'], begin_checkout:
   language_change: ['lang_switch', 'new_language', 'to'] };
 const CTA = [['hero-sponsor', '.hero-cta .btn.gold'], ['hero-support', '.hero-cta .btn.ghost'], ['nav-sponsor', '#nav .actions .btn.gold'],
   ['entry-suit', '.entry-card[data-item="suit"] .entry-cta'], ['entry-helmet', '.entry-card[data-item="helmet"] .entry-cta'],
-  ['title', '#tp-btn'], ['pkg-go', '#pk-go'], ['spot-add', '#sd-add'], ['spot-try', '#sd-try'], ['gofundme', '#gofundme'],
+  ['title', '#tp-btn'], ['prova', '#rp-btn'], ['prova-contacto', '#rp-contact a'], ['pkg-go', '#pk-go'], ['spot-add', '#sd-add'], ['spot-try', '#sd-try'], ['gofundme', '#gofundme'],
   ['give-iban', '#apoiar [data-copy-iban]'], ['give-mb', '#give-mb'], ['contact-email', '#contacto .cta .btn.gold'],
   ['media-kit', '#print-kit'], ['strava', '.strava-card a']];
 const FIRST = /^((main|adspace|suit(-body|-mesh|-worker)?|helmet|i18n|marks|flow|charts|data|stats(-site|-fb|-zones)?|analytics|privacy|montra(-core)?|web-vitals\.attribution)\.js|(gsap|ScrollTrigger|ScrambleTextPlugin|lenis|three\.module)\.min\.js|index\.mjs)$/;
@@ -161,8 +161,9 @@ function claimSeen() {
   const d = $('#claim'), step = d && (+d.dataset.step || 1);
   if (!d || !d.open) return;
   if (!clOpen) {
-    const via = openBy && now() - openBy[1] < 1500 ? openBy[0] : 'retoma';
-    ev('claim_open', { via, n: via === 'title' || (via === 'retoma' && !inPkg()) ? 'title' : pkgN(), step });
+    // the race partner (since 03.11.2026): 'prova', its public product id, never the race
+    const via = openBy && now() - openBy[1] < 1500 ? openBy[0] : 'retoma', race = via === 'prova' || (via === 'retoma' && d.dataset.kind === 'prova');
+    ev('claim_open', { via, n: race ? 'prova' : via === 'title' || (via === 'retoma' && !inPkg()) ? 'title' : pkgN(), step });
     clOpen = true; openBy = null;
   } else if (step !== clStep) ev('claim_step', { step });
   if (step === 2 && clStep !== 2) ev('pay_tab', { tab: tabNow(), auto: 1 });
@@ -267,6 +268,7 @@ export function init(api) {
     ['#pk-clear', () => ev('pkg_clear')],
     ['#pk-go', () => { openBy = ['pkg', now()]; }],
     ['#tp-btn', () => { openBy = ['title', now()]; ev('title_click'); }],
+    ['#rp-btn', () => { openBy = ['prova', now()]; }],
     ['#sd-try', () => later(() => $('#tryon.on') && ev('try_open'))],
     ['#logo-rm', () => ev('logo_remove')],
     ['#logo-dl', () => ev('mockup_download', { spot: spotNow() })],
@@ -296,9 +298,10 @@ export function init(api) {
     // stats.js sends the shop tap's beacon once this dispatch is over, with this event in it
     ['.mt-shop', (el) => montra('montra_shop', el)],
     ['.mt-cp', (el) => montra('montra_code', el)],
-    // a sponsor's link (since 02.11.2026): its public spot id (or 'title') and where it was tapped, never the brand, the
-    // link or its host; stats.js sends that tap's beacon once this dispatch is over, with this event in it
-    ['a[data-sponsor]', (el) => { const spot = el.dataset.sponsor; if (spot === 'title' || SPOT.test(spot)) ev('sponsor_click', { spot, via: el.dataset.via === 'lista' ? 'lista' : 'ficha', item: /^capacete-/.test(spot) ? 'helmet' : 'suit' }); }],
+    // a sponsor's link (since 02.11.2026): its public spot id (or 'title'; 'prova' for the race partner's notice, via
+    // 'aviso', since 03.11.2026) and where it was tapped, never the brand, the link, its host or the race; stats.js sends
+    // that tap's beacon once this dispatch is over, with this event in it
+    ['a[data-sponsor]', (el) => { const spot = el.dataset.sponsor; if (spot === 'title' || spot === 'prova' || SPOT.test(spot)) ev('sponsor_click', { spot, via: ['lista', 'aviso'].includes(el.dataset.via) ? el.dataset.via : 'ficha', item: /^capacete-/.test(spot) ? 'helmet' : 'suit' }); }],
     ['[data-lang]', (el) => {
       const from = H.lang.startsWith('pt') ? 'pt' : 'en', to = el.dataset.lang;
       if (to !== from) ev('lang_switch', { from, to, s: bucket(A.st().eng, [0, 10, 30, 60]) });

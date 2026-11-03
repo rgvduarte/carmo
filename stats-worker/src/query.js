@@ -467,8 +467,10 @@ const BUILD = {
       },
       brand: { opens: f('S3'), errors: f('claim.err') },
       returns: { bf: f('ret.bf'), bfDialog: f('ret.bf_dlg'), resume: f('ret.resume') },
-      packages: { sizes: by('claim_open', 'n', ['1', '2', '3+', 'title']), goSeen: f('pkg.go.seen'), goClicked: f('pkg.go.click') },
+      // (`prova`, the race partner, only once some request has it, so an answer without it keeps its shape)
+      packages: { sizes: [...by('claim_open', 'n', ['1', '2', '3+', 'title']), ...by('claim_open', 'n', ['prova']).filter((x) => x.n)], goSeen: f('pkg.go.seen'), goClicked: f('pkg.go.click') },
       title: { seen: f('title.seen'), clicked: f('title.click'), opened: f('title.open'), sent: f('title.sent') },
+      prova: { seen: f('prova.seen'), opened: f('prova.open'), sent: f('prova.sent') },
       tryon: { open: f('try.open'), upload: f('try.upload'), opt: f('try.opt'), download: f('try.dl'), remove: f('try.rm'), then: f('try.then') },
       share: { shares: int(evRows(cur, 'spot_share').reduce((t, r) => t + r.u, 0)), landings: f('share.land'), spots: ranked(shares) },
       // never hour × the funnel (D13, privacy 2.7)
@@ -652,18 +654,19 @@ export function montraOf(acc) {
 // (#material); and `list`, the page views where the sponsor list came into view (onsuit_view), per month. `host`: only
 // that host and its subdomains.
 // Since 02.11.2026 a tap on a sponsor's logo link also says its spot (sponsor_click): `spots` gives the clicks per month
-// and spot (`ficha`: the spot's card, from the 3D or a row; `lista`: «Já no fato»), which tell one brand from another
+// and spot (`ficha`: the spot's card, from the 3D or a row; `lista`: «Já no fato»; `aviso`, since 03.11.2026: the race
+// card's notice of its race partner, spot `prova`), which tell one brand from another
 // even on Instagram. The host rows keep counting every click; `logoOld` is the part of `logo` from days with no
 // sponsor_click at all (the history before the new tracker, and old cached pages), so a report adds spots + logoOld and
 // never counts a click twice. `spotsFrom`: the first day of the period with sponsor_click data ('' when none).
 // `spots` (the filter): only those spot ids in the spot rows.
-const SPONSOR_VIA = ['ficha', 'lista'];
+const SPONSOR_VIA = ['ficha', 'lista', 'aviso'];
 export function sponsorsOf(acc, host, spots) {
   const months = new Map(), totals = new Map(), views = new Map(), sMonths = new Map(), sTotals = new Map();
   const want = Array.isArray(spots) && spots.length ? new Set(spots) : null;
   const mine = (h) => !host || h === host || h.endsWith(`.${host}`);
   const bump = (map, h, col, v) => { let r = map.get(h); if (!r) map.set(h, (r = { host: h, logo: 0, shop: 0, logoOld: 0 })); r[col] += v; };
-  const bumpS = (map, spot, via, v) => { let r = map.get(spot); if (!r) map.set(spot, (r = { spot, ficha: 0, lista: 0 })); if (SPONSOR_VIA.includes(via)) r[via] += v; r.clicks = (r.clicks || 0) + v; };
+  const bumpS = (map, spot, via, v) => { let r = map.get(spot); if (!r) map.set(spot, (r = { spot, ficha: 0, lista: 0, aviso: 0 })); if (SPONSOR_VIA.includes(via)) r[via] += v; r.clicks = (r.clicks || 0) + v; };
   let from = '';
   for (const slot of acc.slots) {
     const month = slot.slice(0, 7);
@@ -697,7 +700,8 @@ export function sponsorsOf(acc, host, spots) {
     if (u) views.set(month, (views.get(month) || 0) + u);
   }
   const out = (map) => [...map.values()].map((r) => ({ host: r.host, logo: int(r.logo), shop: int(r.shop), logoOld: int(r.logoOld) })).sort((a, b) => cmp(a.host, b.host));
-  const outS = (map) => [...map.values()].map((r) => ({ spot: r.spot, ficha: int(r.ficha), lista: int(r.lista), clicks: int(r.clicks) })).sort((a, b) => cmp(a.spot, b.spot));
+  // (`aviso` only on a row that has some, so an answer without the race partner keeps its shape)
+  const outS = (map) => [...map.values()].map((r) => ({ spot: r.spot, ficha: int(r.ficha), lista: int(r.lista), ...(r.aviso ? { aviso: int(r.aviso) } : {}), clicks: int(r.clicks) })).sort((a, b) => cmp(a.spot, b.spot));
   return {
     months: [...months].sort((a, b) => cmp(a[0], b[0])).map(([month, rows]) => ({ month, rows: out(rows) })),
     totals: out(totals),

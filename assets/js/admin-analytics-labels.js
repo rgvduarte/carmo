@@ -45,7 +45,8 @@ export const app = (k) => APPNAME[k] || k;
 
 export const CTA = {
   'hero-sponsor': 'Início: Ver o fato e o capacete', 'hero-support': 'Início: Apoiar', 'nav-sponsor': 'Menu: Patrocinar',
-  'entry-suit': 'Ver o fato', 'entry-helmet': 'Ver o capacete', title: 'Pedir o fato completo', 'pkg-go': 'Barra do pacote: Reservar',
+  'entry-suit': 'Ver o fato', 'entry-helmet': 'Ver o capacete', title: 'Pedir o fato completo',
+  prova: 'Parceiro de prova: Pedir o fato nesta prova', 'prova-contacto': 'Parceiro de prova: WhatsApp ou email', 'pkg-go': 'Barra do pacote: Reservar',
   'spot-add': 'Adicionar ao pacote', 'spot-try': 'Experimentar o logótipo', gofundme: 'Apoiar no GoFundMe',
   'give-iban': 'Copiar o IBAN (apoiar)', 'give-mb': 'Copiar o MB WAY (apoiar)', 'contact-email': 'Enviar email',
   'media-kit': 'Media kit em PDF', strava: 'Cartão do Strava',
@@ -84,7 +85,7 @@ export const OUT = {
 export const ITEM = { suit: 'Fato', helmet: 'Capacete' };
 export const STUDIO = { approached: 'Chegaram perto', seen: 'Viram o estúdio', ready: 'O 3D abriu', touched: 'Mexeram no modelo', spot: 'Escolheram um espaço', add: 'Juntaram ao pacote' };
 export const GESTURE = { rotate: 'Rodar', tap: 'Tocar num espaço', pinch: 'Dois dedos (zoom)', zoom: 'Botões de zoom', view: 'Vistas (frente, lado…)', auto: 'Rotação automática', spots: 'Mostrar espaços', chapter: 'Capítulos', tour: 'Visita guiada' };
-export const PKG = { 1: '1 espaço', 2: '2 espaços', '3+': '3 ou mais', title: 'Fato completo' };
+export const PKG = { 1: '1 espaço', 2: '2 espaços', '3+': '3 ou mais', title: 'Fato completo', prova: 'Parceiro de prova' };
 export const REASON = { precos: 'Os preços', reservar: 'Como reservar', pagar: 'Como pagar', incluido: 'O que está incluído', outra: 'Outra coisa' };
 export const NOTEKIND = { post: 'Publicação', prova: 'Prova', imprensa: 'Imprensa', site: 'Site' };
 export const CLICKERR = { js: 'erro de JavaScript', bad: 'logótipo não abriu', big: 'ficheiro grande demais', sold: 'espaço já vendido', helmet: 'capacete falhou', brand: 'faltou a marca', logo: 'faltou o logótipo' };
@@ -104,7 +105,7 @@ export const NAVTO = {
 // spot names (data/spots.json, read by the page): setSpots() once they are in
 let SPOTN = {};
 export const setSpots = (m) => { SPOTN = m || {}; };
-export const spot = (id) => (SPOTN[id] && SPOTN[id].name) || (id === 'title' ? 'Fato completo' : id);
+export const spot = (id) => (SPOTN[id] && SPOTN[id].name) || (id === 'title' ? 'Fato completo' : id === 'prova' ? 'Parceiro de prova' : id);
 export const land = (k) => {
   if (!k) return '—';
   if (k.startsWith('#')) return `gocarmo.com/${k} · ${NAVTO[k.slice(1)] || k.slice(1)}`;
@@ -112,6 +113,7 @@ export const land = (k) => {
   if (k.startsWith('pacote:')) return `Partilha de um pacote · ${PKG[k.slice(7)] || k.slice(7)}`;
   if (k === 'capacete') return 'gocarmo.com/#capacete';
   if (k === 'title') return 'Partilha do fato completo';
+  if (k === 'prova') return 'Link do parceiro de prova';
   return k;
 };
 // a selector of the page (a Web Vitals target) as a name the owner knows: a spot by its name, a known element, else

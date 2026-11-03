@@ -223,13 +223,23 @@ obrigatório), `via` (`ficha`: a ficha do espaço, vinda do 3D ou de uma linha d
 domínio na linha `out` (`osp`), como antes. Guarda-se na métrica `ev` (sem tabela nova nem mudança de esquema). O campo
 `cl-link` do pedido conta como os outros campos: pelo id, nunca pelo que se escreve.
 
+O parceiro de prova (o fato completo numa prova, desde 03.11.2026): `prova` é um id público do produto, como `title`.
+Nunca chega aqui a marca, a prova, o setor nem o link. Valores novos, sem tabela nova nem mudança de esquema:
+`cta_view` com `id` `prova` (o botão «Pedir o fato nesta prova» do cartão) e `prova-contacto` (o botão de WhatsApp ou
+de email de uma prova que se pede por mensagem); `claim_open` com `via` `prova` e `n` `prova`; `sponsor_click` com
+`spot` `prova`, `via` `aviso` (o link do parceiro no aviso do cartão, depois da venda) e `item` `suit`; `land` `prova`
+(uma visita que chega por um link `#fato/prova…`, sem a prova). `derive.js` marca `prova.seen`, `prova.open` e
+`prova.sent` (o pedido enviado), e a resposta `booking` traz `prova: { seen, opened, sent }` e, quando algum pedido o
+tem, `prova` nos tamanhos de `packages`. Um tracker antigo, ou um valor que não está aqui, cai como antes.
+
 **Patrocinadores** (`GET /admin/v1/sponsors`, dias completos só, todos os aparelhos, `int` respeitado, `host=<domínio>`
-opcional: esse domínio e os subdomínios, `www.` tirado; `spots=<id,id>` opcional, até 25 ids de espaços ou `title`:
+opcional: esse domínio e os subdomínios, `www.` tirado; `spots=<id,id>` opcional, até 25 ids de espaços, `title` ou `prova`:
 só esses nas linhas por espaço, `400 filtro` com outro valor). Lê as linhas `out` do tipo `patrocinador` (ligações
 dentro de `#onsuit-list`, `#material` e com `data-sponsor`, por secção e domínio), o evento `onsuit_view` e o evento
 `sponsor_click`. Responde `{ months: [{ month, rows: [{ host, logo, shop, logoOld }] }], totals: [{ host, logo, shop,
-logoOld }], list: [{ month, views }], spots: [{ month, rows: [{ spot, ficha, lista, clicks }] }], spotTotals: [{ spot,
-ficha, lista, clicks }], spotsFrom, ignored: ['dev'] }`: `logo` são os cliques fora da montra (o logótipo e a lista
+logoOld }], list: [{ month, views }], spots: [{ month, rows: [{ spot, ficha, lista, aviso?, clicks }] }], spotTotals: [{ spot,
+ficha, lista, aviso?, clicks }], spotsFrom, ignored: ['dev'] }` (`aviso`, os cliques no aviso do parceiro de prova, só
+numa linha que os tem): `logo` são os cliques fora da montra (o logótipo e a lista
 «Já no fato»), `shop` os da montra, `views` as visualizações em que a lista apareceu no ecrã; `spots` os cliques por
 espaço (exatos, também num link do Instagram); `logoOld` a parte de `logo` dos dias sem nenhum `sponsor_click` (o
 histórico, contado pelo domínio), para um relatório somar `spots` + `logoOld` sem contar um clique duas vezes;

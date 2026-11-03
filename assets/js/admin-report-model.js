@@ -109,8 +109,9 @@ export function linkHost(url) {
 export const hostMatches = (clicked, hosts) => { const c = bareHost(clicked); return !!c && (hosts || []).some((h) => c === h || c.endsWith(`.${h}`)); };
 
 // brandsFor(spotsJson, montraJson, season?) -> [{ key, name, montraIds, hosts, shared, spots: [{id, item, pt, en}], title,
-// spotIds, since }] (spotIds: the ids its logo clicks are counted by, sponsor_click: its spots, and 'title' for the whole
-// suit; since: { id: 'YYYY-MM-DD' }, the day each of them went to the brand, when the sale wrote it)
+// race, spotIds, since }] (spotIds: the ids its logo clicks are counted by, sponsor_click: its spots, 'title' for the whole
+// suit and 'prova' for the race partner; race: { id, pt, en, helmet } once the race partner is sold to it, else null;
+// since: { id: 'YYYY-MM-DD' }, the day each of them went to the brand, when the sale wrote it)
 // every brand with sold spots of the season in data/spots.json (and the whole suit), plus every brand of
 // data/montra.json; sorted by name. season: the season of the report (default: the spots file's own).
 export function brandsFor(spotsJson, montraJson, season) {
@@ -118,7 +119,7 @@ export function brandsFor(spotsJson, montraJson, season) {
   const ssn = String(season ?? sp.season ?? '');
   const list = [];
   const find = (name) => list.find((b) => sameBrand(b.name, name));
-  const add = (name) => { let b = find(name); if (!b) { b = { name: String(name).trim(), montraIds: [], hosts: [], shared: '', spots: [], title: false, spotIds: [], since: {} }; list.push(b); } return b; };
+  const add = (name) => { let b = find(name); if (!b) { b = { name: String(name).trim(), montraIds: [], hosts: [], shared: '', spots: [], title: false, race: null, spotIds: [], since: {} }; list.push(b); } return b; };
   const day = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : '');
   const link = (b, url) => {
     const r = linkHost(url);
@@ -136,6 +137,15 @@ export function brandsFor(spotsJson, montraJson, season) {
       if (!b.spotIds.includes(s.id)) b.spotIds.push(s.id);
       if (day(s.since)) b.since[s.id] = day(s.since);
       link(b, s.url || s.link);
+    }
+    // the race partner, once sold (the season's race; a held one has no brand in the file)
+    const R0 = sp.racePartner;
+    if (R0 && R0.status === 'sold' && R0.brand) {
+      const b = add(R0.brand), id = String(R0.race || ''), r = (Array.isArray(R0.races) ? R0.races : []).find((x) => x && x.id === id) || {};
+      b.race = { id, pt: r.pt || id, en: r.en || r.pt || id, helmet: R0.helmet === true };
+      if (!b.spotIds.includes('prova')) b.spotIds.push('prova');
+      if (day(R0.since)) b.since.prova = day(R0.since);
+      link(b, R0.url);
     }
   }
   for (const m of montraJson && Array.isArray(montraJson.brands) ? montraJson.brands : []) {
@@ -336,6 +346,7 @@ export function buildModel(o) {
     const pick = (s) => (lang === 'en' ? s.en : s.pt);
     const facts = [];
     if (brand.title) facts.push(t.wholeSuit);
+    if (brand.race) facts.push(fill(brand.race.helmet ? t.racePartnerH : t.racePartner, { race: pick(brand.race) }));
     const suit = brand.spots.filter((s) => s.item !== 'helmet').map(pick), helmet = brand.spots.filter((s) => s.item === 'helmet').map(pick);
     if (!brand.title && suit.length) facts.push(fill(t.onSuit, { list: suit.join(', ') }));
     if (helmet.length) facts.push(fill(t.onHelmet, { list: helmet.join(', ') }));
@@ -374,7 +385,7 @@ export function buildModel(o) {
       }
       const note = total === 1 ? fill(t.logoTotal1, { views: f.int(vTotal) }) : fill(t.logoTotal, { v: f.int(total), views: f.int(vTotal) });
       // a spot that went to the brand after the period began: its clicks count from that month (said, with the month)
-      const named = (id) => (id === 'title' ? t.suitWhole : pick(brand.spots.find((x) => x.id === id) || { pt: id, en: id }));
+      const named = (id) => (id === 'title' ? t.suitWhole : id === 'prova' && brand.race ? fill(t.racePart, { race: pick(brand.race) }) : pick(brand.spots.find((x) => x.id === id) || { pt: id, en: id }));
       const cut = !bySpot ? [] : [...ids].filter((id) => fromMonth(id) > months[0] && fromMonth(id) <= months[months.length - 1]);
       const sinceNote = cut.length ? fill(t.logoSince, { list: cut.map((id) => `${named(id)} (${f.month(fromMonth(id))})`).join(', ') }) : '';
       p4.push({ t: 'table', ...(months.length > 1 ? {} : { title: t.logo, lead }), head: t.logoCols, rows, align: ['l', 'r', 'r'], totalRow: months.length > 1,

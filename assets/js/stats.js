@@ -48,7 +48,8 @@ const lab = (el, d = el.dataset || {}) => scrub(d.trackLabel || d.i18n || el.que
 function landOf(h) {
   try { h = decodeURIComponent(h.slice(1)); } catch (_) { return; }
   const m = /^(fato|capacete)\/(.+)$/.exec(h), n = h.startsWith('pacote=') && h.slice(7).split(',').filter((x) => SPOT.test(x)).length;
-  return m ? (m[2] === 'title' && m[1] === 'fato' ? 'title' : SPOT.test(m[2]) && 'spot:' + m[2]) : h === 'capacete' ? h
+  // #fato/prova[/<race>[/capacete]]: the race card (since 03.11.2026), 'prova' and never the race
+  return m ? (m[2] === 'title' && m[1] === 'fato' ? 'title' : m[1] === 'fato' && /^prova(\/|$)/.test(m[2]) ? 'prova' : SPOT.test(m[2]) && 'spot:' + m[2]) : h === 'capacete' ? h
     : n ? 'pacote:' + (n > 2 ? '3+' : n) : ANCH.includes(h) && '#' + h;
 }
 function refOf() {

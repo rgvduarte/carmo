@@ -286,8 +286,13 @@ export function derive(pv, batches, add) {
   const titleOpen = has('claim_open', (p) => p.via === 'title');
   if (titleOpen) flag('title.open');
   if (titleOpen && S[4]) flag('title.sent');
+  // the race partner (since 03.11.2026): the race card's button seen, the request opened from it, and sent
+  if (has('cta_view', (p) => p.id === 'prova')) flag('prova.seen');
+  const raceOpen = has('claim_open', (p) => p.via === 'prova');
+  if (raceOpen) flag('prova.open');
+  if (raceOpen && S[4]) flag('prova.sent');
   if (has('cta_view', (p) => p.id === 'pkg-go')) flag('pkg.go.seen');
-  if (pv.land && /^(spot:|pacote:|title$)/.test(pv.land)) flag('share.land');
+  if (pv.land && /^(spot:|pacote:|title$|prova$)/.test(pv.land)) flag('share.land');
   // support and contact
   if (has('give_copy', (p) => p.what === 'iban')) flag('give.iban');
   if (has('give_copy', (p) => p.what === 'mb')) flag('give.mb');
