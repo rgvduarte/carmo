@@ -999,10 +999,13 @@ visitante. Os nomes de 2027 apagam-se sozinhos a 31 de dezembro de 2028; para ou
 ## Merch (`/admin/merch/`)
 
 As t-shirts GOCARMO em 3D, para testar os estilos antes de as mandar fazer (cartão «Merch» do Painel). **Escolha do
-dono (03.11.2026):** os três estilos e a variante técnica. Não precisa de chave: lê só ficheiros do site e uma rota
-pública do Worker dos Pedidos.
-- **Estilo**: 1 «Quem apoia» (com nomes, ou a versão loja sem nomes), 2 «Época 2027», 3 «99» e «Técnica» (t-shirt de
-  poliéster branco sublimada a preto). **Vista**: Frente, Costas, 3/4; arrastar roda, beliscar ou a roda do rato
+dono (03.11.2026):** todos os estilos e a variante técnica; no mesmo dia, o Gonçalo pediu os visuais da Semana 99 no
+99: o estilo 3 passou a ser «99 · The last 1%» e entrou o 3b «99 · Sol e lua». Não precisa de chave: lê só ficheiros
+do site e uma rota pública do Worker dos Pedidos.
+- **Estilo**: 1 «Quem apoia» (com nomes, ou a versão loja sem nomes), 2 «Época 2027», 3 «99 · The last 1%» (o 99 da
+  Semana 99 e «the last 1%» nas costas, só a creme; o 99 a ouro no peito; 4 telas), 3b «99 · Sol e lua» (o 99 a ouro
+  com a lua e o sol a nascer; o símbolo no peito; 6 telas, ou 5 com o peito do 3) e «Técnica» (t-shirt de poliéster
+  branco sublimada a preto). **Vista**: Frente, Costas, 3/4; arrastar roda, beliscar ou a roda do rato
   aproxima (com limites); no ecrã, as setas rodam e `+`/`-` aproximam. **Rodar** começa ligado, exceto com «reduzir
   movimento» no aparelho (aí também as mudanças de vista são instantâneas). **Cor da t-shirt**: preto (o desenho) e três
   cores de teste; a técnica não tem cor à escolha (a cor é a impressão).

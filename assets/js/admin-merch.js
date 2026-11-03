@@ -1,4 +1,5 @@
-// /admin/merch/: the GOCARMO t-shirts in 3D, to test the three styles the owner chose (03.11.2026) and the «técnica».
+// /admin/merch/: the GOCARMO t-shirts in 3D, to test the styles the owner chose (03.11.2026: 1, 2, 3 and 3b) and the
+// «técnica».
 // - Style, version, view (frente / costas / 3/4, drag, pinch or wheel), «Rodar» (on at first unless the browser asks for
 //   reduced motion), the tee's colour, and for style 1 the names on the back: the fictional ones of the print kit, or
 //   the wall's published names (the booking Worker's public GET /apoiantes/nomes), laid out again here.

@@ -1,7 +1,8 @@
 // The merch page (/admin/merch/): what each t-shirt is made of, as data. No DOM and no imports, so stamp.mjs can load
 // it in Node (every file named here must be on disk) and the tests can read it.
 // Source: the phase 1 print kit (print/FICHA-TECNICA.md, print/manifest.json, print/limites-texto-pequeno.json and
-// ORCAMENTO.md, 03.11.2026). The owner chose all three styles and the «técnica» variant.
+// ORCAMENTO.md, 03.11.2026, revised the same day: style 3 now has the Semana 99 marks, and a style 3b). The owner chose
+// all the styles and the «técnica» variant.
 
 export const BASE = 'admin/merch/';   // from the repository root; the page itself is admin/merch/index.html
 
@@ -13,8 +14,10 @@ export const TEX = {
   's1loja-costas': { w: 301.1, h: 320.7 },
   's2-costas': { w: 205.1, h: 319.9 },
   's2-frente': { w: 90.0, h: 90.0 },
-  's3-costas': { w: 279.9, h: 322.0 },
-  's3-frente': { w: 69.8, h: 55.3 },
+  's3-costas': { w: 299.8, h: 117.2 },
+  's3-frente': { w: 79.9, h: 33.9 },
+  's3b-costas': { w: 299.8, h: 294.0 },
+  's3b-frente': { w: 69.8, h: 70.1 },
   'tec-costas': { w: 351.3, h: 371.857, top: -25 },
 };
 
@@ -26,8 +29,10 @@ export const LOOKS = {
     sub: 'Para venda, sem nomes', flat: { frente: 'estilo-1-quem-apoia-frente', costas: 'estilo-1-loja-sem-nomes-costas' } },
   s2: { style: 's2', title: 'Estilo 2 · Época 2027', back: 's2-costas', front: 's2-frente',
     sub: 'Calendário a confirmar', flat: { frente: 'estilo-2-epoca-2027-frente', costas: 'estilo-2-epoca-2027-costas' } },
-  s3: { style: 's3', title: 'Estilo 3 · 99', back: 's3-costas', front: 's3-frente',
-    sub: 'Serigrafia, 2 cores', flat: { frente: 'estilo-3-99-frente', costas: 'estilo-3-99-costas' } },
+  s3: { style: 's3', title: 'Estilo 3 · 99 · The last 1%', back: 's3-costas', front: 's3-frente',
+    sub: 'Costas a creme, frente a ouro', flat: { frente: 'estilo-3-99-frente', costas: 'estilo-3-99-costas' } },
+  s3b: { style: 's3b', title: 'Estilo 3b · 99 · Sol e lua', back: 's3b-costas', front: 's3b-frente',
+    sub: 'Serigrafia, 2 cores', flat: { frente: 'estilo-3b-99-sol-e-lua-frente', costas: 'estilo-3b-99-sol-e-lua-costas' } },
   tec: { style: 'tec', title: 'Técnica · Estilo 1', back: 'tec-costas', front: 's1-frente', tech: true,
     sub: 'Sublimação · 200 nomes fictícios', flat: { frente: 'tecnica-estilo-1-frente', costas: 'tecnica-estilo-1-costas' } },
 };
@@ -94,22 +99,43 @@ export const FICHAS = {
     ],
   },
   s3: {
-    title: 'Estilo 3 · 99',
+    title: 'Estilo 3 · 99 · The last 1%',
     rows: [
-      ['Costas', 'CARMO, o 99 em contorno de 3,4 mm, uma linha e «SÓ ME VÊS AS COSTAS». 28 × 32 cm (M a 3XL) · 24,5 × 28 cm (XS e S).'],
-      ['Peito', 'GC., 7 × 5,5 cm (S a 3XL; 6,5 cm em XS).'],
+      ['Costas', 'O 99 de corrida da Semana 99, com os traços de velocidade, e «the last 1%» por baixo, como no post 01. Só a creme. 30 × 11,7 cm (M a 3XL) · 26 × 10,2 cm (XS e S); o 99 em si tem 21 × 9 cm.'],
+      ['Peito', 'O 99 sem traços, a ouro, 8 × 3,4 cm (S a 3XL; 7 cm em XS).'],
       ['Método', 'Serigrafia. DTF abaixo de 25 unidades.'],
-      ['Cores', 'Creme e ouro, com pouca tinta: o 99 é só contorno.'],
-      ['Telas', '3 por posição (base branca, creme, ouro): 6 por estilo.'],
+      ['Cores', 'Uma de cada lado: as costas só a creme, a frente só a ouro.'],
+      ['Telas', '4: base e creme nas costas, base e ouro na frente. As costas podem ir sem base, com o creme em duas passagens (pedir à gráfica).'],
     ],
     notes: [
-      'O 99 é o número de motocross do Gonçalo (@goncalo.carmo99). «SÓ ME VÊS AS COSTAS» vem do pack de stickers de humor, já aprovado.',
-      'Alternativa sem humor para a mesma linha: «DO MOTOCROSS AO TRIATLO».',
+      'As marcas são as do kit da Semana 99, as dos posts publicados. Só o que era fino demais para imprimir foi engrossado: as pontas dos traços acabam com 0,5 mm e as letras de «the last 1%» têm traço de 0,5 mm.',
+      'O 99 é o número de motocross do Gonçalo (@goncalo.carmo99). No post está rodado 2,6°; na t-shirt fica direito, como no kit. Se a gráfica imprimir até 34 cm, o 99 pode crescer (outro ficheiro, com outra largura).',
+      '«SÓ ME VÊS AS COSTAS» saiu: com «the last 1%» por baixo do 99, uma terceira linha ficava a mais.',
     ],
     files: [
-      { path: 'print/estilo-3-99/costas-28cm', label: 'Costas', size: '28 cm · M a 3XL', mm: '280 × 322 mm', pdf: 20, png: 380 },
-      { path: 'print/estilo-3-99/costas-24-5cm', label: 'Costas', size: '24,5 cm · XS e S', mm: '245 × 282 mm', pdf: 20 },
-      { path: 'print/estilo-3-99/frente-gc-7cm', label: 'Peito · GC.', size: '7 cm · S a 3XL', mm: '70 × 55 mm', pdf: 4, png: 33 },
+      { path: 'print/estilo-3-99/costas-30cm', label: 'Costas · 99 e «the last 1%»', size: '30 cm · M a 3XL', mm: '300 × 117 mm', pdf: 176, png: 134 },
+      { path: 'print/estilo-3-99/costas-26cm', label: 'Costas · 99 e «the last 1%»', size: '26 cm · XS e S', mm: '260 × 102 mm', pdf: 176 },
+      { path: 'print/estilo-3-99/frente-99-8cm', label: 'Peito · 99 a ouro', size: '8 cm · S a 3XL', mm: '80 × 34 mm', pdf: 4, png: 21 },
+    ],
+  },
+  s3b: {
+    title: 'Estilo 3b · 99 · Sol e lua',
+    rows: [
+      ['Costas', 'O 99 a ouro à frente da lua, o sol a nascer num horizonte e «built to go beyond», como no post 07 («O mesmo tapete»). 30 × 29,4 cm (M a 3XL) · 26 × 25,9 cm (XS e S).'],
+      ['Peito', 'O símbolo, com o sol dentro da lua: lua a creme, sol a ouro. 7 × 7 cm (S a 3XL; 6,5 cm em XS).'],
+      ['Método', 'Serigrafia. DTF abaixo de 25 unidades.'],
+      ['Cores', 'Creme e ouro. O 99 e o sol são áreas grandes a ouro, sobre base.'],
+      ['Telas', '6: base, creme e ouro de cada lado.'],
+    ],
+    notes: [
+      'Para poupar telas, o 3b pode levar no peito o 99 do estilo 3 (base e ouro): 5 telas em vez de 6, e as do peito servem os dois estilos.',
+      'A lua do post é creme a 20 %; em cores spot não há meio-tom, por isso é feita de linhas horizontais a creme (0,65 mm a cada 3,25 mm). As linhas podem ir sem base branca por baixo, mais apagadas e mais perto do post: decidir na prova.',
+      'Os traços de velocidade a ouro foram engrossados para imprimir (ponta de 0,75 mm, raiz de 1,6 mm). Na regra mais exigente do ouro (1,06 mm), só as pontas perdem 0,6 a 0,75 % da tinta.',
+    ],
+    files: [
+      { path: 'print/estilo-3b-99-sol-e-lua/costas-30cm', label: 'Costas · 99, lua e sol', size: '30 cm · M a 3XL', mm: '300 × 294 mm', pdf: 386, png: 225 },
+      { path: 'print/estilo-3b-99-sol-e-lua/costas-26cm', label: 'Costas · 99, lua e sol', size: '26 cm · XS e S', mm: '260 × 259 mm', pdf: 381 },
+      { path: 'print/estilo-3b-99-sol-e-lua/frente-sol-e-lua-7cm', label: 'Peito · sol e lua', size: '7 cm · S a 3XL', mm: '70 × 70 mm', pdf: 6, png: 38 },
     ],
   },
   tec: {
@@ -135,7 +161,7 @@ export const FICHAS = {
 };
 // for every style: the quote brief and the small-text test strip
 export const COMMON = [
-  { href: 'ORCAMENTO.pdf', label: 'Pedido de orçamento', sub: 'O pedido para as gráficas: peças, quantidades, estilos e perguntas.', kb: 555 },
+  { href: 'ORCAMENTO.pdf', label: 'Pedido de orçamento', sub: 'O pedido para as gráficas: peças, quantidades, os 4 estilos e perguntas.', kb: 587 },
   { href: 'print/teste/tira-de-teste-texto-pequeno.pdf', label: 'Tira de teste', sub: 'Imprimir numa t-shirt de amostra antes de orçamentar o estilo 1: mostra a letra que cada gráfica consegue.', kb: 241 },
 ];
 
