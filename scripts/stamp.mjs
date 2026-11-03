@@ -42,6 +42,13 @@
 //    /admin/apoiantes/ the booking Worker only. index.html holds no markup of the supporters' wall (apoiantes.js builds
 //    it only when the Worker has a published name), apoiantes-core.js keeps the owner's rules, and every admin page has
 //    its «← Painel» link.
+// 8. The race partner (data/spots.json "racePartner", since 03.11.2026): the block passes season-rules.js
+//    checkRacePartner and its url the brand-link check; every race is a SEASON triathlon of assets/js/data.js with the
+//    same id, date and names, every SEASON triathlon of the season (100 km or more, a Triatlo/Triathlon/IRONMAN name) is
+//    in it, and racesUntil is on or after the last race; the section «O parceiro de prova» of /condicoes/ (#parceiro,
+//    #race-partner) names the price, the helmet's price, the 6 weeks (RACE_LEAD_DAYS) and the 5 weeks (RACE_LOGO_DAYS),
+//    CARMO PROVA, every race that can be booked, day 1 of a race that has only its month, and every race on proposal
+//    next to «sob proposta» / «on request»; the home page's card shows the price and the helmet's and links to #parceiro.
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -72,14 +79,19 @@ if (ruleProblems.length) {
 // page, the issue bot and the booking Worker write it (season-rules.js brandLink, already normalised). The site renders
 // only a valid one anyway (sponsorHref); a link left on a spot that is not sold is only reported (the site ignores it).
 const linkProblems = [];
-for (const x of [...(Array.isArray(SPOTS.spots) ? SPOTS.spots : []), SPOTS.title]) {
+for (const x of [...(Array.isArray(SPOTS.spots) ? SPOTS.spots : []), SPOTS.title, SPOTS.racePartner]) {
   if (!x || x.url === undefined) continue;
-  const name = x === SPOTS.title ? 'title' : `spot ${x.id}`, r = SR.brandLink(x.url);
+  const name = x === SPOTS.title ? 'title' : x === SPOTS.racePartner ? 'racePartner' : `spot ${x.id}`, r = SR.brandLink(x.url);
   if (typeof x.url !== 'string' || r.error || r.url !== x.url) linkProblems.push(`data/spots.json ${name}: url «${String(x.url).slice(0, 80)}» is not a valid brand link (https://, a real domain, at most ${SR.LINK_MAX} characters, normalised: «${r.url || r.error}»)`);
   else if (x.status !== 'sold') console.warn(`data/spots.json ${name}: a url on a spot that is not sold (${x.status}): the site shows no link until it is sold`);
 }
 if (linkProblems.length) {
   console.error(`The sponsors' links:\n  ${linkProblems.join('\n  ')}`);
+  process.exit(1);
+}
+const raceProblems = await checkRace(SR.rulesOf(SPOTS));
+if (raceProblems.length) {
+  console.error(`The race partner (data/spots.json "racePartner", assets/js/data.js SEASON, /condicoes/, index.html):\n  ${raceProblems.join('\n  ')}`);
   process.exit(1);
 }
 const termProblems = checkTerms(SR.rulesOf(SPOTS));
@@ -158,6 +170,62 @@ function checkApoiantes() {
   }
   return out;
 }
+// the race partner: the block, its races against the calendar, and what the terms and the home page print about it
+async function checkRace(R) {
+  const out = [...SR.checkRacePartner(SPOTS)];
+  const rp = SPOTS.racePartner;
+  if (!rp || out.length) return out;
+  const { SEASON } = await load('assets/js/data.js');
+  const races = SR.racesOf(SPOTS);
+  for (const r of races) {
+    const s = SEASON.find((x) => x.id === r.id);
+    if (!s) { out.push(`racePartner: race «${r.id}» is not in SEASON (assets/js/data.js: give the triathlon id: '${r.id}')`); continue; }
+    for (const k of ['date', 'pt', 'en']) if (s[k] !== r[k]) out.push(`racePartner: race «${r.id}» ${k} «${r[k]}», SEASON says «${s[k]}» (change both)`);
+  }
+  const inSeason = (d) => typeof d === 'string' && d.slice(0, 4) === String(R.season);
+  for (const s of SEASON) {
+    if (s.status === 'goal' || !inSeason(s.date) || !(s.km >= 100) || !/Triatlo|Triathlon|IRONMAN/.test(`${s.pt} ${s.en}`)) continue;
+    if (!races.some((r) => r.id && r.id === s.id)) out.push(`racePartner: the SEASON triathlon «${s.pt}» (${s.date}) is not one of the races (give it an id in SEASON and add it, or mark it proposal / ask)`);
+  }
+  const last = races.map((r) => SR.raceDay(r)).filter(Boolean).sort().pop();
+  if (last && R.racesUntil < last) out.push(`seasonRules.racesUntil ${R.racesUntil} is before the last race partner race (${last})`);
+  const plain = (html) => html.replace(/<!--[\s\S]*?-->/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;|&#xa0;/gi, ' ').replace(/&amp;/g, '&')
+    .replace(/[\u00a0\u202f\u2009]/g, ' ').replace(/\s+/g, ' ');
+  const PT_M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const EN_M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const group = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  const money = { pt: (n) => `${group(n)} €`, en: (n) => `€${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}` };
+  const C = readFileSync('condicoes/index.html', 'utf8');
+  for (const [l, id, weeks, prop, day1] of [['pt', 'parceiro', (n) => `${n} semanas`, 'sob proposta', (y, m) => `1 de ${PT_M[m - 1]} de ${y}`],
+    ['en', 'race-partner', (n) => `${n} weeks`, 'on request', (y, m) => `1 ${EN_M[m - 1]} ${y}`]]) {
+    const a = C.match(new RegExp(`<article\\b[^>]*data-l="${l}"[^>]*>([\\s\\S]*?)</article>`));
+    const sec = a && a[1].match(new RegExp(`<h2 id="${id}">([\\s\\S]*?)(?=<h2\\b|$)`));
+    if (!sec) { out.push(`condicoes/index.html (${l}): no section <h2 id="${id}"> (the race partner; the site's card links to it)`); continue; }
+    const text = plain(sec[1]), need = (w, why) => { if (!text.includes(w)) out.push(`condicoes/index.html (${l}) #${id}: no «${w}» (${why})`); };
+    need(money[l](rp.price), 'racePartner.price');
+    need(money[l](rp.helmetPrice), 'racePartner.helmetPrice');
+    need(weeks(SR.RACE_LEAD_DAYS / 7), 'RACE_LEAD_DAYS');
+    need(weeks(SR.RACE_LOGO_DAYS / 7), 'RACE_LOGO_DAYS');
+    need('CARMO PROVA', 'the payment reference');
+    for (const r of races) {
+      if (r.ask) continue;
+      need(r[l], `race ${r.id}`);
+      if (r.proposal) {
+        const i = text.indexOf(r[l]);
+        if (i >= 0 && !text.slice(i, i + r[l].length + 30).includes(prop)) out.push(`condicoes/index.html (${l}) #${id}: «${r[l]}» is on proposal: say «${prop}» right after its name`);
+      }
+      if (SR.raceMonthOnly(r)) { const [y, m] = r.date.split('-').map(Number); need(day1(y, m), `${r.id} has only its month: the 6 weeks count from day 1`); }
+    }
+  }
+  const IX = readFileSync('index.html', 'utf8');
+  const grab = (re) => (IX.match(re) || [])[1];
+  if (plain(grab(/id="rp-price">([^<]*)</) || '').trim() !== money.pt(rp.price)) out.push(`index.html #rp-price: «${grab(/id="rp-price">([^<]*)</)}», want «${money.pt(rp.price)}» (racePartner.price)`);
+  if (plain(grab(/id="rp-helm-p"[^>]*>([^<]*)</) || '').trim() !== `+${money.pt(rp.helmetPrice)}`) out.push(`index.html #rp-helm-p: «${grab(/id="rp-helm-p"[^>]*>([^<]*)</)}», want «+${money.pt(rp.helmetPrice)}» (racePartner.helmetPrice)`);
+  if (grab(/id="rp-terms" href="([^"]*)"/) !== 'condicoes/#parceiro') out.push('index.html #rp-terms: has to link to condicoes/#parceiro');
+  if (i18n.t('rp.termsHref') !== 'condicoes/#parceiro') out.push(`assets/js/i18n.js rp.termsHref (PT): «${i18n.t('rp.termsHref')}», want «condicoes/#parceiro»`);
+  return out;
+}
+
 function checkTerms(R) {
   const PT_M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const EN_M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

@@ -34,7 +34,7 @@
 export const TITLE = 'fato';
 export const TZ = 'Europe/Lisbon';
 export const SEASON_DIV = 48;
-const TERMS_DEFAULT = '2026-11-02';
+const TERMS_DEFAULT = '2026-11-03';
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const KEYS = ['start', 'end', 'logoBy', 'fullPriceUntil', 'racesUntil', 'requestsUntil', 'proposalsFrom', 'renewBy', 'openFrom', 'renewPayBy', 'termsDate'];
 

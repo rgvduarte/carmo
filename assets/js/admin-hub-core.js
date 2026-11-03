@@ -106,7 +106,12 @@ export function alerts(src) {
     try { due = dueNow(src.contratos, pedidos, src.spots, rulesOf(src.spots), day); } catch (_) { due = []; }
     // a paid request with no record is a payment still to write down: its own row
     for (const d of due.filter((x) => x.key.startsWith('registar:'))) out.push({ key: d.key, kind: 'warn', text: 'Pagamento por registar', sub: d.text, href: 'patrocinios/' });
-    const rest = due.filter((x) => !x.key.startsWith('registar:'));
+    // a race request's first offer (Patrocínios names the brands to offer it to): said on the request's own row, not twice
+    for (const d of due.filter((x) => x.key.startsWith('prova-oferta:'))) {
+      const row = out.find((x) => x.key === `prova-pedido:${d.key.slice(13)}`), say = d.text.replace(/^[^:]*\):\s*/, '');
+      if (row && say !== d.text) row.sub = row.sub.replace(/ · (oferece primeiro ao title partner e às marcas Principais \(5 dias úteis\)|vê o setor e envia o acordo escrito)$/, ` · ${say}`);
+    }
+    const rest = due.filter((x) => !x.key.startsWith('registar:') && !(x.key.startsWith('prova-oferta:') && out.some((o) => o.key === `prova-pedido:${x.key.slice(13)}`)));
     const warn = rest.filter((x) => x.kind === 'warn'), info = rest.filter((x) => x.kind !== 'warn');
     for (const d of warn.slice(0, 4)) out.push({ key: d.key, kind: 'warn', text: d.text, href: 'patrocinios/' });
     if (warn.length > 4) out.push({ key: 'patrocinios-mais', kind: 'warn', text: `Mais ${plural(warn.length - 4, 'assunto', 'assuntos')} em Patrocínios`, href: 'patrocinios/' });

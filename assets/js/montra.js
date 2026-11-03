@@ -77,7 +77,8 @@ function build(list) {
     try { body.dataset.host = new URL(product.url).hostname.replace(/^www\./, ''); } catch (_) { /* parseMontra checked it */ }
     const tag = make('p', 'mt-tag'), kind = make('span', 'mt-kind'), bn = make('span', 'mt-brand');
     bn.textContent = brand.name;
-    tag.append(kind, ' · ', bn);
+    // «Title partner · Marca», «Patrocinador · Marca»; «Material fornecido por Marca» for a brand that sponsors with product
+    tag.append(kind, brand.level === SUPPLIER ? ' ' : ' · ', bn);
     // the heading first (a reader jumping by heading lands on the product, and the brand comes next); CSS shows the tag
     // above it
     const name = make('h3', 'mt-name'), line = make('p', 'mt-line');

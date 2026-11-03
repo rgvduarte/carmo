@@ -51,7 +51,7 @@ export function montraLine(c, day = today()) {
   const ln = K.cardLine({ contracts: H.contracts(), spotsData: H.data(), file: S.file, season: String(c.season), name: c.brand, day });
   box.appendChild(el('span', `ct-mt-t${ln.over ? ' bad' : ln.n > 0 ? ' on' : ''}`, ln.text));
   if (ln.level === 'title') box.appendChild(el('span', 'ct-mt-k', 'em destaque'));
-  const b = el('button', ln.can === 'supplier' && !ln.entry ? 'link ct-mt-b' : 'btn sm ghost ct-mt-b', ln.can === 'supplier' && !ln.entry && ln.level === 'fornecedor' ? 'Fornecedor oficial?' : 'Montra');
+  const b = el('button', ln.can === 'supplier' && !ln.entry ? 'link ct-mt-b' : 'btn sm ghost ct-mt-b', ln.can === 'supplier' && !ln.entry && ln.level === 'fornecedor' ? 'Material fornecido?' : 'Montra');
   b.type = 'button';
   b.dataset.montra = c.id;
   b.addEventListener('click', () => openMontra(c));
@@ -109,7 +109,7 @@ function renderMain() {
   const O = S.open;
   if (!O) return;
   const day = today(), { level, supplier, limit } = ctx(), e = O.draft;
-  const lvName = supplier ? 'Fornecedor oficial' : K.LEVEL_PT[level] || 'Sem espaços';
+  const lvName = supplier ? 'Material fornecido' : K.LEVEL_PT[level] || 'Sem espaços';
   const n = K.countFor(e, day);
   $('#mt-sub').textContent = `${lvName} · ${limit ? `até ${limit} ${limit === 1 ? 'produto' : 'produtos'}${level === 'title' && !supplier ? ', em destaque' : ''}` : 'sem montra'} · época ${O.season} · ${n} de ${limit}`;
   const ul = $('#mt-list'); ul.textContent = '';
@@ -120,8 +120,8 @@ function renderMain() {
   const add = $('#mt-add'), why = $('#mt-add-why'), over = $('#mt-over');
   let reason = '';
   if (n > limit) reason = `${limit ? `Esta marca pode ter ${limit === 1 ? '1 produto' : `até ${limit} produtos`}` : 'Esta marca já não tem montra'} (os espaços ou o contrato mudaram) e tem ${n}. Retira ${n - limit === 1 ? 'o que está a mais' : `os ${n - limit} a mais`}.`;
-  else if (!limit) reason = level === 'fornecedor' ? 'O nível Apoio não inclui a montra. Se a marca patrocina com produto e tem acordo escrito, marca-a como fornecedor oficial.'
-    : level ? 'Os espaços desta marca já não lhe estão vendidos em data/spots.json: a montra não se aplica.' : 'Este patrocínio não tem espaços: a montra só entra como fornecedor oficial, com acordo escrito.';
+  else if (!limit) reason = level === 'fornecedor' ? 'O nível Apoio não inclui a montra. Se a marca patrocina com produto e tem acordo escrito, marca-a como material fornecido.'
+    : level ? 'Os espaços desta marca já não lhe estão vendidos em data/spots.json: a montra não se aplica.' : 'Este patrocínio não tem espaços: a montra só entra com material fornecido, com acordo escrito.';
   else if (n >= limit) reason = supplier ? `O acordo inclui ${limit} ${limit === 1 ? 'produto' : 'produtos'}. Retira um para pôr outro.` : `O nível ${K.LEVEL_PT[level]} inclui ${limit === 1 ? '1 produto' : `até ${limit} produtos`}. Retira um para pôr outro.`;
   add.disabled = !!reason || S.busy; why.hidden = !reason; why.textContent = reason;
   why.classList.toggle('bad', n > limit);
@@ -227,7 +227,7 @@ function onSupplier() {
       // retired, not unmade)
       if (!O.entry0) { O.draft = null; O.changes = []; renderMain(); return; }
       $('#mt-sup-on').checked = true;
-      H.toast('Esta marca só tem montra como fornecedor oficial. Para a tirar do site, retira os produtos.');
+      H.toast('Esta marca só tem montra com material fornecido. Para a tirar do site, retira os produtos.');
       return;
     }
     delete e.agreement;

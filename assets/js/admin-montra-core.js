@@ -9,7 +9,7 @@ import { TITLE, levelOf, addDays } from './season-rules.js';
 export { LIMIT, SUPPLIER, MAX_SUPPLIER, IMG_DIR };
 // a level's rank (the highest wins when a brand has several contracts): the whole suit, Principal, Oficial, Apoio
 const RANK = { title: 4, principal: 3, oficial: 2, fornecedor: 1 };
-export const LEVEL_PT = { title: 'Title partner', principal: 'Principal', oficial: 'Oficial', fornecedor: 'Apoio', [SUPPLIER]: 'Fornecedor oficial' };
+export const LEVEL_PT = { title: 'Title partner', principal: 'Principal', oficial: 'Oficial', fornecedor: 'Apoio', [SUPPLIER]: 'Material fornecido' };
 const norm = (s) => fold(s).trim().replace(/\s+/g, ' ');
 export const sameBrand = (a, b) => norm(a) === norm(b) && norm(a) !== '';
 const isTitleC = (c) => !!c && (c.title === true || (Array.isArray(c.spots) && c.spots.some((s) => s && s.id === TITLE)));
@@ -80,14 +80,14 @@ export function cardLine({ contracts, spotsData, file, season, name, day }) {
   };
   if (entry && entry.level === SUPPLIER) {
     const max = limitOf(contracts, spotsData, entry);
-    return out(max, SUPPLIER, 'products', `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'} · fornecedor oficial`);
+    return out(max, SUPPLIER, 'products', `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'} · material fornecido`);
   }
   let max = LIMIT[lv] ?? 0;
   const bySpots = spotsAllow(entry, spotsData);
   if (bySpots !== null) max = Math.min(max, bySpots);
   if (max > 0) return out(max, lv, 'products', `Montra: ${n} de ${max} ${max === 1 ? 'produto' : 'produtos'}`);
   if (lv === 'fornecedor') return out(0, lv, 'supplier', 'Montra: não incluída no nível Apoio');
-  return out(0, lv, 'supplier', 'Montra: só como fornecedor oficial');
+  return out(0, lv, 'supplier', 'Montra: só com material fornecido');
 }
 // the entry with its products past the first `keep` that count retired on Lisbon day `day`: one whose first day is today
 // or later leaves the file (its photo with it, deletesFor), one already on the site ends yesterday, so it is off the
@@ -199,7 +199,7 @@ export function commitMessage(brandName, changes) {
   const names = [...new Set(xs.filter((c) => c.name).map((c) => c.name))];
   if (xs.length === 1 && xs[0].op === 'retire') return `Montra: ${brandName}, retirado «${xs[0].name}» (admin)`;
   if (xs.length === 1 && xs[0].op === 'delete') return `Montra: ${brandName}, apagado «${xs[0].name}» (admin)`;
-  if (xs.length === 1 && xs[0].op === 'supplier') return `Montra: ${brandName}, fornecedor oficial (admin)`;
+  if (xs.length === 1 && xs[0].op === 'supplier') return `Montra: ${brandName}, material fornecido (admin)`;
   if (xs.length && xs.every((c) => c.op === 'order')) return `Montra: ${brandName}, ordem dos produtos (admin)`;
   if (names.length === 1) return `Montra: ${brandName}, produto «${names[0]}» (admin)`;
   if (names.length > 1) return `Montra: ${brandName}, ${names.length} produtos (admin)`;

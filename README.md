@@ -25,6 +25,11 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   capacete e «A carregar o capacete». Dá para rodar, escolher, experimentar o logótipo, descarregar o mockup, juntar
   espaços dos dois num pacote, reservar por WhatsApp, email ou Instagram e pagar por transferência ou MB WAY.
   O logótipo de cada marca que já pagou leva à página dela (ver «O link do logótipo», em «Vender um espaço»).
+  Por baixo do cartão do fato completo da época está o do **parceiro de prova** («O fato completo numa prova»): as
+  provas de 2027 com o estado de cada uma, o capacete por mais 500 €, o total e «Pedir o fato nesta prova» (ou WhatsApp
+  e email numa prova sob proposta); depois da venda, o aviso com a prova, o logótipo e o link da marca. Quando o fato
+  da época já tem espaços reservados ou vendidos, o cartão do fato completo da época diz que já não se pede e leva ao
+  da prova. Ver «O parceiro de prova», em «Vender um espaço».
 - **Apoiar**: GoFundMe (com o valor angariado e a barra até à meta), transferência ou MB WAY (o mesmo IBAN e o mesmo
   número dos pedidos, com o código `CARMO APOIO`, escondidos enquanto houver campanha aberta), apoio em espécie e
   orçamento estimado da época.
@@ -47,7 +52,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   Analytics ligado, aparece também o aviso de cookies e, no rodapé, «Definições de cookies».
 - **Condições do patrocínio** (`/condicoes/`, num botão depois dos níveis, na ficha de cada espaço, no cartão do fato
   completo e no fim das tabelas de preços, no rodapé e no passo 1 do pedido, «Ao enviar, aceitas as condições do
-  patrocínio (versão de 02.11.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
+  patrocínio (versão de 03.11.2026).»; ver «Condições do patrocínio nos pedidos e nos PDF»): o que inclui um espaço, o que fica de fora, como se reserva
   e paga, a secção «Duração, prazos e renovação» (o período da época, o desconto de época com a tabela por mês, o
   prazo do logótipo, a preferência na renovação, a renovação de todos os níveis à tabela de 2028, o
   pagamento da renovação até 15 de janeiro, o aviso de outubro, já sem triatlos, e a conta das devoluções por meses),
@@ -73,6 +78,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 |---|---|
 | Preços, estado (`available` / `reserved` / `sold`) e textos dos espaços | `data/spots.json` |
 | Preço do fato completo e desconto de pacote | `data/spots.json` → `title`, `bundle` |
+| Parceiro de prova (as provas, o preço, o capacete, o estado) | `data/spots.json` → `racePartner` (ver «O parceiro de prova», em «Vender um espaço»; as provas são as do `SEASON` de `assets/js/data.js`, e o `stamp.mjs` compara-as) |
 | Datas da época (período, prazo do logótipo, desconto de época, fim dos pedidos, renovação) | `data/spots.json` → `seasonRules` (ver «Época, prazos e renovação»; as mesmas datas estão escritas em `condicoes/index.html`) |
 | Patrocínios pagos (contratos, renovações) | página `/admin/patrocinios/`, guardados no Worker dos pedidos (ver «Patrocínios») |
 | Montra «O meu material» (os produtos dos parceiros e as fotografias) | `data/montra.json` e `assets/img/montra/`, sempre pelo editor da página `/admin/patrocinios/` (botão «Montra» no cartão de cada patrocínio; ver «Montra «O meu material»») |
@@ -215,6 +221,62 @@ pode ser 0, ±90 ou 180.
 parte do capacete. `#fato/title` pede o fato completo. `#pacote=peito,capacete-topo` abre um pacote: se for só de um dos
 dois, leva à parte dele; com espaços do fato e do capacete, ao início do capítulo, onde estão os dois cartões.
 
+**O parceiro de prova (o fato completo numa prova)** (decisões de 02.11.2026 e 03.11.2026). Numa prova do
+calendário, uma marca fica com o fato completo só para essa prova, mesmo que o fato da época já tenha marcas. Custa
+3 000 € por prova em Portugal ou Espanha, com a inscrição e a viagem incluídas (o alojamento fica por tua conta: a
+marca não paga mais nada), e mais 500 € com o capacete inteiro nessa prova. O IRONMAN Japan South Hokkaido é sob
+proposta, com os custos à parte, num acordo escrito. Uma prova por época, sem desconto de época nem de pacote, sem
+renovação e sem montra. Kona nunca entra: não se vende nem é contrapartida de nenhuma marca.
+
+| Regra | Valor | Onde |
+|---|---|---|
+| Preço por prova (Portugal e Espanha) | 3 000 € | `racePartner.price` |
+| O capacete na mesma prova | mais 500 € | `racePartner.helmetPrice` |
+| Último dia do pedido | 6 semanas antes da prova (o dia da prova menos 42; uma prova só com o mês conta do dia 1) | `RACE_LEAD_DAYS`, em `assets/js/season-rules.js` |
+| Logótipo em vetor | 5 semanas antes da prova (o dia da prova menos 35), e não 15 de janeiro | `RACE_LOGO_DAYS` |
+| Reserva | 48 horas, como um espaço; «Prolongar 48 h» enquanto se oferece a prova e se escreve o acordo | Worker dos pedidos |
+| Pagamento | só por transferência, com a referência `CARMO PROVA`, depois do acordo escrito | |
+| Provas | as de `racePartner.races`, iguais às do `SEASON` pelo `id`, o dia e os nomes | `node scripts/stamp.mjs` compara |
+
+**As provas.** Cada prova de `racePartner.races` tem `id`, `date` (o dia, ou só o mês, por exemplo `2027-09`, enquanto
+o dia não estiver marcado), `pt` e `en`. Com `proposal: true` (o Japão), o site mostra «Sob proposta» e os botões de
+WhatsApp e email, nunca um pedido, e o Worker recusa reservá-la. Com `ask: true`, a prova pede-se só por mensagem
+(por exemplo, enquanto a equipa não confirmar que a podes correr com outro fato). Hoje nenhuma o tem: a LB Squad
+Portugal confirmou a 03.11.2026 Setúbal e Sines, e as duas estão à venda no site. Vilamoura mostra «Inscrição por
+confirmar» enquanto o `SEASON` a tiver como `pending` (a inscrição ainda não está feita); se não a conseguires, vale o cancelamento das condições (outra
+prova ou a devolução).
+
+**Sem a marca enquanto está reservada.** Enquanto a prova está reservada, `data/spots.json` só tem `status: "reserved"`,
+`race`, `helmet`, `until` e `request`, por esta ordem: nunca a marca, nem no ficheiro nem na mensagem do commit. O
+ficheiro e o histórico do repositório são públicos, e as condições prometem oferecer a prova ao title partner e às
+marcas Principais sem dizer quem a pediu. A marca entra só com a venda (`status: "sold"`, `brand`, `url`, `since`,
+`logo`).
+
+**O que fazes quando chega um pedido.**
+1. O pedido chega pela mensagem e aparece em «Pedidos» (`/admin/espacos/`), com a prova, o capacete, a marca e o
+   setor. O Painel (`/admin/`) mostra um aviso para cada pedido novo, para a reserva que está a acabar, para os pedidos
+   de uma prova que fecham dentro de uma semana e para o logótipo em vetor do parceiro que vence dentro de 14 dias.
+2. Vê o setor: exclusividade (a do title partner ou outra por acordo escrito), álcool, apostas ou tabaco, concorrentes
+   diretos de uma marca Principal e os setores que a LB Squad não aceita. Se não der, cancela o pedido e diz à marca
+   antes de ela pagar.
+3. Se a marca não for o title partner nem uma marca Principal, oferece-lhes a prova primeiro, sem dizer quem a pediu:
+   têm 5 dias úteis para responder. Enquanto isso, e enquanto se escreve o acordo, carrega em **Prolongar 48 h** na
+   linha do parceiro de prova, em `/admin/espacos/`.
+4. Escreve o acordo (a prova, o capacete, o que inclui). Depois a marca paga por transferência com `CARMO PROVA`.
+5. Em `/admin/espacos/`, cola `CARMO PROVA` (ou o número do pedido) em **Colar pedido ou referência** e carrega em
+   **Confirmar compra**: a prova fica vendida à marca, o cartão do site passa a aviso com o logótipo e o link, e o
+   registo nasce em Patrocínios.
+6. Avisa cada patrocinador da época por mensagem, antes da prova (a prova e se leva o capacete), e carrega em
+   **Avisei** no cartão do parceiro em Patrocínios.
+
+O parceiro de prova vende-se só pela página de admin (ou pelo pedido do site), nunca pelo formulário do GitHub.
+
+**Links.** `gocarmo.com/#fato/prova` abre o cartão; `#fato/prova/setubal` escolhe a prova e
+`#fato/prova/setubal/capacete` junta o capacete. São os links que a mensagem do pedido leva.
+
+**Depois de publicar esta mudança,** recarrega as páginas de admin e de Patrocínios que tiveres abertas: só a versão
+nova conhece o parceiro de prova.
+
 ## Painel (`/admin/`)
 
 **Onde.** `gocarmo.com/admin/` (desde 02.11.2026; antes era a página Espaços, que passou para `/admin/espacos/`). Não
@@ -279,6 +341,15 @@ sempre pelo pedido, para o logótipo ir para o site. Se a chave dos pedidos aind
 página pede-a primeiro e depois continua. Uma linha `Pedido: <número>` só conta quando esse pedido é dos mesmos
 espaços: se for de outros (a marca pode ter escrito o número de outro pedido na mensagem dela), o resumo diz «A
 mensagem fala do pedido …, que é de outros espaços: não o uso.» e os botões tratam estes espaços à parte.
+
+**O parceiro de prova na página.** Depois do capacete há o grupo «Parceiro de prova», com uma linha (a prova, se leva
+o capacete, o estado) que não entra nas contas dos espaços. A ficha tem a prova e o capacete e, só numa venda, a
+marca, o link e o logótipo (que vai para `assets/img/brands/prova.<ext>` e aparece no aviso do site, não no 3D).
+Numa reserva a marca fica escondida e nunca vai para o ficheiro. A página recusa: uma segunda prova na mesma época,
+uma prova que já passou, uma prova a menos de 6 semanas, o Japão (sob proposta) e as provas só por mensagem numa
+reserva, e mudar a prova de uma venda. **Colar** aceita `CARMO PROVA`, a mensagem do pedido e os links `#fato/prova…`.
+Em **Pedidos**, um pedido de parceiro de prova diz a prova, o capacete, o setor, o prazo do logótipo e se tens de
+oferecer a prova primeiro; **Confirmar compra** mantém a prova e o capacete do pedido.
 
 **Pedidos.** Aparece quando o site recebe as compras sozinho (ver **Compras automáticas**). Na primeira vez pede a
 chave dos pedidos (a `ADMIN_KEY`), que fica só nesse separador; «Esquecer a chave» apaga-a, e «Sair» também. O
@@ -468,6 +539,13 @@ pedidos do site por pagar, venha de onde vier (o fato completo conta como os 8).
 aberto e 3 por dia, e 7 dias de pausa depois de um pedido cancelado ou que acabou sem pagamento. Um pedido falso
 cancela-se com «bloquear» (30 dias). Os detalhes estão em `worker/README.md`.
 
+**O parceiro de prova pelo site.** O pedido leva a prova, o capacete e o setor da marca (obrigatório), reserva a prova
+48 horas sem escrever a marca no ficheiro (ver «O parceiro de prova», em «Vender um espaço») e não conta para os 8
+espaços presos. Só há uma reserva de cada vez: com a prova reservada ou vendida, outro pedido ouve que já não está
+disponível. Depois das 6 semanas, o site e o Worker dizem que os pedidos dessa prova fecharam; numa prova sob proposta
+ou só por mensagem, o site mostra WhatsApp e email e o Worker recusa reservar. A marca vê no passo 2 a referência
+`CARMO PROVA`, só por transferência, e que antes de pagar escrevemos o acordo; o comprovativo diz o mesmo.
+
 **Testar de ponta a ponta sem mexer no site real.** Nunca faças um pedido de teste em gocarmo.com: cada pedido
 reserva espaços a sério, à vista de todos. Testa com o Worker no teu computador, contra um repositório de teste:
 1. Faz um fork do repositório (com o branch `gh-pages`) e um token fine-grained só para esse fork, com Contents: Read
@@ -519,13 +597,13 @@ lado nenhum.
   «Pedir o fato completo». Todos são `.btn.ghost.sm` (o bloco, `.btn.ghost`) e abrem `/condicoes/` noutro separador
   (o 3D, a ficha e o pacote ficam como estavam), em inglês `condicoes/?lang=en`; os links «condições» do texto do 05
   também, e todos dizem ao leitor de ecrã «(abre noutro separador)». O passo 1 do pedido diz «Ao enviar, aceitas as
-  condições do patrocínio (versão de 02.11.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
+  condições do patrocínio (versão de 03.11.2026).», o mesmo nome da versão que a mensagem e o anexo usam; o rodapé abre
   no mesmo separador.
-- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 02.11.2026):
-  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 2 November 2026): …?lang=en»), feita de
+- **A mensagem** do pedido (WhatsApp, email, Instagram) leva «Condições do patrocínio (versão de 03.11.2026):
+  https://gocarmo.com/condicoes/» (EN «Sponsorship terms (version of 3 November 2026): …?lang=en»), feita de
   `seasonRules.termsDate`.
 - **Os PDF.** O comprovativo do pedido e a confirmação do patrocínio têm a primeira página igual à de antes e, a
-  seguir, «Anexo · Condições do patrocínio · versão de 02.11.2026»: o texto inteiro da página, na língua do documento,
+  seguir, «Anexo · Condições do patrocínio · versão de 03.11.2026»: o texto inteiro da página, na língua do documento,
   com títulos, listas, a tabela do desconto de época, «Página 2 de 7» e links (a página no ar, Privacidade, email,
   WhatsApp; o endereço da Privacidade escrito a seguir ao link, para o papel; cada «(em «Duração, prazos e
   renovação»)» leva a esse título do anexo). Em inglês, o anexo diz que vale o texto português e liga para ele
@@ -564,7 +642,7 @@ num só ficheiro, `assets/js/season-rules.js`, que o site, o admin e o Worker im
 | `renewBy` | 2027-10-31 | último dia para o patrocinador dizer que sim e ficar com o espaço |
 | `openFrom` | 2027-11-01 | os espaços não renovados ficam livres para todos |
 | `renewPayBy` | 2028-01-15 | último dia para pagar a renovação de 2028 (o prazo do logótipo de 2028); sem o pagamento, o espaço fica livre a partir do dia seguinte |
-| `termsDate` | 2026-11-02 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
+| `termsDate` | 2026-11-03 | a data das condições em vigor (a «Atualizada a» de `/condicoes/`) |
 
 O fuso é sempre o de Lisboa. `node scripts/stamp.mjs` recusa um bloco com datas impossíveis (fora da época, fora de
 ordem, `fullPriceUntil` que não seja o último dia de um mês, `requestsUntil` em dezembro, `racesUntil` fora da época,
@@ -615,7 +693,15 @@ preço de 2027 ao Principal e ao fato completo; se houver um, combina-o por escr
 contratos, no cartão e na janela do PDF. Um pedido feito numa página aberta antes da publicação pode trazer na mensagem
 «versão de 29.10.2026» com o registo em 30.10.2026: trata-o da mesma forma. Do mesmo modo, um pedido feito numa página
 aberta antes da publicação de 02.11.2026 pode trazer «versão de 30.10.2026» com o registo em 02.11.2026: trata-o pela
-versão de 30.10.2026 (a de 02.11.2026 só junta o link do logótipo e o direito de recusar um link).
+versão de 30.10.2026 (a de 02.11.2026 só junta o link do logótipo e o direito de recusar um link). E um pedido de
+espaços feito antes da publicação de 03.11.2026 pode trazer «versão de 02.11.2026» com o registo em 03.11.2026:
+trata-o pela versão de 02.11.2026 (a de 03.11.2026 junta o parceiro de prova à venda no site e diz «material
+fornecido por» em vez de «fornecedor oficial»).
+
+**O parceiro de prova não renova.** É uma prova, não um espaço da época: não tem preferência em 2028, desconto de época
+nem de pacote. O prazo do pedido (`RACE_LEAD_DAYS = 42`, 6 semanas) e o do logótipo em vetor (`RACE_LOGO_DAYS = 35`)
+estão no código, ao lado de `SEASON_DIV`, e escritos em `/condicoes/`: mudá-los é mudar as condições (o `stamp.mjs`
+compara-os).
 
 **Outubro, sem triatlos.** O calendário de triatlos de 2027 acaba em setembro (`racesUntil`, 30 de setembro). Os pedidos
 continuam abertos até 31 de outubro, mas de 1 a 31 de outubro o passo 1 do pedido, a mensagem e o comprovativo dizem
@@ -630,7 +716,9 @@ condições, que escrevem a data (o `stamp.mjs` compara-as).
 2. Na página de admin, liberta os espaços que não foram renovados (os renovados ficam vendidos à mesma marca).
 3. Em `data/spots.json`: `"season": "2028"`, o bloco `seasonRules` de 2028 (as mesmas datas, um ano depois, com
    `renewPayBy` em janeiro de 2029 e `racesUntil` no dia do último triatlo do calendário de 2028, e o `termsDate` do
-   dia em que publicas) e os preços de 2028.
+   dia em que publicas) e os preços de 2028. No bloco `racePartner`: liberta-o (`"status": "available"`, sem `race`,
+   `helmet`, `brand`, `url`, `since` nem `logo`) e escreve as provas de 2028 e os preços; as provas têm de ser as do
+   `SEASON` de 2028, com os mesmos `id`, dias e nomes (o `stamp.mjs` compara-as).
 4. Em `/condicoes/`: as datas de 2028 nas duas línguas, a tabela do desconto de época (se os preços de exemplo
    mudarem) e a data «Atualizada a»; no mesmo dia `cl.terms` e `msg.terms` (ver «Condições do patrocínio», em cima).
 5. `node scripts/stamp.mjs` e `node scripts/stamp.mjs --check`: recusa enquanto as condições não tiverem as datas
@@ -676,7 +764,14 @@ das mudanças. Apaga-se sozinho a 31 de dezembro do ano a seguir à época.
   respostas que faltam («Renova», «Não renova»); a partir de 1 de novembro, os espaços para libertar (também os de quem
   nunca recebeu proposta); de 1 de novembro a 15 de janeiro, as renovações de 2028 por pagar («Renovação de 2028 por
   pagar: Marca (espaços), até 15 jan.») e, depois, as que não foram pagas («Renovação de 2028 não paga: Marca. Liberta
-  o espaço em Espaços.»); no último mês, os contratos que acabam a 31 de dezembro.
+  o espaço em Espaços.»); no último mês, os contratos que acabam a 31 de dezembro. Do parceiro de prova: a prova e
+  quantos dias faltam, o aviso aos patrocinadores da época por enviar («Avisei») e o logótipo em vetor até 5 semanas
+  antes da prova («Recebido»).
+- **O parceiro de prova.** Um registo com `race` (a prova, o capacete, o setor, o dia do aviso) e o nível «Parceiro de
+  prova»: o cartão diz a prova e o dia, «Só esta prova (sem renovação)» e o prazo do logótipo; nunca entra nas
+  propostas de 2028. **Novo patrocínio** tem «Parceiro de prova» com a prova e o capacete (o Japão, sob proposta, com o
+  montante combinado). O CSV tem a coluna `prova` (a prova, o dia e «capacete»), o `.ics` leva o dia da prova e o do
+  logótipo, e a confirmação em PDF diz a prova, o capacete e o prazo do logótipo.
 - **A prova do logótipo.** Num pedido depois de 15 de janeiro, o site diz à marca que o logótipo entra no equipamento a
   partir da prova que lhe dizes antes de ela pagar. Os Pedidos lembram-te disso («Diz a prova antes do pagamento»);
   depois, escreve-a em Patrocínios (Editar, «A partir da prova»). A data que conta é a do pedido, como no comprovativo.
@@ -742,7 +837,7 @@ se houver, fica no acordo dela, nunca no site.
 | Oficial | 1 |
 | Principal | até 3 |
 | Fato completo (Titular) | até 6, em destaque (cartões maiores, primeiro) |
-| Fornecedor oficial (patrocina com produto: fato, nutrição, material) | o número do acordo escrito, de 1 a 6 |
+| Material fornecido (patrocina com produto: fato, nutrição, material; no site, «Material fornecido por [Marca]», ou outro nome que a marca escolha no acordo) | o número do acordo escrito, de 1 a 6 |
 
 O nível sai dos espaços da marca na época (`levelOf`, em `assets/js/season-rules.js`; com vários patrocínios, o mais
 alto). Os números estão em `LIMIT`, em `assets/js/montra-core.js`, e escritos em `/condicoes/` («A montra do site»,
@@ -754,7 +849,8 @@ Gonçalo usa.
 **Pôr os produtos de um parceiro (no telemóvel).**
 1. Em `/admin/patrocinios/`, o cartão da marca tem a linha «Montra: N de M produtos». Carrega em **Montra**.
    Uma marca que patrocina com produto: regista-a primeiro em **Novo patrocínio** (pagamento «Em produto»); na
-   montra, liga **Fornecedor oficial**, com o dia do acordo e o número de produtos do acordo.
+   montra, liga **Material fornecido**, com o dia do acordo e o número de produtos do acordo (no site, o cartão diz
+   «Material fornecido por» e a marca; desde 03.11.2026, em vez de «Fornecedor oficial», com o mesmo significado).
 2. **Adicionar produto**: o nome (PT, e EN se for diferente), a fotografia, «Como o uso» em PT e em EN (até 140
    caracteres), o link da loja (só https e um domínio, nunca um endereço IP; os `utm_*` que tiver saem, e por baixo
    aparece o link como vai ficar), o código de desconto e a nota dele (opcionais; com código, a nota é obrigatória),
@@ -781,7 +877,7 @@ para os relatórios, e deixa de contar para o limite. **Apagar** só existe para
 
 **Quando aparece.** Do dia do início (o do pagamento ou do acordo) até ao fim, ou até 31 de dezembro da época da
 marca, o que vier primeiro; depois sai sozinho, sem commit (a página lê as datas). Ordem: o fato completo primeiro
-(o produto em destaque à frente), depois Principal, Oficial e fornecedores oficiais. A página lê também
+(o produto em destaque à frente), depois Principal, Oficial e as marcas que fornecem material. A página lê também
 `data/spots.json`: uma marca de Oficial, Principal ou fato completo só aparece enquanto os espaços dela lhe estão
 vendidos lá (com menos espaços, só os produtos que o nível novo deixa, pela ordem da lista).
 
@@ -798,7 +894,7 @@ Os produtos retirados ficam no ficheiro, escondidos, para os relatórios dos cli
 
 **O ficheiro.** `data/montra.json`, publicado vazio: `{ "v": 1, "brands": [] }`. Cada marca tem `id`, `name`,
 `season`, `level` (`oficial`, `principal`, `title` ou `fornecedor-oficial`; nunca `fornecedor`, que é o nível Apoio),
-`spots` (ou `agreement`, no fornecedor oficial), `max` e `products`. Cada produto tem `id`, `name` e `line` (PT e EN),
+`spots` (ou `agreement`, numa marca com material fornecido), `max` e `products`. Cada produto tem `id`, `name` e `line` (PT e EN),
 `alt` (opcional), `photo` (`base` e `webp`), `url`, `code` e `codeNote` (opcionais), `featured`, `from` e `until`. Os
 ids são palavras em minúsculas ligadas por hífens, sem 4 algarismos seguidos (o contador ignora-os). O link publicado
 leva `utm_source=gocarmo&utm_medium=montra&utm_campaign=<época>&utm_content=<id do produto>`. Usa sempre o editor:
@@ -1238,6 +1334,12 @@ mudar de posição); `mode: 'off'` desliga sem apagar o endereço.
   (`lombar`, ou `title` para o fato completo), onde foi o toque (`ficha`: a ficha do espaço, vinda do 3D ou de uma
   linha da tabela; `lista`: «Já no fato») e o fato ou o capacete; nunca a marca, o link nem o endereço (o clique
   continua a guardar só o nome do site, como antes). Cada marca recebe só os totais dela, por mês.
+- O parceiro de prova (desde 03.11.2026) conta-se pelo id público `prova`: o botão «Pedir o fato nesta prova» visto
+  (`cta_view` `prova`) e o de WhatsApp ou email de uma prova sob proposta (`prova-contacto`), o pedido aberto a partir
+  dele (`claim_open` `via` e `n` `prova`), o link do parceiro no aviso (`sponsor_click` `prova`, `via` `aviso`) e a
+  visita que chega por um link `#fato/prova…` (`land` `prova`). Nunca a prova, a marca, o setor nem o link. Os cliques
+  no cartão do parceiro de prova não levam o texto (o cartão tem `data-private`). Publica o Worker das estatísticas
+  antes do site (a action dele corre os testes primeiro); até lá, estes valores caem sem estragar nada.
 - Às marcas que patrocinam pode ir um relatório com os totais do site (visitas, visualizações, visitantes por dia em
   média, tipos de origem, países e cidades com as pequenas juntas, aparelhos, tempo e até onde se lê) e os cliques
   delas por mês (logótipo, montra). Nunca o funil dos pedidos, nunca menos do que um mês nos cliques de uma marca

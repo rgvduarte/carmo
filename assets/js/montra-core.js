@@ -228,15 +228,15 @@ export function checkMontra(data, { spots = null, day = '', levelOf = null, stri
     if (!LEVELS.includes(b.level)) { bad(`${where}: level tem de ser ${LEVELS.join(', ')}`); return; }
     const supplier = b.level === SUPPLIER;
     if (supplier) {
-      if (!isDay(b.agreement)) bad(`${where}: fornecedor oficial sem o dia do acordo escrito (agreement)`);
+      if (!isDay(b.agreement)) bad(`${where}: material fornecido sem o dia do acordo escrito (agreement)`);
       if (!Number.isInteger(b.max) || b.max < 1 || b.max > MAX_SUPPLIER) bad(`${where}: max tem de ser o número de produtos do acordo, de 1 a ${MAX_SUPPLIER}`);
-      if (b.spots !== undefined) bad(`${where}: um fornecedor oficial não tem spots`);
+      if (b.spots !== undefined) bad(`${where}: uma marca com material fornecido não tem spots`);
     } else {
       if (!Number.isInteger(b.max) || b.max < 1 || b.max > LIMIT[b.level]) bad(`${where}: max tem de ser de 1 a ${LIMIT[b.level]} no nível ${b.level}`);
       if (!Array.isArray(b.spots) || !b.spots.length || b.spots.some((s) => typeof s !== 'string')) bad(`${where}: spots tem de ter os espaços da marca`);
       else if (b.level === 'title' && !(b.spots.length === 1 && b.spots[0] === 'fato')) bad(`${where}: no nível title, spots é ["fato"]`);
       else if (b.level !== 'title' && b.spots.includes('fato')) bad(`${where}: "fato" só no nível title`);
-      if (b.agreement !== undefined) bad(`${where}: agreement só para fornecedor oficial`);
+      if (b.agreement !== undefined) bad(`${where}: agreement só para material fornecido`);
     }
     if (strict && (PLACEHOLDER.test(String(b.name || '')) || PLACEHOLDER.test(String(b.id || '').replace(/-/g, ' ')))) bad(`${where}: parece uma marca de exemplo; só entram marcas com acordo`);
     // the spots: sold to this brand in data/spots.json, at this level, while any of its products counts (on the site or
