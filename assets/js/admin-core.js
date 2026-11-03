@@ -3,7 +3,8 @@
 // statement, so data/spots.json comes out byte for byte as the bot would write it and the public site
 // (adspace.js) renders it unchanged. The price of a package is season-rules.js quote(), the one the site and the
 // booking Worker use (the mid-season discount, then the bundle discount, then one rounding).
-import { quote, seasonBp, pctText, brandLink } from './season-rules.js';
+import { quote, seasonBp, pctText, brandLink, PROVA, raceOf, raceRow, raceDay, raceEnd, raceBookBy, raceMonthOnly, lisbonDay, firstOfferDue } from './season-rules.js';
+export { PROVA, firstOfferDue };
 
 export const REPO = 'rgvduarte/carmo';
 export const BRANCH = 'gh-pages';
@@ -46,16 +47,29 @@ export const fmtDay = (iso) => { const [, m, d] = String(iso).split('-').map(Num
 const EUR = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0, useGrouping: 'always' });
 export const money = (n) => EUR.format(n);
 
-export const targetOf = (data, id) => (id === TITLE ? data.title : data.spots.find((s) => s.id === id));
-export const nameOf = (data, id) => (id === TITLE ? 'Fato completo' : targetOf(data, id)?.pt?.name || id);
-export const labelOf = (data, id) => (id === TITLE ? 'Fato completo' : `${pad2(targetOf(data, id).n)} · ${nameOf(data, id)}`);
-// spots in ascending n, the title last (the order the bot would be run in, one issue per spot)
+// the race partner (PROVA, 'prova', data.racePartner, since 03.11.2026) is a third kind of target, next to the spots and
+// the whole suit; it always goes alone
+export const targetOf = (data, id) => (id === TITLE ? data.title : id === PROVA ? data.racePartner : data.spots.find((s) => s.id === id));
+// a race of the race partner as the admin reads it: 'Lidl Setúbal Triathlon (2 mai.)', 'Triatlo de Sines (set.)'
+const PT_MONTH = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+export const raceDayText = (race) => (!race ? '' : raceMonthOnly(race) ? `${PT_MONTH[Number(String(race.date).slice(5, 7)) - 1]} de ${String(race.date).slice(0, 4)}` : fmtDay(race.date));
+export const raceName = (data, id) => (raceOf(data, id) || {}).pt || id || '';
+// 'Parceiro de prova (Lidl Setúbal Triathlon, com capacete)': a race and the helmet given, else the ones in the file
+export function raceLabel(data, race, helmet) {
+  const rp = data && data.racePartner, r = race !== undefined ? race : rp && rp.status !== 'available' ? rp.race : '';
+  const h = helmet !== undefined ? helmet : !!(rp && rp.helmet === true && rp.status !== 'available');
+  return r ? `Parceiro de prova (${raceName(data, r)}${h ? ', com capacete' : ''})` : 'Parceiro de prova';
+}
+export const nameOf = (data, id) => (id === TITLE ? 'Fato completo' : id === PROVA ? 'Parceiro de prova' : targetOf(data, id)?.pt?.name || id);
+export const labelOf = (data, id) => (id === TITLE ? 'Fato completo' : id === PROVA ? raceLabel(data) : `${pad2(targetOf(data, id).n)} · ${nameOf(data, id)}`);
+// spots in ascending n, the title last (the order the bot would be run in, one issue per spot), the race partner after it
 export function sortTargets(data, ids) {
-  const n = (id) => (id === TITLE ? Infinity : targetOf(data, id)?.n ?? Infinity);
+  const n = (id) => (id === TITLE ? Infinity : id === PROVA ? Infinity : targetOf(data, id)?.n ?? Infinity);
   return [...new Set(ids)].sort((a, b) => n(a) - n(b));
 }
-// the public link of a spot: #fato/<id> on the suit, #capacete/<id> on the helmet, #fato for the title
-export const liveLink = (data, id) => (id === TITLE ? `${SITE}/#fato` : `${SITE}/#${itemOf(targetOf(data, id)) === 'helmet' ? 'capacete' : 'fato'}/${id}`);
+// the public link of a spot: #fato/<id> on the suit, #capacete/<id> on the helmet, #fato for the title, #fato/prova for
+// the race partner (the race card)
+export const liveLink = (data, id) => (id === TITLE ? `${SITE}/#fato` : id === PROVA ? `${SITE}/#fato/prova` : `${SITE}/#${itemOf(targetOf(data, id)) === 'helmet' ? 'capacete' : 'fato'}/${id}`);
 
 // ---------- inputs, normalised exactly like the bot ----------
 export const normBrand = (s) => String(s ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
@@ -85,6 +99,19 @@ export function normalize(action, { brand = '', url = '', until = '' } = {}, tod
   return { brand: b, url: action === 'sold' ? normUrl(url) : '', until: action === 'reserved' ? normUntil(until, today) : '' };
 }
 
+// The race partner's sheet: a race of data.racePartner and the helmet always; on «Reservar» no brand at all (the file is
+// public, and the first offer is made without naming the requester: the brand stays in the request, in the Worker's
+// KV), on «Vendido» the brand and the link, as for a spot.
+export function normalizeRace(action, { brand = '', url = '', until = '', race = '', helmet = false } = {}, today, data) {
+  if (action === 'available') return { brand: '', url: '', until: '', race: '', helmet: false };
+  if (!raceOf(data, race)) throw new RuleError('Escolhe a prova.');
+  const h = helmet === true;
+  if (action === 'reserved') return { brand: '', url: '', until: normUntil(until, today), race, helmet: h };
+  const b = normBrand(brand);
+  if (!b) throw new RuleError(MSG.needBrandSold);
+  return { brand: b, url: normUrl(url), until: '', race, helmet: h };
+}
+
 // ---------- the write (scripts/spot-update.mjs, "apply") ----------
 // raw: the parsed file, never the effective view. brandFiles: the names under assets/img/brands at the base
 // commit. logoExt: the new logo's extension, for a sale with a file. Returns the new data, its text and the
@@ -97,8 +124,27 @@ export function applyAction(raw, ids, action, f, { today, brandFiles = [], logoE
   const filesOf = (id) => brandFiles.filter((name) => name.startsWith(`${id}.`)).map((name) => `${BRANDS}/${name}`);
   for (const id of sortTargets(data, ids)) {
     const target = targetOf(data, id);
+    if (!target && id === PROVA) throw new RuleError('Não há parceiro de prova em data/spots.json.');
     if (!target) throw new RuleError(`O espaço "${id}" não existe em data/spots.json.`);
     const prevBrand = target.brand;
+    if (id === PROVA) {
+      // the Worker's held/freed key for key (status, race, helmet, until on a hold; status, race, helmet, brand, url,
+      // since, logo on a sale); never a brand on a hold
+      const since = action !== 'sold' ? undefined : target.status === 'sold' && f.brand === prevBrand ? target.since : today;
+      for (const k of ['brand', 'url', 'until', 'request', 'since', 'race', 'helmet']) delete target[k];
+      target.status = action;
+      if (action !== 'sold' || f.brand !== prevBrand) { delete target.logo; delete target.logoMono; filesOf(id).forEach((p) => deletes.add(p)); }
+      if (action !== 'available') { target.race = f.race; target.helmet = f.helmet === true; }
+      if (action === 'sold') { target.brand = f.brand; if (f.url) target.url = f.url; if (since) target.since = since; }
+      if (action === 'reserved') target.until = f.until;
+      if (action === 'sold' && logoExt) {
+        filesOf(id).forEach((p) => deletes.add(p));
+        const path = `${BRANDS}/${id}.${logoExt}`;
+        writes.push(path);
+        target.logo = path;
+      }
+      continue;
+    }
     // since: the day the spot went to this brand (the brand report counts its logo's clicks from that month on); a sale
     // again to the same brand (a new link, a new logo) keeps the day it had, or none
     const since = action !== 'sold' ? undefined : target.status === 'sold' && f.brand === prevBrand ? target.since : today;
@@ -127,8 +173,8 @@ export function applyAction(raw, ids, action, f, { today, brandFiles = [], logoE
 // byTitle: the status comes from the title package.
 export function effective(raw, now = Date.now()) {
   const v = structuredClone(raw);
-  for (const x of [...v.spots, v.title]) {
-    if (lapsed(x, now)) { x.expired = { brand: x.brand, until: x.until }; x.status = 'available'; }
+  for (const x of [...v.spots, v.title, ...(v.racePartner ? [v.racePartner] : [])]) {
+    if (lapsed(x, now)) { x.expired = { brand: x.brand, until: x.until, ...(x === v.racePartner ? { race: x.race } : {}) }; x.status = 'available'; }
     x.own = x.status;
   }
   const T = v.title;
@@ -144,6 +190,7 @@ export function effective(raw, now = Date.now()) {
 // the chip on a row, and its second line
 export function statusOf(v, x, today) {
   const T = v.title;
+  if (x && x === v.racePartner) return raceStatus(v, x, today);
   if (x.byTitle) return x.status === 'sold'
     ? { key: 'sold', chip: `Vendido · ${T.brand || 'fato completo'} (fato completo)` }
     : { key: 'reserved', chip: `Reservado até ${fmtDay(T.until)} (fato completo)`, sub: T.brand };
@@ -157,12 +204,28 @@ export function statusOf(v, x, today) {
   return { key: 'available', chip: 'Livre' };
 }
 const hostOf = (u) => { try { return u ? new URL(u).host.replace(/^www\./, '') : ''; } catch (_) { return ''; } };
+// the race partner's row: «Livre · 3 provas abertas», «Reservado até 5 nov. · faltam 2 dias» (the race under it, never a
+// brand), «Vendido · Marca» (the race, the helmet, the logo and the link under it)
+function raceStatus(v, x, today) {
+  const lday = lisbonDay(Date.parse(`${today}T12:00:00Z`));
+  const race = (id, h) => `${raceName(v, id)} (${raceDayText(raceOf(v, id))})${h ? ' · com capacete' : ''}`;
+  if (x.status === 'sold') return { key: 'sold', chip: x.brand ? `Vendido · ${x.brand}` : 'Vendido', sub: [race(x.race, x.helmet === true), x.logo ? 'com logótipo' : 'sem logótipo', hostOf(x.url)].filter(Boolean).join(' · ') };
+  if (x.status === 'reserved') {
+    const d = daysBetween(today, x.until);
+    return { key: 'reserved', chip: d <= 0 ? 'Reservado até hoje · último dia' : `Reservado até ${fmtDay(x.until)} · ${d === 1 ? 'falta 1 dia' : `faltam ${d} dias`}`, sub: race(x.race, x.helmet === true) };
+  }
+  const n = (Array.isArray(x.races) ? x.races : []).filter((r) => ['open', 'ask'].includes(raceRow(v, r.id, lday))).length;
+  const exp = x.expired ? ` · reserva expirada (${raceName(v, x.expired.race)} até ${fmtDay(x.expired.until)})` : '';
+  return { key: x.expired ? 'expired' : 'available', chip: x.expired ? 'Reserva expirada' : n ? `Livre · ${n === 1 ? '1 prova aberta' : `${n} provas abertas`}` : 'Livre · sem provas abertas', sub: exp ? exp.slice(3) : '' };
+}
 
 // ---------- guards (on the effective view) ----------
 // blocked: the action cannot go ahead. confirms: it can, after a yes. brand: the normalised brand, or
 // undefined before the sheet is filled in (then only the checks that do not depend on it run). until: the
 // reservation's new last day, when known.
-export function guard(raw, now, ids, action, brand, until) {
+// opts (the race partner): { race, helmet, request } of the sheet (request: the site request whose hold this sale closes)
+export function guard(raw, now, ids, action, brand, until, opts = {}) {
+  if (ids.includes(PROVA)) return guardRace(raw, now, ids, action, brand, opts);
   const v = effective(raw, now), T = v.title, blocked = [], confirms = [];
   const known = brand !== undefined;
   const titleHeld = T.status === 'reserved' || T.status === 'sold';
@@ -201,6 +264,38 @@ export function guard(raw, now, ids, action, brand, until) {
   return { blocked: [...new Set(blocked)], confirms };
 }
 
+// The race partner: it goes alone; one a season (sold to another brand: free it first); a hold is replaced only after a
+// yes (its brand is not in the file: the request names it); the race: past (no hold), inside the 6 weeks, on proposal,
+// by message only, or moved on a sale: each after a yes.
+function guardRace(raw, now, ids, action, brand, { race, helmet, request } = {}) {
+  const blocked = [], confirms = [];
+  if (ids.length > 1) return { blocked: ['O parceiro de prova vai sozinho.'], confirms };
+  const v = effective(raw, now), x = v.racePartner, r = raw.racePartner;
+  if (!x || !r) return { blocked: ['Não há parceiro de prova em data/spots.json.'], confirms };
+  const today = todayUTC(now), lday = lisbonDay(now), cur = r.race ? raceName(raw, r.race) : '';
+  if (action === 'available') {
+    if (r.status === 'available') blocked.push('O parceiro de prova já está livre.');
+    return { blocked, confirms };
+  }
+  if (x.own === 'sold' && action === 'reserved') return { blocked: [`O parceiro de prova já está vendido a ${r.brand || 'sem marca'} (${cur}). Liberta-o primeiro.`], confirms };
+  if (x.own === 'sold' && brand !== undefined && r.brand !== brand) return { blocked: [`Esta época já tem parceiro de prova: ${r.brand || 'sem marca'} no ${cur}. Liberta-o primeiro.`], confirms };
+  if (x.own === 'reserved' && !(request && r.request === request)) confirms.push(`Parceiro de prova: substitui a reserva até ${fmtDay(r.until)}${r.request ? ` (pedido ${r.request})` : ''}, ${cur}.`);
+  const R = race ? raceOf(raw, race) : null;
+  if (race === undefined) return { blocked, confirms };
+  if (!R) return { blocked: [...blocked, 'Escolhe a prova.'], confirms };
+  const day = raceDay(R), left = daysBetween(lday, day);
+  if (lday > raceEnd(R)) {
+    if (action === 'reserved') blocked.push(`${R.pt} já passou: não se reserva.`);
+    else confirms.push(`${R.pt} já passou.`);
+  } else if (lday > raceBookBy(R)) confirms.push(`Faltam ${left} dias para ${R.pt}: menos de 6 semanas para fazer o fato.`);
+  if (R.proposal) confirms.push(`${R.pt} é sob proposta: o montante é o do acordo.`);
+  if (R.ask) confirms.push(`${R.pt} está só por mensagem no site: confirma com a equipa.`);
+  if (x.own === 'sold' && r.brand === brand && (r.race !== race || (helmet !== undefined && (r.helmet === true) !== (helmet === true)))) {
+    confirms.push(r.race !== race ? `Muda a prova de ${r.brand} de ${cur} para ${R.pt}.` : `${r.brand} no ${cur}: ${helmet ? 'junta' : 'tira'} o capacete.`);
+  }
+  return { blocked, confirms };
+}
+
 // the reservations the targets hold now (a lapsed one is gone), for the sheet and the default date
 export function holds(raw, now, ids) {
   const v = effective(raw, now);
@@ -216,7 +311,7 @@ export function defaultUntil(raw, now, ids, brand) {
 
 // what the admin saw of each target when the sheet opened; a save stops if any of it changed meanwhile
 export function snapshot(raw, ids) {
-  const pick = (t) => (t ? { status: t.status, brand: t.brand, url: t.url, until: t.until, logo: t.logo, logoMono: t.logoMono } : null);
+  const pick = (t) => (t ? { status: t.status, brand: t.brand, url: t.url, until: t.until, logo: t.logo, logoMono: t.logoMono, race: t.race, helmet: t.helmet } : null);
   return Object.fromEntries(ids.map((id) => [id, JSON.stringify(pick(targetOf(raw, id)))]));
 }
 export function changedSince(snap, raw) {
@@ -242,7 +337,7 @@ function refRun(s) {
   const toks = [];
   for (let i = 0; i < parts.length; i++) {
     const t = parts[i];
-    if (t === 'FATO' || t === 'APOIO') { toks.push(t); continue; }
+    if (t === 'FATO' || t === 'APOIO' || t === 'PROVA') { toks.push(t); continue; }
     if (t === 'E') continue;   // 'CARMO 21 E 22'
     if (isAmount(t) || !REF_LIST.test(t)) break;
     if (/^\d$/.test(t) && /^\d{3}(?:[.,]\d{2})?$/.test(parts[i + 1] || '')) break;   // '1 080,00': an amount's first digit
@@ -266,6 +361,12 @@ export function parseRef(text, data) {
   const out = { ids: [], unknown: [], note: '' };
   if (toks.includes('APOIO') && !toks.some((x) => x !== 'APOIO')) { out.note = `${prefix || 'CARMO'} APOIO é um donativo, não um espaço.`; return out; }
   const nums = [...new Set(toks.filter((x) => /^\d+$/.test(x)).map(Number))];
+  // CARMO PROVA: the race partner; the reference does not say which race (the request does)
+  if (toks.includes('PROVA')) {
+    out.ids = [PROVA];
+    out.note = nums.length ? 'O parceiro de prova vai sozinho; os outros espaços tratam-se à parte. Escolhe a prova: a referência não a diz.' : 'Escolhe a prova: a referência não a diz.';
+    return out;
+  }
   if (toks.includes('FATO')) {
     out.ids = [TITLE];
     const rest = nums.map((n) => data.spots.find((x) => x.n === n)).filter(Boolean);
@@ -283,8 +384,8 @@ export function parseRef(text, data) {
 // the Lisbon day of the request (default today: the price of a request made now); opts.m: the season month a pasted
 // message states (wins over the day). disc: the bundle discount as a fraction (0.1), discPct the same in percent;
 // m, midSeason, seasonBp: the mid-season discount (m = 0: none); steps: { season, bundle }, the euros each one takes off.
-export function totals(data, ids, { day, m } = {}) {
-  const q = quote(data, ids.includes(TITLE) ? [TITLE] : ids, { day, m });
+export function totals(data, ids, { day, m, race, helmet } = {}) {
+  const q = quote(data, ids.includes(PROVA) ? [PROVA] : ids.includes(TITLE) ? [TITLE] : ids, { day, m, race, helmet });
   return { gross: q.gross, net: q.net, disc: q.discPct / 100, discPct: q.discPct, m: q.m, midSeason: q.midSeason, seasonBp: q.seasonBp, steps: q.steps, day: q.day };
 }
 // «Desconto de época (março): −6,25%» for a season month m (and its basis points, when known)
@@ -332,6 +433,12 @@ const LINE = {
   // are for the reader, and are only checked against it. No such line: m = 0 (a request up to 31 January).
   season: /^(?:desconto de [eé]poca|mid-season discount)\s*\([^)]*?\b(?:m[eê]s|month)\s+(\d{1,2})\s*\)\s*:\s*[−-]\s*(\d{1,2}(?:[.,]\d{1,2})?)\s*%\s*$/iu,
   hi: /^(?:ol[aá]|hi|hello)\s+gon[cç]alo\b/i,
+  // the race partner (since 03.11.2026): «Prova: Lidl Setúbal Triathlon, 2 de maio de 2027 · 3 000 €», «Capacete nessa
+  // prova: sim (+500 €)», «Setor: …»; «Exceto no …» is the site's note on a spot request (no field)
+  race: /^(?:prova|race)\s*:\s*(.*)$/i,
+  raceHelmet: /^(?:capacete nessa prova|helmet at that race)\s*:\s*(.*)$/i,
+  sector: /^(?:setor|sector)\s*:\s*(.*)$/i,
+  except: /^(?:exceto n[oa]|except at)\b/i,
   spots: /^(?:espa[cç]os|spots)\s*:\s*$/i,
   bullet: /^[•·*\-–]\s*(\d{1,2})\s+(.+)$/,
 };
@@ -364,7 +471,7 @@ export function payOf(text) {
 }
 export const PAY_LABEL = { mb: 'MB WAY', tr: 'Transferência', either: 'Transferência ou MB WAY' };
 // the payment reference the site shows for these targets (adspace.js payRef)
-export const refOf = (data, ids) => (ids[0] === TITLE ? 'CARMO FATO' : `CARMO ${sortTargets(data, ids).map((id) => pad2(targetOf(data, id).n)).join(' ')}`);
+export const refOf = (data, ids) => (ids[0] === TITLE ? 'CARMO FATO' : ids[0] === PROVA ? 'CARMO PROVA' : `CARMO ${sortTargets(data, ids).map((id) => pad2(targetOf(data, id).n)).join(' ')}`);
 
 // one line of the list: by its name first (the numbers could have moved), else by its number
 function spotOfLine(data, n, label) {
@@ -383,8 +490,12 @@ export function parsePaste(text, data) {
   // the package link is looked for outside the brand's own «Link:» line (its page could carry anything after a #)
   const pkgSrc = lines.filter((l) => !LINE.link.test(l)).join('\n');
   const linkTitle = /#fato\/title(?![\w-])/i.test(pkgSrc);
+  // the race partner's link, #fato/prova[/<race>[/capacete]], before the generic #fato/<id> (which would read 'prova' as
+  // a spot)
+  const lp = pkgSrc.match(/gocarmo\.com\/?#fato\/prova(?:\/([a-z0-9-]{1,20}))?(\/capacete)?(?![\w-])/i);
   const pk = pkgSrc.match(/#pacote=([A-Za-z0-9%,_-]+)/i);
-  const one = pk || linkTitle ? null : pkgSrc.match(/gocarmo\.com\/?#(?:fato|capacete)\/([a-z0-9-]+)/i);
+  const one = pk || linkTitle || lp ? null : pkgSrc.match(/gocarmo\.com\/?#(?:fato|capacete)\/([a-z0-9-]+)/i);
+  let raceLine = null, raceHelmet = null;
   let linkIds = null;
   if (pk || one) {
     let raw = pk ? pk[1] : one[1];
@@ -422,6 +533,10 @@ export function parsePaste(text, data) {
       if (named >= 0 && named + 1 !== n) out.notes.push(`O mês escrito no desconto de época não bate com o mês ${n}.`);
       continue;
     }
+    if (LINE.except.test(l)) { looks = true; continue; }
+    if (!seen.has('race') && (m = l.match(LINE.race))) { seen.add('race'); looks = true; raceLine = m[1].trim(); lang(l); continue; }
+    if (!seen.has('raceHelmet') && (m = l.match(LINE.raceHelmet))) { seen.add('raceHelmet'); looks = true; raceHelmet = /^(?:sim|yes)\b/i.test(m[1].trim()); continue; }
+    if (!seen.has('sector') && (m = l.match(LINE.sector))) { seen.add('sector'); looks = true; out.sector = m[1].trim().slice(0, 60); continue; }
     if (!seen.has('link') && (m = l.match(LINE.link))) {
       seen.add('link'); looks = true;
       // (a mail app may have added its own copy: «https://marca.pt/ <https://marca.pt/>»)
@@ -447,9 +562,10 @@ export function parsePaste(text, data) {
       break;
     }
   }
-  if (!looks && !linkIds && !linkTitle) return { ...parseRef(src, data), kind: 'ref' };
+  if (!looks && !linkIds && !linkTitle && !lp) return { ...parseRef(src, data), kind: 'ref' };
   if (!looks) out.kind = 'link';
   out.nifOk = out.nif ? nifOk(out.nif) : null;
+  if (lp || raceLine !== null || (out.ref && parseRef(out.ref, data).ids[0] === PROVA)) return racePaste(out, data, { lp, raceLine, raceHelmet });
 
   // the spots: the link, else the whole suit, else the list, else the CARMO line
   const fromList = [], listNotes = [], listUnknown = [];
@@ -489,6 +605,42 @@ export function parsePaste(text, data) {
   if (out.ids.length && out.stated !== null) {
     const t = totals(data, out.ids, { m: out.m ?? 0 });
     if (t.net !== out.stated) out.notes.push(`O pedido diz ${money(out.stated)}; com os preços de agora${t.m ? ` e o desconto de época de ${SEASON_MONTHS[t.m - 1]}` : ''} são ${money(t.net)}.`);
+  }
+  if (out.nifOk === false) out.notes.push(`O NIF ${out.nif} não bate certo (o último algarismo não confere). Confirma com a marca antes do recibo.`);
+  return out;
+}
+
+// a pasted race partner's request: the race from the link (else the «Prova» line, else nothing: the reference does not
+// say it), the helmet, the sector, and what the pieces say against each other and against the prices of now
+function racePaste(out, data, { lp, raceLine, raceHelmet }) {
+  const races = data && data.racePartner && Array.isArray(data.racePartner.races) ? data.racePartner.races : [];
+  out.ids = [PROVA]; out.race = ''; out.helmet = false;
+  if (lp) {
+    out.from = 'link'; out.helmet = !!lp[2];
+    const id = (lp[1] || '').toLowerCase();
+    if (id && raceOf(data, id)) out.race = id;
+    else if (id) out.notes.push(`O link do pedido fala de uma prova que não conheço (${id}).`);
+  }
+  if (raceLine !== null) {
+    const f = fold(raceLine), r = races.find((x) => [x.pt, x.en].some((n) => n && f.startsWith(fold(n))));
+    if (r && !out.race) { out.race = r.id; out.from = out.from || 'race'; }
+    else if (r && r.id !== out.race) out.notes.push('A linha «Prova» e o link do pedido não batem certo: fico com o link.');
+    else if (!r && !out.race) out.notes.push(`Não conheço a prova «${raceLine.split(/[,·]/)[0].trim().slice(0, 60)}».`);
+  }
+  if (raceHelmet !== null) {
+    if (lp && raceHelmet !== out.helmet) out.notes.push('A linha do capacete e o link do pedido não batem certo: fico com o link.');
+    if (!lp) out.helmet = raceHelmet;
+  }
+  if (!out.from) out.from = 'ref';
+  const R = raceOf(data, out.race);
+  if (!R) out.notes.push('Escolhe a prova: a referência não a diz.');
+  if (R && R.proposal) out.notes.push(`${R.pt} é sob proposta: o montante é o do acordo.`);
+  if (R && R.ask) out.notes.push(`${R.pt} está só por mensagem no site: confirma com a equipa.`);
+  const refIds = out.ref ? parseRef(out.ref, data).ids : [];
+  if (refIds.length && refIds[0] !== PROVA) out.notes.push(`A referência ${out.ref} não é a do parceiro de prova (seria CARMO PROVA).`);
+  if (R && !R.proposal && out.stated !== null) {
+    const t = totals(data, [PROVA], { race: R.id, helmet: out.helmet });
+    if (t.net !== out.stated) out.notes.push(`O pedido diz ${money(out.stated)}; com os preços de agora são ${money(t.net)}.`);
   }
   if (out.nifOk === false) out.notes.push(`O NIF ${out.nif} não bate certo (o último algarismo não confere). Confirma com a marca antes do recibo.`);
   return out;
@@ -534,6 +686,17 @@ export const joinPT = (xs) => (xs.length < 2 ? xs.join('') : `${xs.slice(0, -1).
 // before: the file the sale was made on; logo: a new logo goes with it. A sale again to the same brand where only the link
 // changed says so: 'Espaço 19: link de Padaria Central atualizado (admin)' (removed: '… retirado').
 export function commitMessage(data, ids, action, f, { before = null, logo = false } = {}) {
+  // the race partner: the race and the helmet, never a brand before the sale
+  if (ids.includes(PROVA)) {
+    const label = action === 'available' ? raceLabel(data) : raceLabel(data, f.race, f.helmet === true);
+    if (action === 'sold' && before && !logo) {
+      const was = before.racePartner;
+      if (was && was.status === 'sold' && was.brand === f.brand && was.race === f.race && (was.helmet === true) === (f.helmet === true) && (was.url || '') !== (f.url || '')) return `${label}: link de ${f.brand} ${f.url ? 'atualizado' : 'retirado'} (admin)`;
+    }
+    if (action === 'sold') return `${label} vendido a ${f.brand} (admin)`;
+    if (action === 'reserved') return `${label} reservado até ${f.until} (admin)`;
+    return `${label} libertado (admin)`;
+  }
   const sorted = sortTargets(data, ids), many = sorted.length > 1;
   const label = sorted[0] === TITLE ? 'Fato completo' : `${many ? 'Espaços' : 'Espaço'} ${joinPT(sorted.map((id) => pad2(targetOf(data, id).n)))}`;
   const s = many ? 's' : '';

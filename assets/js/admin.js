@@ -6,7 +6,7 @@ import * as C from './admin-core.js';
 import { GhError, UiError, transient, readToken, forgetToken, keepToken, gh, UNKNOWN, errText, checkToken, signInText, getToken, setToken, commitFiles, readText } from './admin-gh.js';
 import { findBrand, countFor, spotsAllow, retireOver, deletesFor, applyBrand, fileText } from './admin-montra-core.js';
 import { MONTRA_PATH } from './montra-core.js';
-import { lisbonDay, rulesOf, isDay, noRacesLeft, brandLink, linkShown, isRedirector } from './season-rules.js';
+import { lisbonDay, rulesOf, isDay, noRacesLeft, brandLink, linkShown, isRedirector, raceOf, raceRow, raceLogoBy } from './season-rules.js';
 import { SITE } from './data.js';
 import './internal.js';   // this browser is the owner's: the public pages never load Google Analytics in it
 
@@ -14,7 +14,7 @@ const FILTER_KEY = 'gc.admin.filter';   // (the token's key and the GitHub calls
 const SITE_ROOT = new URL('../../', location.href);   // the page lives at /admin/espacos/; logo paths start at the site root
 const POLL_EVERY = 5000, POLL_FOR = 180000;
 const RASTER_SIDES = [1200, 800, 500];              // an SVG logo becomes a PNG this wide (longest side), if it fits 3 MB
-const LIVE_FIELDS = ['status', 'brand', 'url', 'until', 'logo'];
+const LIVE_FIELDS = ['status', 'brand', 'url', 'until', 'logo', 'race', 'helmet'];
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -140,6 +140,7 @@ function render() {
   meta.textContent = `Atualizado às ${hhmm(base.readAt)}`;
   const counts = { all: v.spots.length, available: 0, reserved: 0, sold: 0 };
   for (const s of v.spots) counts[viewKey(s)]++;
+  // (the race partner is not a spot: it has its own group and is not in the counts)
   $$('[data-count]').forEach((n) => { n.textContent = String(counts[n.dataset.count]); });
   const sum = $('#summary'); sum.textContent = '';
   [plural(counts.available, 'livre', 'livres'), plural(counts.reserved, 'reservado', 'reservados'), plural(counts.sold, 'vendido', 'vendidos')]
@@ -162,6 +163,14 @@ function render() {
     h.appendChild(el('span', 'c', String(spots.length)));
     sec.append(h, ul); host.appendChild(sec);
   }
+  // the race partner (data/spots.json "racePartner"): one row, after the helmet
+  if (v.racePartner && pass(v.racePartner)) {
+    const ul = el('ul', 'rows'), sec = el('section', 'group'), h = el('h2', null, 'Parceiro de prova');
+    ul.appendChild(row(v, raw, C.PROVA, today));
+    sec.dataset.item = 'prova';
+    sec.append(h, ul); host.appendChild(sec);
+    rows++;
+  }
   $('#empty').hidden = rows > 0;
   renderPub();
   updateBar();
@@ -169,14 +178,15 @@ function render() {
 }
 
 function row(v, raw, id, today, suitCount = 0) {
-  const isTitle = id === C.TITLE, x = C.targetOf(v, id), st = C.statusOf(v, x, today);
-  const li = el('li', `row${isTitle ? ' title' : ''}${sel.has(id) ? ' sel' : ''}`);
+  const isTitle = id === C.TITLE, isRace = id === C.PROVA, x = C.targetOf(v, id), st = C.statusOf(v, x, today);
+  const li = el('li', `row${isTitle ? ' title' : ''}${isRace ? ' prova' : ''}${sel.has(id) ? ' sel' : ''}`);
   li.dataset.id = id;
   const lab = el('label'), cb = el('input');
   cb.type = 'checkbox'; cb.checked = sel.has(id); cb.value = id;
   cb.addEventListener('change', () => toggle(id, cb.checked));
-  lab.append(cb, el('span', 'n', isTitle ? 'FATO' : C.pad2(x.n)), el('span', 'nm', C.nameOf(raw, id)), el('span', 'pr', C.money(x.price)));
-  let sub = isTitle && st.key === 'available' ? `Os ${suitCount} espaços do fato, de uma vez · CARMO FATO` : st.sub;
+  lab.append(cb, el('span', 'n', isTitle ? 'FATO' : isRace ? 'PROVA' : C.pad2(x.n)), el('span', 'nm', C.nameOf(raw, id)), el('span', 'pr', C.money(x.price)));
+  let sub = isTitle && st.key === 'available' ? `Os ${suitCount} espaços do fato, de uma vez · CARMO FATO`
+    : isRace && st.key === 'available' ? [`Uma prova · capacete +${C.money(x.helmetPrice)} · CARMO PROVA`, st.sub].filter(Boolean).join(' · ') : st.sub;
   if (st.key === 'reserved' && !x.byTitle && C.targetOf(raw, id).request) sub = `${sub ? `${sub} · ` : ''}pedido do site`;   // worker/requests.js
   if (sub) lab.appendChild(el('span', 'sub', sub));
   const chip = el('span', `st ${st.key}`); chip.appendChild(el('span', null, st.chip));
@@ -189,7 +199,8 @@ function row(v, raw, id, today, suitCount = 0) {
 function toggle(id, on) {
   if (on) {
     if (id === C.TITLE) { if (sel.size && !sel.has(C.TITLE)) toast('O fato completo vai sozinho.'); sel = new Set([C.TITLE]); }
-    else { sel.delete(C.TITLE); sel.add(id); }
+    else if (id === C.PROVA) { if (sel.size && !sel.has(C.PROVA)) toast('O parceiro de prova vai sozinho.'); sel = new Set([C.PROVA]); }
+    else { sel.delete(C.TITLE); sel.delete(C.PROVA); sel.add(id); }
   } else sel.delete(id);
   syncRows();
 }
@@ -206,9 +217,14 @@ function updateBar() {
   bar.hidden = !ids.length || viaPaste;
   document.documentElement.style.setProperty('--bar-h', bar.hidden ? '0px' : `${bar.offsetHeight}px`);
   if (bar.hidden) return;
-  $('#bar-n').textContent = ids[0] === C.TITLE ? 'Fato completo' : plural(ids.length, 'selecionado', 'selecionados');
-  const t = C.totals(base.data, ids), note = C.totalNote(t);
-  $('#bar-total').textContent = note ? `${C.money(t.net)} ${note}` : C.money(t.net);
+  $('#bar-n').textContent = ids[0] === C.TITLE ? 'Fato completo' : ids[0] === C.PROVA ? 'Parceiro de prova' : plural(ids.length, 'selecionado', 'selecionados');
+  if (ids[0] === C.PROVA) {
+    const rp = base.data.racePartner || {};
+    $('#bar-total').textContent = `${C.money(rp.price || 0)} · capacete +${C.money(rp.helmetPrice || 0)}`;
+  } else {
+    const t = C.totals(base.data, ids), note = C.totalNote(t);
+    $('#bar-total').textContent = note ? `${C.money(t.net)} ${note}` : C.money(t.net);
+  }
   const now = Date.now();
   $$('[data-act]').forEach((b) => { const g = C.guard(base.data, now, ids, b.dataset.act); b.setAttribute('aria-disabled', String(g.blocked.length > 0)); });
 }
@@ -243,7 +259,8 @@ function onRef() {
     return;
   }
   fitRef();
-  if (r.ids.length) {
+  if (r.ids[0] === C.PROVA) out.classList.add('ok'), out.append(`Parceiro de prova · CARMO PROVA`);
+  else if (r.ids.length) {
     out.classList.add('ok');
     const t = C.totals(base.data, r.ids);
     const names = r.ids.map((id) => shortName(base.data, id));
@@ -310,15 +327,19 @@ function showPaste(p) {
   pasted = p;
   // a message: the price of its own month (its «Desconto de época (…, mês N)» line), else the full price (a message
   // with no season line is from before February); a link carries no date: today's price, as the bar and a reference
-  const ids = p.ids, link = p.kind === 'link';
-  const t = !ids.length ? null : link ? C.totals(raw, ids) : C.totals(raw, ids, { m: p.m ?? 0 });
+  const ids = p.ids, link = p.kind === 'link', isRace = ids[0] === C.PROVA, R = isRace ? raceOf(raw, p.race) : null;
+  // the race partner: the price of its race and helmet (never a season discount), none on proposal or without a race
+  const t = !ids.length ? null : isRace ? (R && !R.proposal ? C.totals(raw, ids, { race: p.race, helmet: p.helmet }) : null) : link ? C.totals(raw, ids) : C.totals(raw, ids, { m: p.m ?? 0 });
   out.classList.toggle('ok', ids.length > 0);
   out.textContent = !ids.length ? (p.kind === 'link' ? 'Este link não tem espaços que eu conheça.' : 'Li o pedido, mas não encontrei os espaços.')
+    : isRace ? `${link ? 'Link do pedido' : 'Pedido'}: parceiro de prova${t ? ` · Total ${C.money(t.net)}` : R ? ' · sob proposta' : ''}`
     : `${p.kind === 'link' ? 'Link do pedido' : 'Pedido'}: ${ids[0] === C.TITLE ? 'fato completo' : plural(ids.length, 'espaço', 'espaços')} · Total ${C.money(t.net)}`;
   const dl = el('dl', 'pv');
   const row = (k, v, cls) => { if (!v) return; const d = el('div', cls ? `pv-r ${cls}` : 'pv-r'); d.append(el('dt', null, k), el('dd', null, v)); dl.appendChild(d); };
-  row('Espaços', ids.map((id) => shortName(raw, id)).join(', '));
+  if (isRace) { row('Prova', R ? `${R.pt} · ${C.raceDayText(R)}` : 'por escolher', R ? '' : 'bad'); row('Capacete', p.helmet ? 'sim' : 'não'); }
+  else row('Espaços', ids.map((id) => shortName(raw, id)).join(', '));
   row('Marca', p.brand);
+  row('Setor', p.sector || '');
   row('Link', p.link ? linkShown(p.link) : '');
   row('Nome', p.name);
   row('Email', p.email);
@@ -326,7 +347,8 @@ function showPaste(p) {
   row('NIF', p.nif ? `${p.nif}${p.nifOk === true ? ' ✓' : p.nifOk === false ? ' · não confere' : ''}` : '', p.nifOk === false ? 'bad' : '');
   row('Pagamento', C.PAY_LABEL[p.pay] || '');
   row('Referência', p.ref);
-  if (p.m) row('Época', C.seasonLine(p.m));
+  if (isRace) { /* one price per race: no season line */ }
+  else if (p.m) row('Época', C.seasonLine(p.m));
   else if (link && t) row('Época', `preço de hoje (sem data no link)${t.m > 0 ? ` · ${C.seasonLine(t.m, t.seasonBp)}` : ''}`);
   if (t) {
     const said = p.stated;
@@ -348,11 +370,11 @@ function showPaste(p) {
   if (p.unknown.length) notes.appendChild(el('li', 'block', `Não conheço ${p.unknown.length === 1 ? 'o espaço' : 'os espaços'} ${C.joinPT(p.unknown)}.`));
   for (const n of p.notes) notes.appendChild(el('li', null, n));
   if (ids.length && !owner) {
-    const g = C.guard(raw, now, ids, 'reserved', p.brand || undefined, C.holdUntil(now));
+    const g = C.guard(raw, now, ids, 'reserved', p.brand || undefined, C.holdUntil(now), isRace ? { race: p.race || undefined, helmet: p.helmet } : {});
     for (const m of g.blocked) notes.appendChild(el('li', 'block', m));
     for (const m of g.confirms) notes.appendChild(el('li', null, m));
   }
-  if (!p.brand && ids.length && !req) notes.appendChild(el('li', null, 'O pedido não diz a marca: escreve-a ao reservar ou vender.'));
+  if (!p.brand && ids.length && !req) notes.appendChild(el('li', null, isRace ? 'O pedido não diz a marca: escreve-a ao vender (numa reserva de prova, a marca não vai para o ficheiro).' : 'O pedido não diz a marca: escreve-a ao reservar ou vender.'));
   if (notes.children.length) box.appendChild(notes);
 
   // held by its request: the first button gives it two more days (a new reservation would cut it loose)
@@ -414,11 +436,12 @@ function pasteAct(action) {
   const req = inboxFind(reqId);
   if (action === 'sold' && req && req.status !== 'cancelado') { confirmPurchase(req); return; }
   if (action === 'reserved' && owner && req && req.status === 'novo') { extendReq(req); return; }
-  const g = C.guard(base.data, Date.now(), ids, action);
+  const g = C.guard(base.data, Date.now(), ids, action, undefined, undefined, ids[0] === C.PROVA ? { race: p.race || undefined, helmet: p.helmet } : {});
   if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
   sel = new Set(ids); syncRows();
   openSheet(action, ids);
   if (p.brand) $('#f-brand').value = p.brand;
+  if (ids[0] === C.PROVA) { if (p.race && raceOf(base.data, p.race)) $('#f-race').value = p.race; $('#f-helmet').checked = p.helmet === true; }
   // the brand's link goes with a sale only (a reserved spot never shows one on the site)
   if (action === 'sold' && p.link) $('#f-url').value = p.link;
   if (action === 'reserved') { $('#f-until').value = C.holdUntil(); sheet.untilTouched = true; }
@@ -433,7 +456,9 @@ const REQ_KEY = 'gc.admin.pedidos';
 const CHANNEL = { whatsapp: 'WhatsApp', email: 'Email', instagram: 'Instagram', site: 'Site' };
 const inbox = { key: '', list: null, logos: new Map(), busy: new Set(), at: null, after: null };
 const reqApi = () => String(SITE.requestsApi || '').trim().replace(/\/+$/, '');
-const reqIds = (r) => (r.title ? [C.TITLE] : Array.isArray(r.items) ? r.items : []);
+const reqIds = (r) => (r.race ? [C.PROVA] : r.title ? [C.TITLE] : Array.isArray(r.items) ? r.items : []);
+// a race request as the list reads it: 'Parceiro de prova (Lidl Setúbal Triathlon, com capacete) · 2 mai.'
+const reqRace = (r) => `Parceiro de prova (${r.race.name || r.race.id}${r.race.helmet ? ', com capacete' : ''}) · ${C.raceDayText({ date: r.race.date })}`;
 const inboxFind = (id) => (id && inbox.list ? inbox.list.find((r) => r.id === id) || null : null);
 const inboxOn = () => !$('#inbox').hidden && $('#inbox-off').hidden;   // the Pedidos list works on this page
 class ReqError extends Error { constructor(status, code, campo = '') { super(code || `pedidos ${status}`); this.status = status; this.code = code || ''; this.campo = campo || ''; } }
@@ -587,6 +612,14 @@ function atText(iso) {
 function reqStanding(r) {
   if (!base) return { soldToBrand: false, noLogo: false, noLink: false, lines: [] };
   const raw = base.data, v = C.effective(raw, Date.now()), today = C.todayUTC(), ids = reqIds(r), lines = [], link = reqLink(r);
+  // a race request: the race partner of the file, sold to its brand at its race, or held by it
+  if (r.race) {
+    const x = raw.racePartner, w = v.racePartner;
+    if (!x) return { soldToBrand: false, noLogo: false, noLink: false, lines: ['Não há parceiro de prova em data/spots.json.'] };
+    const sold = x.status === 'sold' && x.brand === r.brand && x.race === r.race.id;
+    if (r.status === 'novo' && !(x.status === 'reserved' && x.request === r.id) && !sold) lines.push(`Parceiro de prova: ${C.statusOf(v, w, today).chip}`);
+    return { soldToBrand: sold, noLogo: sold && !x.logo, noLink: sold && !!link && (x.url || '') !== link, lines };
+  }
   let sold = ids.length > 0, noLogo = false, noLink = false;
   for (const id of ids) {
     const x = C.targetOf(raw, id), w = C.targetOf(v, id);
@@ -611,7 +644,7 @@ function reqCard(r) {
   const fig = el('div', 'req-logo');
   if (open) { const img = el('img'); img.alt = `Logótipo de ${r.brand || 'marca'}`; img.width = 72; img.height = 48; fig.appendChild(img); thumb(r.id, img); }
   const main = el('div', 'req-main');
-  main.append(el('p', 'req-brand', r.brand || 'Sem marca'), el('p', 'req-spots', ids.map((id) => (raw && C.targetOf(raw, id) ? shortName(raw, id) : id)).join(', ')));
+  main.append(el('p', 'req-brand', r.brand || 'Sem marca'), el('p', 'req-spots', r.race ? reqRace(r) : ids.map((id) => (raw && C.targetOf(raw, id) ? shortName(raw, id) : id)).join(', ')));
   head.append(fig, main, el('p', 'req-total mono', typeof r.total === 'number' ? C.money(r.total) : ''));
   li.appendChild(head);
   li.appendChild(el('p', 'req-meta', [atText(r.at), CHANNEL[r.channel], C.PAY_LABEL[r.pay], r.lang === 'en' ? 'em inglês' : '', `pedido ${r.id}`].filter(Boolean).join(' · ')));
@@ -619,6 +652,8 @@ function reqCard(r) {
   if (season) li.appendChild(el('p', 'req-season', season));
   const who = [r.name ? `Nome: ${r.name}` : '', r.email ? `Email: ${r.email}` : '', r.phone ? `Telefone: ${r.phone}` : '', r.nif ? `NIF: ${r.nif}${C.nifOk(r.nif) === false ? ' (não confere)' : ''}` : ''].filter(Boolean).join(' · ');
   if (who) li.appendChild(el('p', 'req-who', who));
+  // the race partner: the brand's sector (the first conflict check) and the vector logo's last day
+  if (r.race) li.appendChild(el('p', 'req-sector', [`Setor: ${r.sector || 'não disse'}`, r.race.date ? `logótipo em vetor até ${C.fmtDay(raceLogoBy({ date: r.race.date }))}` : ''].filter(Boolean).join(' · ')));
   // the brand's link, to open and check before it goes on the logo (it reaches the site only with the sale)
   const lk = reqLink(r);
   if (lk) { const p = el('p', 'req-link', 'Link: '), a = el('a', null, linkShown(lk)); a.href = lk; a.target = '_blank'; a.rel = 'noopener noreferrer'; p.appendChild(a); li.appendChild(p); }
@@ -644,8 +679,11 @@ function reqCard(r) {
     line.appendChild(b); li.appendChild(line);
   }
   const stand = reqStanding(r);
-  // a request after the logo deadline: its logo goes on the kit from a race named before the payment
-  if (open && raw && logoLateReq(raw, r)) stand.lines.push(noRaceReq(raw, r) ? NO_RACE(raw, r) : RACE_ASK);
+  // a request after the logo deadline: its logo goes on the kit from a race named before the payment (not a race partner:
+  // its suit is made for its race, with its own deadline)
+  if (open && raw && !r.race && logoLateReq(raw, r)) stand.lines.push(noRaceReq(raw, r) ? NO_RACE(raw, r) : RACE_ASK);
+  // the first offer (/condicoes/): with a title partner or a Principal brand, they hear of the race first
+  if (open && raw && r.race) stand.lines.push(firstOfferText(raw));
   if (stand.lines.length) { const n = el('ul', 'notes'); for (const s of stand.lines) n.appendChild(el('li', null, s)); li.appendChild(n); }
   if (open) {
     const acts = el('div', 'req-acts'), busyNow = inbox.busy.has(r.id);
@@ -658,6 +696,15 @@ function reqCard(r) {
     li.appendChild(acts);
   }
   return li;
+}
+
+// what to do before closing a race request: the sector always; the first offer when the season has a title partner or a
+// Principal brand (5 working days, the hold extended meanwhile)
+function firstOfferText(raw) {
+  if (!C.firstOfferDue(raw)) return 'Antes de confirmar: vê o setor (exclusividades, álcool, apostas e tabaco, concorrentes das marcas Principais) e envia o acordo escrito. Prolonga a reserva enquanto esperas.';
+  const tiers = Array.isArray(raw.tiers) ? raw.tiers : [], min = Number((tiers.find((t) => t.key === 'principal') || {}).min) || Infinity;
+  const names = [...new Set([raw.title && raw.title.status === 'sold' ? raw.title.brand : '', ...raw.spots.filter((s) => s.status === 'sold' && Number(s.price) >= min).map((s) => s.brand)].filter(Boolean))];
+  return `Antes de confirmar: vê o setor e oferece a prova primeiro a ${C.joinPT(names)} (5 dias úteis, pelo mesmo valor, sem dizer quem pediu). Prolonga a reserva enquanto esperas.`;
 }
 
 const URL_HINT = 'Fica no logótipo no site: o site, o Instagram ou a página de contacto da marca. https:// ou @marca.';
@@ -684,8 +731,8 @@ async function confirmPurchase(r) {
   if (!base) return;
   if (busy) { toast('Espera: ainda estou a guardar.'); return; }
   const ids = C.sortTargets(base.data, reqIds(r).filter((id) => C.targetOf(base.data, id)));
-  if (!ids.length) { toast('Os espaços deste pedido já não existem.'); return; }
-  const g = C.guard(base.data, Date.now(), ids, 'sold');
+  if (!ids.length) { toast(r.race ? 'Não há parceiro de prova em data/spots.json.' : 'Os espaços deste pedido já não existem.'); return; }
+  const g = C.guard(base.data, Date.now(), ids, 'sold', undefined, undefined, r.race ? { request: r.id } : {});
   if (g.blocked.length) { toast(g.blocked.join(' ')); return; }
   reqBusy(r.id, true);
   let logo;
@@ -705,6 +752,14 @@ async function confirmPurchase(r) {
   $('#f-url-hint').textContent = reqLink(r) ? 'Link do pedido: podes mudar ou apagar. Fica no logótipo no site com esta venda.' : lk ? 'Link que o site já mostra nestes espaços: podes mudar ou apagar.' : URL_HINT;
   sheet.request = r.id;
   const note = $('#sh-req');
+  if (r.race) {
+    // the race and the helmet are the request's: read-only here (to change them, edit the contract in Patrocínios later,
+    // or cancel and book again)
+    $('#f-race').value = r.race.id; $('#f-helmet').checked = r.race.helmet === true;
+    $('#f-race').disabled = true; $('#f-helmet').disabled = true;
+    $('#f-race-hint').textContent = 'A prova e o capacete são os do pedido. Para os mudar, edita depois o contrato em Patrocínios.';
+    note.textContent = `Pedido ${r.id} do site: ao guardar, o parceiro de prova fica vendido no site com este logótipo (no aviso da secção do patrocínio), o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.`;
+  } else
   note.textContent = `Pedido ${r.id} do site: ao guardar, a venda fica no site com este logótipo, o pedido fica confirmado e o patrocínio fica registado em Patrocínios. Passa o recibo de donativo${r.nif ? ` com o NIF ${r.nif}` : ''}.${!logoLateReq(base.data, r) ? '' : noRaceReq(base.data, r) ? ` ${NO_RACE(base.data, r)}` : ` ${RACE_ASK} Escreve-a depois em Patrocínios (Editar, «A partir da prova»).`}`;
   note.hidden = false;
   showPaid(r);
@@ -724,7 +779,7 @@ const NO_RACE = (data, r) => `Sem triatlos em ${rulesOf(data).season} depois do 
 // ---------- the payment of a request: «Pago a» and «Montante recebido» (they go into its sponsor contract) ----------
 // «Desconto de época (março): −6,25%» of a request the Worker priced (its record's m and seasonBp), '' at full price
 const reqSeason = (r) => (Number.isInteger(r.m) && r.m > 0 ? C.seasonLine(r.m, r.seasonBp) : '');
-const reqLines = (r) => reqIds(r).map((id) => (base && C.targetOf(base.data, id) ? C.labelOf(base.data, id) : id)).join(', ');
+const reqLines = (r) => (r.race ? reqRace(r) : reqIds(r).map((id) => (base && C.targetOf(base.data, id) ? C.labelOf(base.data, id) : id)).join(', '));
 // the request's own total (the price of its day) at the top of the sale sheet, and the two fields under its note
 function showPaid(r) {
   const sum = $('#sh-sum'), season = reqSeason(r);
@@ -830,14 +885,15 @@ async function extendReq(r) {
 }
 async function cancelReq(r) {
   const raw = base ? base.data : null, ids = reqIds(r);
-  const lines = ids.map((id) => (raw && C.targetOf(raw, id) ? C.labelOf(raw, id) : id));
-  if (!(await ask(`Cancelar o pedido de ${r.brand || 'sem marca'}?`, lines, 'Os espaços que ainda estão reservados por este pedido voltam a ficar livres no site. O pedido fica na lista como cancelado.', 'Cancelar pedido', 'Voltar', 'É um pedido falso: bloquear quem o fez durante 30 dias'))) return;
+  const lines = r.race ? [reqRace(r)] : ids.map((id) => (raw && C.targetOf(raw, id) ? C.labelOf(raw, id) : id));
+  const what = r.race ? 'Se a prova ainda estiver reservada por este pedido, o parceiro de prova volta a ficar livre no site.' : 'Os espaços que ainda estão reservados por este pedido voltam a ficar livres no site.';
+  if (!(await ask(`Cancelar o pedido de ${r.brand || 'sem marca'}?`, lines, `${what} O pedido fica na lista como cancelado.`, 'Cancelar pedido', 'Voltar', 'É um pedido falso: bloquear quem o fez durante 30 dias'))) return;
   const bloquear = $('#cf-opt-in').checked;
   reqBusy(r.id, true);
   try {
     const j = await reqCall('POST', `/pedidos/${r.id}`, bloquear ? { action: 'cancelar', bloquear: true } : { action: 'cancelar' });
     replaceReq(j.pedido);
-    toast(`${j.freed && j.freed.length ? `Pedido cancelado. ${j.freed.length === 1 ? 'O espaço está' : 'Os espaços estão'} outra vez livre${j.freed.length === 1 ? '' : 's'}.` : 'Pedido cancelado.'}${j.blocked ? ' Bloqueado durante 30 dias.' : ''}`);
+    toast(`${j.freed && j.freed.length ? `Pedido cancelado. ${j.freed[0] === C.PROVA ? 'O parceiro de prova está' : j.freed.length === 1 ? 'O espaço está' : 'Os espaços estão'} outra vez livre${j.freed.length === 1 ? '' : 's'}.` : 'Pedido cancelado.'}${j.blocked ? ' Bloqueado durante 30 dias.' : ''}`);
     if (!busy) load({ quiet: true });
   } catch (e) { toast(reqErrText(e)); }
   reqBusy(r.id, false);
@@ -863,17 +919,18 @@ const ERASE_TEXT = 'Usa isto para testes ou enganos: um pedido pago deve ser reg
 function saveFilter() { try { localStorage.setItem(FILTER_KEY, filter); } catch (_) {} }
 
 // ---------- names ----------
-const shortName = (data, id) => (id === C.TITLE ? 'Fato completo' : `${C.pad2(C.targetOf(data, id).n)} ${C.nameOf(data, id)}`);
+const shortName = (data, id) => (id === C.TITLE ? 'Fato completo' : id === C.PROVA ? 'Parceiro de prova' : `${C.pad2(C.targetOf(data, id).n)} ${C.nameOf(data, id)}`);
 // sheet and dialog titles: numbers only (the line under the title names the spots): 'Vender 12, 13 e 22'
 function headFor(action, data, ids) {
   const verb = { reserved: 'Reservar', sold: 'Vender', available: 'Libertar' }[action];
   if (ids[0] === C.TITLE) return `${verb} o fato completo`;
+  if (ids[0] === C.PROVA) return `${verb} o parceiro de prova`;
   if (ids.length > 6) return `${verb} ${ids.length} espaços`;
   return `${verb} ${C.joinPT(ids.map((id) => C.pad2(C.targetOf(data, id).n)))}`;
 }
 // toasts and the status line: '01 Peito e 21 Topo do capacete'
 function namesFor(data, ids) {
-  if (ids.length > 3) return `espaços ${C.joinPT(ids.map((id) => (id === C.TITLE ? 'fato completo' : C.pad2(C.targetOf(data, id).n))))}`;
+  if (ids.length > 3) return `espaços ${C.joinPT(ids.map((id) => (id === C.TITLE ? 'fato completo' : id === C.PROVA ? 'parceiro de prova' : C.pad2(C.targetOf(data, id).n))))}`;
   return C.joinPT(ids.map((id) => shortName(data, id)));
 }
 
@@ -892,9 +949,10 @@ async function act(action) {
   const lines = ids.map((id) => `${C.labelOf(raw, id)} · ${C.statusOf(v, C.targetOf(v, id), today).chip}`);
   const logos = ids.some((id) => C.targetOf(raw, id).logo);
   const text = ids[0] === C.TITLE ? 'Os espaços do fato voltam a ficar livres no site, menos os que têm reserva ou venda própria.'
+    : ids[0] === C.PROVA ? `O parceiro de prova volta a ficar livre no site: as provas abertas voltam a poder pedir-se.${logos ? ' O logótipo sai.' : ''}`
     : `${ids.length > 1 ? 'Voltam a ficar livres' : 'Volta a ficar livre'} no site.${logos ? ' O logótipo sai.' : ''}`;
   if (!(await ask(`${headFor('available', raw, ids)}?`, lines, text, 'Libertar'))) return;
-  run({ action, ids, f: { brand: '', url: '', until: '' }, logo: null, snap: C.snapshot(raw, ids) });
+  run({ action, ids, f: { brand: '', url: '', until: '', ...(ids[0] === C.PROVA ? { race: '', helmet: false } : {}) }, logo: null, snap: C.snapshot(raw, ids) });
 }
 
 // spots held by a request of the site, in a sheet that is not that request's sale: what saving does to the request
@@ -908,13 +966,19 @@ function reqNotes(raw, ids, action) {
 
 function openSheet(action, ids) {
   const raw = base.data, now = Date.now(), today = C.todayUTC(now), d = $('#sheet');
-  sheet = { action, ids, snap: C.snapshot(raw, ids), logo: null, untilTouched: false, request: null };
+  sheet = { action, ids, snap: C.snapshot(raw, ids), logo: null, untilTouched: false, request: null, race: ids[0] === C.PROVA };
   $('#sh-req').hidden = true; $('#sh-req').textContent = '';
   $('#sh-paid').hidden = true;
   $('#sh-title').textContent = headFor(action, raw, ids);
-  const t = C.totals(raw, ids), sum = $('#sh-sum'); sum.textContent = '';
-  sum.append(ids.map((id) => C.labelOf(raw, id)).join(', '), ' · Total esperado ');
-  sum.appendChild(el('b', null, C.money(t.net)));
+  // the race partner: the race and the helmet first (never a brand on a hold: the file is public)
+  $('#f-race-box').hidden = !sheet.race;
+  $('#f-brand-box').hidden = sheet.race && action === 'reserved';
+  if (sheet.race) fillRace(raw, action);
+  else {
+    const t = C.totals(raw, ids), sum = $('#sh-sum'); sum.textContent = '';
+    sum.append(ids.map((id) => C.labelOf(raw, id)).join(', '), ' · Total esperado ');
+    sum.appendChild(el('b', null, C.money(t.net)));
+  }
   // one brand holds every target: start from its exact stored name and link (reserve -> sell keeps both)
   const held = ids.map((id) => C.targetOf(raw, id)).filter((x) => x.status !== 'available' && x.brand);
   const one = held.length === ids.length && new Set(held.map((x) => x.brand)).size === 1;
@@ -935,21 +999,54 @@ function openSheet(action, ids) {
   if (!$('#f-brand').value && matchMedia('(pointer: fine)').matches) $('#f-brand').focus();
 }
 
+// the race select of the sheet: every race (a past one cannot be held), the one in the file or the soonest open first;
+// the helmet as the file has it
+function fillRace(raw, action) {
+  const sel = $('#f-race'), rp = raw.racePartner || {}, lday = lisbonDay();
+  sel.textContent = '';
+  const ROW = { past: 'já passou', held: 'reservada', sold: 'vendida', closed: 'menos de 6 semanas', one: '', quote: 'sob proposta', ask: 'por mensagem no site', open: '' };
+  for (const r of rp.races || []) {
+    const row = raceRow(raw, r.id, lday), o = el('option', null, `${r.pt} · ${C.raceDayText(r)}${ROW[row] ? ` (${ROW[row]})` : ''}`);
+    o.value = r.id; o.disabled = action === 'reserved' && row === 'past';
+    sel.appendChild(o);
+  }
+  const held = rp.status === 'reserved' || rp.status === 'sold';
+  const first = (rp.races || []).find((r) => raceRow(raw, r.id, lday) === 'open') || (rp.races || []).find((r) => raceRow(raw, r.id, lday) !== 'past');
+  sel.value = held && raceOf(raw, rp.race) ? rp.race : first ? first.id : '';
+  $('#f-helmet').checked = held && rp.helmet === true;
+  $('#f-helmet-t').textContent = `Com o capacete (+${C.money(rp.helmetPrice || 0)})`;
+  sel.disabled = false; $('#f-helmet').disabled = false;
+  $('#f-race-hint').textContent = action === 'reserved' ? 'Numa reserva de prova, a marca não vai para o ficheiro público: fica no pedido.' : '';
+  raceSum(raw);
+}
+// the sheet's line: the race, the helmet and what the table asks (nothing on proposal)
+function raceSum(raw) {
+  const sum = $('#sh-sum'), race = $('#f-race').value, helmet = $('#f-helmet').checked, R = raceOf(raw, race);
+  sum.textContent = '';
+  sum.append(C.raceLabel(raw, race, helmet), R ? ` · ${C.raceDayText(R)}` : '');
+  if (sheet && sheet.request) return;   // a request's sale: its own total follows (showPaid)
+  const t = C.totals(raw, [C.PROVA], { race, helmet });
+  if (R && R.proposal) { sum.append(' · '); sum.appendChild(el('b', null, 'sob proposta')); return; }
+  sum.append(' · Total esperado '); sum.appendChild(el('b', null, C.money(t.net)));
+}
+
 function refreshSheet() {
   if (!sheet || !base) return;
   const { action, ids } = sheet, raw = base.data, now = Date.now(), brand = C.normBrand($('#f-brand').value);
+  if (sheet.race && !sheet.request) raceSum(raw);
+  const ropts = sheet.race ? { race: $('#f-race').value, helmet: $('#f-helmet').checked, request: sheet.request || '' } : {};
   let until;
   if (action === 'reserved') {
     // the date follows the brand until the admin picks one: never shorter than that brand's current hold
     if (!sheet.untilTouched) $('#f-until').value = C.defaultUntil(raw, now, ids, brand);
     const hl = $('#sh-holds'); hl.textContent = '';
-    for (const h of C.holds(raw, now, ids)) hl.appendChild(el('li', null, `${C.labelOf(raw, h.id)}: reservado para ${h.brand || 'sem marca'} até ${C.fmtDay(h.until)}`));
+    for (const h of C.holds(raw, now, ids)) hl.appendChild(el('li', null, h.id === C.PROVA ? `${C.labelOf(raw, h.id)}: reservado até ${C.fmtDay(h.until)}${raw.racePartner.request ? ` (pedido ${raw.racePartner.request})` : ''}` : `${C.labelOf(raw, h.id)}: reservado para ${h.brand || 'sem marca'} até ${C.fmtDay(h.until)}`));
     hl.hidden = !hl.children.length;
     try { until = C.normUntil($('#f-until').value, C.todayUTC(now)); } catch (_) { until = undefined; }
   }
   const warn = $('#sh-warn'); warn.textContent = '';
-  if (brand) {
-    const g = C.guard(raw, now, ids, action, brand, until);
+  if (brand || sheet.race) {
+    const g = C.guard(raw, now, ids, action, brand || undefined, until, ropts);
     for (const m of g.blocked) warn.appendChild(el('li', 'block', m));
     for (const m of g.confirms) warn.appendChild(el('li', null, m));
   }
@@ -967,6 +1064,8 @@ function refreshSheet() {
   const note = $('#logo-note');
   if (sheet.logo && sheet.logo.size > 1048576) note.textContent = 'Logótipo grande: o site demora mais a abri-lo. Se puderes, usa um PNG mais pequeno.';
   else if (sheet.logo && ids[0] === C.TITLE) note.textContent = 'No 3D, o logótipo do fato completo vai para o peito (se o peito não tiver logótipo próprio).';
+  // the race partner's suit is not the 3D season suit: its logo goes on the notice of the sponsorship section
+  else if (sheet.race) note.textContent = 'O logótipo aparece no aviso da secção do patrocínio.';
   else if (!sheet.logo && !keeps.length) note.textContent = 'Sem logótipo, o espaço fica Vendido com o nome da marca na lista de marcas do site.';
   else note.textContent = '';
 }
@@ -1039,7 +1138,7 @@ function showLogo(logo) {
   $('#tile-w').src = logo.url; $('#tile-b').src = logo.url;
   $('#tiles').hidden = false;
   const info = $('#logo-info'); info.hidden = false; info.textContent = logo.info;
-  $('#see3d').hidden = !webgl();
+  $('#see3d').hidden = !webgl() || !!(sheet && sheet.race);
   refreshSheet();
 }
 
@@ -1060,16 +1159,20 @@ async function submitSheet(e) {
   const { action, ids } = sheet, err = $('#sh-err');
   err.textContent = '';
   let f;
-  try { f = C.normalize(action, { brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value }, C.todayUTC()); } catch (x) {
+  const isRace = ids[0] === C.PROVA;
+  try {
+    const typed = { brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value };
+    f = isRace ? C.normalizeRace(action, { ...typed, race: $('#f-race').value, helmet: $('#f-helmet').checked }, C.todayUTC(), base.data) : C.normalize(action, typed, C.todayUTC());
+  } catch (x) {
     err.textContent = x.message;
     const m = x.message;
-    ($(/link/i.test(m) ? '#f-url' : /data/i.test(m) ? '#f-until' : '#f-brand')).focus();
+    ($(/link/i.test(m) ? '#f-url' : /data/i.test(m) ? '#f-until' : /prova/i.test(m) ? '#f-race' : '#f-brand')).focus();
     return;
   }
   // a request's sale: the payment's date and amount go to its contract
   let paid = null;
   if (action === 'sold' && sheet.request) { paid = readPaid('f-paid', err); if (!paid) return; }
-  const g = C.guard(base.data, Date.now(), ids, action, f.brand, f.until || undefined);
+  const g = C.guard(base.data, Date.now(), ids, action, f.brand, f.until || undefined, isRace ? { race: f.race, helmet: f.helmet, request: sheet.request || '' } : {});
   if (g.blocked.length) { err.textContent = g.blocked.join(' '); return; }
   const confirms = [...g.confirms, ...reqNotes(base.data, ids, action)];
   if (confirms.length && !(await ask('Confirmas?', confirms, 'Fica como escreveste. Podes mudar outra vez depois.', 'Sim, guardar'))) return;
@@ -1108,7 +1211,8 @@ async function save(intent) {
     }
     const changed = C.changedSince(snap, raw);
     if (changed.length) throw new UiError(conflictText(raw, changed, now), { conflict: true });
-    const g = C.guard(raw, now, ids, action, action === 'available' ? undefined : f.brand, action === 'reserved' ? f.until : undefined);
+    const g = C.guard(raw, now, ids, action, action === 'available' ? undefined : f.brand, action === 'reserved' ? f.until : undefined,
+      ids[0] === C.PROVA && action !== 'available' ? { race: f.race, helmet: f.helmet, request: intent.request || '' } : {});
     if (g.blocked.length) throw new UiError(`${g.blocked.join(' ')} Revê e tenta outra vez.`, { conflict: true });
     const commit = await gh('GET', `/git/commits/${head}`);
     const brands = await listBrands(head);
@@ -1158,8 +1262,8 @@ async function save(intent) {
 function conflictText(raw, changed, now) {
   const v = C.effective(raw, now), today = C.todayUTC(now);
   const now1 = (id) => { const x = C.targetOf(v, id); return x ? C.statusOf(v, x, today).chip : 'já não existe'; };
-  const num = (id) => (id === C.TITLE ? 'fato completo' : C.pad2(C.targetOf(raw, id)?.n ?? id));
-  if (changed.length === 1) return `${changed[0] === C.TITLE ? 'O fato completo mudou' : `O espaço ${num(changed[0])} mudou`} entretanto (agora: ${now1(changed[0])}). Revê e tenta outra vez.`;
+  const num = (id) => (id === C.TITLE ? 'fato completo' : id === C.PROVA ? 'parceiro de prova' : C.pad2(C.targetOf(raw, id)?.n ?? id));
+  if (changed.length === 1) return `${changed[0] === C.TITLE ? 'O fato completo mudou' : changed[0] === C.PROVA ? 'O parceiro de prova mudou' : `O espaço ${num(changed[0])} mudou`} entretanto (agora: ${now1(changed[0])}). Revê e tenta outra vez.`;
   return `Os espaços ${C.joinPT(changed.map(num))} mudaram entretanto (${changed.map((id) => `${num(id)} agora: ${now1(id)}`).join('; ')}). Revê e tenta outra vez.`;
 }
 
@@ -1267,6 +1371,7 @@ async function montraAfterFree(snap, data) {
 function keepSheet(intent) {
   const s = sheet && sheet.action === intent.action ? sheet : null;
   stash = { action: intent.action, ids: intent.ids, brand: $('#f-brand').value, url: $('#f-url').value, until: $('#f-until').value, untilTouched: !!(s && s.untilTouched), logo: s ? s.logo : null, request: intent.request || null, note: $('#sh-req').textContent,
+    race: $('#f-race').value, helmet: $('#f-helmet').checked, raceLocked: $('#f-race').disabled,
     paid: intent.request && !$('#sh-paid').hidden ? { at: $('#f-paid-at').value, amt: $('#f-paid-amt').value, sum: [...$('#sh-sum').childNodes].map((n) => n.cloneNode(true)) } : null };
   if (s) s.logo = null;   // its preview stays alive for the sheet that comes back
 }
@@ -1281,6 +1386,7 @@ function restoreStash() {
   openSheet(s.action, ids);
   $('#f-brand').value = s.brand; $('#f-url').value = s.url;
   if (s.action === 'reserved' && s.untilTouched) { $('#f-until').value = s.until; sheet.untilTouched = true; }
+  if (sheet.race) { $('#f-race').value = s.race; $('#f-helmet').checked = s.helmet; $('#f-race').disabled = $('#f-helmet').disabled = !!s.raceLocked; }
   if (s.request) { sheet.request = s.request; $('#sh-req').textContent = s.note; $('#sh-req').hidden = !s.note; }
   if (s.request && s.paid) {
     $('#sh-sum').replaceChildren(...s.paid.sum);
@@ -1519,6 +1625,7 @@ function bind() {
   $('#sh-form').addEventListener('keydown', onSheetKey);
   for (const id of ['#f-brand', '#f-url']) $(id).addEventListener('input', () => { $('#sh-err').textContent = ''; refreshSheet(); });
   $('#f-until').addEventListener('input', () => { if (sheet) sheet.untilTouched = true; $('#sh-err').textContent = ''; refreshSheet(); });
+  for (const id of ['#f-race', '#f-helmet']) $(id).addEventListener('change', () => { $('#sh-err').textContent = ''; refreshSheet(); });
   $('#f-logo').addEventListener('change', pickLogo);
   $('#see3d').addEventListener('click', open3d);
   const closeSheet = () => { if (!busy && d.open) d.close(); };

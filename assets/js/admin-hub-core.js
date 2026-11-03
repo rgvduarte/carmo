@@ -2,12 +2,14 @@
 // DOM, no fetch, no storage and no clock (every function takes `now` or the Lisbon day), so Node tests it with
 // fixtures. Each source may be missing (null: not read, no key in this tab, the Worker down): a tile then shows «—»
 // and its alerts are simply not there; nothing here throws on a missing source.
-import { effective, itemOf, TITLE, pad2, money } from './admin-core.js';
+import { effective, itemOf, TITLE, pad2, money, fmtDay, raceDayText } from './admin-core.js';
 import { dueNow } from './admin-contracts.js';
-import { rulesOf, daysBetween } from './season-rules.js';
+import { rulesOf, daysBetween, raceOf, raceRow, raceBookBy, raceLogoBy, raceState, firstOfferDue } from './season-rules.js';
 
 export const HOLD_SOON_H = 48;       // a reservation ending within this many hours is an alert
 export const STRAVA_OLD_DAYS = 2;    // the Strava data are stale after this many days
+export const RACE_SOON_DAYS = 7;     // a race partner's last request day within this many days is a note
+export const RACE_LOGO_SOON_DAYS = 14;   // the race partner's vector logo due within this many days is an alert
 
 // spots: { suit, helmet, all: { sold, reserved, free, total } }, revenue: the table price of what is sold (the whole
 // suit counts once, at its own price), soldBrands: the brands on the site
@@ -44,7 +46,40 @@ export function holdsEnding(raw, now) {
   };
   if (v.title.own === 'reserved' && v.title.until) add(v.title, 'fato completo');
   for (const x of v.spots) if (x.own === 'reserved' && !x.byTitle && x.until) add(x, pad2(x.n));
+  // the race partner: its hold carries no brand (the file is public): a row of its own, named by its race
+  const rp = v.racePartner;
+  if (rp && rp.own === 'reserved' && rp.until) {
+    const left = (Date.parse(`${rp.until}T23:59:59Z`) - now) / 3600e3;
+    if (left >= 0 && left < HOLD_SOON_H) groups.set('\tprova', { brand: '', race: (raceOf(raw, rp.race) || {}).pt || rp.race, helmet: rp.helmet === true, until: rp.until, hours: left, labels: ['parceiro de prova'], request: rp.request || '' });
+  }
   return [...groups.values()].sort((a, b) => a.hours - b.hours);
+}
+
+// The race partner's rows: each open race request (the sector to check, and the first offer when the season has a title
+// partner or a Principal brand), the last request day of a race coming up while nobody holds it, and the vector logo of
+// a sold race partner coming due (from the file, when the contracts are not read: then Patrocínios' «Agora» says it)
+export function raceAlerts(src) {
+  const { now, day } = src, out = [], data = src.spots;
+  const pedidos = Array.isArray(src.pedidos) ? src.pedidos : [];
+  for (const r of pedidos.filter((x) => x && x.status === 'novo' && x.race)) {
+    const first = data && firstOfferDue(data);
+    out.push({ key: `prova-pedido:${r.id}`, kind: 'warn', text: `Pedido de parceiro de prova: ${r.brand || 'sem marca'}`,
+      sub: `${r.race.name || r.race.id}${r.race.helmet ? ', com capacete' : ''}${r.sector ? ` · setor: ${r.sector}` : ''} · ${first ? 'oferece primeiro ao title partner e às marcas Principais (5 dias úteis)' : 'vê o setor e envia o acordo escrito'}`, href: 'espacos/#pedidos' });
+  }
+  const rp = data && data.racePartner;
+  if (!rp || !Array.isArray(rp.races)) return out;
+  if (raceState(data, now) === 'available') {
+    for (const r of rp.races) {
+      if (raceRow(data, r.id, day, now) !== 'open') continue;
+      const left = daysBetween(day, raceBookBy(r));
+      if (left >= 0 && left <= RACE_SOON_DAYS) out.push({ key: `prova-prazo:${r.id}`, kind: 'info', text: `Parceiro de prova: os pedidos para ${r.pt} fecham ${left === 0 ? 'hoje' : left === 1 ? 'amanhã' : `daqui a ${left} dias`}`, sub: `Último dia: ${fmtDay(raceBookBy(r))}, 6 semanas antes da prova (${raceDayText(r)}).`, href: 'espacos/' });
+    }
+  }
+  if (rp.status === 'sold' && !Array.isArray(src.contratos)) {
+    const r = raceOf(data, rp.race), by = r ? raceLogoBy(r) : '', left = by ? daysBetween(day, by) : -1;
+    if (left >= 0 && left <= RACE_LOGO_SOON_DAYS) out.push({ key: `prova-logo:${rp.race}`, kind: 'warn', text: `Logótipo em vetor do parceiro de prova até ${fmtDay(by)}: ${rp.brand || 'sem marca'}`, sub: `${r.pt} (${raceDayText(r)}): o fato faz-se com ele.`, href: 'patrocinios/' });
+  }
+  return out;
 }
 
 // The «Avisos» rows: [{ key, kind: 'warn' | 'info', text, sub?, href }], warnings first. href is relative to /admin/.
@@ -54,15 +89,18 @@ export function alerts(src) {
   const { now, day } = src, out = [];
   const pedidos = Array.isArray(src.pedidos) ? src.pedidos : null;
   if (pedidos) {
-    const open = pedidos.filter((r) => r && r.status === 'novo');
+    // (a race partner's request has its own row: raceAlerts)
+    const open = pedidos.filter((r) => r && r.status === 'novo' && !r.race);
     if (open.length) {
       const brands = [...new Set(open.map((r) => r.brand || 'sem marca'))];
       out.push({ key: 'pedidos', kind: 'warn', text: `${plural(open.length, 'pedido', 'pedidos')} à espera de pagamento`, sub: joinPT(brands.slice(0, 3)) + (brands.length > 3 ? ` e mais ${brands.length - 3}` : ''), href: 'espacos/#pedidos' });
     }
   }
   for (const h of holdsEnding(src.spots, now)) {
+    if (h.race) { out.push({ key: `reserva:prova:${h.until}`, kind: 'warn', text: `Reserva acaba ${when(h.hours)}: parceiro de prova`, sub: `${h.race}${h.helmet ? ', com capacete' : ''}${h.request ? ` · pedido ${h.request}` : ''}`, href: h.request ? 'espacos/#pedidos' : 'espacos/#reservados' }); continue; }
     out.push({ key: `reserva:${h.brand}:${h.until}`, kind: 'warn', text: `Reserva acaba ${when(h.hours)}: ${h.brand}`, sub: h.labels.length === 1 && h.labels[0] === 'fato completo' ? 'Fato completo' : `${h.labels.length === 1 ? 'Espaço' : 'Espaços'} ${joinPT(h.labels)}${h.request ? ` · pedido ${h.request}` : ''}`, href: h.request ? 'espacos/#pedidos' : 'espacos/#reservados' });
   }
+  out.push(...raceAlerts(src));
   if (Array.isArray(src.contratos) && src.spots && Array.isArray(src.spots.spots)) {
     let due = [];
     try { due = dueNow(src.contratos, pedidos, src.spots, rulesOf(src.spots), day); } catch (_) { due = []; }

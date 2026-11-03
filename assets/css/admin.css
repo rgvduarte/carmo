@@ -208,6 +208,7 @@ input::placeholder { color: var(--dim); }
 #inbox-login .why { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; font-size: 14px; background: rgba(230,180,80,.08); border: 1px solid rgba(230,180,80,.32); color: #f3e3c0; }
 .cf-opt { margin: 4px 0 8px; font-size: 15px; }
 .req-season { margin: 0; font-size: 13px; color: var(--gold); overflow-wrap: anywhere; }
+.req-sector { margin: 0; font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
 .req-contract { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 14px; color: var(--muted); }
 .req-contract a { display: inline-flex; align-items: center; min-height: 44px; color: var(--ink); }
 .req-erase { display: flex; margin: 0; }
@@ -250,6 +251,11 @@ input::placeholder { color: var(--dim); }
 .row.sel label { background: linear-gradient(90deg, rgba(230,180,80,.12), rgba(230,180,80,0) 70%); box-shadow: inset 3px 0 0 var(--gold); }
 .row.title .n { color: var(--gold); font-size: 12px; letter-spacing: .06em; }
 .row.title .nm { font-family: var(--display); font-style: italic; font-weight: 400; text-transform: uppercase; font-size: 20px; letter-spacing: .01em; }
+/* the race partner (since 03.11.2026): its own row, like the whole suit's */
+.row.prova .n { color: var(--gold); font-size: 12px; letter-spacing: .06em; }
+.row.prova .nm { font-family: var(--display); font-style: italic; font-weight: 400; text-transform: uppercase; font-size: 20px; letter-spacing: .01em; }
+#f-race-box .check { margin-top: 10px; }
+#f-race:disabled, #f-helmet:disabled { opacity: .7; cursor: default; }
 
 .st { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--line-2); font: 500 13px/1.25 var(--sans); }
 .st::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
