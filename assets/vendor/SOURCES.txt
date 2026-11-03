@@ -20,6 +20,9 @@ UYnrsjS70c/NSm8fAtqKjfs2FjeE+75Sp0QzFYcSfqw=  number-flow@0.5.8/dist/plugins.mjs
 TECh72JFC4V8OyqvKUk2MEzVUtll+82dMtTFvPS6RFQ=  three@0.170.0/LICENSE  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/LICENSE
 CP11RdE9LH+2WraRUwqALa/v1jhZZQGFTyZ9D7E8Oec=  three@0.170.0/build/three.module.min.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.min.js
 hYab3SL3zwsi5o3O/my3EEgK8PXJAadvendk/Qf8gBQ=  three@0.170.0/examples/jsm/environments/RoomEnvironment.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/environments/RoomEnvironment.js
+iEc3eIs0eEchhkcvYxXzdBK0ETL5DfguxthwD/oeV/0=  three@0.170.0/examples/jsm/geometries/DecalGeometry.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/geometries/DecalGeometry.js
+RROfrd1ar0jtLWIgPZduXL1wPbGlkt5AUn+fbPWKvUQ=  three@0.170.0/examples/jsm/loaders/GLTFLoader.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/loaders/GLTFLoader.js
+wlt5MOVw6exWFzzTuGbsjS4QAWYw2zk377Q52vHO2/Y=  three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js  <-  https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/utils/BufferGeometryUtils.js
 v97e1AQOBdoxyptiOdyDvSP6JqyNuHNCp8pDY/aJFv8=  web-vitals@6.2.3/LICENSE  <-  https://cdn.jsdelivr.net/npm/web-vitals@6.2.3/LICENSE
 Ifor0BatB86rVyBV6MUWS9VvDMam9wTVHO1AXLJZ9s4=  web-vitals@6.2.3/dist/web-vitals.attribution.js  <-  https://cdn.jsdelivr.net/npm/web-vitals@6.2.3/dist/web-vitals.attribution.js
 
@@ -28,3 +31,5 @@ esm-env/browser -> true.js, esm-env/development -> false.js, esm-env/node -> fal
 Licences: three.js, Lenis, number-flow and esm-env are MIT (LICENSE files here); GSAP 3.13 is under the
 GSAP standard licence (https://gsap.com/standard-license), named in each file's header.
 web-vitals (Google) is Apache-2.0 (LICENSE here); stats.js loads it lazily for its page-speed numbers.
+DecalGeometry, GLTFLoader and BufferGeometryUtils (which GLTFLoader imports) were added on 2026-11-03, checked the
+same way, for the merch page (/admin/merch/) only: it loads them, with the t-shirt model, after the page has drawn.

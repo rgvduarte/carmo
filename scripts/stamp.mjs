@@ -158,6 +158,23 @@ function checkApoiantes() {
   }
   return out;
 }
+// ---------- the merch page (/admin/merch/, since 03.11.2026) ----------
+// Every file it links or loads is on disk (admin-merch-core.js merchFiles(): the model and its licence, the textures, the
+// flat mockups, the print files, the quote brief), it is noindex like every admin page, it has its «← Painel» link, and
+// the hub has its card.
+const MX = await load('assets/js/admin-merch-core.js');
+const mxProblems = [];
+{
+  const page = readFileSync('admin/merch/index.html', 'utf8');
+  for (const f of MX.merchFiles()) if (!existsSync(`${MX.BASE}${f}`)) mxProblems.push(`${MX.BASE}${f}: missing (admin-merch-core.js names it)`);
+  if (!/<meta name="robots" content="noindex,nofollow">/.test(page)) mxProblems.push('admin/merch/index.html: no <meta name="robots" content="noindex,nofollow">');
+  if (!/<a class="back" href="\.\.\/">← Painel<\/a>/.test(page)) mxProblems.push('admin/merch/index.html: no «← Painel» link back to the hub (<a class="back" href="../">)');
+  if (!/<a class="hcard" href="merch\/">/.test(readFileSync('admin/index.html', 'utf8'))) mxProblems.push('admin/index.html: no card for the merch page (<a class="hcard" href="merch/">)');
+}
+if (mxProblems.length) {
+  console.error(`The merch page:\n  ${mxProblems.join('\n  ')}`);
+  process.exit(1);
+}
 function checkTerms(R) {
   const PT_M = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
   const EN_M = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -349,6 +366,9 @@ const CONNECT = {
   'admin/patrocinios/index.html': ["'self'", 'https://api.github.com', 'https://gocarmo.com', worker],
 };
 CONNECT['admin/documentos/index.html'] = ["'self'", 'https://api.github.com', 'https://raw.githubusercontent.com'];
+// the merch page: its own files ('self'), blob: (GLTFLoader reads the model's embedded textures through a blob: URL, with
+// fetch in Chrome) and the booking Worker for the wall's published names (GET /apoiantes/nomes, a public route)
+CONNECT['admin/merch/index.html'] = ["'self'", 'blob:', worker];
 const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
 
 for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/espacos/index.html', '../../', false], ['admin/apoiantes/index.html', '../../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false], ['imprensa/index.html', '../', false], ['press/index.html', '../', false]]) {
@@ -374,6 +394,17 @@ function stampCofrePages() {
     stale.push(page);
     if (!check) writeFileSync(page, now);
   }
+}
+stampMerchPages();
+// the merch page (/admin/merch/): the same stamp, and its connect-src
+function stampMerchPages() {
+  const page = 'admin/merch/index.html', was = readFileSync(page, 'utf8');
+  let now = stamp(was, '../../');
+  if (!/connect-src /.test(now)) throw new Error(`${page}: its Content-Security-Policy has no connect-src`);
+  now = connect(now, CONNECT[page]);
+  if (now === was) return;
+  stale.push(page);
+  if (!check) writeFileSync(page, now);
 }
 if (check) {
   if (stale.length) { console.error(`out of date: ${stale.join(', ')}. Run node scripts/stamp.mjs`); process.exit(1); }

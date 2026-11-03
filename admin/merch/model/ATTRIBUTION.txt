@@ -1,0 +1,21 @@
+shirt_baked.glb: the tee model of the merch page (/admin/merch/)
+sha256 (hex) 4c020995f86593348909fc6da64c390d60ef2a22f8a4d421f70aced70acc3725, 1 048 108 bytes. Byte for byte the
+file of the repository below; the page changes nothing in it (colour and prints are added in the browser).
+
+Where it comes from
+- https://github.com/Starklord17/threejs-t-shirt, public/shirt_baked.glb (head ee621ff, 18.05.2025).
+- That repository is MIT, "Copyright (c) 2023 MaxSM" (LICENSE-threejs-t-shirt-MIT.txt, next to this file). Its README
+  credits "Design by Anderson Mancini, Paul Henschel" (pmndrs).
+- The file itself: glTF 2.0 written by "Khronos glTF Blender I/O v1.8.19"; one mesh "T_Shirt_male" (10 513 vertices),
+  material "lambert1" with a baked normal map and ambient occlusion. No author, copyright or licence field inside.
+- The same file is in many other public repositories (25+ found on 03.11.2026), most derived from the JavaScript
+  Mastery "project_threejs_ai" tutorial, whose page states no licence for its assets.
+
+What this means
+- The repository around it is MIT, but nobody documents a licence for the model itself: the original author of the
+  mesh is unknown.
+- Fine for this admin-only test page (noindex, not linked from the site). Before the 3D tee goes on a public page (the
+  shop), confirm the licence with the repository owner or replace the model with one whose licence is clear (a CC0
+  tee, or one made for GOCARMO).
+- Credit line: «Modelo 3D da t-shirt: shirt_baked.glb, de github.com/Starklord17/threejs-t-shirt (MIT, © 2023 MaxSM;
+  design de Anderson Mancini e Paul Henschel).»
