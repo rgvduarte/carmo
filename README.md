@@ -290,7 +290,7 @@ entrada: só lê, e cada coisa abre a página certa.
 - **Números**: espaços vendidos, reservados e livres (fato e capacete), o valor da época pela tabela (e o recebido,
   pelos contratos), visitas e cliques nos logótipos dos últimos 7 dias, o GoFundMe (`data/gofundme.json`) e os nomes no
   mural.
-- **Páginas**: um cartão por página (Espaços, Patrocínios, Estatísticas, Documentos, Apoiantes, Strava), cada um com uma
+- **Páginas**: um cartão por página (Espaços, Patrocínios, Estatísticas, Documentos, Apoiantes, Strava, Merch), cada um com uma
   linha do estado de agora. Todas as páginas do admin têm «← Painel» no topo.
 - **Juntar apoiantes**: largar o Excel ou o CSV (ver «Apoiantes («Quem apoia»)»).
 
@@ -1092,6 +1092,51 @@ marcação do bloco em `index.html`. A secção «Quem apoia» da privacidade (`
 visitante. Os nomes de 2027 apagam-se sozinhos a 31 de dezembro de 2028; para outra época, muda `SEASON` em
 `assets/js/apoiantes-core.js` (o Worker publica-se sozinho). Ver também `worker/README.md`, «Apoiantes».
 
+## Merch (`/admin/merch/`)
+
+As t-shirts GOCARMO em 3D, para testar os estilos antes de as mandar fazer (cartão «Merch» do Painel). **Escolha do
+dono (03.11.2026):** todos os estilos e a variante técnica; no mesmo dia, o Gonçalo pediu os visuais da Semana 99 no
+99: o estilo 3 passou a ser «99 · The last 1%» e entrou o 3b «99 · Sol e lua». Não precisa de chave: lê só ficheiros
+do site e uma rota pública do Worker dos Pedidos.
+- **Estilo**: 1 «Quem apoia» (com nomes, ou a versão loja sem nomes), 2 «Época 2027», 3 «99 · The last 1%» (o 99 da
+  Semana 99 e «the last 1%» nas costas, só a creme; o 99 a ouro no peito; 4 telas), 3b «99 · Sol e lua» (o 99 a ouro
+  com a lua e o sol a nascer; o símbolo no peito; 6 telas, ou 5 com o peito do 3) e «Técnica» (t-shirt de poliéster
+  branco sublimada a preto). **Vista**: Frente, Costas, 3/4; arrastar roda, beliscar ou a roda do rato
+  aproxima (com limites); no ecrã, as setas rodam e `+`/`-` aproximam. **Rodar** começa ligado, exceto com «reduzir
+  movimento» no aparelho (aí também as mudanças de vista são instantâneas). **Cor da t-shirt**: preto (o desenho) e três
+  cores de teste; a técnica não tem cor à escolha (a cor é a impressão).
+- **Nomes nas costas** (estilo 1): «Nomes fictícios» (os 60 do ficheiro de serigrafia) ou «Nomes do mural»: a página
+  pede os nomes publicados ao Worker (`GET /apoiantes/nomes`, a mesma rota pública do site) e volta a desenhar as costas
+  no browser, com as regras do ficheiro de serigrafia (Inter 650, tudo a creme, o símbolo de 30 cm,
+  `assets/js/admin-merch-names.js`, a mesma disposição do mural). Diz quantos nomes são e a altura da maiúscula, e se
+  dá em serigrafia (4,4 mm ou mais), em DTF (5 mm) ou só na técnica (3 mm). Sem nomes publicados, ou sem resposta,
+  diz porquê e fica com os fictícios. Os nomes não ficam na página (só no desenho) e, com eles, **Descarregar
+  imagem** não funciona: pôr nomes numa t-shirt, ou numa imagem que sai do site, precisa do sim de cada pessoa (a
+  frase está debaixo da escolha).
+- **Ficha**, por estilo: tamanhos, posição, método, cores, telas e notas (da ficha técnica de 03.11.2026), os
+  ficheiros para a gráfica (PDF vetorial de cada peça; PNG de 300 dpi só do tamanho principal de cada posição) e, para
+  todos, o pedido de orçamento (`ORCAMENTO.pdf`) e a tira de teste.
+- **Descarregar imagem**: um PNG de 1440 × 1800 da vista de agora, com o nome do estilo, para patrocinadores ou para a
+  futura loja.
+- **Sem 3D** (browser sem WebGL 2, ou sem contexto): as maquetes planas, frente e costas (e as costas com os nomes do
+  mural desenhadas como o ficheiro). Se o browser tirar a memória ao 3D, aparece «Mostrar outra vez».
+- **Peso**: o three.js, o modelo (1 MB) e as texturas (0,1 a 0,5 MB por t-shirt, WebP sem perdas) só vêm depois de a
+  página aparecer, e só as da t-shirt no ecrã; nada se desenha parado, fora do ecrã ou com o separador escondido; ao
+  sair, tudo é devolvido à GPU. A densidade de píxeis fica em 2 no máximo.
+
+**Ficheiros** (`admin/merch/`, fora dos motores de busca como o resto do admin): `model/` (o modelo, a sua origem e a
+licença MIT do repositório de onde vem), `tex/` (as texturas das estampas, das imagens de 300 dpi reduzidas a 2048 px),
+`flat/` (as maquetes planas, 1000 px), `print/` (os ficheiros para a gráfica) e `ORCAMENTO.pdf`. O texto da ficha e
+o tamanho de cada ficheiro estão em `assets/js/admin-merch-core.js`; `node scripts/stamp.mjs` falha se faltar algum
+ficheiro que lá esteja nomeado, se a página perder o `noindex` ou o «← Painel», ou se o Painel perder o cartão. Os
+ficheiros vêm do kit de impressão (o programa que os gera não está no site): um ficheiro novo entra com o mesmo nome e
+o tamanho certo em `admin-merch-core.js`.
+
+**O modelo 3D** (`model/ATTRIBUTION.txt`): `shirt_baked.glb`, do repositório github.com/Starklord17/threejs-t-shirt
+(MIT, © 2023 MaxSM; design de Anderson Mancini e Paul Henschel). A licença do próprio modelo não está documentada (o
+autor original da malha não se sabe): serve para esta página interna, mas antes de o 3D ir para uma página pública
+(a loja) é preciso confirmá-la com o dono do repositório ou trocar de modelo.
+
 ## GoFundMe
 
 O link da campanha e os números que aparecem em Apoiar estão só em `data/gofundme.json`. Mais nenhum ficheiro tem o link.
@@ -1559,7 +1604,7 @@ node scripts/stamp.mjs
 
 O script põe no endereço de cada ficheiro uma versão calculada a partir do conteúdo (`main.js?v=…`), no mapa de importação de `index.html`, de `admin/index.html` (o Painel), de `admin/espacos/index.html`, de `admin/apoiantes/index.html`, de `admin/analytics/index.html`, de `admin/patrocinios/index.html`, de `privacidade/index.html`, de `condicoes/index.html` e de `cartao/index.html` e no script de `admin/strava/index.html`. Assim, um browser que ainda guarde ficheiros da versão anterior (o GitHub Pages deixa-os em cache 10 minutos) nunca mistura ficheiros novos com antigos. Se mesmo assim a página não arrancar, ela própria recarrega uma vez com tudo fresco antes de mostrar a versão sem JavaScript.
 
-Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, `/admin/espacos/`, `/admin/patrocinios/` e `/admin/apoiantes/`, e o das estatísticas (`SITE.stats.url`) em `/admin/`, `/admin/espacos/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar.
+Numa página com Content-Security-Policy (as do admin e `/cartao/`), o script recalcula também o sha256 de cada script inline, o mapa de importação, no `script-src`. Sem isso o browser ignora o mapa novo. No `connect-src` põe os endereços dos Workers: o dos Pedidos (`SITE.requestsApi`) em `/admin/`, `/admin/espacos/`, `/admin/patrocinios/` e `/admin/apoiantes/`, e o das estatísticas (`SITE.stats.url`) em `/admin/`, `/admin/espacos/` e `/admin/analytics/`; um endereço vazio sai da lista. Em `/admin/patrocinios/` põe também `https://api.github.com` e `https://gocarmo.com`: a montra grava pelo GitHub e depois espera pelo site no ar. Em `/admin/merch/` o `connect-src` tem só `'self'`, `blob:` (o leitor do modelo 3D lê as texturas que vêm dentro do ficheiro por um endereço `blob:`) e o Worker dos Pedidos (os nomes publicados do mural).
 
 A página do cofre (`/admin/documentos/`) recebe o mesmo mapa de importação, os mesmos hashes e a mesma CSP, e no
 `connect-src` só `'self'`, `https://api.github.com` (o ramo `docs` e os dois commits da página) e
@@ -1600,5 +1645,6 @@ O estúdio tenta várias vezes antes de desistir: se o iPhone tira o contexto We
 
 - Fato e capacete 3D procedimentais, feitos de raiz em [three.js](https://threejs.org) (MIT). Geometria, textura e espaços são gerados em código. O fato é um só corpo anatómico, contínuo nos ombros, nas axilas e nas ancas (`assets/js/suit-body.js`), malhado num worker (`suit-mesh.js`). O capacete é o EKOI Pure Aero do Gonçalo, medido nas fotografias do produto.
 - Scroll suave com [Lenis](https://github.com/darkroomengineering/lenis) (MIT) e cenas de scroll com [GSAP ScrollTrigger](https://gsap.com).
+- T-shirt 3D da página Merch (só no admin): o modelo `shirt_baked.glb` de github.com/Starklord17/threejs-t-shirt (MIT, © 2023 MaxSM; design de Anderson Mancini e Paul Henschel), com a origem e a licença em `admin/merch/model/`. A licença do próprio modelo está por confirmar antes de uma página pública.
 - Tipografia: Anton, Inter e JetBrains Mono (OFL), servidas pelo próprio site: `assets/fonts/` (os ficheiros do Google Fonts, só latin e latin-ext, com as licenças ao lado) e `assets/css/fonts.css`.
 - Fotografias: portefólio do atleta.

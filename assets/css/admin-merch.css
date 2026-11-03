@@ -1,0 +1,99 @@
+/* The merch page (/admin/merch/): admin.css and admin-hub.css tokens, phone first; on a desk the tee stays on the left. */
+
+.mx-wrap { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 16px; }
+.mx-main { padding-top: 18px; padding-bottom: 40px; }
+.mx-head { grid-area: head; }
+.mx-head .lead { margin-bottom: 2px; }
+.mx-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "head" "pick" "view" "side"; gap: 16px; }
+.mx-pick { grid-area: pick; }
+.mx-view { grid-area: view; min-width: 0; }
+.mx-side { grid-area: side; min-width: 0; display: grid; gap: 14px; align-content: start; }
+.mx-pick .hub-h2 { margin-bottom: 10px; }
+.mx-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.mx-chips .chip { min-height: 44px; }
+.mx-chips .chip[disabled] { opacity: .45; cursor: default; }
+.mx-sub { margin-top: 8px; padding-left: 12px; border-left: 2px solid rgba(230,180,80,.45); }
+.mx-sub .chip { min-height: 40px; font-size: 13px; }
+.mx-sec { margin: 0; }
+.mx-sec .hub-h2 { margin-bottom: 10px; }
+.mx-sec .hint { margin-top: 10px; }
+
+/* ---------- the stage: a light studio, like the mockups, so a black tee reads ---------- */
+.mx-stage {
+  position: relative; width: 100%; aspect-ratio: 4 / 5; max-height: 72svh; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 38%, #f1efea 0%, #e6e3dc 55%, #d8d5cd 100%);
+  touch-action: pan-y; -webkit-user-select: none; user-select: none; cursor: grab;
+}
+.mx-stage:active { cursor: grabbing; }
+.mx-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.mx-flat { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #e9e7e1; }
+.mx-stage.mx-print { background: #17171a; }
+.mx-stage canvas.mx-pc { inset: 9% 12%; width: 76%; height: 82%; object-fit: contain; }
+.mx-load { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); margin: 0; padding: 8px 14px; border-radius: 999px; background: rgba(11,11,12,.78); color: var(--ink); font-size: 13px; white-space: nowrap; pointer-events: none; }
+.mx-lost { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 12px; padding: 24px; text-align: center; background: rgba(233,231,225,.92); color: var(--ink-dark); }
+.mx-lost p { margin: 0; font-weight: 500; max-width: 24em; }
+.mx-lost .btn { --b: var(--ink-dark); --f: var(--paper); }
+html[data-merch="flat"] .mx-stage { cursor: default; }
+
+.mx-cap { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 12px; row-gap: 2px; margin: 12px 0 0; }
+.mx-t { margin: 0; font: 400 22px/1.05 var(--display); font-style: italic; text-transform: uppercase; letter-spacing: .01em; padding-top: .06em; }
+.mx-s { margin: 0; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--gold); }
+.mx-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.mx-spin[aria-pressed="true"]::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--gold); }
+
+/* ---------- colours ---------- */
+.mx-col { gap: 9px; }
+.mx-dot, .mx-sw { flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid rgba(242,241,236,.35); }
+.mx-dot[data-c="preto"] { background: #17171a; }
+.mx-dot[data-c="carvao"] { background: #3b3b40; }
+.mx-dot[data-c="marinho"] { background: #1c2538; }
+.mx-dot[data-c="tropa"] { background: #3a4232; }
+.mx-sw[data-c="creme"] { background: #f2f1ec; }
+.mx-sw[data-c="ouro"] { background: #e6b450; }
+
+/* ---------- names ---------- */
+.mx-state { margin: 12px 0 0; font-size: 14px; color: var(--muted); }
+.mx-state:empty { display: none; }
+.mx-state[data-k="ok"] { color: #cfe8d0; }
+.mx-state[data-k="warn"] { color: #f3e3c0; }
+.mx-priv { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; font-size: 14px; background: rgba(230,180,80,.08); border: 1px solid rgba(230,180,80,.32); color: #f3e3c0; }
+#export[aria-disabled="true"] { cursor: not-allowed; }
+
+/* ---------- Ficha ---------- */
+.mx-ft { margin: 0 0 12px; font: 400 24px/1.05 var(--display); font-style: italic; text-transform: uppercase; letter-spacing: .01em; padding-top: .06em; }
+.mx-rows { margin: 0; display: grid; gap: 10px; }
+.mx-row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.mx-row dt { font: 600 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--gold); }
+.mx-row dd { margin: 0; font-size: 15px; line-height: 1.45; }
+.mx-ink { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.mx-inkr { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); }
+.mx-inkr .mx-sw { margin-top: 2px; }
+.mx-inkr b { color: var(--ink); font-weight: 600; }
+.mx-ficha .notes { margin-top: 14px; }
+.mx-ficha .notes:empty { display: none; }
+.mx-fh { margin: 22px 0 0; font: 600 13px/1.3 var(--sans); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.mx-ficha .mx-fh + .hint { margin: 6px 0 0; }
+.mx-files { list-style: none; margin: 10px 0 0; padding: 0; border-top: 1px solid var(--line); }
+.mx-file { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.mx-fl { display: grid; gap: 2px; min-width: 0; flex: 1 1 180px; }
+.mx-fn { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+.mx-fm { font-size: 12px; color: var(--muted); }
+.mx-fd { font-size: 13px; color: var(--muted); }
+.mx-fa { display: flex; gap: 8px; flex: none; }
+.mx-get { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--line-2); color: var(--ink); text-decoration: none; font-size: 14px; }
+.mx-get b { font-weight: 700; color: var(--gold); }
+.mx-get span { font-size: 12px; color: var(--muted); }
+.mx-get:hover { border-color: var(--gold); }
+
+#licence { margin-top: 28px; }
+
+/* ---------- a desk: the tee on the left, the controls on the right ---------- */
+@media (min-width: 960px) {
+  .mx-main { padding-top: 26px; }
+  .mx-grid { grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr); grid-template-areas: "view head" "view pick" "view side"; grid-template-rows: auto auto 1fr; column-gap: 32px; row-gap: 16px; }
+  .mx-head .hub-h1 { font-size: clamp(44px, 5vw, 64px); }
+  .mx-head .lead { margin-top: 8px; font-size: 16px; }
+  .mx-view { position: sticky; top: 76px; align-self: start; }
+  .mx-stage { max-height: calc(100svh - 236px); min-height: 420px; }
+}
+@media (prefers-reduced-motion: reduce) { .mx-chips .chip { transition: none; } }
