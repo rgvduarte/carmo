@@ -1,0 +1,10 @@
+{
+  "name": "gocarmo-pedidos",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The booking-request Worker of gocarmo.com. Only the deploy tool is pinned here: the deploy workflow runs npm ci from package-lock.json before any secret is in the job.",
+  "devDependencies": {
+    "wrangler": "4.146.0"
+  }
+}
