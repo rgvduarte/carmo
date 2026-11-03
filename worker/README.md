@@ -34,6 +34,32 @@ símbolo «Quem apoia» (ver **Apoiantes**).
      `request: <id>`); um pedido aberto cancela-se primeiro. A pausa de 7 dias de um pedido cancelado continua: fica
      num `x:<código>` até ao fim dela (um endereço já bloqueado fica como estava).
 
+### O parceiro de prova (desde 03.11.2026)
+
+O fato completo numa prova pede-se como os espaços, com outro corpo: `{ race: "<id>", helmet: true | false, sector, … }`
+(sem `items` nem `title`). As provas, o preço (3 000 €) e o capacete (+500 €) estão no bloco `racePartner` do
+`data/spots.json`; as regras em `assets/js/season-rules.js` (`raceOpen`, `RACE_LEAD_DAYS`).
+
+- O Worker reserva a prova 48 horas, como um espaço, e escreve só o bloco `racePartner` (`status`, `race`, `helmet`,
+  `until`, `request`, por esta ordem). **Nunca escreve a marca enquanto a prova está reservada**, nem no ficheiro nem
+  na mensagem do commit (`Parceiro de prova (Lidl Setúbal Triathlon, com capacete) reservado até 2026-11-05 (pedido
+  TQ0X12ABCD)`): o ficheiro e o histórico do repositório são públicos, e as condições prometem oferecer a prova ao title
+  partner e às marcas Principais sem dizer quem é a outra empresa. A marca fica só no pedido, no KV. Aparece com a venda,
+  feita na página de admin.
+- Um só parceiro de prova por época: com uma prova reservada (sem ter acabado) ou vendida, outro pedido recebe
+  `409 ocupado { ids: ["prova"] }`. Não depende dos espaços nem do fato completo da época.
+- Não conta para os 8 espaços de `MAX_HELD` (não reserva espaços); é o pedido aberto desse endereço, como os outros.
+- Pede-se até 6 semanas antes da prova (dia da prova − 42, data de Lisboa); uma prova só com o mês conta do dia 1.
+  Depois: `409 prova-prazo { race, bookBy }`.
+- Uma prova sob proposta (`proposal`, o Japão) ou só por mensagem (`ask`) não se reserva no site:
+  `400 prova-contacto`. Uma prova que não existe, ou um ficheiro sem o bloco: `400 prova`.
+- O setor da marca é obrigatório (`sector`, até 60 caracteres; senão `400 setor`) e fica no pedido e no contrato. Paga-se
+  só por transferência (`pay: "tr"`; senão `400 pagamento`).
+- O preço é por prova, sem desconto de época nem de pacote (`m: 0`): 3 000 € ou 3 500 €.
+- O pedido guarda `race: { id, date, name, helmet }` (o nome em português nesse dia), `sector`, `level: "prova"` e os
+  preços (`prices`: `prova` e, com o capacete, `prova-capacete`). Prolongar, Cancelar e Confirmar funcionam como nos
+  espaços; Cancelar tira também `race` e `helmet`.
+
 ## Épocas e preço
 
 O Worker lê as datas da época no bloco `seasonRules` do `data/spots.json` (o mesmo ficheiro dos preços, lido do GitHub
@@ -66,6 +92,10 @@ num ficheiro público, com a chave `c:<id>`:
 - **Pedido do site**: **Confirmar** cria-o com o número do próprio pedido, uma só vez (repetir não cria outro). Um pedido
   confirmado antes de haver contratos ganha o seu com o mesmo botão.
 - **À mão**: em **Patrocínios**, para o que foi combinado por email, WhatsApp ou em produto. Tem um número novo.
+- **Parceiro de prova**: o contrato leva `race: { id, date, name, helmet, sector, logoBy, notice }` (o logótipo em vetor
+  até `logoBy`, 5 semanas antes da prova; `notice`, o dia em que os patrocinadores da época foram avisados),
+  `level: "prova"` e `title: false`. Não renova (`renovacao` dá `campos state`) e nunca passa a contrato de espaços, nem
+  o contrário (`campos race`). À mão, o Japão (sob proposta) fica com `price: null` e o montante combinado.
 
 Cada contrato apaga-se sozinho no fim de 31 de dezembro do ano seguinte ao da época (os da época 2027 a 31 de dezembro
 de 2028). Se precisares de uma cópia, exporta o CSV em **Patrocínios**; apaga as exportações até à mesma data (a página
@@ -116,7 +146,8 @@ curl -s -H "Authorization: Bearer $ADMIN_KEY" https://gocarmo-pedidos.<conta>.wo
 - No máximo 8 espaços reservados ao mesmo tempo por pedidos do site ainda por pagar (`MAX_HELD` em `wrangler.toml`).
   O fato completo conta como os 8: só se pede pelo site quando não há outros pedidos do site por pagar. Esta conta é
   feita no próprio `data/spots.json`, na escrita, por isso nem pedidos em paralelo a passam. Os espaços que reservas
-  ou vendes à mão não contam.
+  ou vendes à mão não contam. Uma reserva de parceiro de prova não conta (não reserva espaços), mas só há uma de cada
+  vez.
 - Por endereço de internet (num endereço IPv6, os seus /64): 1 pedido aberto de cada vez (2 com o Turnstile ligado)
   e 3 por dia. Depois de um pedido cancelado, ou que acabou sem pagamento, esse endereço espera 7 dias. Com
   «bloquear», 30 dias.
@@ -208,12 +239,14 @@ do admin tira esse campo. As chaves que não conhece (`seasonRules`, por exemplo
 | `POST /apoiantes/admin` | (admin) `importar`, `adicionar`, `publicar` ou `retirar` (ver **Apoiantes**); a resposta é a lista toda, com `added`, `repetidos`, `recusados`, `published` ou `removed` |
 
 O corpo de `POST /pedido` (JSON, `Content-Type: application/json`, do site `https://gocarmo.com`):
-`{ items: [ids de data.spots, 1 a 6] | title: true, brand, name, email, phone, nif?, message?, link?, pay: "mb" | "tr", lang?: "pt" | "en",
+`{ items: [ids de data.spots, 1 a 6] | title: true | race: "<id>", helmet?: true | false (só com race), sector (com race),
+brand, name, email, phone, nif?, message?, link?, pay: "mb" | "tr", lang?: "pt" | "en",
 channel?: "whatsapp" | "email" | "instagram" | "site", logo: "data:image/png;base64,…", website: "", turnstile? }`.
 Os erros: `ocupado` (409, com `ids`), `aberto` (429; só se a marca for a mesma, com `id`, `until`, o que esse pedido
-reserva, `items` ou `title: true`, e o seu preço, `total`, `m`, `seasonBp` e `day`: o site só o toma como seu quando é o
-mesmo pacote), `epoca` (409, com `season` e `until`: os pedidos desta época já fecharam), `limite` (429),
-`limite-site` (429), `muitos` (400, com `max`), `espacos`, `marca`, `nome`, `email`, `telefone`, `nif`, `mensagem`, `link`, `pagamento`,
+reserva, `items`, `title: true` ou `race` e `helmet`, e o seu preço, `total`, `m`, `seasonBp` e `day`: o site só o toma como seu quando é o
+mesmo pacote), `epoca` (409, com `season` e `until`: os pedidos desta época já fecharam), `prova-prazo` (409, com
+`race` e `bookBy`), `limite` (429), `limite-site` (429), `muitos` (400, com `max`), `prova`, `prova-contacto`, `setor`,
+`espacos`, `marca`, `nome`, `email`, `telefone`, `nif`, `mensagem`, `link`, `pagamento`,
 `lingua`, `canal`, `logo`, `recusado` (400), `logo-grande` e `tamanho` (413), `json` (400 ou 415), `turnstile` e
 `origem` (403), `config` e `interno` (503), `github` e `conflito` (502).
 
@@ -238,7 +271,8 @@ Os pedidos de admin levam `Authorization: Bearer <ADMIN_KEY>`, de `https://gocar
 
 ```
 { v: 1, id, kind: "site" | "manual", request, season, period: { start, end },
-  dates: { logoBy, proposalsFrom, renewBy, openFrom }, brand, url, title, spots: [{ id, n, name, item, price }], label,
+  dates: { logoBy, proposalsFrom, renewBy, openFrom }, brand, url, title, race?: { id, date, name, helmet, sector, logoBy,
+  notice } (só no parceiro de prova), spots: [{ id, n, name, item, price }], label,
   level, price: { day, gross, m, seasonBp, discPct, total } | null, amount, paidAt, pay: "mb" | "tr" | "produto" | "outro",
   inKind, contact: { name, channel, email, phone, handle }, nif, lang: "pt" | "en", logo: { vector, fromRace },
   renewal: { state: "" | "proposta" | "renova" | "nao-renova", at }, notes, terms, created, updated, history: [até 50] }
@@ -254,7 +288,8 @@ propor, proposta enviada, renova, não renova, terminado) sai de `renewalView(co
 O corpo de `POST /contratos` (até 8 KB): `{ season: "2027" (a época do ficheiro ou a seguinte), brand, items?: [ids] |
 title?: true, label?, amount, paidAt, pay, inKind?, url?: "https://…" | "@marca", contact?: { name, channel: "whatsapp" | "email" |
 "instagram" | "site" | "telefone" | "pessoal" | "outro" | "", email, phone, handle }, nif?, lang?, notes?, logo?: {
-vector, fromRace }, request? }`. Precisa de espaços, do fato completo ou de uma descrição (`label`). Em `editar`, `set`
+vector, fromRace }, request?, race?: { id, helmet?, sector?, notice? } }`. Precisa de espaços, do fato completo, de uma prova
+(`race`, nunca com `items` ou `title`) ou de uma descrição (`label`). Em `editar`, `set`
 leva os mesmos campos (os que vêm mudam; `contact` e `logo` juntam-se aos que havia); a época só muda num contrato em
 que ainda nada foi mexido. Ao mudar os espaços, os que ficam guardam o preço antigo.
 

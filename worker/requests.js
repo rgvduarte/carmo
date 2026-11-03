@@ -11,6 +11,13 @@
 //                             409 { error: 'epoca', season, until }. An optional `link` (the brand's website, Instagram
 //                             or contact page: season-rules.js brandLink) is kept with the request, never written to the
 //                             file: a held spot carries no link (400 'link' for one that is not https or @handle).
+//                             The race partner (the whole suit at one race, data/spots.json "racePartner"): { race: <id>,
+//                             helmet: true|false, sector } instead of items or title. Holds the race partner for 48 h with
+//                             no brand in the file (status, race, helmet, until, request), is not counted in MAX_HELD, and
+//                             answers 400 'prova' (no such race, or no block), 400 'prova-contacto' (a race on proposal or
+//                             by message only), 409 'prova-prazo' { race, bookBy } (less than 6 weeks before the race),
+//                             400 'setor' (the brand's sector, required with a race), 409 'ocupado' { ids: ['prova'] }
+//                             (one race partner a season: another race is held or sold).
 //   GET  /pedidos             (admin) the requests kept, newest first, without the logos
 //   GET  /pedidos/<id>/logo   (admin) the request's logo, a PNG
 //   POST /pedidos/<id>        (admin) { action: 'confirmar' | 'cancelar' | 'prolongar' | 'apagar', bloquear?: true (with
@@ -20,8 +27,12 @@
 //                             time). apagar deletes a closed request (confirmado or cancelado) and its logo, when no
 //                             contract names it: 409 'estado' for an open one, 409 { error: 'contrato', id } otherwise
 //   GET  /contratos           (admin) the sponsor contracts, newest payment first
-//   POST /contratos           (admin) a contract entered by hand (a deal by email, WhatsApp, in kind)
-//   POST /contratos/<id>      (admin) { action: 'editar' | 'renovacao' | 'apagar', ... }
+//   POST /contratos           (admin) a contract entered by hand (a deal by email, WhatsApp, in kind); a race partner
+//                             by hand with race: { id, helmet?, sector?, notice? } (a race on proposal too: price null,
+//                             the agreed amount), never with items or title (400 campos race)
+//   POST /contratos/<id>      (admin) { action: 'editar' | 'renovacao' | 'apagar', ... }; a race contract edits its race,
+//                             helmet, sector and notice, never renews (renovacao: 400 campos state) and never becomes a
+//                             spot contract, nor the other way round (400 campos race)
 //   GET  /estado              which pieces are set up (true / false only), for the deploy check
 //   GET  /apoiantes           public: { v: 1, on } (on: at least one published supporter's name; no count)
 //   GET  /apoiantes/nomes     public: { v: 1, names: [{ id, name }] }, the published names only, A to Z (pt collation)
@@ -37,7 +48,8 @@
 //
 // Against one person holding everything: at most MAX_ITEMS spots in a request (the whole suit is `title: true`), at
 // most MAX_HELD spots held at once by the site's unpaid requests (counted in data/spots.json inside the sha-checked
-// write, so parallel requests cannot pass it; the whole suit fills it alone), one open request per address (two with
+// write, so parallel requests cannot pass it; the whole suit fills it alone; a race partner holds no spot and is not
+// counted, but there is only one at a time), one open request per address (two with
 // Turnstile), three a day, and a 7-day pause for an address whose request was cancelled or lapsed unpaid. The admin can
 // block an address for 30 days (cancelar with bloquear). Bursts are counted by Cloudflare's rate-limiting bindings
 // (wrangler.toml), which cost no KV writes; a request rejected by the cheap checks writes nothing to KV.
@@ -47,7 +59,8 @@
 // plus "request": <id> on each held spot. Any later admin action on that spot drops the "request" key. Keys the Worker
 // does not know ("seasonRules" among them) keep their place and value.
 
-import { TITLE, quote, rulesOf, defaultRules, lisbonDay, addDays, salesOpen, seasonMonth, levelOf, contractExpiry, brandLink } from '../assets/js/season-rules.js';
+import { TITLE, quote, rulesOf, defaultRules, lisbonDay, addDays, salesOpen, seasonMonth, levelOf, contractExpiry, brandLink,
+  PROVA, PROVA_HELMET, RACE_ID, raceOf, raceOpen, raceSnapshot, raceLogoBy } from '../assets/js/season-rules.js';
 import * as APO from '../assets/js/apoiantes-core.js';
 
 // The first Lisbon date builds an Intl time-zone formatter, about 13 ms of CPU once per isolate, and the first price
@@ -61,7 +74,7 @@ const HOLD_H = 48;
 const MAX_BODY = 600 * 1024;             // the whole POST (a 400 KB logo is 534 KB of base64)
 const MAX_LOGO = 400 * 1024;             // the logo, decoded: small enough for the 10 ms of CPU of Workers Free
 const MAX_SIDE = 4096;                   // px, either side of the logo
-const CAPS = { brand: 60, name: 80, email: 120, phone: 30, nif: 20, message: 2000, link: 400 };   // characters, after trimming
+const CAPS = { brand: 60, name: 80, email: 120, phone: 30, nif: 20, message: 2000, link: 400, sector: 60 };   // characters, after trimming
                                          // (the link's own cap, 200 once normalised, is brandLink's LINK_MAX)
 const MAX_ITEMS = 6;                     // spots in one request; more only as the whole suit (title: true)
 const MAX_HELD = 8;                      // spots held at once by the site's unpaid requests (MAX_HELD in wrangler.toml)
@@ -291,7 +304,8 @@ function pngOf(url) {
 
 // ---------- the spot rules (assets/js/admin-core.js: lapsed, effective, totals, sortTargets, commitMessage) ----------
 const itemOf = (s) => s.item || 'suit';
-const targetOf = (data, id) => (id === TITLE ? data.title : data.spots.find((s) => s.id === id));
+// the race partner (PROVA) is a third kind of target: data.racePartner, never counted with the spots
+const targetOf = (data, id) => (id === TITLE ? data.title : id === PROVA ? data.racePartner : data.spots.find((s) => s.id === id));
 const validData = (d) => !!d && Array.isArray(d.spots) && !!d.title && typeof d.title === 'object';
 // a hold lapses on its own once its `until` day is over (UTC), as adspace.js shows it
 const lapsed = (x, now) => x.status === 'reserved' && !!x.until && Date.parse(`${x.until}T23:59:59Z`) < now;
@@ -304,19 +318,21 @@ function siteHeld(data, now, cap) {
   if (open(data.title)) return cap;
   return data.spots.filter(open).length;
 }
-// what a request adds to that count
-const unitsOf = (ids, cap) => (ids.includes(TITLE) ? cap : ids.length);
+// what a request adds to that count (a race partner holds no spot: 0)
+const unitsOf = (ids, cap) => (ids.includes(TITLE) ? cap : ids.filter((x) => x !== PROVA).length);
 function sortTargets(data, ids) {
   const n = (id) => (id === TITLE ? Infinity : targetOf(data, id)?.n ?? Infinity);
   return [...new Set(ids)].sort((a, b) => n(a) - n(b));
 }
 // the targets that cannot be held now: reserved (a lapsed hold counts as free), sold or under the whole suit; the
-// whole suit needs every suit spot free (the helmet is not part of it)
+// whole suit needs every suit spot free (the helmet is not part of it); the race partner, one a season, is taken while
+// any race is held or sold, whatever the spots and the whole suit
 function takenOf(data, ids, now) {
   const T = stateOf(data.title, now), taken = [];
   for (const id of ids) {
     const x = targetOf(data, id);
     if (!x) { taken.push(id); continue; }
+    if (id === PROVA) { if (stateOf(x, now) !== 'available') taken.push(id); continue; }
     if (id === TITLE) { if (T !== 'available' || data.spots.some((s) => itemOf(s) === 'suit' && stateOf(s, now) !== 'available')) taken.push(id); continue; }
     if (stateOf(x, now) !== 'available' || (itemOf(x) === 'suit' && T !== 'available')) taken.push(id);
   }
@@ -338,19 +354,33 @@ function snapshotOf(data, ids) {
 // data with the prices of a snapshot: a contract's price is computed on what was asked, not on today's table
 function pricedAs(data, spots) {
   const at = new Map(spots.map((x) => [x.id, x.price]));
-  return { ...data, title: at.has(TITLE) ? { ...data.title, price: at.get(TITLE) } : data.title, spots: data.spots.map((s) => (at.has(s.id) ? { ...s, price: at.get(s.id) } : s)) };
+  const rp = data.racePartner && (at.has(PROVA) || at.has(PROVA_HELMET))
+    ? { ...data.racePartner, ...(at.has(PROVA) ? { price: at.get(PROVA) } : {}), ...(at.has(PROVA_HELMET) ? { helmetPrice: at.get(PROVA_HELMET) } : {}) } : data.racePartner;
+  return { ...data, title: at.has(TITLE) ? { ...data.title, price: at.get(TITLE) } : data.title, spots: data.spots.map((s) => (at.has(s.id) ? { ...s, price: at.get(s.id) } : s)), ...(data.racePartner ? { racePartner: rp } : {}) };
 }
 const fileText = (data) => `${JSON.stringify(data, null, 2)}\n`;
-// 'Espaços 01 e 21' / 'Espaço 21' / 'Fato completo', and the plural ending
+// 'Parceiro de prova (Lidl Setúbal Triathlon, com capacete)': never a brand (a held race partner is anonymous in the
+// public file and in its history)
+const raceLabel = (data, race, helmet) => `Parceiro de prova (${(raceOf(data, race) || {}).pt || race}${helmet ? ', com capacete' : ''})`;
+// 'Espaços 01 e 21' / 'Espaço 21' / 'Fato completo' / the race partner as it stands in the file, and the plural ending
 function labelOf(data, ids) {
   if (ids[0] === TITLE) return ['Fato completo', ''];
+  if (ids[0] === PROVA) return [raceLabel(data, data.racePartner.race, data.racePartner.helmet === true), ''];
   return [`${ids.length > 1 ? 'Espaços' : 'Espaço'} ${joinPT(ids.map((id) => pad2(targetOf(data, id).n)))}`, ids.length > 1 ? 's' : ''];
 }
-// the admin's applyAction(…, 'reserved', …) statement by statement, then the request's id
-function held(raw, ids, { brand, until, id, today }) {
+// the admin's applyAction(…, 'reserved', …) statement by statement, then the request's id. The race partner: no brand
+// (status, race, helmet, until, request, in that order)
+function held(raw, ids, { brand, until, id, today, race, helmet }) {
   const data = structuredClone(raw);
   for (const sid of ids) {
     const t = targetOf(data, sid);
+    if (sid === PROVA) {
+      for (const k of ['brand', 'url', 'until', 'request', 'since', 'race', 'helmet']) delete t[k];
+      t.status = 'reserved';
+      delete t.logo; delete t.logoMono;
+      t.race = race; t.helmet = helmet === true; t.until = until; t.request = id;
+      continue;
+    }
     for (const k of ['brand', 'url', 'until', 'request', 'since']) delete t[k];
     t.status = 'reserved';
     delete t.logo; delete t.logoMono;
@@ -368,7 +398,7 @@ function freed(raw, ids, today) {
   const data = structuredClone(raw);
   for (const sid of ids) {
     const t = targetOf(data, sid);
-    for (const k of ['brand', 'url', 'until', 'request', 'since']) delete t[k];
+    for (const k of ['brand', 'url', 'until', 'request', 'since', ...(sid === PROVA ? ['race', 'helmet'] : [])]) delete t[k];
     t.status = 'available';
     delete t.logo; delete t.logoMono;
   }
@@ -478,12 +508,16 @@ async function create(request, env) {
   // a field no person sees: a bot fills it
   if (p.website !== undefined && p.website !== '') return fail(request, env, 'recusado');
 
-  // what is asked for: some spots (ids of data.spots, never the whole suit's 'fato'), or the whole suit
+  // what is asked for: some spots (ids of data.spots, never the whole suit's 'fato'), the whole suit, or the race partner
+  // (a race of data.racePartner, with or without the helmet): exactly one of the three
+  if (p.race !== undefined && (typeof p.race !== 'string' || !RACE_ID.test(p.race))) return fail(request, env, 'prova');
+  if (p.helmet !== undefined && (typeof p.helmet !== 'boolean' || p.race === undefined)) return fail(request, env, 'prova');
+  const race = p.race === undefined ? '' : p.race, helmet = p.helmet === true;
   const title = p.title === true;
   if (p.title !== undefined && typeof p.title !== 'boolean') return fail(request, env, 'espacos');
   const items = p.items === undefined ? [] : p.items;
   if (!Array.isArray(items) || items.length > 40 || !items.every((x) => typeof x === 'string' && x !== TITLE && /^[a-z0-9-]{1,40}$/.test(x))) return fail(request, env, 'espacos');
-  if (title === items.length > 0 || new Set(items).size !== items.length) return fail(request, env, 'espacos');
+  if ((race ? 1 : 0) + (title ? 1 : 0) + (items.length > 0 ? 1 : 0) !== 1 || new Set(items).size !== items.length) return fail(request, env, 'espacos');
   if (items.length > MAX_ITEMS) return fail(request, env, 'muitos', 400, { max: MAX_ITEMS });
 
   const brand = text(p.brand, CAPS.brand), name = text(p.name, CAPS.name), nif = text(p.nif, CAPS.nif), message = text(p.message, CAPS.message, true);
@@ -492,6 +526,10 @@ async function create(request, env) {
   // formOk). The email and the phone are checked before the name, so a page loaded before they existed (it sends
   // neither) hears 'email', a code it does not know, and sends its message only, as when the Worker is down
   if (!brand) return fail(request, env, 'marca');
+  // the brand's sector, with a race only (the first conflict check: exclusivity, the excluded sectors, Principal
+  // competitors); ignored on a spot or whole-suit request
+  const sector = race ? text(p.sector, CAPS.sector) : '';
+  if (race && !sector) return fail(request, env, 'setor');
   if (!email || !EMAIL_RE.test(email)) return fail(request, env, 'email');
   if (!phone || !phoneOk(phone)) return fail(request, env, 'telefone');
   if (!name || Array.from(name).length < 2) return fail(request, env, 'nome');
@@ -501,6 +539,8 @@ async function create(request, env) {
   const lk = text(p.link, CAPS.link), link = lk === null ? { error: 'link' } : brandLink(lk);
   if (link.error) return fail(request, env, 'link');
   if (!PAYS.includes(p.pay)) return fail(request, env, 'pagamento');
+  // the race partner pays by bank transfer, after the written agreement (3 000 € is over the MB WAY cap anyway)
+  if (race && p.pay !== 'tr') return fail(request, env, 'pagamento');
   if (p.lang !== undefined && p.lang !== 'pt' && p.lang !== 'en') return fail(request, env, 'lingua');
   if (p.channel !== undefined && p.channel !== '' && !CHANNELS.includes(p.channel)) return fail(request, env, 'canal');
   const png = pngOf(p.logo);
@@ -522,10 +562,11 @@ async function create(request, env) {
     // holds, so the site takes it for its own only when it is the same package (that address and brand may have another
     // request open, for other spots)
     const theirs = open.filter((r) => sameBrand(r.brand, brand));
-    const samePkg = (r) => (title ? r.title === true : !r.title && Array.isArray(r.items) && r.items.length === items.length && items.every((x) => r.items.includes(x)));
+    const samePkg = (r) => (race ? !!r.race && r.race.id === race && !!r.race.helmet === helmet
+      : title ? r.title === true : !r.title && !r.race && Array.isArray(r.items) && r.items.length === items.length && items.every((x) => r.items.includes(x)));
     const own = theirs.find(samePkg) || theirs[0];
     // with its price, so the site shows that request's total (a request kept from before the seasons: m = 0)
-    return fail(request, env, 'aberto', 429, own ? { id: own.id, until: own.until, ...(own.title ? { title: true } : { items: own.items || [] }), ...priceSeen(own) } : {});
+    return fail(request, env, 'aberto', 429, own ? { id: own.id, until: own.until, ...(own.race ? { race: own.race.id, helmet: !!own.race.helmet } : own.title ? { title: true } : { items: own.items || [] }), ...priceSeen(own) } : {});
   }
   const paused = recent.some((r) => (r.status === 'cancelado' && now - Date.parse(r.closed || r.updated || r.at) < COOL_S * 1000)
     || (r.status === 'novo' && r.until && holdEnd(r.until) < now && now - holdEnd(r.until) < COOL_S * 1000));
@@ -533,12 +574,18 @@ async function create(request, env) {
   const ipDay = `d:${ip}:${day}`, dayCount = await count(env, ipDay);
   if (dayCount >= PER_IP_DAY) return fail(request, env, 'limite', 429);
 
-  // the public file first: a closed season, an unknown or taken spot, or a site already full of unpaid holds, ends here
-  const ids0 = title ? [TITLE] : items, live = await liveSpots(env);
+  // the public file first: a closed season, an unknown or taken spot, a race that cannot be requested on the site now, or
+  // a site already full of unpaid holds, ends here
+  const ids0 = race ? [PROVA] : title ? [TITLE] : items, live = await liveSpots(env);
   if (live) {
     const rules = rulesOf(live);
     if (!salesOpen(rules, lday)) return fail(request, env, 'epoca', 409, { season: rules.season, until: rules.requestsUntil });
-    if (!title && ids0.some((id) => !live.spots.some((s) => s.id === id))) return fail(request, env, 'espacos');
+    if (race) {
+      const o = raceOpen(live, race, lday);
+      if (o.error === 'prova-prazo') return fail(request, env, 'prova-prazo', 409, { race, bookBy: o.bookBy });
+      if (o.error) return fail(request, env, o.error === 'epoca' ? 'prova' : o.error);
+    }
+    if (!title && !race && ids0.some((id) => !live.spots.some((s) => s.id === id))) return fail(request, env, 'espacos');
     const taken = takenOf(live, ids0, now);
     if (taken.length) return fail(request, env, 'ocupado', 409, { ids: sortTargets(live, taken) });
     if (siteHeld(live, now, C.maxHeld) + unitsOf(ids0, C.maxHeld) > C.maxHeld) return fail(request, env, 'limite-site', 429);
@@ -549,12 +596,14 @@ async function create(request, env) {
   const id = newId(now), until = holdUntil(now), at = new Date(now).toISOString();
   const expiration = Math.floor(now / 1000) + KEEP_S;
   // the price of the public file for now; the write below sets it from the committed file
-  const q0 = live ? quote(live, ids0, { day: lday }) : null;
+  const q0 = live ? quote(live, ids0, { day: lday, race, helmet }) : null;
+  const race0 = race && live ? raceOf(live, race) : null;
   const record = {
-    id, at, until, ...(title ? { title: true } : { items: [...items] }), brand, name, email, phone, nif, message, link: link.url, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
+    id, at, until, ...(race ? { race: { id: race, date: race0 ? race0.date : '', name: race0 ? race0.pt : race, helmet }, sector } : title ? { title: true } : { items: [...items] }),
+    brand, name, email, phone, nif, message, link: link.url, pay: p.pay, lang: p.lang === 'en' ? 'en' : 'pt',
     channel: p.channel || '', total: q0 ? q0.net : 0,
     season: q0 ? q0.season : '', day: lday, m: q0 ? q0.m : 0, seasonBp: q0 ? q0.seasonBp : 0, gross: q0 ? q0.gross : 0, discPct: q0 ? q0.discPct : 0,
-    terms: live ? rulesOf(live).termsDate : '', prices: live ? snapshotOf(live, ids0) : [],
+    terms: live ? rulesOf(live).termsDate : '', prices: live ? (race ? raceSnapshot(live, race, helmet) : snapshotOf(live, ids0)) : [], ...(race ? { level: PROVA } : {}),
     status: 'novo', logo: { w: png.w, h: png.h, bytes: png.bytes.length }, commit: '', updated: at, ip,
     history: [{ at, action: 'pedido' }],
   };
@@ -586,10 +635,22 @@ async function create(request, env) {
   const res = await edit(env, (data) => {
     const rules = rulesOf(data);
     if (!salesOpen(rules, lday)) return { stop: { error: 'epoca', season: rules.season, until: rules.requestsUntil } };
-    if (!title && items.some((sid) => !data.spots.some((s) => s.id === sid))) return { stop: { error: 'espacos' } };
-    const ids = sortTargets(data, title ? [TITLE] : items), taken = takenOf(data, ids, now);
+    if (race) {
+      const o = raceOpen(data, race, lday);
+      if (o.error) return { stop: o.error === 'prova-prazo' ? { error: 'prova-prazo', bookBy: o.bookBy } : { error: o.error === 'epoca' ? 'prova' : o.error } };
+    }
+    if (!title && !race && items.some((sid) => !data.spots.some((s) => s.id === sid))) return { stop: { error: 'espacos' } };
+    const ids = race ? [PROVA] : sortTargets(data, title ? [TITLE] : items), taken = takenOf(data, ids, now);
     if (taken.length) return { stop: { taken: sortTargets(data, taken) } };
     if (siteHeld(data, now, C.maxHeld) + unitsOf(ids, C.maxHeld) > C.maxHeld) return { stop: { error: 'limite-site' } };
+    if (race) {
+      const r = raceOf(data, race), q = quote(data, ids, { day: lday, race, helmet });
+      return {
+        data: held(data, ids, { until, id, today: day, race, helmet }), message: `${raceLabel(data, race, helmet)} reservado até ${until} (pedido ${id})`, ids,
+        price: { total: q.net, season: q.season, m: 0, seasonBp: 0, gross: q.gross, discPct: 0, terms: rules.termsDate, prices: raceSnapshot(data, race, helmet), level: PROVA,
+          race: { id: race, date: r.date, name: r.pt, helmet } },
+      };
+    }
     const [label, s] = labelOf(data, ids), q = quote(data, ids, { day: lday });
     return {
       data: held(data, ids, { brand, until, id, today: day }), message: `${label} reservado${s} para ${brand} até ${until} (pedido ${id})`, ids,
@@ -601,12 +662,14 @@ async function create(request, env) {
     if (res.error === 'epoca') return fail(request, env, 'epoca', 409, { season: res.season, until: res.until });
     if (res.taken) return fail(request, env, 'ocupado', 409, { ids: res.taken });
     if (res.error === 'espacos') return fail(request, env, 'espacos');
+    if (res.error === 'prova-prazo') return fail(request, env, 'prova-prazo', 409, { race, bookBy: res.bookBy });
+    if (res.error === 'prova' || res.error === 'prova-contacto') return fail(request, env, res.error);
     if (res.error === 'limite-site') return fail(request, env, 'limite-site', 429);
     return fail(request, env, res.error === 'conflito' ? 'conflito' : 'github', 502);
   }
   // the spots are held: whatever KV says now, the answer is 201 (the record is there already, with the price of the
   // public file; this only brings in the price of the committed file and the commit of the write)
-  Object.assign(record, title ? {} : { items: res.ids }, res.price, { commit: res.commit });
+  Object.assign(record, title || race ? {} : { items: res.ids }, res.price, { commit: res.commit });
   try { await env.PEDIDOS.put(`p:${id}`, JSON.stringify(record), { expiration }); } catch (_) {}
   return reply(request, env, { id, until, total: record.total, m: record.m, seasonBp: record.seasonBp, day: lday }, 201);
 }
@@ -624,7 +687,7 @@ async function admin(request, env) {
   return fail(request, env, 'chave', 401);
 }
 
-const idsOf = (r) => (r.title ? [TITLE] : r.items || []);
+const idsOf = (r) => (r.race ? [PROVA] : r.title ? [TITLE] : r.items || []);
 async function save(env, r) {
   const expiration = Math.max(Math.floor(Date.parse(r.at) / 1000) + KEEP_S, Math.floor(Date.now() / 1000) + 120);
   await env.PEDIDOS.put(`p:${r.id}`, JSON.stringify(r), { expiration });
@@ -783,11 +846,18 @@ const rulesFor = (data, season) => (data && rulesOf(data).season === String(seas
 // what the price table asked for these targets on `day`, with the prices of the snapshot `spots`: the season month m
 // comes from the contract's season (its rules, or that season's defaults), so a 2028 deal entered in 2027 pays m = 0.
 // m0 forces it (a request from before the seasons: 0).
-function contractQuote(data, season, ids, spots, day, m0) {
+function contractQuote(data, season, ids, spots, day, m0, race) {
   const m = Number.isInteger(m0) ? m0 : seasonMonth(rulesFor(data, season), day);
-  return quote(pricedAs(data, spots), ids, { day, m });
+  return quote(pricedAs(data, spots), ids, { day, m, ...(race ? { race: race.id, helmet: race.helmet === true } : {}) });
 }
-const targetsOfContract = (c) => (c.title ? [TITLE] : (c.spots || []).map((x) => x.id).filter((x) => x !== TITLE));
+const targetsOfContract = (c) => (c.race ? [PROVA] : c.title ? [TITLE] : (c.spots || []).map((x) => x.id).filter((x) => x !== TITLE));
+// a race partner's contract: the race as it was asked (its date and PT name kept, so a later calendar edit does not change
+// a confirmation), the sector, the vector logo's last day (race day − 35) and the day the season sponsors were told
+function raceOfContract(data, { id, helmet, sector = '', notice = '' }, was = {}) {
+  const r = raceOf(data, id) || (was.id === id ? { id, date: was.date, pt: was.name } : null);
+  if (!r) return null;
+  return { id, date: r.date, name: r.pt, helmet: helmet === true, sector, logoBy: raceLogoBy(r), notice };
+}
 // data/spots.json for a contract: the public file, else the GitHub copy
 async function spotsData(env) {
   const live = await liveSpots(env);
@@ -800,12 +870,12 @@ async function putContract(env, c, now) {
   const expiration = Math.max(contractExpiry(c.season), Math.floor(now / 1000) + 120);
   await env.PEDIDOS.put(`c:${c.id}`, JSON.stringify(c), { expiration });
 }
-function contractShape({ id, kind, request, season, rules, brand, url = '', title, spots, label = '', level, price, amount, paidAt, pay, inKind = '', contact = {}, nif = '', lang = 'pt', logo = {}, notes = '', terms, at, from }) {
+function contractShape({ id, kind, request, season, rules, brand, url = '', title, race, spots, label = '', level, price, amount, paidAt, pay, inKind = '', contact = {}, nif = '', lang = 'pt', logo = {}, notes = '', terms, at, from }) {
   return {
     v: 1, id, kind, request, season,
     period: { start: rules.start, end: rules.end },
     dates: { logoBy: rules.logoBy, proposalsFrom: rules.proposalsFrom, renewBy: rules.renewBy, openFrom: rules.openFrom },
-    brand, url, title, spots, label, level, price, amount, paidAt, pay, inKind,
+    brand, url, title, ...(race ? { race } : {}), spots, label, level, price, amount, paidAt, pay, inKind,
     contact: { name: contact.name || '', channel: contact.channel || '', email: contact.email || '', phone: contact.phone || '', handle: contact.handle || '' },
     nif, lang, logo: { vector: logo.vector === true, fromRace: logo.fromRace || '' },
     renewal: { state: '', at: '' }, notes, terms, created: at, updated: at,
@@ -825,9 +895,11 @@ function contractOfRequest(r, data, { paidAt, amount, at, url }) {
   else if (data) price = { ...priceOf(contractQuote(data, season, ids, spots, lisbonDay(Date.parse(r.at) || Date.now()), 0)), ...(r.total ? { total: Number(r.total) } : {}) };
   else return null;
   const level = r.level || (data ? levelOf(pricedAs(data, spots), ids) : '');
+  // a race request: the race it asked for, with the sector it gave and the logo's last day
+  const race = r.race ? { id: r.race.id, date: r.race.date, name: r.race.name, helmet: r.race.helmet === true, sector: r.sector || '', logoBy: raceLogoBy({ date: r.race.date }), notice: '' } : null;
   return contractShape({
     id: r.id, kind: 'site', request: r.id, season, rules: rulesFor(data, season), brand: r.brand, url: url !== undefined ? url : brandLink(typeof r.link === 'string' ? r.link : '').url || '',
-    title: r.title === true, spots, level, price,
+    title: r.title === true, race, spots, level, price,
     amount, paidAt, pay: r.pay, contact: { name: r.name || '', channel: r.channel || '', email: r.email || '', phone: r.phone || '' }, nif: r.nif || '', lang: r.lang === 'en' ? 'en' : 'pt',
     terms: r.terms || '', at, from: 'pedido',
   });
@@ -879,6 +951,17 @@ function contractInput(p, data, lday, create) {
     set.logo = out;
   }
   if (has('request')) { if (p.request !== '' && (typeof p.request !== 'string' || !ID_RE.test(p.request))) return bad('request'); set.request = p.request; }
+  // the race partner: { id (a race of data.racePartner, the ones on proposal included), helmet?, sector?, notice? (the day
+  // the season sponsors were told, or '') }
+  if (has('race')) {
+    const x = p.race, out = {};
+    if (!x || typeof x !== 'object' || Array.isArray(x)) return bad('race');
+    if (x.id !== undefined) { if (typeof x.id !== 'string' || !raceOf(data, x.id)) return bad('race.id'); out.id = x.id; }
+    if (x.helmet !== undefined) { if (typeof x.helmet !== 'boolean') return bad('race.helmet'); out.helmet = x.helmet; }
+    if (x.sector !== undefined) { const v = text(x.sector, CAPS.sector); if (v === null) return bad('race.sector'); out.sector = v; }
+    if (x.notice !== undefined) { if (x.notice !== '' && !paidOk(x.notice, lday)) return bad('race.notice'); out.notice = x.notice; }
+    set.race = out;
+  }
   return { set };
 }
 // the targets after a change: the whole suit, some spots, or the ones there were; null when title and items disagree
@@ -920,15 +1003,21 @@ async function createContract(request, env) {
   const now = Date.now(), at = new Date(now).toISOString(), lday = lisbonDay(now);
   const inp = contractInput(p, data, lday, true);
   if (inp.campo) return fail(request, env, 'campos', 400, { campo: inp.campo });
-  const s = inp.set, ids = targetsAfter(s, []);
+  const s = inp.set;
+  // a race partner by hand (a deal by email, Japan by agreement): the race alone, never with spots or the whole suit
+  if (s.race && (s.title !== undefined || s.items !== undefined || !s.race.id)) return fail(request, env, 'campos', 400, { campo: 'race' });
+  const race = s.race ? raceOfContract(data, s.race) : null;
+  const ids = race ? [PROVA] : targetsAfter(s, []);
   if (!ids || (!ids.length && !s.label)) return fail(request, env, 'campos', 400, { campo: 'items' });
   if (s.request && await readContract(env, s.request)) return fail(request, env, 'existe', 409, { id: s.request });
   if ((await contractKeys(env)).length >= MAX_CONTRACTS) return fail(request, env, 'muitos', 409, { max: MAX_CONTRACTS });
-  const spots = spotsFor(data, ids);
+  const spots = race ? raceSnapshot(data, race.id, race.helmet) : spotsFor(data, ids);
+  // a race on proposal has no table price: the amount is the agreement's
+  const rq = race ? contractQuote(data, s.season, ids, spots, s.paidAt, 0, race) : null;
   const c = contractShape({
     id: newId(now), kind: 'manual', request: s.request || '', season: s.season, rules: rulesFor(data, s.season), brand: s.brand, url: s.url,
-    title: ids[0] === TITLE, spots, label: s.label, level: ids.length ? levelOf(pricedAs(data, spots), ids) : '',
-    price: ids.length ? priceOf(contractQuote(data, s.season, ids, spots, s.paidAt)) : null, amount: s.amount, paidAt: s.paidAt, pay: s.pay,
+    title: ids[0] === TITLE, race, spots, label: s.label, level: race ? PROVA : ids.length ? levelOf(pricedAs(data, spots), ids) : '',
+    price: race ? (rq.proposal ? null : priceOf(rq)) : ids.length ? priceOf(contractQuote(data, s.season, ids, spots, s.paidAt)) : null, amount: s.amount, paidAt: s.paidAt, pay: s.pay,
     inKind: s.inKind, contact: s.contact, nif: s.nif, lang: s.lang, logo: s.logo, notes: s.notes, terms: rulesOf(data).termsDate, at, from: 'manual',
   });
   try { await putContract(env, c, now); } catch (_) { return fail(request, env, 'interno', 503); }
@@ -954,7 +1043,8 @@ async function actContract(request, env, id) {
     return reply(request, env, { apagado: id });
   }
   if (b.action === 'renovacao') {
-    if (!RENEWAL_STEPS.includes(b.state)) return fail(request, env, 'campos', 400, { campo: 'state' });
+    // a race partner never renews: that race only
+    if (c.race || !RENEWAL_STEPS.includes(b.state)) return fail(request, env, 'campos', 400, { campo: 'state' });
     if (b.at !== undefined && !paidOk(b.at, lday)) return fail(request, env, 'campos', 400, { campo: 'at' });
     c.renewal = { state: b.state, at: b.at || lday };
     return done({ action: 'renovacao', state: b.state });
@@ -974,6 +1064,8 @@ async function actContract(request, env, id) {
     if (c.kind !== 'manual') return fail(request, env, 'campos', 400, { campo: 'request' });
     if (s.request && await readContract(env, s.request)) return fail(request, env, 'existe', 409, { id: s.request });
   }
+  // a race contract stays a race contract, and a spot contract never becomes one
+  if (c.race ? s.title !== undefined || s.items !== undefined : s.race !== undefined) return fail(request, env, 'campos', 400, { campo: 'race' });
   const before = JSON.stringify(c), was = targetsOfContract(c);
   const ids = targetsAfter(s, was);
   if (!ids) return fail(request, env, 'campos', 400, { campo: 'items' });
@@ -991,7 +1083,23 @@ async function actContract(request, env, id) {
     c.dates = { logoBy: rules.logoBy, proposalsFrom: rules.proposalsFrom, renewBy: rules.renewBy, openFrom: rules.openFrom };
     changed.push('season');
   }
-  const moved = ids.join() !== was.join();
+  // the race, the helmet, the sector, the notice: a new race or helmet takes a new snapshot and the table's price on the
+  // same day (the request day for a site contract, the payment day for one by hand); on proposal, no price
+  let raceMoved = false;
+  if (c.race && s.race) {
+    const want = { ...c.race, ...s.race };
+    const r = want.id === c.race.id && want.helmet === c.race.helmet ? { ...c.race, sector: want.sector, notice: want.notice } : raceOfContract(data, want, c.race);
+    if (!r) return fail(request, env, 'campos', 400, { campo: 'race.id' });
+    raceMoved = r.id !== c.race.id || r.helmet !== c.race.helmet;
+    put('race', r);
+    if (raceMoved) put('spots', raceSnapshot(data, r.id, r.helmet));
+  }
+  const moved = !c.race && ids.join() !== was.join();
+  if (c.race && (raceMoved || changed.includes('season') || (c.kind === 'manual' && changed.includes('paidAt')))) {
+    const pday = c.kind === 'site' && c.price && isDate(c.price.day) && !changed.includes('season') ? c.price.day : c.paidAt;
+    const q = contractQuote(data, c.season, [PROVA], c.spots, pday, 0, c.race);
+    put('price', q.proposal ? null : priceOf(q));
+  }
   if (moved) {
     c.title = ids[0] === TITLE;
     c.spots = spotsFor(data, ids, c.spots || []);
@@ -1001,7 +1109,7 @@ async function actContract(request, env, id) {
   // the price the table asked: on the payment day for a deal by hand; a site request keeps its request day's price, and
   // when its spots change, the new spots are priced on that request day, with its own season month (rule 4': the price
   // of the request day; a request from before the seasons kept m = 0)
-  if (moved || changed.includes('season') || (c.kind === 'manual' && changed.includes('paidAt'))) {
+  if (!c.race && (moved || changed.includes('season') || (c.kind === 'manual' && changed.includes('paidAt')))) {
     const site = c.kind === 'site' && c.price && isDate(c.price.day) && !changed.includes('season');
     const pday = site ? c.price.day : c.paidAt, m0 = site && Number.isInteger(c.price.m) ? c.price.m : undefined;
     c.price = ids.length ? priceOf(contractQuote(data, c.season, ids, c.spots, pday, m0)) : null;
