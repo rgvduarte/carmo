@@ -1,29 +1,30 @@
 /**
- * Ride photos: snapshots of the world with a small stats overlay, and a
- * summary card for the end of the ride. Both are drawn on a 2D canvas (no
- * DOM screenshot), so they look the same on every device and are ready to
- * attach to a Strava activity. The browser keeps them in memory until the
- * page is closed; the finish dialog lists them for download or sharing.
+ * Ride photos: snapshots of the world with a small stats overlay. They are
+ * drawn on a 2D canvas (no DOM screenshot), so they look the same on every
+ * device. The browser keeps them in memory until the page is closed; the
+ * finish dialog lists them for download or sharing, next to the ride image
+ * (view/rideCard.js), which takes its lockup, colours and fonts from here.
+ * Strava's API takes no pictures: the rider adds them to the activity by hand.
  */
 
 import { formatDistanceWithUnit, formatDuration, formatNumber, formatSpeed, speedUnit } from "../util/format.js";
-import { BRAND_SYMBOL, BRAND_TAG, BRAND_WORD, withServer } from "../brand.js";
+import { BRAND_SYMBOL, BRAND_TAG, BRAND_WORD } from "../brand.js";
 import { intlLocale, t } from "../i18n/i18n.js";
 
 export const MAX_PHOTOS = 30;
 const SANS = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; // i18n-ok
-const NUM = '"GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
-const DISPLAY = '"Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
-const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace'; // i18n-ok
-// gocarmo.com's palette: near-black, off-white ink, muted, gold.
-const BG = "#0b0b0c";
-const INK = "#f2f1ec";
-const MUTED = "#a3a29c";
-const DIM = "#8a8983";
+/** Numbers: Anton with the digit 1 as wide as the others (the cut the skin ships), one weight. */
+export const NUM = '"GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+export const DISPLAY = '"Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+export const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace'; // i18n-ok
+// gocarmo.com's palette: near-black, off-white ink, muted, one gold.
+export const BG = "#0b0b0c";
+export const INK = "#f2f1ec";
+export const MUTED = "#a3a29c";
 const MUTED_ON_PHOTO = "rgba(242, 241, 236, 0.78)";
-const ACCENT = "#e6b450";
+export const ACCENT = "#e6b450";
 /** The slant of the site's titles and of the lockup: 10 degrees. */
-const SLANT = Math.tan((10 * Math.PI) / 180);
+export const SLANT = Math.tan((10 * Math.PI) / 180);
 
 /** "gocarmo-ride-2026-10-14-1530-rolling-hills-3.png" */
 export function photoFileName(t, routeId = "ride", suffix = "") {
@@ -41,7 +42,7 @@ export function photoFileName(t, routeId = "ride", suffix = "") {
 export class PhotoAlbum {
   /** @type {{id: number, blob: Blob, url: string, name: string, takenAt: number}[]} */
   photos = [];
-  /** The ride's summary card, regenerated whenever the finish dialog opens. */
+  /** The ride image (view/rideCard.js) in the format on show, drawn when the finish dialog opens. */
   summary = null;
   #nextId = 1;
 
@@ -52,12 +53,12 @@ export class PhotoAlbum {
     this.revokeUrl = revokeUrl;
   }
 
-  /** Number of photos taken (the summary image doesn't count). */
+  /** Number of photos taken (the ride image doesn't count). */
   get size() {
     return this.photos.length;
   }
 
-  /** Everything to download or share: the summary first, then the photos. */
+  /** Every image of the ride: the ride image first, then the photos. */
   get images() {
     return this.summary ? [this.summary, ...this.photos] : [...this.photos];
   }
@@ -83,7 +84,7 @@ export class PhotoAlbum {
     return true;
   }
 
-  /** Drops every photo and the summary card, e.g. when a new ride starts. */
+  /** Drops every photo and the ride image, e.g. when a new ride starts. */
   clear() {
     for (const image of this.images) this.revokeUrl(image.url);
     this.photos = [];
@@ -91,12 +92,13 @@ export class PhotoAlbum {
   }
 }
 
-/** Keep the summary save action distinct from the optional collection of photos. */
+/** What the finish dialog offers: the ride image has its own save and share, apart from the photos taken on the road. */
 export function photoActions(album, shareable) {
   return {
     summaryEnabled: Boolean(album.summary),
+    summaryShareVisible: shareable && Boolean(album.summary),
     allVisible: album.photos.length > 0,
-    shareVisible: shareable && album.images.length > 0,
+    shareVisible: shareable && album.photos.length > 0,
   };
 }
 
@@ -143,19 +145,26 @@ export function grabScene(source, doc = document) {
   return canvas;
 }
 
-/** The fonts the images are drawn in; a canvas falls back silently when one is not loaded yet. */
-export function photoFontsReady(doc = document) {
+/**
+ * Loads the fonts the images are drawn in: a canvas falls back silently to
+ * another face when one is not there yet. `text` is what will be drawn, so the
+ * right subset (Latin, or Latin Extended for a name like "Łódź") is fetched.
+ * Each face is asked for at its real weight: Anton has one (400), and a canvas
+ * asked for a bolder one would smear it.
+ */
+export function photoFontsReady(doc = document, text = "") {
   if (!doc.fonts?.load) return Promise.resolve();
-  return Promise.all([`400 40px ${DISPLAY}`, `400 40px ${NUM}`, `500 20px ${MONO}`, `500 20px ${SANS}`].map((font) => doc.fonts.load(font))).catch(() => {});
+  const sample = `${text} 0123456789`;
+  return Promise.all([`400 40px ${DISPLAY}`, `400 40px ${NUM}`, `500 20px ${MONO}`, `500 20px ${SANS}`].map((font) => doc.fonts.load(font, sample))).catch(() => {});
 }
 
 /** Sets the tracking of caps labels where the canvas supports it. */
-function track(ctx, em, size) {
+export function track(ctx, em, size) {
   if ("letterSpacing" in ctx) ctx.letterSpacing = `${(em * size).toFixed(2)}px`;
 }
 
 /** Text slanted like the site's titles (Anton has no italic of its own): sheared about its baseline, so `x`, `y` stay real page coordinates. */
-function slanted(ctx, text, x, y) {
+export function slanted(ctx, text, x, y) {
   ctx.save();
   ctx.transform(1, 0, -SLANT, 1, SLANT * y, 0);
   ctx.fillText(text, x, y);
@@ -167,7 +176,7 @@ function slanted(ctx, text, x, y) {
  * "RIDE" in gold. `height` is the symbol's; the baseline of the name is `y`.
  * @returns {number} the width drawn
  */
-function lockup(ctx, x, y, height) {
+export function lockup(ctx, x, y, height) {
   let at = x;
   if (typeof Path2D === "function") {
     const k = height / BRAND_SYMBOL.size;
@@ -288,125 +297,6 @@ export function composePhoto(scene, { routeName, stats, when }, doc = document) 
   ctx.font = `500 ${12 * u}px ${MONO}`;
   ctx.fillText(when.toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 12 * u);
   ctx.textAlign = "left";
-  return canvas;
-}
-
-/**
- * Draws the end-of-ride card (1600 × 1200): the last view of the world
- * behind a dark panel with the totals, an elevation profile and the power
- * line of the whole ride. It is 4:3 because that's the shape Strava shows
- * activity photos in; a wider card loses its sides there.
- * @param {{routeName: string, serverName: string, when: Date, stats: [string, string][],
- *          power: number[], elevation: (number|null)[], scene?: HTMLCanvasElement | null}} info
- */
-export function composeSummary({ routeName, serverName, when, stats, power, elevation, scene = null }, doc = document) {
-  const W = 1600;
-  const H = 1200;
-  const canvas = doc.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, W, H);
-  if (scene && scene.width > 0 && scene.height > 0) {
-    // Cover: scale to fill, crop the overflow.
-    const scale = Math.max(W / scene.width, H / scene.height);
-    const sw = W / scale;
-    const sh = H / scale;
-    ctx.drawImage(scene, (scene.width - sw) / 2, (scene.height - sh) / 2, sw, sh, 0, 0, W, H);
-  }
-  const shade = ctx.createLinearGradient(0, 0, W, 0);
-  shade.addColorStop(0, "rgba(11, 11, 12, 0.95)");
-  shade.addColorStop(0.62, "rgba(11, 11, 12, 0.88)");
-  shade.addColorStop(1, "rgba(11, 11, 12, 0.62)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, W, H);
-
-  const left = 100;
-  const width = W - 2 * left;
-  ctx.textBaseline = "alphabetic";
-  // The lockup names the app once; the kicker says what the card is.
-  lockup(ctx, left, 140, 54);
-  ctx.textAlign = "right";
-  ctx.fillStyle = ACCENT;
-  ctx.font = `500 22px ${MONO}`;
-  track(ctx, 0.16, 22);
-  ctx.fillText(t("photos.cardTitle"), left + width, 136);
-  track(ctx, 0, 1);
-  ctx.textAlign = "left";
-  ctx.fillStyle = INK;
-  ctx.font = `400 84px ${DISPLAY}`;
-  slanted(ctx, fit(ctx, routeName.toUpperCase(), width - 20), left, 258);
-  ctx.fillStyle = MUTED;
-  ctx.font = `500 28px ${SANS}`;
-  ctx.fillText(fit(ctx, withServer(when.toLocaleString(intlLocale(), { dateStyle: "long", timeStyle: "short" }), serverName), width), left, 308);
-
-  // Totals in a grid of up to 4 columns.
-  const columns = 4;
-  const cellW = width / columns;
-  stats.slice(0, 8).forEach(([label, value], i) => {
-    const x = left + (i % columns) * cellW;
-    const y = 410 + Math.floor(i / columns) * 160;
-    ctx.fillStyle = DIM;
-    ctx.font = `500 19px ${MONO}`;
-    track(ctx, 0.1, 19);
-    ctx.fillText(label.toUpperCase(), x, y);
-    track(ctx, 0, 1);
-    ctx.fillStyle = INK;
-    let size = 80;
-    // Anton has one weight: asking a canvas for bold would smear the digits.
-    do ctx.font = `400 ${size}px ${NUM}`;
-    while (ctx.measureText(value).width > cellW - 32 && (size -= 4) > 28);
-    ctx.fillText(value, x, y + 84);
-  });
-
-  // Elevation (filled) and power (line) over the ride.
-  const chart = { x: left, y: 800, w: width, h: 280 };
-  ctx.fillStyle = DIM;
-  ctx.font = `500 19px ${MONO}`;
-  track(ctx, 0.1, 19);
-  // The legend in the rider's language; the second label starts after the first, however long that is.
-  const powerLabel = t("photos.stat.power").toUpperCase();
-  ctx.fillText(powerLabel, chart.x, chart.y - 20);
-  const elevationX = chart.x + Math.max(110, ctx.measureText(powerLabel).width + 40);
-  ctx.fillStyle = "#5fb47c";
-  ctx.fillText(t("photos.stat.elevation").toUpperCase(), elevationX, chart.y - 20);
-  track(ctx, 0, 1);
-  const heights = elevation.filter((v) => v !== null && Number.isFinite(v));
-  if (heights.length > 1) {
-    const series = downsample(elevation.map((v) => (v === null || !Number.isFinite(v) ? heights[0] : v)), 240);
-    const lo = Math.min(...series);
-    const hi = Math.max(...series, lo + 20);
-    ctx.beginPath();
-    ctx.moveTo(chart.x, chart.y + chart.h);
-    series.forEach((v, i) => ctx.lineTo(chart.x + (i / (series.length - 1)) * chart.w, chart.y + chart.h - ((v - lo) / (hi - lo)) * chart.h * 0.7));
-    ctx.lineTo(chart.x + chart.w, chart.y + chart.h);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(95, 180, 124, 0.28)";
-    ctx.fill();
-  }
-  if (power.length > 1) {
-    const series = downsample(power, 240);
-    const top = Math.max(...series, 100) * 1.1;
-    ctx.beginPath();
-    series.forEach((v, i) => {
-      const x = chart.x + (i / (series.length - 1)) * chart.w;
-      const y = chart.y + chart.h - (v / top) * chart.h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.strokeStyle = ACCENT;
-    ctx.lineWidth = 4;
-    ctx.lineJoin = "round";
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(chart.x, chart.y + chart.h + 0.5);
-  ctx.lineTo(chart.x + chart.w, chart.y + chart.h + 0.5);
-  ctx.stroke();
   return canvas;
 }
 

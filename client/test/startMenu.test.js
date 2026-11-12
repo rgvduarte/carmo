@@ -12,13 +12,13 @@ const routes = [
 test("server status shows riders, room left and when it is full", () => {
   assert.deepEqual(serverStatus({ players: 3, max_players: 50 }), { text: "3 riders online · room for 47 more", full: false, phoneFull: false, online: true });
   assert.equal(serverStatus({ players: 1, max_players: 5 }).text, "1 rider online · room for 4 more");
-  assert.equal(serverStatus({ players: 3, phone_players: 2, max_players: 50 }).text, "3 riders (2 📱) online · room for 49 more");
-  assert.equal(routeRiders({ players: 3, phone_players: 1 }), "3 riders · 1 📱");
+  assert.equal(serverStatus({ players: 3, phone_players: 2, max_players: 50 }).text, "3 riders (2 on a phone) online · room for 49 more");
+  assert.equal(routeRiders({ players: 3, phone_players: 1 }), "3 riders · 1 on a phone");
   assert.equal(routeRiders({ players: 1 }), "1 rider");
   assert.deepEqual(serverStatus({ players: 5, max_players: 5 }), { text: "Full · 5 riders online", full: true, phoneFull: false, online: true });
   // Phone riders have seats of their own: they don't use up the trainer seats.
   const phones = serverStatus({ players: 6, phone_players: 3, max_players: 5, max_phone_players: 3 });
-  assert.deepEqual([phones.text, phones.full, phones.phoneFull], ["6 riders (3 📱) online · room for 2 more", false, true]);
+  assert.deepEqual([phones.text, phones.full, phones.phoneFull], ["6 riders (3 on a phone) online · room for 2 more", false, true]);
   assert.deepEqual(serverStatus(null), { text: "Server unreachable", full: false, online: false });
 });
 

@@ -148,18 +148,20 @@ function element(tag, className, text) {
 
 /** Riders on phone paddles get a badge: they tap, they don't pedal. */
 export const isPaddler = (rider) => rider?.device === "paddle";
-export const PADDLE_BADGE = "📱";
 
+/** The badge is a small phone drawn by the stylesheet (`.badge-paddle`), not an emoji; its words are in the title. */
 function paddleBadge() {
-  const badge = element("span", "badge badge-paddle", PADDLE_BADGE);
+  const badge = element("span", "badge badge-paddle");
   badge.title = t("panels.paddleTitle");
+  badge.setAttribute("role", "img");
+  badge.setAttribute("aria-label", t("panels.paddleTitle"));
   return badge;
 }
 
-/** "Anna (bot)", "Ben 📱" for plain-text lists. */
+/** "Anna (bot)", "Ben · phone" for plain-text lists. */
 export function riderName(rider) {
   if (rider.is_bot || isRemote(rider)) return riderLabel(rider, t);
-  return isPaddler(rider) ? `${rider.name} ${PADDLE_BADGE}` : rider.name;
+  return isPaddler(rider) ? `${rider.name} · ${t("panels.paddleShort")}` : rider.name;
 }
 
 const BOT_STYLES = Object.freeze({

@@ -96,7 +96,7 @@ test("a ready upload needs only the account and action", () => {
   const view = uploadPresentation(state("idle"), account);
   assert.equal(view.status, "");
   assert.equal(view.detail, "");
-  assert.equal(view.action, t("unfinished.uploadStrava"));
+  assert.equal(view.action, t("strava.send"));
 });
 
 test("processing puts a spinner and progress label on the action", () => {
@@ -105,10 +105,21 @@ test("processing puts a spinner and progress label on the action", () => {
   assert.equal(view.action, t("strava.state.processing"));
 });
 
-test("success is a checked activity button without a separate visible status", () => {
+test("success says so in words and links to the activity with Strava's own wording", () => {
   const view = uploadPresentation(state("success", { activityId: 77 }), account);
-  assert.equal(view.activityLabel, t("strava.state.success"));
+  assert.equal(view.status, t("strava.state.success"));
+  assert.equal(view.activityLabel, "View on Strava");
   assert.equal(view.tone, "success");
+});
+
+test("a session the server lost says so, offers to connect again and submits nothing", () => {
+  const view = uploadPresentation(state("failed", { code: "not_connected" }), account);
+  assert.equal(view.connect, true);
+  assert.equal(view.action, null);
+  assert.equal(view.status, t("strava.state.sessionLost"));
+  assert.match(view.detail, /stays saved in this browser/);
+  // A rider who never connected is not told about a lost session.
+  assert.equal(uploadPresentation(state("idle"), null).status, "");
 });
 
 test("a failed check keeps retrying on the same error action", () => {
@@ -117,13 +128,30 @@ test("a failed check keeps retrying on the same error action", () => {
   assert.equal(view.tone, "error");
 });
 
-test("a rejected upload has an inline failure link with its explanation", () => {
+test("a rejected upload says it failed, why, and where to look on Strava", () => {
   const view = uploadPresentation(state("rejected", { error: "duplicate" }), account);
-  assert.equal(view.activityLabel, t("strava.state.rejected"));
+  assert.equal(view.status, t("strava.state.rejected"));
+  assert.equal(view.activityLabel, "View on Strava");
+  assert.equal(view.activity, "https://www.strava.com/athlete/training");
   assert.equal(view.tone, "error");
   assert.match(view.detail, /duplicate/);
 });
 
+test("the panel shows the upload in words: status and detail are text on the page, not tooltips", () => {
+  const els = elements();
+  const receipts = new UploadReceipts({ storage: { getItem: () => null, setItem() {} } });
+  receipts.save("7:1", { phase: "failed", uploadId: null, activityId: null, error: "nope" });
+  const states = [];
+  const binding = bindStravaUpload({ elements: els, client: {}, receipts, key: "7:1", account, onState: (s) => states.push(s.phase) });
+  assert.equal(els.status.textContent, t("strava.state.failed"));
+  assert.equal(els.status.hidden, false);
+  assert.equal(els.detail.textContent, t("strava.failedHint"));
+  assert.equal(els.detail.hidden, false);
+  assert.equal(els.account.textContent, "Connected to Strava as Rider");
+  assert.equal(els.connect.hidden, true);
+  assert.deepEqual(states, ["failed"], "the dialog hears each state, to plan its buttons again");
+  binding.dispose();
+});
 
 test("the upload row uses the native sign-in callback instead of navigating the web view", async () => {
   const els = elements();
@@ -146,4 +174,20 @@ test("the browser upload row leaves the OAuth link navigation intact", () => {
   els.connect.click({ preventDefault: () => { prevented = true; } });
   assert.equal(prevented, false);
   binding.dispose();
+});
+
+test("a lost session is not announced under a line that says the rider is connected", () => {
+  const els = elements();
+  const receipts = new UploadReceipts({ storage: { getItem: () => null, setItem() {} } });
+  const client = { upload: async () => { throw Object.assign(new Error("connect your Strava account first"), { status: 401, code: "not_connected" }); } };
+  const binding = bindStravaUpload({ elements: els, client, receipts, key: "7:1", account, makeFile: () => "fit", name: "ride" });
+  assert.equal(els.account.textContent, "Connected to Strava as Rider");
+  return els.action.click().then(() => {
+    assert.equal(els.account.hidden, true);
+    assert.equal(els.account.textContent, "");
+    assert.equal(els.status.textContent, t("strava.state.sessionLost"));
+    assert.equal(els.connect.hidden, false);
+    assert.equal(els.action.hidden, true);
+    binding.dispose();
+  });
 });

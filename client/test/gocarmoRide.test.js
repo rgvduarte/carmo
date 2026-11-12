@@ -2,15 +2,20 @@
 // and the pieces of the brand that are data (the symbol, the arch, the titles of events).
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import en from "../public/js/i18n/en.js";
 import de from "../public/js/i18n/de.js";
 import pt from "../public/js/i18n/pt.js";
 import { setLocale } from "../public/js/i18n/i18n.js";
 import { APP_NAME, BRAND_SYMBOL, withServer } from "../public/js/brand.js";
 import { sourceUrl } from "../public/js/view/about.js";
+import { ClientMessages } from "../public/js/net/protocol.js";
 import { eventRows, eventTitle } from "../public/js/view/events.js";
 import { serverStatus } from "../public/js/view/startMenu.js";
+import { riderName } from "../public/js/view/panels.js";
+import { KNOWN_CUES, cueText } from "../public/js/studio/cueText.js";
+import { classPosition, classWorkout } from "../public/js/studio/classClock.js";
 import { ARCH_MARK } from "../public/js/view3d/gocarmoMark.js";
 import { MARK_COLORS, markBeam } from "../public/js/view3d/banners.js";
 import { MeshBuilder } from "../public/js/view3d/meshBuilder.js";
@@ -37,6 +42,24 @@ test("the source link names the running commit when the build knows it, else the
   assert.equal(sourceUrl("74a7208"), "https://github.com/rgvduarte/carmo/tree/74a7208");
   assert.equal(sourceUrl("74a7208d3f0c1b2a3948576a6b7c8d9e0f1a2b3c"), "https://github.com/rgvduarte/carmo/tree/74a7208d3f0c1b2a3948576a6b7c8d9e0f1a2b3c");
   assert.equal(sourceUrl("main; rm"), BRANCH, "anything that is not a commit id falls back to the branch");
+});
+
+test("every source link takes its address from the one helper, the dev gallery's too", () => {
+  const about = read("../public/js/view/about.js");
+  assert.match(about, /querySelectorAll\("\[data-source-link\]"\)\) link\.href = sourceUrl\(\)/);
+  const gallery = read("../public/gallery.html");
+  const offers = [...gallery.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(offers.length, 1);
+  assert.ok(offers[0].includes("data-source-link") && offers[0].includes(`href="${BRANCH}"`), "gallery.html carries the offer, also without script");
+  assert.match(read("../public/js/gallery.js"), /querySelectorAll\("\[data-source-link\]"\)\) link\.href = sourceUrl\(\)/);
+  // No other address of the repository is written anywhere in the client.
+  const stray = [];
+  for (const file of ["../public/index.html", "../public/gallery.html", "../public/js/main.js", "../public/js/view/about.js", "../public/js/gallery.js"]) {
+    for (const m of read(file).matchAll(/github\.com\/rgvduarte\/carmo[^"'`\s<]*/g)) {
+      if (m[0] !== "github.com/rgvduarte/carmo/tree/gocarmo-ride" && m[0] !== "github.com/rgvduarte/carmo") stray.push(`${file}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(stray, []);
 });
 
 test("the source code is offered on the start screen, in the ride menu and in the About dialog", () => {
@@ -66,6 +89,45 @@ test("the credits say which licence, that later versions apply, what a rider may
   assert.match(en["about.modified"], /not the official OpenRadlr/);
 });
 
+test("the credits say the licence in full words and that there is no warranty, in the three languages", () => {
+  assert.match(pt["about.modified"], /versão modificada do OpenRadlr/);
+  assert.match(pt["about.modified"], /licença GNU AGPL, versão 3 ou posterior/);
+  assert.match(pt["about.modified"], /sem garantia/);
+  assert.match(en["about.modified"], /modified version of OpenRadlr/);
+  assert.match(en["about.modified"], /GNU AGPL, version 3 or any later version/);
+  assert.match(en["about.modified"], /no warranty/);
+  assert.match(de["about.modified"], /veränderte Fassung von OpenRadlr/);
+  assert.match(de["about.modified"], /GNU AGPL, Version 3 oder später/);
+  assert.match(de["about.modified"], /Ohne Gewährleistung/);
+  assert.match(de["about.modified"], /nicht das offizielle OpenRadlr/);
+  assert.match(html, /<a href="https:\/\/www\.openstreetmap\.org\/copyright"[^>]*data-i18n="about\.osm"/, "the map data credit links OpenStreetMap's copyright page");
+});
+
+test("the GOCARMO artwork says whose it is: image files CC BY-SA 4.0, name and brand reserved", () => {
+  const holder = "© Gonçalo Carmo, CC BY-SA 4.0";
+  for (const [name, dictionary, reserved] of [["en", en, /name GOCARMO and its use as a brand are reserved/], ["de", de, /Name GOCARMO und seine Verwendung als Marke bleiben vorbehalten/], ["pt", pt, /nome GOCARMO e o seu uso como marca ficam reservados/]]) {
+    assert.ok(dictionary["about.brand"].includes(holder), `${name}: rights holder and licence of the image files`);
+    assert.match(dictionary["about.brand"], reserved, `${name}: the name and the brand stay reserved`);
+  }
+  assert.match(html, /<p class="muted" data-i18n="about\.brand">/, "shown in the About dialog");
+  const note = read("../public/brand/README.md");
+  assert.ok(note.includes("© Gonçalo Carmo"));
+  assert.match(note, /CC BY-SA 4\.0/);
+  assert.match(note, /https:\/\/creativecommons\.org\/licenses\/by-sa\/4\.0\//);
+  assert.match(note, /under the GNU AGPL, version 3 or\s+later/, "the symbol drawn in code follows the code's licence");
+  assert.match(note, /Name and brand: reserved/);
+  assert.match(note, /not upstream \(OpenRadlr\) artwork/);
+  for (const file of ["favicon.svg", "gocarmo-ride.svg", "gocarmo-ride-stacked.svg"]) {
+    const svg = read(`../public/brand/${file}`);
+    assert.ok(svg.includes("GOCARMO artwork © Gonçalo Carmo, licensed under CC BY-SA 4.0"), `${file} carries its notice`);
+    assert.ok(svg.includes("its use as a brand are reserved"), file);
+  }
+  // Nothing in the client claims more: no "all rights reserved", no other holder of the GOCARMO files.
+  for (const dictionary of [en, de, pt]) {
+    for (const [key, text] of Object.entries(dictionary)) assert.doesNotMatch(text, /© GOCARMO|all rights reserved|todos os direitos|alle Rechte vorbehalten/i, key);
+  }
+});
+
 test("no file of upstream's artwork folder is shipped: the fork's own marks live in brand/", () => {
   assert.equal(existsSync(new URL("../public/icons", import.meta.url)), false, "ASSETS-LICENSE.md lists client/public/icons/ for upstream's artwork");
   for (const file of ["favicon.svg", "favicon-32.png", "favicon-64.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "gocarmo-ride.svg"]) {
@@ -75,6 +137,72 @@ test("no file of upstream's artwork folder is shipped: the fork's own marks live
   assert.equal(manifest.name, APP_NAME);
   for (const icon of manifest.icons) assert.ok(icon.src.startsWith("brand/") && existsSync(new URL(`../public/${icon.src}`, import.meta.url)), icon.src);
   assert.doesNotMatch(html + read("../public/sw.js"), /icons\//);
+});
+
+// --- privacy -------------------------------------------------------------------------------
+// The privacy text (privacy.* in the dictionaries) states what the code does. These tests pin
+// the facts it leans on: when one fails, change the text and the code together.
+
+function* clientSources(dir = new URL("../public/js/", import.meta.url).pathname) {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) yield* clientSources(path);
+    else if (name.endsWith(".js")) yield path;
+  }
+}
+const server = (file) => read(`../../server/crates/server/src/${file}`);
+
+test("the privacy text is on the page in the three languages, with who to write to", () => {
+  const dialog = /<dialog id="privacy"[\s\S]*?<\/dialog>/.exec(html)?.[0] ?? "";
+  for (const key of ["privacy.lede", "privacy.who", "privacy.server", "privacy.kept", "privacy.browser", "privacy.cookies", "privacy.strava", "privacy.updated"]) {
+    assert.ok(dialog.includes(`data-i18n="${key}"`), `${key} is shown`);
+    for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) assert.ok(dictionary[key]?.length > 10, `${name} ${key}`);
+  }
+  assert.match(dialog, /<a class="privacy-mail" href="mailto:allez@gocarmo\.com">allez@gocarmo\.com<\/a>/, "the contact gocarmo.com publishes");
+  assert.match(dialog, /<a href="https:\/\/gocarmo\.com\/privacidade\/"[^>]*data-i18n="privacy\.site"/);
+  assert.match(dialog, /<a id="privacy-link"[^>]*hidden[^>]*data-i18n="privacy\.operator"/, "the operator's own policy, when the server names one");
+  assert.match(html, /<footer class="build-line">[\s\S]*?data-privacy-open[\s\S]*?<\/footer>/, "opened from the start screen's foot");
+  assert.match(/<dialog id="about"[\s\S]*?<\/dialog>/.exec(html)[0], /data-privacy-open/, "and from About, so from the ride menu too");
+  for (const dictionary of [en, de, pt]) assert.ok(dictionary["privacy.who"].includes("GOCARMO (Gonçalo Carmo)"));
+  assert.match(pt["privacy.updated"], /12\.11\.2026/);
+});
+
+test("privacy, the browser side: only power and cadence go out while riding, no cookie is written, nothing is fetched from elsewhere", () => {
+  assert.deepEqual(Object.keys(ClientMessages.telemetry({ power: 200, cadence: 90, heartRate: 150 })).sort(), ["cadence", "power", "type"], "heart rate stays in the browser");
+  assert.deepEqual(Object.keys(ClientMessages.join({ name: "Ana", weightKg: 60, ftp: 200, level: 180, publicKey: "k" })).sort(), ["ftp_w", "level_w", "name", "public_key", "type", "weight_kg"], "what a join carries: the text lists each of these");
+  const cookies = [];
+  const elsewhere = [];
+  for (const path of clientSources()) {
+    const code = readFileSync(path, "utf8");
+    if (/document\.cookie/.test(code)) cookies.push(path);
+    if (/\bfetch\(\s*["'`]https?:/.test(code) || /new WebSocket\(\s*["'`]wss?:\/\/[a-z]/.test(code)) elsewhere.push(path);
+  }
+  assert.deepEqual(cookies, [], "the client writes no cookie");
+  assert.deepEqual(elsewhere, [], "the client talks to its own server only");
+  assert.match(read("../public/js/analytics.js"), /const analytics = info\?\.analytics;\n {2}if \(!analytics \|\| loaded\.has\(document\)\) return false;/, "no analytics script unless the server lists one (OPENRADLR_ANALYTICS_DOMAIN, unset on this deployment)");
+  assert.doesNotMatch(html, /<script[^>]+src="https?:|<link[^>]+href="https?:\/\/(?!github\.com)/, "no script, style or font from another host");
+});
+
+test("privacy, the server side: what the text says about logs, memory and the Strava session", () => {
+  // "the name you joined with": the one log line with a rider's name.
+  const named = [...server("runtime.rs").matchAll(/tracing::\w+!\([^;]*\bname\b[^;]*;/g)].map((m) => m[0]);
+  assert.equal(named.length, 1, "privacy.kept names one log line with the rider's name");
+  assert.match(named[0], /"rider joined"/);
+  // "an IP address is noted only when one address opens too many connections".
+  const withIp = [];
+  for (const file of ["http.rs", "connection.rs", "runtime.rs", "guard.rs", "app.rs", "auth.rs", "session.rs"]) {
+    for (const m of server(file).matchAll(/tracing::\w+!\(([^;]*);/g)) if (/%ip\b|\bip\b|forwarded|peer/.test(m[1])) withIp.push(`${file}: ${m[1].replace(/\s+/g, " ").trim()}`);
+  }
+  assert.ok(withIp.length >= 1 && withIp.every((line) => /too many connections/.test(line)), `privacy.kept says an IP address reaches the log only on too many connections; found: ${withIp.join(" | ")}`);
+  // "after about a minute if the connection just dropped".
+  assert.match(server("config.rs"), /reader\.parse\("OPENRADLR_GRACE_S", 60\.0\)/);
+  // "the total distance of all riders together, without names".
+  assert.match(server("stats.rs"), /pub struct Distance \{\s*#\[serde\(default\)\]\s*pub trainer_m: f64,\s*#\[serde\(default\)\]\s*pub paddle_m: f64,\s*\}/);
+  // "a session cookie that lasts 30 days at most"; cookies exist on the Strava routes only.
+  assert.match(server("strava.rs"), /pub const SESSION_SECONDS: i64 = 30 \* 24 \* 3600;/);
+  for (const file of ["http.rs", "connection.rs", "runtime.rs", "session.rs", "app.rs", "headers.rs"]) assert.doesNotMatch(server(file), /SET_COOKIE/, `${file} sets no cookie`);
+  // "Your browser also sends a public key …; the server ignores it": no use of it beyond the message definition.
+  assert.equal([...server("session.rs").matchAll(/public_key/g)].length, 0);
 });
 
 // --- brand ---------------------------------------------------------------------------------
@@ -106,6 +234,50 @@ test("the server's own English event names read in the rider's language; an orga
   assert.equal("icon" in row, false, "no emoji in front of the name");
   setLocale("en");
   assert.equal(eventTitle({ name: "Group ride · Cape Loop", kind: "group_ride" }, "Cape Loop"), "Group ride · Cape Loop");
+});
+
+test("the studio's built-in cues are said in the rider's language; an unknown cue is shown as sent", () => {
+  // Every cue the server's built-in classes can send (server/crates/sim/src/studio.rs) is known to the client.
+  const source = read("../../server/crates/sim/src/studio.rs");
+  const builtin = source.slice(source.indexOf("pub fn builtin_classes()"), source.indexOf("pub struct StudioConfig"));
+  // A cue is the last argument of segment(…)/steady(…): a string followed by the closing bracket.
+  const cues = [...builtin.matchAll(/"([^"]+)"\)/g)].map((m) => m[1]);
+  assert.match(source, /steady\(off\.0, off\.1, off\.2, "Easy, breathe"\)/);
+  cues.push("Easy, breathe");
+  assert.equal(new Set(cues).size, KNOWN_CUES.length, `the server's classes have ${new Set(cues).size} cues, the client knows ${KNOWN_CUES.length}`);
+  for (const cue of cues) assert.ok(KNOWN_CUES.includes(cue), `the client has no translation for the server's cue "${cue}"`);
+  assert.match(source, /format!\("Go! Interval \{i\} of \{repeat\}"\)/, "the interval cue the client's pattern reads");
+  setLocale("en");
+  for (const cue of KNOWN_CUES) assert.equal(cueText(cue), cue, "English stays as the server wrote it");
+  assert.equal(cueText("Go! Interval 5 of 8"), "Go! Interval 5 of 8");
+  setLocale("pt");
+  assert.equal(cueText("Warm up and find your rhythm"), "Aquece e encontra o teu ritmo");
+  assert.equal(cueText("Go! Interval 5 of 8"), "Vai. Intervalo 5 de 8");
+  assert.equal(cueText("Cool down, well done!"), "Arrefece. Bom trabalho.");
+  for (const cue of KNOWN_CUES) assert.notEqual(cueText(cue), cue, `"${cue}" reads in Portuguese`);
+  assert.equal(cueText("Volta ao sol: 3 minutos"), "Volta ao sol: 3 minutos", "an operator's own class keeps its words");
+  const plan = { id: "x", name: "X", segments: [{ duration_s: 60, from: 0.5, to: 0.5, cadence: [85, 95], cue: "Recover, spin it out" }, { duration_s: 60, from: 0.8, to: 0.8, cadence: null, cue: "Settle into tempo" }] };
+  assert.equal(classPosition(plan, 10).cue, "Recupera, pedala solto");
+  assert.equal(classWorkout(plan).segments[1].label, "Entra no ritmo de tempo");
+  setLocale("de");
+  assert.equal(cueText("Go! Interval 2 of 6"), "Los! Intervall 2 von 6");
+});
+
+test("a rider on phone paddles is marked without an emoji, in every language", () => {
+  for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) {
+    for (const key of ["menu.server.withPhones", "menu.riders.withPhones", "panels.paddleShort", "panels.paddleTitle"]) {
+      assert.doesNotMatch(dictionary[key], /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u, `${name} ${key}`);
+    }
+  }
+  setLocale("pt");
+  assert.equal(riderName({ id: 2, name: "Rita", device: "paddle" }), "Rita · telemóvel");
+  assert.equal(riderName({ id: 3, name: "Rui" }), "Rui");
+  setLocale("en");
+  assert.equal(riderName({ id: 2, name: "Rita", device: "paddle" }), "Rita · phone");
+  for (const file of ["../public/js/view/panels.js", "../public/js/view3d/view3d.js", "../public/js/view/startMenu.js"]) {
+    assert.doesNotMatch(read(file), /[\u{1F000}-\u{1FAFF}]/u, `${file}: the badge is drawn by the stylesheet`);
+  }
+  assert.match(read("../public/styles.css"), /\.badge\.badge-paddle,\n\.label3d \.badge\.badge-paddle \{/);
 });
 
 test("phone riders are counted in words in Portuguese", () => {

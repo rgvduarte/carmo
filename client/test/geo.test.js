@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { WORLD_ORIGIN, toLatLon } from "../public/js/route/geo.js";
+import { WORLD_ORIGIN, fromLatLon, toLatLon } from "../public/js/route/geo.js";
 
 /** Great-circle distance in metres (haversine, mean earth radius). */
 function haversine(a, b) {
@@ -42,4 +42,15 @@ test("a 20 km radius around the origin stays clear of Mallorca and Cabrera", () 
   const maxLon = Math.max(...corners.map((c) => c.lon));
   assert.ok(maxLat < 39.3, "south coast of Mallorca is above 39.3° N west of 2.9° E");
   assert.ok(maxLon < 2.9, "Cabrera starts at about 2.9° E");
+});
+
+test("fromLatLon undoes toLatLon, for the world origin and for a route's own", () => {
+  for (const origin of [undefined, { lat: 38, lon: 2.6 }]) {
+    for (const [x, y] of [[0, 0], [12_000, -3_400], [-19_000, 21_000]]) {
+      const { lat, lon } = toLatLon(x, y, origin);
+      const back = fromLatLon(lat, lon, origin);
+      assert.ok(Math.abs(back.x - x) < 1e-6 && Math.abs(back.y - y) < 1e-6);
+    }
+  }
+  assert.deepEqual(fromLatLon(WORLD_ORIGIN.lat, WORLD_ORIGIN.lon), { x: 0, y: 0 });
 });

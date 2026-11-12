@@ -16,6 +16,7 @@ import { toHex } from "./deviceLog.js";
 import { Reconnector } from "./reconnector.js";
 import { t } from "../i18n/i18n.js";
 import { BUILD } from "../build.js";
+import { APP_ID } from "../brand.js";
 import { FIRST_CONNECT_ATTEMPTS, connectGatt } from "./gattConnect.js";
 import { CONTROLLER_RECONNECT_DELAYS_MS } from "./zwiftController.js";
 import { APP_INFO_CHARACTERISTIC, BUTTON_STATE_CHARACTERISTIC, OBC_BUTTONS, OBC_SERVICE, encodeAppInfo, parseButtonState } from "./openBikeControlProtocol.js";
@@ -104,7 +105,7 @@ export class OpenBikeControlController extends Emitter {
   async #sendAppInfo(service) {
     try {
       const info = await service.getCharacteristic(APP_INFO_CHARACTERISTIC);
-      await info.writeValueWithResponse(encodeAppInfo({ appId: "openradlr", appVersion: BUILD.sha, buttons: [...OBC_BUTTONS.keys()] }));
+      await info.writeValueWithResponse(encodeAppInfo({ appId: APP_ID, appVersion: BUILD.sha, buttons: [...OBC_BUTTONS.keys()] }));
     } catch (error) {
       this.#log?.info(`Controller: no app information sent (${error.message})`);
     }

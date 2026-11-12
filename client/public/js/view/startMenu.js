@@ -194,7 +194,7 @@ function element(tag, className, text) {
   return node;
 }
 
-/** "3 riders", or "3 riders · 1 📱" when some of them pedal with phone paddles. */
+/** "3 riders", or "3 riders · 1 on a phone" when some of them pedal with phone paddles. */
 export function routeRiders(route) {
   const riders = route.players ?? 0;
   const phones = Math.min(route.phone_players ?? 0, riders);
