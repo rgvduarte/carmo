@@ -11,7 +11,8 @@ process and app.
 | Page | What it covers |
 | --- | --- |
 | [gocarmo-deploy.md](gocarmo-deploy.md) | Running GOCARMO Ride on `ride.gocarmo.com`: the free host, the two paid fallbacks, the settings, Strava, updating, stopping, the source link |
-| [gocarmo-server-settings.md](gocarmo-server-settings.md) | What the fork's server does differently, every setting it adds, measured values |
+| [gocarmo-server-settings.md](gocarmo-server-settings.md) | What the fork's server does differently, every setting it adds, measured values. Where it differs from [protocol.md](protocol.md) or [deploy.md](deploy.md), this page is the one that holds for the fork |
+| [gocarmo-strava.md](gocarmo-strava.md) | The end of a ride: the finish dialog, what goes to Strava, Strava's rules as the client keeps them, what the server's owner does at Strava |
 
 ## The original project's pages (unchanged)
 

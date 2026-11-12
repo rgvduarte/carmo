@@ -553,7 +553,14 @@ async fn made_up_and_missing_cookies_and_files_get_plain_answers() {
         &format!("openradlr_session={}", "a".repeat(5000)),
     ] {
         let label = &cookie[..cookie.len().min(40)];
-        assert_asks_to_connect_again(&get_with(addr, "/api/me", cookie).await, label);
+        let me = get_with(addr, "/api/me", cookie).await;
+        if cookie.len() <= "openradlr_session=".len() {
+            // No session cookie at all: nobody signed in here, which is no error
+            // (see me_is_quiet_for_a_browser_that_never_signed_in).
+            assert_eq!((me.status, me.body.as_str()), (204, ""), "{label}");
+        } else {
+            assert_asks_to_connect_again(&me, label);
+        }
         assert_asks_to_connect_again(&upload(addr, "?name=Ride", cookie).await, label);
     }
     // Connected, but what arrives is no ride file.
@@ -654,4 +661,38 @@ async fn info_says_whether_the_athlete_limit_still_holds() {
         .json();
     assert_eq!(info["strava"]["enabled"], false);
     assert_eq!(info["strava"]["limited"], true, "nothing to connect to");
+}
+
+/// The page asks `/api/me` on every load. A browser that never signed in gets
+/// an empty answer, not an error; one whose login is gone is told so once and
+/// loses the cookie, so its next load is quiet too.
+#[tokio::test]
+async fn me_is_quiet_for_a_browser_that_never_signed_in() {
+    let (strava_url, _fake) = fake_strava().await;
+    let config = config(&strava_url);
+    let first = start_server(&config).await;
+    let nobody = get_with(first, "/api/me", "").await;
+    assert_eq!(nobody.status, 204);
+    assert_eq!(nobody.body, "");
+    assert!(nobody.set_cookie("openradlr_session").is_none());
+    assert_eq!(get_with(first, "/api/me", "openradlr_session=").await.status, 204);
+    // Another site's cookie is not a session of ours.
+    assert_eq!(get_with(first, "/api/me", "theme=dark").await.status, 204);
+
+    let session = connect(first).await;
+    assert_eq!(get_with(first, "/api/me", &session).await.status, 200);
+
+    // No disk: after a restart the login is gone, the cookie is still sent.
+    let restarted = start_server(&config).await;
+    let gone = get_with(restarted, "/api/me", &session).await;
+    assert_asks_to_connect_again(&gone, "a cookie without a login");
+    let cleared = gone
+        .set_cookie("openradlr_session")
+        .expect("the stale cookie is taken back");
+    assert!(
+        cleared.starts_with("openradlr_session=;") && cleared.contains("Max-Age=0"),
+        "{cleared}"
+    );
+    // The upload routes still say `not_connected` to a browser without a cookie: the finish dialog relies on it.
+    assert_asks_to_connect_again(&upload(restarted, "?name=Ride", "").await, "upload without a cookie");
 }

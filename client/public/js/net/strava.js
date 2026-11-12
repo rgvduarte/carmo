@@ -139,10 +139,10 @@ export class StravaClient {
     this.timeoutSignal = timeoutSignal;
   }
 
-  /** The connected account, or null. */
+  /** The connected account, or null. The server answers 204 to a browser that never signed in, 401 when a login is gone. */
   async me() {
     const response = await this.fetch("/api/me", { cache: "no-store", credentials: "same-origin" });
-    if (!response.ok) return null;
+    if (!response.ok || response.status === 204) return null;
     return response.json();
   }
 

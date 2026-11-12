@@ -45,6 +45,10 @@ also holds for `OPENRADLR_ALLOWED_ORIGINS`, where upstream accepted anything
   instead of "try again". See "Strava".
 - **Identity**: the server no longer calls itself OpenRadlr to Strava or to an
   OpenBikeNet server. See "Identity".
+- **`/api/me`** answers `204` with no body to a browser that sends no session
+  cookie (upstream: `401`). The page asks it on every load, and a `401` there
+  is a red line in every visitor's console. A cookie whose login is gone
+  still gets `401` `not_connected`, once: the answer takes the cookie back.
 
 ## The game inside a page of gocarmo.com
 
@@ -205,7 +209,8 @@ rider who connected earlier presses "Connect" again; Strava skips its consent
 page the second time.
 
 A rider whose login is gone when they press "Upload" gets `401` with
-`{"code":"not_connected"}` from `/api/me`, `/api/strava/upload` and
+`{"code":"not_connected"}` from `/api/me` (which also clears the stale
+cookie), `/api/strava/upload` and
 `/api/strava/upload/{id}`, never a `500`. The client keeps the finished ride in
 the page, shows "connect" next to it and uploads after the rider is back. The
 fork adds the same answer for a login that Strava itself refuses (the rider

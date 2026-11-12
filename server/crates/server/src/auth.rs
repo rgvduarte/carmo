@@ -70,6 +70,12 @@ impl Strava {
         Some((session, account))
     }
 
+    /// Whether the request carries a session cookie at all, valid or not.
+    pub fn has_session_cookie(&self, headers: &HeaderMap) -> bool {
+        let cookies = headers.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok());
+        cookie_value(cookies, SESSION_COOKIE).is_some_and(|value| !value.is_empty())
+    }
+
     /// A valid access token, refreshed first if it is about to expire.
     async fn access_token(&self, account: &Account) -> Result<String, strava_api::StravaError> {
         if !account.needs_refresh(now_s()) {
@@ -334,7 +340,20 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
             can_upload: account.can_upload,
         })
         .into_response(),
-        None => not_connected(),
+        // Nobody has signed in on this browser. The page asks this on every
+        // load, so it is no error: an empty answer, not a 401 in every
+        // visitor's console.
+        None if !strava.has_session_cookie(&headers) => StatusCode::NO_CONTENT.into_response(),
+        // A cookie whose login is gone (the server restarted without a disk,
+        // or the login ran out): say so once and take the cookie back, so
+        // the next load is the case above.
+        None => {
+            let mut response = not_connected();
+            if let Ok(value) = cookie(SESSION_COOKIE, "", "/", 0, strava.secure_cookies).parse() {
+                response.headers_mut().insert(header::SET_COOKIE, value);
+            }
+            response
+        }
     }
 }
 
