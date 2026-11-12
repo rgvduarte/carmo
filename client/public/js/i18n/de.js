@@ -953,4 +953,12 @@ export default {
   "studio.cue.sweetSpot": "Sweet Spot: acht Minuten, finde deinen Rhythmus",
   "studio.cue.blockTwo": "Block zwei: halten, runder Tritt",
   "panels.paddleShort": "Handy",
+  "finish.avgSpeed": "Ø Geschwindigkeit",
+  "finish.wkg": "Ø W/kg",
+  "finish.maxHeartRate": "Max. Herzfrequenz",
+  "finish.avgCadence": "Ø Trittfrequenz",
+  "card.north": "N",
+  "card.start": "Start",
+  "card.finish": "Ziel",
+  "card.zones": "Zeit in Leistungszonen",
 };

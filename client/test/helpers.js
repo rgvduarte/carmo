@@ -163,3 +163,31 @@ export function fitMessages(bytes) {
   }
   return messages;
 }
+
+/**
+ * A canvas document whose 2D context records what is drawn on it: every text
+ * with its position, alignment, font and width, and every font and line set.
+ * A text is as wide as its letters at 0.6 of the font size.
+ */
+export function recordingDoc() {
+  const texts = [];
+  const fonts = [];
+  const state = { font: "10px sans-serif", textAlign: "left", letterSpacing: "0px" };
+  const sizeOf = (font) => Number(/([\d.]+)px/.exec(font)[1]);
+  const ctx = new Proxy(state, {
+    get(target, key) {
+      if (key in target) return target[key];
+      if (key === "measureText") return (text) => ({ width: text.length * sizeOf(target.font) * 0.6 });
+      if (key === "fillText") return (text, x, y) => texts.push({ text, x, y, align: target.textAlign, font: target.font, size: sizeOf(target.font), width: ctx.measureText(text).width });
+      if (key === "createLinearGradient") return () => ({ addColorStop() {} });
+      return () => {};
+    },
+    set(target, key, value) {
+      target[key] = value;
+      if (key === "font") fonts.push(value);
+      return true;
+    },
+  });
+  const canvas = { width: 0, height: 0, getContext: () => ctx };
+  return { doc: { createElement: () => canvas }, texts, fonts };
+}

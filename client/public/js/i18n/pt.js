@@ -955,4 +955,12 @@ export default {
   "studio.cue.sweetSpot": "Sweet spot: oito minutos, encontra o teu ritmo",
   "studio.cue.blockTwo": "Segundo bloco: aguenta, pedalada redonda",
   "panels.paddleShort": "telemóvel",
+  "finish.avgSpeed": "Vel. média",
+  "finish.wkg": "W/kg médio",
+  "finish.maxHeartRate": "FC máx.",
+  "finish.avgCadence": "Cadência média",
+  "card.north": "N",
+  "card.start": "Início",
+  "card.finish": "Fim",
+  "card.zones": "Tempo nas zonas de potência",
 };

@@ -32,3 +32,19 @@ export function toLatLon(x, y, origin = WORLD_ORIGIN) {
   const lon = origin.lon + (x / (EARTH_RADIUS_M * Math.cos(midLat / DEG))) * DEG;
   return { lat, lon };
 }
+
+/**
+ * The world position of a latitude and longitude: the inverse of `toLatLon`,
+ * used to draw a recorded ride back onto its route (the ride image's map).
+ * @param {number} lat degrees
+ * @param {number} lon degrees
+ * @param {{lat: number, lon: number}} [origin] the origin the positions were exported with
+ * @returns {{x: number, y: number}} metres east and north of the origin
+ */
+export function fromLatLon(lat, lon, origin = WORLD_ORIGIN) {
+  const midLat = (origin.lat + lat) / 2;
+  return {
+    x: ((lon - origin.lon) / DEG) * EARTH_RADIUS_M * Math.cos(midLat / DEG),
+    y: ((lat - origin.lat) / DEG) * EARTH_RADIUS_M,
+  };
+}

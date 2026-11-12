@@ -1,9 +1,10 @@
 /**
- * Ride photos: snapshots of the world with a small stats overlay, and a
- * summary card for the end of the ride. Both are drawn on a 2D canvas (no
- * DOM screenshot), so they look the same on every device and are ready to
- * attach to a Strava activity. The browser keeps them in memory until the
- * page is closed; the finish dialog lists them for download or sharing.
+ * Ride photos: snapshots of the world with a small stats overlay. They are
+ * drawn on a 2D canvas (no DOM screenshot), so they look the same on every
+ * device. The browser keeps them in memory until the page is closed; the
+ * finish dialog lists them for download or sharing, next to the ride image
+ * (view/rideCard.js), which takes its lockup, colours and fonts from here.
+ * Strava's API takes no pictures: the rider adds them to the activity by hand.
  */
 
 import { formatDistanceWithUnit, formatDuration, formatNumber, formatSpeed, speedUnit } from "../util/format.js";
@@ -12,18 +13,19 @@ import { intlLocale, t } from "../i18n/i18n.js";
 
 export const MAX_PHOTOS = 30;
 const SANS = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; // i18n-ok
-const NUM = '"GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
-const DISPLAY = '"Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
-const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace'; // i18n-ok
-// gocarmo.com's palette: near-black, off-white ink, muted, gold.
-const BG = "#0b0b0c";
-const INK = "#f2f1ec";
-const MUTED = "#a3a29c";
+/** Numbers: Anton with the digit 1 as wide as the others (the cut the skin ships), one weight. */
+export const NUM = '"GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+export const DISPLAY = '"Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+export const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace'; // i18n-ok
+// gocarmo.com's palette: near-black, off-white ink, muted, one gold.
+export const BG = "#0b0b0c";
+export const INK = "#f2f1ec";
+export const MUTED = "#a3a29c";
 const DIM = "#8a8983";
 const MUTED_ON_PHOTO = "rgba(242, 241, 236, 0.78)";
-const ACCENT = "#e6b450";
+export const ACCENT = "#e6b450";
 /** The slant of the site's titles and of the lockup: 10 degrees. */
-const SLANT = Math.tan((10 * Math.PI) / 180);
+export const SLANT = Math.tan((10 * Math.PI) / 180);
 
 /** "gocarmo-ride-2026-10-14-1530-rolling-hills-3.png" */
 export function photoFileName(t, routeId = "ride", suffix = "") {
@@ -41,7 +43,7 @@ export function photoFileName(t, routeId = "ride", suffix = "") {
 export class PhotoAlbum {
   /** @type {{id: number, blob: Blob, url: string, name: string, takenAt: number}[]} */
   photos = [];
-  /** The ride's summary card, regenerated whenever the finish dialog opens. */
+  /** The ride image (view/rideCard.js) in the format on show, drawn when the finish dialog opens. */
   summary = null;
   #nextId = 1;
 
@@ -52,12 +54,12 @@ export class PhotoAlbum {
     this.revokeUrl = revokeUrl;
   }
 
-  /** Number of photos taken (the summary image doesn't count). */
+  /** Number of photos taken (the ride image doesn't count). */
   get size() {
     return this.photos.length;
   }
 
-  /** Everything to download or share: the summary first, then the photos. */
+  /** Every image of the ride: the ride image first, then the photos. */
   get images() {
     return this.summary ? [this.summary, ...this.photos] : [...this.photos];
   }
@@ -83,7 +85,7 @@ export class PhotoAlbum {
     return true;
   }
 
-  /** Drops every photo and the summary card, e.g. when a new ride starts. */
+  /** Drops every photo and the ride image, e.g. when a new ride starts. */
   clear() {
     for (const image of this.images) this.revokeUrl(image.url);
     this.photos = [];
@@ -143,19 +145,26 @@ export function grabScene(source, doc = document) {
   return canvas;
 }
 
-/** The fonts the images are drawn in; a canvas falls back silently when one is not loaded yet. */
-export function photoFontsReady(doc = document) {
+/**
+ * Loads the fonts the images are drawn in: a canvas falls back silently to
+ * another face when one is not there yet. `text` is what will be drawn, so the
+ * right subset (Latin, or Latin Extended for a name like "Łódź") is fetched.
+ * Each face is asked for at its real weight: Anton has one (400), and a canvas
+ * asked for a bolder one would smear it.
+ */
+export function photoFontsReady(doc = document, text = "") {
   if (!doc.fonts?.load) return Promise.resolve();
-  return Promise.all([`400 40px ${DISPLAY}`, `400 40px ${NUM}`, `500 20px ${MONO}`, `500 20px ${SANS}`].map((font) => doc.fonts.load(font))).catch(() => {});
+  const sample = `${text} 0123456789`;
+  return Promise.all([`400 40px ${DISPLAY}`, `400 40px ${NUM}`, `500 20px ${MONO}`, `500 20px ${SANS}`].map((font) => doc.fonts.load(font, sample))).catch(() => {});
 }
 
 /** Sets the tracking of caps labels where the canvas supports it. */
-function track(ctx, em, size) {
+export function track(ctx, em, size) {
   if ("letterSpacing" in ctx) ctx.letterSpacing = `${(em * size).toFixed(2)}px`;
 }
 
 /** Text slanted like the site's titles (Anton has no italic of its own): sheared about its baseline, so `x`, `y` stay real page coordinates. */
-function slanted(ctx, text, x, y) {
+export function slanted(ctx, text, x, y) {
   ctx.save();
   ctx.transform(1, 0, -SLANT, 1, SLANT * y, 0);
   ctx.fillText(text, x, y);
@@ -167,7 +176,7 @@ function slanted(ctx, text, x, y) {
  * "RIDE" in gold. `height` is the symbol's; the baseline of the name is `y`.
  * @returns {number} the width drawn
  */
-function lockup(ctx, x, y, height) {
+export function lockup(ctx, x, y, height) {
   let at = x;
   if (typeof Path2D === "function") {
     const k = height / BRAND_SYMBOL.size;

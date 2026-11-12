@@ -953,4 +953,12 @@ export default {
   "studio.cue.sweetSpot": "Sweet spot: eight minutes, find your groove",
   "studio.cue.blockTwo": "Block two: hold it, smooth pedalling",
   "panels.paddleShort": "phone",
+  "finish.avgSpeed": "Avg speed",
+  "finish.wkg": "Avg W/kg",
+  "finish.maxHeartRate": "Max heart rate",
+  "finish.avgCadence": "Avg cadence",
+  "card.north": "N",
+  "card.start": "Start",
+  "card.finish": "Finish",
+  "card.zones": "Time in power zones",
 };
