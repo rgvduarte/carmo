@@ -65,12 +65,18 @@ jobs:
           if ! flyctl status --app "$FLY_APP" >/dev/null 2>&1; then
             flyctl apps create "$FLY_APP" --org "$FLY_ORG"
           fi
-          if ! flyctl volumes list --app "$FLY_APP" --json | grep -q "$RIDE_VOLUME"; then
-            flyctl volumes create "$RIDE_VOLUME" --app "$FLY_APP" --region "$region" --size 1 --yes
-          fi
-          if ! flyctl certs list --app "$FLY_APP" | grep -q "$RIDE_HOST"; then
-            flyctl certs add "$RIDE_HOST" --app "$FLY_APP"
-          fi
+          # Read each list in full first: with `pipefail`, a `grep -q` that stops
+          # early could make a list that holds the name look like a failure.
+          volumes=$(flyctl volumes list --app "$FLY_APP" --json)
+          case "$volumes" in
+            *"$RIDE_VOLUME"*) ;;
+            *) flyctl volumes create "$RIDE_VOLUME" --app "$FLY_APP" --region "$region" --size 1 --yes ;;
+          esac
+          certs=$(flyctl certs list --app "$FLY_APP")
+          case "$certs" in
+            *"$RIDE_HOST"*) ;;
+            *) flyctl certs add "$RIDE_HOST" --app "$FLY_APP" ;;
+          esac
 
       # The commit goes into the image as its build label, so the game's
       # "Source code" link points at exactly this commit.
