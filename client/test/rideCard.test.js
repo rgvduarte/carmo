@@ -13,8 +13,8 @@ import { recordingDoc, squareRoute, tinyNetworkFile } from "./helpers.js";
 
 const START = new Date(2026, 10, 12, 18, 42).getTime();
 
-function model({ seconds = 1500, sensors = true, routeName = "Col de la Forge", riderName = "Gonçalo", ftpSource = "typed", studio = false } = {}) {
-  const route = squareRoute();
+function model({ seconds = 1500, sensors = true, routeName = "Col de la Forge", riderName = "Gonçalo", ftpSource = "typed", studio = false, routeId = "square" } = {}) {
+  const route = squareRoute(routeId);
   const recorder = new RideRecorder();
   for (let s = 0; s <= seconds; s += 1) {
     const d = s * 9;
@@ -43,6 +43,7 @@ const CASES = {
   "a long route name and a long rider name": { routeName: LONG, riderName: "Maria Francisca de Vasconcelos" },
   "no rider name": { riderName: "" },
   "a studio class": { studio: true, routeName: "Spin Studio · HIIT 30/30" },
+  "a route made from OpenStreetMap and Copernicus data": { routeId: "lanzarote-lava-180", routeName: "Lanzarote Lava 180" },
 };
 
 test("the image comes in two sizes: upright 1080 × 1350 and wide 1600 × 900", () => {
@@ -100,6 +101,20 @@ test("nothing on the image is another's mark: no Strava, no OpenRadlr, no lemon"
     const { doc, texts } = recordingDoc();
     composeRideCard(model(options), CARD_FORMATS.portrait, doc);
     for (const { text } of texts) assert.doesNotMatch(text, /strava|openradlr|lemon|zwift/i);
+  }
+});
+
+test("a route made from OpenStreetMap and Copernicus data carries their notice on the image, in both sizes", () => {
+  for (const format of Object.values(CARD_FORMATS)) {
+    const { doc, texts } = recordingDoc();
+    composeRideCard(model({ routeId: "lanzarote-lava-180", routeName: "Lanzarote Lava 180" }), format, doc);
+    const written = texts.map((entry) => entry.text).join(" ");
+    assert.ok(written.includes("© OpenStreetMap contributors, ODbL"), format.id);
+    assert.ok(written.includes("Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"), `${format.id}: the Copernicus notice, word for word`);
+    assert.ok(written.includes("gocarmo.com/ride"), format.id);
+    const plain = recordingDoc();
+    composeRideCard(model(), format, plain.doc);
+    assert.ok(!plain.texts.some((entry) => /OpenStreetMap|Copernicus/.test(entry.text)), `${format.id}: a route GOCARMO Ride or the original drew carries none`);
   }
 });
 

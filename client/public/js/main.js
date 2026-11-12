@@ -76,7 +76,7 @@ import {
 import { appendFeed, describeEvent, inRace, nearbyRiders, onlineSummary, raceCaption, raceStatus, renderResults, renderRiderList, riderName, riderSections } from "./view/panels.js";
 import { PhotoAlbum, canShareFiles, canvasToPng, composePhoto, downloadBlob, grabScene, photoActions, photoFileName, photoFontsReady, photoStats } from "./view/photos.js";
 import { composeRideCard, mapContext, rideCardFontsReady } from "./view/rideCard.js";
-import { CARD_FORMATS, cardMetrics, rideCardModel } from "./view/rideCardModel.js";
+import { CARD_FORMATS, cardMetrics, rideCardModel, routeDataCredit } from "./view/rideCardModel.js";
 import { drawRideMap } from "./view/rideMapView.js";
 import { renderSplits } from "./view/splitsView.js";
 import { drawProfile, drawUpcoming } from "./view/profileView.js";
@@ -3396,7 +3396,7 @@ function takePhoto() {
     try {
       const takenAt = Date.now();
       await photoFontsReady();
-      const photo = composePhoto(scene, { routeName: app.route.name, stats, when: new Date(takenAt) });
+      const photo = composePhoto(scene, { routeName: app.route.name, stats, when: new Date(takenAt), credit: routeDataCredit(app.rideRoute?.id) });
       const blob = await canvasToPng(photo);
       const name = photoFileName(takenAt, app.rideRoute.id, app.album.size + 1);
       app.album.add(blob, { name, takenAt });

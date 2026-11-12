@@ -21,7 +21,7 @@ Ride is not developed, sponsored or endorsed by Strava. A fork that does not
 use Strava's API should remove this folder and the three links to it in
 `index.html`.
 
-## What the game keeps to (checked by `client/test/gocarmoRide.test.js`)
+## What the game keeps to (checked by `client/test/stravaRules.test.js`)
 
 - The button is shown as provided, 237 × 48 px: not restyled, recoloured,
   cropped or animated.

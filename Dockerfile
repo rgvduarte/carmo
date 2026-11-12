@@ -14,7 +14,7 @@ COPY server/crates ./crates
 
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/build/target \
-    cargo build --release --bin openradlr-server \
+    cargo build --release --locked --bin openradlr-server \
     && cp target/release/openradlr-server /usr/local/bin/openradlr-server
 
 # --- Runtime -----------------------------------------------------------------

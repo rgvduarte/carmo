@@ -313,6 +313,29 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   `gocarmoRide.test.js` (privacy, logo licence, source links, cues); others
   follow the changes above.
 
+### 12.11.2026 — after the publication reviews
+
+- **History**: the branch's history starts with the original project's own
+  commits (up to `2b09a79`, with their authors); the fork's changes follow.
+  Before, the original's code came in as one commit of the fork's committer.
+- **Credits that leave the game**: the ride image and the ride photos of
+  Lanzarote Lava 180 carry the OpenStreetMap and Copernicus notice
+  (`ROUTE_DATA_CREDIT` in `js/view/rideCardModel.js`, `js/view/rideCard.js`,
+  `js/view/photos.js`); the Copernicus notice is its owners' wording for
+  adapted data, word for word, in the About dialog too.
+- **Tools**: `client/tools/make-arch-mark.cjs` writes
+  `js/view3d/gocarmoMark.js` from the lockup (the file says so, and how to
+  run it). It is not part of the image.
+- **Repository**: the README says where security reports go, that only this
+  branch is under these licences, and that the product names the game
+  mentions belong to their owners (also in the About dialog, key
+  `about.marks`); `AGENTS.md` has a block on top naming this repository;
+  `tools/lanzarote.mjs` names the fork in its `User-Agent`; the package and
+  crate descriptions name the fork. The Docker build and the CI use the
+  committed `Cargo.lock` (`--locked`). `make up` labels a build with
+  uncommitted changes `dev`, so its source link opens the branch.
+- **Texts**: two English and German texts of the fork lost their "!".
+
 ## Third-party material added by this fork
 
 - **Fonts** in `client/public/fonts/`: Anton (© The Anton Project Authors),
@@ -339,10 +362,15 @@ is described in `docs/gocarmo-server-settings.md`; in short:
 - **Map data of one route.** `routes/lanzarote-lava-180.json` (and its source
   in `routes/sources/`) was made by upstream from OpenStreetMap and Copernicus
   data (`docs/routes.md`). Lanzarote Lava 180: Road geometry © OpenStreetMap
-  contributors, ODbL. Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014
-  and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by
-  the European Union and ESA. The same credit shows in the game's About
-  dialog (`about.data`).
+  contributors, ODbL. Elevation produced using Copernicus WorldDEM-30 © DLR
+  e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under
+  COPERNICUS by the European Union and ESA; all rights reserved. The same
+  credit shows in the game's About dialog (`about.data`), and on the ride
+  image and the ride photos of that route (`ROUTE_DATA_CREDIT` in
+  `client/public/js/view/rideCardModel.js`), which leave the game. The road
+  geometry in these files stays under the Open Database License 1.0
+  (<https://opendatacommons.org/licenses/odbl/1-0/>), not under the AGPL; the
+  elevation under the Copernicus DEM licence.
 - **Rust libraries.** The server is built from the libraries listed in
   `server/Cargo.lock`, each under its own permissive licence, as in the
   original. The server runs on GOCARMO's host and the Docker image is built
@@ -367,10 +395,11 @@ gocarmo.com, the way "OpenRadlr" and the lemon identify the original.
   under the GNU AGPL, version 3 or later, like the rest of the code.
 - **The name and the use as a brand are reserved.** These licences cover the
   copyright in the files and in the code, not the name or the symbol as a
-  brand (AGPL section 7(e)); this is the model the original uses for its
-  lemon. They give no right to use "GOCARMO", "GOCARMO Ride" or the symbol as
-  the name, logo or app icon of another product or service. A fork of this
-  fork picks its own name and icon.
+  brand (AGPL section 7(e) for the code; CC BY-SA 4.0 section 2(b)(2) for the
+  image files); this is the model the original uses for its lemon. They give
+  no right to use "GOCARMO", "GOCARMO Ride" or the symbol as the name, logo
+  or app icon of another product or service. A fork of this fork picks its
+  own name and icon.
 
 `ASSETS-LICENSE.md` is the original project's text, kept unchanged. It
 describes the original's artwork, not GOCARMO's. Of the folders it lists:
@@ -389,10 +418,15 @@ describes the original's artwork, not GOCARMO's. Of the folders it lists:
   reference. Some of their links point at `landing/` and `app/`, which this
   fork removed.
 - `LICENSE`, `ASSETS-LICENSE.md`, `TRADEMARKS.md`, `CONTRIBUTING.md`,
-  `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md` and `AGENTS.md` are the
-  original's files, unchanged. Where they say "this repository" or name
-  maintainers, they mean the original project. Problems with GOCARMO Ride go
-  to GOCARMO, not to the original project.
+  `CODE_OF_CONDUCT.md`, `SECURITY.md` and `CHANGELOG.md` are the original's
+  files, unchanged. `AGENTS.md` is the original's too, with a short block on
+  top that says which repository this checkout is. Where they say "this
+  repository" or name maintainers, they mean the original project. Problems
+  with GOCARMO Ride, security reports included, go to GOCARMO
+  (allez@gocarmo.com), not to the original project.
+- Strava, Wahoo, Garmin and the other product names the game mentions belong
+  to their owners and only say what the game works with; GOCARMO Ride is not
+  affiliated with, sponsored or endorsed by any of them.
 - Internal names are the original's: the settings start with `OPENRADLR_`,
   the server binary is `openradlr-server`, and the Docker Compose project,
   the image, the volumes and the cookies keep their names.

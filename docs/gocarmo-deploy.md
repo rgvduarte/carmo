@@ -44,7 +44,10 @@ holds by itself there. On a VPS use `make update`: it refuses to run with
 uncommitted changes and builds what it pulled. Never edit files on the server.
 
 Never force-push or rewrite `gocarmo-ride`: a build that is still running, or
-a rider's cached page, links to a commit that must stay reachable.
+a rider's cached page, links to a commit that must stay reachable. Never
+delete the branch or make the repository private while the game runs. To make
+the site repository private, first move the fork to a public repository of its
+own, change `SOURCE_REPO` in `client/public/js/view/about.js`, and deploy.
 
 Before the first push, and before every later one, the owner's standing rule
 applies: what the original project asks in `LICENSE`, `ASSETS-LICENSE.md`,

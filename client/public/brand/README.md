@@ -16,9 +16,10 @@ cover them.
 - **Name and brand: reserved.** "GOCARMO", "GOCARMO Ride" and the symbol
   identify this fork and gocarmo.com, the way "OpenRadlr" and its lemon
   identify the original. The licences above cover the copyright in the files,
-  not the name or the symbol as a brand (AGPL section 7(e)). They give no right
-  to use them as the name, logo or app icon of another product or service: a
-  fork of this fork picks its own name and icon.
+  not the name or the symbol as a brand (AGPL section 7(e) for the code;
+  CC BY-SA 4.0 section 2(b)(2) for the image files). They give no right to use
+  them as the name, logo or app icon of another product or service: a fork of
+  this fork picks its own name and icon.
 
 The lettering is Anton (SIL Open Font License 1.1, see `../fonts/anton-OFL.txt`),
 converted to outlines.

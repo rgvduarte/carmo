@@ -1,3 +1,8 @@
+> **This checkout is GOCARMO Ride**, a fork of OpenRadlr: repository
+> `rgvduarte/carmo`, branch `gocarmo-ride` (see `README.md` and `NOTICE.md`).
+> Never open issues or pull requests on `Lethonium/OpenRadlr` for it. The rest
+> of this file is the original project's, unchanged.
+
 # AGENTS.md — OpenRadlr
 
 Guidance for AI agents working in this repo. **Read `CONTRIBUTING.md` first** — it

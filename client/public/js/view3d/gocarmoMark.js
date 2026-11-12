@@ -4,7 +4,10 @@
  * written in small quads (see banners.js). "#" is ink (the moon, the letters),
  * "o" is gold (the sun), "." is empty. Generated from the lockup's outlines
  * (client/public/brand/gocarmo-ride.svg, without its small "RIDE" tag, which
- * would not read at this size); do not edit by hand.
+ * would not read at this size); do not edit by hand: regenerate from client/
+ * with `node tools/make-arch-mark.cjs public/brand/gocarmo-ride.svg public/js/view3d/gocarmoMark.js 32`.
+ * Under the AGPL; the GOCARMO name and symbol as a brand are reserved (AGPL
+ * section 7(e)), see client/public/brand/README.md.
  */
 export const ARCH_MARK = Object.freeze([
   "....................oo................................................................................................................",

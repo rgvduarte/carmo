@@ -82,7 +82,8 @@ test("the credits say which licence, that later versions apply, what a rider may
     }
     assert.ok(dictionary["about.modified"].includes("2b09a79") && dictionary["about.modified"].includes("12.11.2026"), `${name}: which version, changed since when`);
     assert.ok(dictionary["about.data"].includes("© OpenStreetMap contributors, ODbL"), `${name}: map data credit`);
-    assert.ok(dictionary["about.data"].includes("Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA."), `${name}: elevation credit, verbatim`);
+    // Copernicus's own wording for adapted data (the route's heights are resampled and smoothed), word for word.
+    assert.ok(dictionary["about.data"].includes("produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved."), `${name}: elevation credit, verbatim`);
   }
   assert.match(pt["about.modified"], /Não é o OpenRadlr oficial/);
   assert.match(pt["about.modified"], /podes usá-lo, alterá-lo e partilhá-lo/);
@@ -124,7 +125,11 @@ test("the GOCARMO artwork says whose it is: image files CC BY-SA 4.0, name and b
   }
   // Nothing in the client claims more: no "all rights reserved", no other holder of the GOCARMO files.
   for (const dictionary of [en, de, pt]) {
-    for (const [key, text] of Object.entries(dictionary)) assert.doesNotMatch(text, /© GOCARMO|all rights reserved|todos os direitos|alle Rechte vorbehalten/i, key);
+    for (const [key, text] of Object.entries(dictionary)) {
+      if (key === "about.data") continue; // a third party's required notice (Copernicus), not a claim of this fork
+      assert.doesNotMatch(text, /© GOCARMO|all rights reserved|todos os direitos|alle Rechte vorbehalten/i, key);
+    }
+    assert.doesNotMatch(dictionary["about.data"], /© GOCARMO|todos os direitos|alle Rechte vorbehalten/i);
   }
 });
 

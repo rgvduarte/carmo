@@ -211,9 +211,12 @@ export function lockup(ctx, x, y, height) {
  * photo has the name left and the stats right; an upright one (a phone) stacks
  * them, so the route's name and three stats fit its width.
  * @param {HTMLCanvasElement} scene from grabScene
- * @param {{routeName: string, stats: [string, string][], when: Date}} info
+ * A route made from others' data (`credit`, see ROUTE_DATA_CREDIT in
+ * rideCardModel.js) has their notice in small lines under the date: the photo
+ * shows that data and leaves the game.
+ * @param {{routeName: string, stats: [string, string][], when: Date, credit?: ?string}} info
  */
-export function composePhoto(scene, { routeName, stats, when }, doc = document) {
+export function composePhoto(scene, { routeName, stats, when, credit = null }, doc = document) {
   const canvas = doc.createElement("canvas");
   canvas.width = scene.width;
   canvas.height = scene.height;
@@ -287,17 +290,40 @@ export function composePhoto(scene, { routeName, stats, when }, doc = document) 
   }
 
   // The date stands on the sky: a faint veil from the top keeps it readable on a bright one.
-  const veil = ctx.createLinearGradient(0, 0, 0, pad + 60 * u);
-  veil.addColorStop(0, "rgba(11, 11, 12, 0.42)");
+  const creditSize = 9 * u;
+  const creditLineH = 12 * u;
+  ctx.font = `500 ${creditSize}px ${MONO}`;
+  const creditLines = credit ? wrapToWidth(ctx, credit, w - 2 * pad) : [];
+  const veilH = pad + 60 * u + creditLines.length * creditLineH;
+  const veil = ctx.createLinearGradient(0, 0, 0, veilH);
+  veil.addColorStop(0, `rgba(11, 11, 12, ${creditLines.length ? 0.55 : 0.42})`);
   veil.addColorStop(1, "rgba(11, 11, 12, 0)");
   ctx.fillStyle = veil;
-  ctx.fillRect(0, 0, w, pad + 60 * u);
+  ctx.fillRect(0, 0, w, veilH);
   ctx.textAlign = "right";
   ctx.fillStyle = INK;
   ctx.font = `500 ${12 * u}px ${MONO}`;
   ctx.fillText(when.toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 12 * u);
   ctx.textAlign = "left";
+  ctx.fillStyle = MUTED_ON_PHOTO;
+  ctx.font = `500 ${creditSize}px ${MONO}`;
+  creditLines.forEach((line, i) => ctx.fillText(line, pad, pad + 12 * u + 10 * u + (i + 1) * creditLineH - 3 * u));
   return canvas;
+}
+
+/** Splits text at spaces into lines no wider than `maxWidth` in the context's current font. */
+function wrapToWidth(ctx, text, maxWidth) {
+  const lines = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && ctx.measureText(next).width > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 
 /** Shortens text with an ellipsis until it fits `maxWidth`. */

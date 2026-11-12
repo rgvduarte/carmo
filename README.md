@@ -16,7 +16,11 @@ with or endorsed by its authors.
   [NOTICE.md](NOTICE.md).
 - **Source of the running game**: this branch, `gocarmo-ride`, of
   <https://github.com/rgvduarte/carmo>. The game's "Source code" link opens
-  the commit that is running.
+  the commit that is running. Its history starts with the original project's
+  own commits, up to `2b09a79`; the fork's changes follow.
+- **Only this branch is under these licences.** The repository's default
+  branch and its other branches hold the gocarmo.com site, which is not part
+  of GOCARMO Ride and is not under the AGPL.
 
 ## Where things are
 
@@ -50,3 +54,10 @@ make check   # lint and all tests
   [NOTICE.md](NOTICE.md).
 - Problems with GOCARMO Ride go to GOCARMO (gocarmo.com), not to the OpenRadlr
   project: its authors did not make these changes.
+- **Security problems** in GOCARMO Ride or on ride.gocarmo.com: write to
+  allez@gocarmo.com, not in a public issue, and not to the OpenRadlr project.
+  `SECURITY.md`, `CODE_OF_CONDUCT.md` and `CONTRIBUTING.md` are the original
+  project's files and describe its own process.
+- Strava, Wahoo, Garmin and the other product names the game mentions belong
+  to their owners and only say what the game works with. GOCARMO Ride is not
+  affiliated with, sponsored or endorsed by any of them.

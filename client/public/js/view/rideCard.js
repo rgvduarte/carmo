@@ -9,7 +9,7 @@
  */
 
 import { ACCENT, BG, DISPLAY, INK, MONO, MUTED, NUM, SLANT, lockup, photoFontsReady, slanted, track } from "./photos.js";
-import { CARD_FORMATS, boundsOf, cardLayout, fitText, fitTitle, headerMetrics, mapProjection, metricGrids, scaleBar, thinTrack } from "./rideCardModel.js";
+import { CARD_FORMATS, CREDIT_LINE_H, CREDIT_SIZE, boundsOf, cardLayout, fitText, fitTitle, headerMetrics, mapProjection, metricGrids, scaleBar, thinTrack } from "./rideCardModel.js";
 import { coastOutline, islandOf } from "./mapPreview.js";
 import { elevationUnit, formatDistanceWithUnit, formatDuration, formatNumber } from "../util/format.js";
 import { t } from "../i18n/i18n.js";
@@ -50,7 +50,7 @@ export function mapContext(route, { network = null, routes = [] } = {}) {
 
 /** Loads the fonts for everything the image will write. */
 export function rideCardFontsReady(model, doc = document) {
-  const text = [model.title, model.title.toUpperCase(), model.riderName.toUpperCase(), model.date, ...model.metrics.flatMap((metric) => [metric.label.toUpperCase(), metric.value, metric.unit])].join(" ");
+  const text = [model.title, model.title.toUpperCase(), model.riderName.toUpperCase(), model.date, model.credit ?? "", ...model.metrics.flatMap((metric) => [metric.label.toUpperCase(), metric.value, metric.unit])].join(" ");
   return photoFontsReady(doc, text);
 }
 
@@ -62,6 +62,21 @@ function roundedRect(ctx, { x, y, w, h }, radius) {
   ctx.arcTo(x, y + h, x, y, radius);
   ctx.arcTo(x, y, x + w, y, radius);
   ctx.closePath();
+}
+
+/** Splits `text` at spaces into lines no wider than `maxWidth` at `size` (a word longer than that keeps a line of its own). */
+export function wrapWords(measure, text, maxWidth, size) {
+  const lines = [];
+  let line = "";
+  for (const word of text.split(" ")) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && measure(next, size) > maxWidth) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
 }
 
 /** A caps label in the mono face, tracked; returns its width. */
@@ -388,7 +403,11 @@ export function composeRideCard(model, format = CARD_FORMATS.portrait, doc = doc
   ctx.textAlign = "left";
 
   const wide = format.id === "landscape";
-  const content = { metricCount: model.metrics.length, zones: Boolean(model.zones), map: Boolean(model.map) };
+  // The data credit of the route, if it has one, wrapped to the footer's width.
+  const creditSize = CREDIT_SIZE[format.id];
+  const footerW = cardLayout(format, { metricCount: model.metrics.length, zones: false, map: false }).footer.w;
+  const credit = model.credit ? wrapWords(measureWith(ctx, MONO, 500), model.credit, footerW, creditSize) : [];
+  const content = { metricCount: model.metrics.length, zones: Boolean(model.zones), map: Boolean(model.map), creditLines: credit.length };
   const headerW = cardLayout(format, content).header.w;
   // A slanted line leans to the right by a part of its height: leave it that room.
   const display = measureWith(ctx, DISPLAY, 400);
@@ -404,6 +423,7 @@ export function composeRideCard(model, format = CARD_FORMATS.portrait, doc = doc
   drawMetrics(ctx, model.metrics.slice(0, primaryCount), layout.primary, { valueSize: wide ? 72 : 70, labelSize: wide ? 15 : 16 });
   drawMetrics(ctx, model.metrics.slice(primaryCount), layout.secondary, { valueSize: wide ? 42 : 44, labelSize: wide ? 13.5 : 14.5 });
   if (layout.zones) drawZones(ctx, model, layout.zones);
+  credit.forEach((line, i) => label(ctx, line, layout.footer.x, layout.footer.y + (i + 1) * CREDIT_LINE_H[format.id] - 4, { size: creditSize, tracking: 0 }));
   label(ctx, CARD_FOOTER, layout.footer.x, layout.footer.y + layout.footer.h - 3, { size: wide ? 17 : 19, colour: INK, tracking: 0.06 });
   return canvas;
 }

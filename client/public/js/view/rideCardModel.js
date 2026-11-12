@@ -18,6 +18,20 @@ export const CARD_FORMATS = Object.freeze({
   landscape: Object.freeze({ id: "landscape", width: 1600, height: 900 }),
 });
 
+/**
+ * Routes made from third parties' data, and the notice their licences ask for
+ * wherever that data is shown to the public: the ride image and the ride's
+ * photos leave the game, so they carry it themselves (the About dialog covers
+ * only the game). OpenStreetMap: ODbL 1.0, section 4.3; the elevation: the
+ * Copernicus DEM licence, its wording for adapted data, word for word.
+ */
+export const ROUTE_DATA_CREDIT = Object.freeze({
+  "lanzarote-lava-180": "© OpenStreetMap contributors, ODbL · Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved", // i18n-ok (a licence notice, kept as its owners wrote it)
+});
+
+/** The notice a route's data asks for, or null for a route GOCARMO Ride or the original drew itself. */
+export const routeDataCredit = (routeId) => (routeId && Object.hasOwn(ROUTE_DATA_CREDIT, routeId) ? ROUTE_DATA_CREDIT[routeId] : null);
+
 /** Weighted power says little about a short ride: it is shown from 20 minutes on. */
 export const WEIGHTED_MIN_S = 1200;
 /** Power zones, as the ride's HUD counts them (ride/workout.js `zoneFor`). */
@@ -394,6 +408,10 @@ export function headerMetrics(format, title, hasName) {
   return { ...measures, lockup, titleBaselines, name, height: Math.ceil((name ?? lastTitle + title.size * 0.12) + 8) };
 }
 
+/** The data credit's type size and line height, per format (see `cardLayout`). */
+export const CREDIT_SIZE = Object.freeze({ portrait: 13, landscape: 12 });
+export const CREDIT_LINE_H = Object.freeze({ portrait: 18, landscape: 17 });
+
 /**
  * Where each block of the image sits, for one format. The header and the
  * metrics take what they need; the map (or the chart, on a ride without a
@@ -402,7 +420,7 @@ export function headerMetrics(format, title, hasName) {
  * @param {{id: string, width: number, height: number}} format one of CARD_FORMATS
  * @param {{metricCount: number, zones: boolean, map: boolean, headerHeight?: number}} content
  */
-export function cardLayout(format, { metricCount, zones, map, headerHeight = null }) {
+export function cardLayout(format, { metricCount, zones, map, headerHeight = null, creditLines = 0 }) {
   const { width: W, height: H } = format;
   const wide = format.id === "landscape";
   const margin = wide ? 56 : 64;
@@ -413,7 +431,8 @@ export function cardLayout(format, { metricCount, zones, map, headerHeight = nul
   const secondaryRowH = wide ? 70 : 76;
   const headerH = headerHeight ?? (wide ? 180 : 204);
   const zonesH = zones ? 62 : 0;
-  const footerH = 22;
+  // A route made from others' data carries their notice above the address, in small lines.
+  const footerH = 22 + (creditLines > 0 ? creditLines * CREDIT_LINE_H[format.id] + 10 : 0);
   const chartH = wide ? 190 : 168;
 
   const header = { x: margin, y: margin, w: columnW, h: headerH };
@@ -477,6 +496,7 @@ export function rideCardModel({ recorder, route = null, routeName, riderName = "
     zones: zoneShares(samples, pauses, ftp),
     ftp,
     series: profileSeries(samples),
+    credit: route ? routeDataCredit(route.id) : null,
     map: hasMap
       ? {
           outline: routeOutline(route),

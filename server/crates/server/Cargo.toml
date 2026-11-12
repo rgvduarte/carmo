@@ -1,6 +1,6 @@
 [package]
 name = "openradlr-server"
-description = "OpenRadlr multiplayer game server: WebSocket protocol, game loop and static client hosting."
+description = "GOCARMO Ride multiplayer game server (based on OpenRadlr): WebSocket protocol, game loop and static client hosting."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

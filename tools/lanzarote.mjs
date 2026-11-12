@@ -59,7 +59,7 @@ async function cached(file, url, binary) {
   const path = CACHE + file;
   if (!existsSync(path)) {
     if (offline) throw new Error(`${file} is not cached and --offline was given`);
-    const response = await fetch(url, { headers: { "user-agent": "openradlr-tools/1.0" } });
+    const response = await fetch(url, { headers: { "user-agent": "gocarmo-ride-tools/1.0 (+https://gocarmo.com/ride/)" } });
     if (!response.ok) throw new Error(`${url}: ${response.status}`);
     writeFileSync(path, Buffer.from(await response.arrayBuffer()));
   }

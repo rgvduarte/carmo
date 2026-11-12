@@ -1,9 +1,9 @@
 import { RouteGeometry } from "../public/js/route/geometry.js";
 
 /** 1000 m square loop: flat, 4 % up, flat, 4 % down. */
-export function squareRoute() {
+export function squareRoute(id = "square") {
   return new RouteGeometry({
-    id: "square",
+    id,
     name: "Square",
     lanes: 4,
     seed: 1,

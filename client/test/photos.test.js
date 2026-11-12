@@ -95,6 +95,28 @@ test("a ride photo keeps the scene's size and names the route, never upstream's 
   assert.ok(written.every((text) => !/openradlr|strava/i.test(text)));
 });
 
+test("a photo on a route made from others' data carries their notice, inside the picture, upright and wide", async () => {
+  const { ROUTE_DATA_CREDIT, routeDataCredit } = await import("../public/js/view/rideCardModel.js");
+  const credit = routeDataCredit("lanzarote-lava-180");
+  assert.equal(credit, ROUTE_DATA_CREDIT["lanzarote-lava-180"]);
+  assert.equal(routeDataCredit("rolling-hills"), null);
+  assert.equal(routeDataCredit(undefined), null);
+  for (const [width, height] of [[1280, 720], [430, 932]]) {
+    const { doc, texts } = recordingDoc();
+    composePhoto({ width, height }, { routeName: "Lanzarote Lava 180", stats: [["Distance", "1.81 km"], ["Time", "3:35"], ["Power", "291 W"]], when: new Date(2026, 10, 12, 18, 42), credit }, doc);
+    const written = texts.map((entry) => entry.text).join(" ");
+    assert.ok(written.includes("© OpenStreetMap contributors, ODbL"), `${width}×${height}`);
+    assert.ok(written.includes("provided under COPERNICUS by the European Union and ESA; all rights reserved"), `${width}×${height}`);
+    for (const { x, width: w, align, text } of texts) {
+      const from = align === "right" ? x - w : x;
+      assert.ok(from >= 0 && from + w <= width + 1, `${width}×${height}: inside the picture: ${text}`);
+    }
+  }
+  const { doc, texts } = recordingDoc();
+  composePhoto({ width: 1280, height: 720 }, { routeName: "Rolling Hills", stats: [], when: new Date(2026, 10, 12, 18, 42) }, doc);
+  assert.ok(!texts.some((entry) => /OpenStreetMap|Copernicus/.test(entry.text)));
+});
+
 test("the fonts are asked for at their real weights, with the text that will be drawn", async () => {
   const asked = [];
   await photoFontsReady({ fonts: { load: (font, text) => (asked.push([font, text]), Promise.resolve([])) } }, "Łódź");

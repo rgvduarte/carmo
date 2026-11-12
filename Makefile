@@ -12,7 +12,10 @@ NODE_IMAGE ?= node:22-alpine
 HEALTH_TIMEOUT ?= 90
 
 # Build number shown in the menu and /api/info (compose passes these as build args).
-export OPENRADLR_BUILD_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
+# The game's "Source code" link opens this commit, so a tree with uncommitted
+# changes is built as `dev` (the link then opens the branch): its code is in no
+# commit. A commit the VPS runs comes from `make update`, which pulls it.
+export OPENRADLR_BUILD_SHA ?= $(shell if git diff --quiet HEAD -- 2>/dev/null; then git rev-parse --short HEAD; else echo dev; fi)
 export OPENRADLR_BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%MZ)
 
 ifneq ($(shell command -v cargo 2>/dev/null),)

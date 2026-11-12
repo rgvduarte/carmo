@@ -28,6 +28,14 @@ export default [
     },
   },
   {
+    files: ["tools/**/*.cjs"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "commonjs",
+      globals: globals.node,
+    },
+  },
+  {
     rules: {
       "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       eqeqeq: "error",
