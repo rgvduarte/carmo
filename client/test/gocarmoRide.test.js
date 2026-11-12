@@ -2,13 +2,15 @@
 // and the pieces of the brand that are data (the symbol, the arch, the titles of events).
 import { test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import en from "../public/js/i18n/en.js";
 import de from "../public/js/i18n/de.js";
 import pt from "../public/js/i18n/pt.js";
 import { setLocale } from "../public/js/i18n/i18n.js";
 import { APP_NAME, BRAND_SYMBOL, withServer } from "../public/js/brand.js";
 import { sourceUrl } from "../public/js/view/about.js";
+import { ClientMessages } from "../public/js/net/protocol.js";
 import { eventRows, eventTitle } from "../public/js/view/events.js";
 import { serverStatus } from "../public/js/view/startMenu.js";
 import { ARCH_MARK } from "../public/js/view3d/gocarmoMark.js";
@@ -132,6 +134,72 @@ test("no file of upstream's artwork folder is shipped: the fork's own marks live
   assert.equal(manifest.name, APP_NAME);
   for (const icon of manifest.icons) assert.ok(icon.src.startsWith("brand/") && existsSync(new URL(`../public/${icon.src}`, import.meta.url)), icon.src);
   assert.doesNotMatch(html + read("../public/sw.js"), /icons\//);
+});
+
+// --- privacy -------------------------------------------------------------------------------
+// The privacy text (privacy.* in the dictionaries) states what the code does. These tests pin
+// the facts it leans on: when one fails, change the text and the code together.
+
+function* clientSources(dir = new URL("../public/js/", import.meta.url).pathname) {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name);
+    if (statSync(path).isDirectory()) yield* clientSources(path);
+    else if (name.endsWith(".js")) yield path;
+  }
+}
+const server = (file) => read(`../../server/crates/server/src/${file}`);
+
+test("the privacy text is on the page in the three languages, with who to write to", () => {
+  const dialog = /<dialog id="privacy"[\s\S]*?<\/dialog>/.exec(html)?.[0] ?? "";
+  for (const key of ["privacy.lede", "privacy.who", "privacy.server", "privacy.kept", "privacy.browser", "privacy.cookies", "privacy.strava", "privacy.updated"]) {
+    assert.ok(dialog.includes(`data-i18n="${key}"`), `${key} is shown`);
+    for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) assert.ok(dictionary[key]?.length > 10, `${name} ${key}`);
+  }
+  assert.match(dialog, /<a class="privacy-mail" href="mailto:allez@gocarmo\.com">allez@gocarmo\.com<\/a>/, "the contact gocarmo.com publishes");
+  assert.match(dialog, /<a href="https:\/\/gocarmo\.com\/privacidade\/"[^>]*data-i18n="privacy\.site"/);
+  assert.match(dialog, /<a id="privacy-link"[^>]*hidden[^>]*data-i18n="privacy\.operator"/, "the operator's own policy, when the server names one");
+  assert.match(html, /<footer class="build-line">[\s\S]*?data-privacy-open[\s\S]*?<\/footer>/, "opened from the start screen's foot");
+  assert.match(/<dialog id="about"[\s\S]*?<\/dialog>/.exec(html)[0], /data-privacy-open/, "and from About, so from the ride menu too");
+  for (const dictionary of [en, de, pt]) assert.ok(dictionary["privacy.who"].includes("GOCARMO (Gonçalo Carmo)"));
+  assert.match(pt["privacy.updated"], /12\.11\.2026/);
+});
+
+test("privacy, the browser side: only power and cadence go out while riding, no cookie is written, nothing is fetched from elsewhere", () => {
+  assert.deepEqual(Object.keys(ClientMessages.telemetry({ power: 200, cadence: 90, heartRate: 150 })).sort(), ["cadence", "power", "type"], "heart rate stays in the browser");
+  assert.deepEqual(Object.keys(ClientMessages.join({ name: "Ana", weightKg: 60, ftp: 200, level: 180, publicKey: "k" })).sort(), ["ftp_w", "level_w", "name", "public_key", "type", "weight_kg"], "what a join carries: the text lists each of these");
+  const cookies = [];
+  const elsewhere = [];
+  for (const path of clientSources()) {
+    const code = readFileSync(path, "utf8");
+    if (/document\.cookie/.test(code)) cookies.push(path);
+    if (/\bfetch\(\s*["'`]https?:/.test(code) || /new WebSocket\(\s*["'`]wss?:\/\/[a-z]/.test(code)) elsewhere.push(path);
+  }
+  assert.deepEqual(cookies, [], "the client writes no cookie");
+  assert.deepEqual(elsewhere, [], "the client talks to its own server only");
+  assert.match(read("../public/js/analytics.js"), /const analytics = info\?\.analytics;\n {2}if \(!analytics \|\| loaded\.has\(document\)\) return false;/, "no analytics script unless the server lists one (OPENRADLR_ANALYTICS_DOMAIN, unset on this deployment)");
+  assert.doesNotMatch(html, /<script[^>]+src="https?:|<link[^>]+href="https?:\/\/(?!github\.com)/, "no script, style or font from another host");
+});
+
+test("privacy, the server side: what the text says about logs, memory and the Strava session", () => {
+  // "the name you joined with": the one log line with a rider's name.
+  const named = [...server("runtime.rs").matchAll(/tracing::\w+!\([^;]*\bname\b[^;]*;/g)].map((m) => m[0]);
+  assert.equal(named.length, 1, "privacy.kept names one log line with the rider's name");
+  assert.match(named[0], /"rider joined"/);
+  // "an IP address is noted only when one address opens too many connections".
+  const withIp = [];
+  for (const file of ["http.rs", "connection.rs", "runtime.rs", "guard.rs", "app.rs", "auth.rs", "session.rs"]) {
+    for (const m of server(file).matchAll(/tracing::\w+!\(([^;]*);/g)) if (/%ip\b|\bip\b|forwarded|peer/.test(m[1])) withIp.push(`${file}: ${m[1].replace(/\s+/g, " ").trim()}`);
+  }
+  assert.ok(withIp.length >= 1 && withIp.every((line) => /too many connections/.test(line)), `privacy.kept says an IP address reaches the log only on too many connections; found: ${withIp.join(" | ")}`);
+  // "after about a minute if the connection just dropped".
+  assert.match(server("config.rs"), /reader\.parse\("OPENRADLR_GRACE_S", 60\.0\)/);
+  // "the total distance of all riders together, without names".
+  assert.match(server("stats.rs"), /pub struct Distance \{\s*#\[serde\(default\)\]\s*pub trainer_m: f64,\s*#\[serde\(default\)\]\s*pub paddle_m: f64,\s*\}/);
+  // "a session cookie that lasts 30 days at most"; cookies exist on the Strava routes only.
+  assert.match(server("strava.rs"), /pub const SESSION_SECONDS: i64 = 30 \* 24 \* 3600;/);
+  for (const file of ["http.rs", "connection.rs", "runtime.rs", "session.rs", "app.rs", "headers.rs"]) assert.doesNotMatch(server(file), /SET_COOKIE/, `${file} sets no cookie`);
+  // "Your browser also sends a public key …; the server ignores it": no use of it beyond the message definition.
+  assert.equal([...server("session.rs").matchAll(/public_key/g)].length, 0);
 });
 
 // --- brand ---------------------------------------------------------------------------------

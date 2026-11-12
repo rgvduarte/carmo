@@ -7003,3 +7003,31 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
     white-space: nowrap;
   }
 }
+
+/* --- the privacy text (same dialog as About) ------------------------------------------ */
+.about-card h3 {
+  margin: 8px 0 -6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+
+.about-card .privacy-mail {
+  color: var(--gold);
+  text-underline-offset: 3px;
+}
+
+/* A button that reads as one of the links around it. */
+.about-links .link-button {
+  padding: 0;
+  font: inherit;
+  color: var(--gold);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}

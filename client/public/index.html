@@ -427,7 +427,7 @@
         </div>
         <footer class="build-line">
           <button type="button" id="build-label" class="build-label" title="Copy the build details" data-nav-skip data-i18n-attr="title:menu.build.copy"></button>
-          <a id="privacy-link" class="build-label" target="_blank" rel="noopener" data-nav-skip hidden data-i18n="menu.privacy">Privacy</a>
+          <button type="button" id="privacy-open" class="build-label" data-privacy-open data-nav-skip data-i18n="menu.privacy">Privacy</button>
           <button type="button" id="about-open" class="build-label" data-about-open data-nav-skip data-i18n="about.title">About</button>
           <a class="build-label" data-source-link href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener" data-nav-skip data-i18n="about.source">Source code</a>
         </footer>
@@ -1087,11 +1087,38 @@
             <a href="LICENSE.txt" target="_blank" rel="noopener" data-i18n="about.licence">Licence text</a>
             <a href="NOTICE.txt" target="_blank" rel="noopener" data-i18n="about.notice">Changes and credits</a>
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener" data-i18n="about.osm">OpenStreetMap: copyright and licence</a>
+            <button type="button" class="link-button" data-privacy-open data-i18n="menu.privacy">Privacy</button>
           </p>
           <p class="muted" data-i18n="about.brand">GOCARMO symbol and logo (the image files): © Gonçalo Carmo, CC BY-SA 4.0. The name GOCARMO and its use as a brand are reserved.</p>
           <p class="muted" data-i18n="about.fonts">Fonts: Anton, Inter and JetBrains Mono, SIL Open Font License 1.1.</p>
           <p class="muted" data-i18n="about.data">Lanzarote Lava 180: Road geometry © OpenStreetMap contributors, ODbL. Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA.</p>
           <div class="modal-actions"><button type="button" id="about-close" class="primary-small" data-i18n="drawer.close">Close</button></div>
+        </div>
+      </dialog>
+
+      <!-- Privacy: what this server and the browser keep, as the code does it. Opened from the start screen's foot and from About. -->
+      <dialog id="privacy" class="about" aria-labelledby="privacy-title">
+        <div class="about-card">
+          <h2 id="privacy-title" data-i18n="menu.privacy">Privacy</h2>
+          <p data-i18n="privacy.lede">Short version: the game has no accounts of its own and uses no tracking cookies or visit analytics. What you type and ride passes through the server while you ride; your settings and ride history stay in your browser.</p>
+          <h3 data-i18n="privacy.who.title">Who runs it</h3>
+          <p class="muted"><span data-i18n="privacy.who">This server is run by GOCARMO (Gonçalo Carmo), on a hosting service that receives the same technical data (IP address, requests) to make it work. For any request about your data, write to</span> <a class="privacy-mail" href="mailto:allez@gocarmo.com">allez@gocarmo.com</a></p>
+          <h3 data-i18n="privacy.server.title">What the server receives</h3>
+          <p class="muted" data-i18n="privacy.server">While you ride: your IP address (to limit connections per address), the name you type, your weight, your FTP and your power level, the power and cadence your trainer measures, and what you write in the chat. Your browser also sends a public key it made for your profile; the server ignores it. Other riders see your name, where you are on the route, your speed and power, and your chat messages. Your heart rate stays in the browser: it only travels inside the ride file.</p>
+          <h3 data-i18n="privacy.kept.title">What stays on the server</h3>
+          <p class="muted" data-i18n="privacy.kept">No rider database. When you leave, the server drops you from its memory (after about a minute if the connection just dropped, so you can come back). It keeps the total distance of all riders together, without names. Its technical log notes the name you joined with and the time; an IP address is noted only when one address opens too many connections.</p>
+          <h3 data-i18n="privacy.browser.title">What stays in your browser</h3>
+          <p class="muted" data-i18n="privacy.browser">Your profile (name, weight, FTP, units and settings), the Bluetooth devices you paired, your ride history, your best laps, the ride in progress (so you can recover it if the page closes) and a copy of the game's files. Ride files (.fit, .tcx, .gpx) and images are made in the browser and leave it only when you download or share them. Clearing this site's data in your browser removes all of it.</p>
+          <h3 data-i18n="privacy.cookies.title">Cookies and analytics</h3>
+          <p class="muted" data-i18n="privacy.cookies">The game sets no tracking cookies, runs no visit analytics and loads nothing from other sites. The only cookies are the Strava session ones below, if you connect Strava.</p>
+          <h3 data-i18n="privacy.strava.title">Strava</h3>
+          <p class="muted" data-i18n="privacy.strava">Only if this server offers it and you choose to connect. The server then keeps your Strava name, your athlete number and the access keys Strava hands it, and your browser gets a session cookie that lasts 30 days at most. They are used to upload the rides you tell it to upload: the ride file passes through the server on its way to Strava and is not kept. Disconnect removes the session from the server.</p>
+          <p class="about-links">
+            <a id="privacy-link" target="_blank" rel="noopener" hidden data-i18n="privacy.operator">This server's privacy policy</a>
+            <a href="https://gocarmo.com/privacidade/" target="_blank" rel="noopener" data-i18n="privacy.site">Privacy of the site gocarmo.com</a>
+          </p>
+          <p class="muted" data-i18n="privacy.updated">Updated on 12.11.2026.</p>
+          <div class="modal-actions"><button type="button" id="privacy-close" class="primary-small" data-i18n="drawer.close">Close</button></div>
         </div>
       </dialog>
     </main>

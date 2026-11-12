@@ -4,6 +4,9 @@
  * One dialog for the start screen and the ride menu: any element marked
  * `data-about-open` opens it. The ride screen is rebuilt for every ride, so
  * the clicks are caught on the document, not on the buttons.
+ *
+ * The "Privacy" dialog works the same way (`data-privacy-open`): what this
+ * deployment's server and the browser keep.
  */
 import { BUILD } from "../build.js";
 
@@ -17,19 +20,30 @@ const SOURCE_BRANCH = "gocarmo-ride";
  */
 export const sourceUrl = (sha = BUILD.sha) => `${SOURCE_REPO}/tree/${/^[0-9a-f]{7,40}$/.test(sha) ? sha : SOURCE_BRANCH}`;
 
-export function initAbout(doc = document) {
-  // Every "Source code" link (the start screen's foot, the ride menu, the dialog) points at the running version.
-  for (const link of doc.querySelectorAll("[data-source-link]")) link.href = sourceUrl();
-  const dialog = doc.getElementById("about");
+/**
+ * One of the page's information dialogs: any element carrying `openAttr`
+ * opens it (caught on the document, the ride screen is rebuilt for every
+ * ride), its close button and a click on the dimmed page around the card
+ * close it.
+ */
+function initDialog(doc, id, openAttr) {
+  const dialog = doc.getElementById(id);
   if (!dialog) return;
   doc.addEventListener("click", (event) => {
-    if (event.target.closest?.("[data-about-open]") && !dialog.open) dialog.showModal();
+    if (event.target.closest?.(`[${openAttr}]`) && !dialog.open) dialog.showModal();
   });
-  doc.getElementById("about-close")?.addEventListener("click", () => dialog.close());
-  // A click on the dimmed page around the card closes it.
+  doc.getElementById(`${id}-close`)?.addEventListener("click", () => dialog.close());
   dialog.addEventListener("click", (event) => {
     if (event.target === dialog) dialog.close();
   });
   // Keys typed here are not ride controls (M, V, the arrows).
   dialog.addEventListener("keydown", (event) => event.stopPropagation());
+}
+
+export function initAbout(doc = document) {
+  // Every "Source code" link (the start screen's foot, the ride menu, the dialog) points at the running version.
+  for (const link of doc.querySelectorAll("[data-source-link]")) link.href = sourceUrl();
+  initDialog(doc, "about", "data-about-open");
+  // The privacy text of this deployment: from the start screen's foot and from About (so from the ride menu too).
+  initDialog(doc, "privacy", "data-privacy-open");
 }
