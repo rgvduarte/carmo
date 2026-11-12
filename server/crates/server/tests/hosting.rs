@@ -1,11 +1,17 @@
 //! End-to-end tests for a server behind a hosting platform and inside another
-//! site's page: framing, CORS, and what the HTTP responses carry.
+//! site's page: framing, CORS, and the client address a platform proxy reports.
 
+use axum::http::HeaderName;
 use openradlr_server::app;
 use openradlr_server::config::{Config, EventsSetting};
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio_tungstenite::tungstenite::client::IntoClientRequest;
+use tokio_tungstenite::tungstenite::Error as WsError;
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+
+type Socket = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
 const ROUTES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../routes");
 
@@ -300,4 +306,146 @@ async fn only_the_public_api_answers_cross_origin_requests() {
     .await;
     assert_eq!(preflight.status, 405);
     let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Opens a game connection with extra request headers (a name may repeat);
+/// `Err` is the HTTP status the server refused it with.
+async fn open_game(addr: SocketAddr, headers: &[(&'static str, &str)]) -> Result<Socket, u16> {
+    let mut request = format!("ws://{addr}/ws").into_client_request().unwrap();
+    for (name, value) in headers {
+        request
+            .headers_mut()
+            .append(HeaderName::from_static(name), value.parse().unwrap());
+    }
+    match connect_async(request).await {
+        Ok((socket, _)) => Ok(socket),
+        Err(WsError::Http(response)) => Err(response.status().as_u16()),
+        Err(other) => panic!("unexpected failure: {other}"),
+    }
+}
+
+/// One connection per address, and the address comes from `Fly-Client-IP`.
+fn behind_a_platform_proxy() -> Config {
+    Config {
+        max_connections_per_ip: 1,
+        client_ip_header: Some(HeaderName::from_static("fly-client-ip")),
+        ..test_config()
+    }
+}
+
+const TOO_MANY: u16 = 429;
+
+#[tokio::test]
+async fn the_platform_header_tells_riders_behind_one_proxy_apart() {
+    let addr = start_server(behind_a_platform_proxy()).await;
+    // Every connection comes from the same peer (the proxy; here 127.0.0.1).
+    let _anna = open_game(addr, &[("fly-client-ip", "203.0.113.9")]).await.unwrap();
+    let _ben = open_game(addr, &[("fly-client-ip", "198.51.100.7")]).await.unwrap();
+    let _cleo = open_game(addr, &[("fly-client-ip", "2001:db8::1")]).await.unwrap();
+    assert_eq!(
+        open_game(addr, &[("fly-client-ip", "203.0.113.9")]).await.err(),
+        Some(TOO_MANY),
+        "the limit counts per reported address"
+    );
+    // The same address, written as an IPv4-mapped IPv6 address.
+    assert_eq!(
+        open_game(addr, &[("fly-client-ip", "::ffff:198.51.100.7")]).await.err(),
+        Some(TOO_MANY)
+    );
+}
+
+#[tokio::test]
+async fn the_limit_frees_up_when_the_connection_closes() {
+    let addr = start_server(behind_a_platform_proxy()).await;
+    let anna = open_game(addr, &[("fly-client-ip", "203.0.113.9")]).await.unwrap();
+    drop(anna);
+    let again = async {
+        loop {
+            if let Ok(socket) = open_game(addr, &[("fly-client-ip", "203.0.113.9")]).await {
+                return socket;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(5), again)
+        .await
+        .expect("the address may connect again");
+}
+
+#[tokio::test]
+async fn x_forwarded_for_cannot_dodge_the_platform_header() {
+    for trust_proxy in [false, true] {
+        let addr = start_server(Config {
+            trust_proxy,
+            ..behind_a_platform_proxy()
+        })
+        .await;
+        let _first = open_game(
+            addr,
+            &[("fly-client-ip", "203.0.113.9"), ("x-forwarded-for", "192.0.2.1")],
+        )
+        .await
+        .unwrap();
+        // The same client claims to be somebody else in the header it controls.
+        assert_eq!(
+            open_game(
+                addr,
+                &[("fly-client-ip", "203.0.113.9"), ("x-forwarded-for", "192.0.2.2")]
+            )
+            .await
+            .err(),
+            Some(TOO_MANY),
+            "trust_proxy={trust_proxy}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn an_unusable_platform_header_counts_as_the_peer() {
+    let addr = start_server(behind_a_platform_proxy()).await;
+    // No header (not through the proxy): the peer address, as without the setting.
+    let _direct = open_game(addr, &[]).await.unwrap();
+    assert_eq!(open_game(addr, &[]).await.err(), Some(TOO_MANY));
+    // Garbage, a list, or the header twice (one sent by the client, one added
+    // by a proxy that appends): all share the peer's single slot.
+    for headers in [
+        vec![("fly-client-ip", "garbage")],
+        vec![("fly-client-ip", "203.0.113.9, 198.51.100.7")],
+        vec![("fly-client-ip", "198.51.100.7"), ("fly-client-ip", "203.0.113.9")],
+        vec![("fly-client-ip", "")],
+    ] {
+        assert_eq!(open_game(addr, &headers).await.err(), Some(TOO_MANY), "{headers:?}");
+    }
+    // A proper value still gets its own slot.
+    open_game(addr, &[("fly-client-ip", "203.0.113.9")]).await.unwrap();
+}
+
+#[tokio::test]
+async fn an_unusable_platform_header_falls_back_to_the_trusted_proxy_header() {
+    let addr = start_server(Config {
+        trust_proxy: true,
+        ..behind_a_platform_proxy()
+    })
+    .await;
+    let _first = open_game(addr, &[("x-forwarded-for", "192.0.2.1")]).await.unwrap();
+    let _second = open_game(addr, &[("x-forwarded-for", "192.0.2.2")]).await.unwrap();
+    assert_eq!(
+        open_game(addr, &[("x-forwarded-for", "192.0.2.1")]).await.err(),
+        Some(TOO_MANY)
+    );
+}
+
+#[tokio::test]
+async fn the_platform_header_means_nothing_unless_configured() {
+    let addr = start_server(Config {
+        max_connections_per_ip: 1,
+        ..test_config()
+    })
+    .await;
+    let _first = open_game(addr, &[("fly-client-ip", "203.0.113.9")]).await.unwrap();
+    // A client that invents addresses is still one peer.
+    assert_eq!(
+        open_game(addr, &[("fly-client-ip", "198.51.100.7")]).await.err(),
+        Some(TOO_MANY)
+    );
 }

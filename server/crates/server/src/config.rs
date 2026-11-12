@@ -6,6 +6,7 @@
 use crate::guard::ConnectionLimits;
 use crate::obn::link::Heartbeat;
 use crate::strava::StravaConfig;
+use axum::http::HeaderName;
 use openradlr_sim::SimConfig;
 use std::fmt;
 use std::net::SocketAddr;
@@ -63,6 +64,10 @@ pub struct Config {
     pub auth_mode: AuthMode,
     /// Take client IPs from `X-Forwarded-For` (only behind a reverse proxy).
     pub trust_proxy: bool,
+    /// Take client IPs from this header of a hosting platform's proxy
+    /// (`OPENRADLR_CLIENT_IP_HEADER`, e.g. `Fly-Client-IP`); only when that proxy
+    /// is the only way in. `None` (default): the header means nothing.
+    pub client_ip_header: Option<HeaderName>,
     pub max_connections_per_ip: usize,
     pub messages_per_second: f64,
     /// Seconds a rider lingers (coasting) after their socket dies before
@@ -233,6 +238,15 @@ impl Config {
             (1..=1000).contains(&max_connections_per_ip),
             "must be between 1 and 1000",
         )?;
+
+        let client_ip_header = match reader.raw("OPENRADLR_CLIENT_IP_HEADER").filter(|v| !v.is_empty()) {
+            None => None,
+            Some(name) => Some(HeaderName::from_bytes(name.as_bytes()).map_err(|_| ConfigError {
+                key: "OPENRADLR_CLIENT_IP_HEADER",
+                value: name.clone(),
+                reason: "must be the name of one HTTP header, e.g. Fly-Client-IP".into(),
+            })?),
+        };
 
         let messages_per_second: f64 = reader.parse("OPENRADLR_MESSAGES_PER_SECOND", 20.0)?;
         reader.check(
@@ -429,6 +443,7 @@ impl Config {
             max_race_laps,
             auth_mode,
             trust_proxy: reader.flag("OPENRADLR_TRUST_PROXY", false)?,
+            client_ip_header,
             max_connections_per_ip,
             messages_per_second,
             grace_s,
@@ -828,6 +843,21 @@ mod tests {
             config(&[("OPENRADLR_MAX_CONNECTIONS_PER_IP", "0")]).unwrap_err().key,
             "OPENRADLR_MAX_CONNECTIONS_PER_IP"
         );
+    }
+
+    #[test]
+    fn the_platform_client_ip_header_is_off_unless_named() {
+        assert_eq!(config(&[]).unwrap().client_ip_header, None);
+        assert_eq!(
+            config(&[("OPENRADLR_CLIENT_IP_HEADER", " ")]).unwrap().client_ip_header,
+            None
+        );
+        let c = config(&[("OPENRADLR_CLIENT_IP_HEADER", "Fly-Client-IP")]).unwrap();
+        assert_eq!(c.client_ip_header.unwrap().as_str(), "fly-client-ip");
+        for bad in ["Fly Client IP", "Fly-Client-IP: 1.2.3.4", "a,b", "naïve"] {
+            let err = config(&[("OPENRADLR_CLIENT_IP_HEADER", bad)]).expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_CLIENT_IP_HEADER");
+        }
     }
 
     #[test]

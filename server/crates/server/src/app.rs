@@ -305,6 +305,7 @@ pub fn build_with_stats(config: &Config) -> Result<(Router, DistanceStats), BoxE
             paddle_seats: Slots::new(config.max_paddle_players),
             per_ip: Slots::new(config.max_connections_per_ip),
             trust_proxy: config.trust_proxy,
+            client_ip_header: config.client_ip_header.clone(),
             allowed_origins: config.allowed_origins.clone(),
             limits: config.connection_limits(),
         }),
@@ -338,6 +339,7 @@ pub async fn run(config: Config, shutdown: impl Future<Output = ()> + Send + 'st
         max_players = config.max_players,
         max_paddle_players = config.max_paddle_players,
         trust_proxy = config.trust_proxy,
+        client_ip_header = config.client_ip_header.as_ref().map_or("-", |name| name.as_str()),
         version = env!("CARGO_PKG_VERSION"),
         build = %crate::BuildInfo::from_env().sha,
         "listening"

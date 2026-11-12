@@ -19,7 +19,7 @@ use crate::afk::{AfkCounts, AfkStats};
 use crate::app::unix_now_s;
 use crate::auth::{self, Strava};
 use crate::connection;
-use crate::guard::{client_ip, origin_allowed, ConnectionLimits, Slots};
+use crate::guard::{client_ip, origin_allowed, platform_client_ip, ConnectionLimits, Slots};
 use crate::map_file::Maps;
 use crate::protocol::{DeviceKind, EventInfoWire, PROTOCOL_VERSION};
 use crate::route_file::RouteFile;
@@ -60,6 +60,9 @@ pub struct Protection {
     /// Open WebSocket connections per client IP.
     pub per_ip: Slots<IpAddr>,
     pub trust_proxy: bool,
+    /// The header in which a hosting platform's proxy reports the client's
+    /// address (`OPENRADLR_CLIENT_IP_HEADER`); `None`: no header is believed.
+    pub client_ip_header: Option<header::HeaderName>,
     pub allowed_origins: Vec<String>,
     pub limits: ConnectionLimits,
 }
@@ -529,7 +532,13 @@ async fn websocket(
     // Without connection info (e.g. in tests) or a usable address, no per-IP limit applies.
     let peer = extensions.get::<ConnectInfo<SocketAddr>>().map(|info| info.0);
     let forwarded_for = headers.get("x-forwarded-for").and_then(|value| value.to_str().ok());
-    let ip_permit = match client_ip(peer, forwarded_for, protection.trust_proxy) {
+    // A platform proxy's own header wins over X-Forwarded-For; without a usable
+    // value the request is treated as if the header were not configured.
+    let platform_ip = protection
+        .client_ip_header
+        .as_ref()
+        .and_then(|name| platform_client_ip(headers.get_all(name).iter().map(|value| value.to_str().unwrap_or(""))));
+    let ip_permit = match platform_ip.or_else(|| client_ip(peer, forwarded_for, protection.trust_proxy)) {
         Some(ip) => match protection.per_ip.try_acquire(ip) {
             Some(permit) => Some(permit),
             None => {

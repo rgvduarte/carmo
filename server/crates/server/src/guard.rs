@@ -6,6 +6,7 @@
 //! * [`TokenBucket`] — per-connection message and chat rate limits
 //! * [`Slots`] — counted permits: the global player cap and connections per IP
 //! * [`client_ip`] — the client's address, optionally from a trusted reverse proxy
+//! * [`platform_client_ip`] — the same from the header of a hosting platform's proxy
 //!
 //! Everything here is synchronous and takes time as plain seconds, so it is
 //! tested without a clock.
@@ -132,6 +133,21 @@ pub fn client_ip(peer: Option<SocketAddr>, forwarded_for: Option<&str>, trust_pr
         }
     }
     peer.map(|addr| addr.ip())
+}
+
+/// The client's IP address as a hosting platform's proxy reports it in a header
+/// of its own (`OPENRADLR_CLIENT_IP_HEADER`, e.g. `Fly-Client-IP`): there the
+/// last `X-Forwarded-For` address is the platform's proxy, the same for everyone.
+///
+/// `values` are all values of that header. The platform sets exactly one
+/// address; anything else (no value, several, a list, no address) is `None`,
+/// and the caller falls back to [`client_ip`]. Only meaningful when the proxy
+/// is the only way in, because any client can send the header itself.
+pub fn platform_client_ip<'a>(values: impl IntoIterator<Item = &'a str>) -> Option<IpAddr> {
+    let mut values = values.into_iter();
+    let ip = values.next()?.trim().parse::<IpAddr>().ok()?;
+    // `::ffff:203.0.113.9` and `203.0.113.9` are one client.
+    values.next().is_none().then(|| ip.to_canonical())
 }
 
 /// True if a WebSocket `Origin` may connect. An empty allow-list allows every
@@ -264,6 +280,29 @@ mod tests {
             client_ip(None, Some("2001:db8::1"), true),
             Some("2001:db8::1".parse().unwrap())
         );
+    }
+
+    #[test]
+    fn the_platform_header_must_hold_exactly_one_address() {
+        let ip = |text: &str| Some(text.parse::<IpAddr>().unwrap());
+        assert_eq!(platform_client_ip(["203.0.113.9"]), ip("203.0.113.9"));
+        assert_eq!(platform_client_ip([" 2001:db8::1 "]), ip("2001:db8::1"));
+        assert_eq!(platform_client_ip(["::ffff:203.0.113.9"]), ip("203.0.113.9"));
+        let none: [&str; 0] = [];
+        assert_eq!(platform_client_ip(none), None);
+        for bad in [
+            "",
+            "garbage",
+            "203.0.113.9, 198.51.100.7",
+            "203.0.113.9:1234",
+            "203.0.113.9 198.51.100.7",
+            "[2001:db8::1]",
+            "for=203.0.113.9",
+        ] {
+            assert_eq!(platform_client_ip([bad]), None, "{bad}");
+        }
+        // A client that sent the header itself, next to the proxy's.
+        assert_eq!(platform_client_ip(["198.51.100.7", "203.0.113.9"]), None);
     }
 
     #[test]
