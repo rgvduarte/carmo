@@ -22,7 +22,7 @@ import { Reconnector } from "./net/reconnector.js";
 import { RidePause } from "./ride/ridePause.js";
 import { AfkPrompt } from "./ride/afkPrompt.js";
 import { defaultServerUrl } from "./net/protocol.js";
-import { StravaClient, appLoginResult, stravaMessage } from "./net/strava.js";
+import { ConnectMemory, StravaClient, appLoginResult, stravaLimited, stravaMessage } from "./net/strava.js";
 import { UploadReceipts, uploadKey } from "./net/stravaUpload.js";
 import { bindStravaUpload } from "./view/stravaUploadView.js";
 import { levelAfterRace, levelAfterRide, levelLabel, levelOf } from "./profile/level.js";
@@ -41,6 +41,7 @@ import { createPanelStack } from "./input/panelStack.js";
 import { JUNCTION_WINDOW_M, OFF_ROUTE_ID, junctionAhead, offRouteRoad, stepOption } from "./ride/junction.js";
 import { RideAutosave, continueAllowed, indexedDbStore, unfinishedLabel } from "./ride/rideAutosave.js";
 import { backToMenuWarning, createFinishController } from "./ride/finishController.js";
+import { finishPlan } from "./ride/finishPlan.js";
 import { LemonHunt, lemonDay, lemonsFor } from "./ride/lemons.js";
 import { BotCalls } from "./ride/botCalls.js";
 import { GhostStore, LapRun, formatLapGap, ghostAt, timeAt } from "./ride/ghostLap.js";
@@ -72,7 +73,9 @@ import {
   splitLine,
 } from "./view/hud.js";
 import { appendFeed, describeEvent, inRace, nearbyRiders, onlineSummary, raceCaption, raceStatus, renderResults, renderRiderList, riderName, riderSections } from "./view/panels.js";
-import { PhotoAlbum, canShareFiles, canvasToPng, composePhoto, composeSummary, downloadBlob, grabScene, photoActions, photoFileName, photoFontsReady, photoStats } from "./view/photos.js";
+import { PhotoAlbum, canShareFiles, canvasToPng, composePhoto, downloadBlob, grabScene, photoActions, photoFileName, photoFontsReady, photoStats } from "./view/photos.js";
+import { composeRideCard, mapContext, rideCardFontsReady } from "./view/rideCard.js";
+import { CARD_FORMATS, cardMetrics, rideCardModel } from "./view/rideCardModel.js";
 import { drawRideMap } from "./view/rideMapView.js";
 import { renderSplits } from "./view/splitsView.js";
 import { drawProfile, drawUpcoming } from "./view/profileView.js";
@@ -453,8 +456,10 @@ const app = {
   album: new PhotoAlbum(),
   /** Callbacks waiting for the next rendered frame of the world. */
   sceneRequests: [],
-  /** The world as it looked when the finish dialog opened (summary image background). */
-  finishScene: null,
+  /** What the browser remembers about connecting Strava (a failed attempt, a ride waiting for the way back). */
+  connectMemory: new ConnectMemory(),
+  /** The ride image's format on show: "portrait" (the main one) or "landscape". */
+  cardFormat: "portrait",
   /** Set once the ride was downloaded or uploaded, so leaving needs no warning. */
   rideSaved: false,
   /** Spin studio ride (null on a route): class clock, targets, ERG. */
@@ -794,6 +799,8 @@ function initStartMenu() {
 
   // Coming back from Strava: show what happened, then tidy the address bar.
   const params = new URLSearchParams(location.search);
+  // A failed attempt is remembered: the finished ride then offers its file first, not the same button again.
+  app.connectMemory.record(params.get("strava"));
   const message = stravaMessage(params.get("strava"));
   if (message) {
     $("strava-message").textContent = message;
@@ -1003,6 +1010,8 @@ function showStravaNote(text) {
  */
 function stravaOpenedInTab() {
   showStravaNote(t("strava.frame.opened"));
+  // The tab the sign-in ends in will show the game too: it is told that it only has to send the rider back.
+  app.connectMemory.openedTab(Date.now());
   if (app.stravaWatch) return;
   const before = JSON.stringify(app.stravaAccount ?? null);
   const check = async () => {
@@ -1028,8 +1037,14 @@ async function loadStravaAccount() {
   } catch {
     app.stravaAccount = null;
   }
-  // A connected Strava account fills an empty name.
-  if (app.stravaAccount && !$("name").value.trim()) $("name").value = app.stravaAccount.name;
+  // The rider's name in the game is the one they type: what Strava says about an account is shown to that
+  // rider only (Strava API Policy, 2.3), and a name in the game is seen by everyone on the road.
+  if (app.stravaAccount) app.connectMemory.record("connected");
+  // A tab that a framed game opened for the sign-in: connected, so the rider goes back to the game.
+  if (app.stravaAccount && !app.framed && app.connectMemory.takeTab(Date.now())) {
+    $("strava-message").textContent = t("strava.frame.done");
+    $("strava-message").hidden = false;
+  }
   renderStartMenu();
   if (app.finished) setupFinishUpload();
   if (app.unfinished && !$("unfinished-save").hidden) setupRecoveryUpload();
@@ -1956,7 +1971,7 @@ function endRide() {
     recorder: null,
     serverPlayers: null,
     sceneRequests: [],
-    finishScene: null,
+    cardFormat: "portrait",
     rideSaved: false,
     studio: null,
     studioView: null,
@@ -2781,17 +2796,10 @@ function initFinish() {
 
 const rideName = () => (app.eventRide ? eventRideName(app.eventRide.kind, app.eventRide.routeName) : `${APP_NAME} · ${app.rideRoute.name}`);
 
+/** The finished ride's numbers for the dialog: the same ones as on the ride image, then what only the game counts. */
 function finishStats() {
-  const summary = app.recorder.summary();
-  const stats = [
-    [t("finish.time"), formatDuration(summary.durationS)],
-    [t("finish.distance"), formatDistanceWithUnit(summary.distanceM)],
-    [t("finish.avgPower"), `${summary.avgPower} W`],
-    [t("finish.maxPower"), `${summary.maxPower} W`],
-    [t("finish.climbed"), formatElevation(summary.elevationGainM)],
-    [t("finish.work"), `${summary.kilojoules} kJ`],
-  ];
-  if (summary.avgHeartRate) stats.push([t("finish.avgHeartRate"), `${summary.avgHeartRate} bpm`]);
+  const { samples, pauses } = app.recorder;
+  const stats = cardMetrics({ summary: app.recorder.summary(), samples, pauses, weightKg: app.profile.weightKg }).map(({ label, value, unit }) => [label, unit ? `${value} ${unit}` : value]);
   if (app.lemonsThisRide > 0) stats.push([t("finish.lemons"), formatNumber(app.lemonsThisRide)]);
   if (app.seatEnergy && app.vehicleKind) {
     stats.push([t("finish.vehicle"), app.seatEnergy.summaryLine(app.vehicleKind)]);
@@ -2862,12 +2870,8 @@ function saveFinishedRide() {
 function openFinish() {
   closeDrawers();
   const stats = finishStats();
-  app.finishScene = null;
-  requestScene((scene) => {
-    app.finishScene = scene;
-    refreshSummaryImage();
-  });
   renderPhotos();
+  refreshSummaryImage();
   $("finish-summary").replaceChildren(
     ...stats.map(([label, value]) => {
       const item = document.createElement("div");
@@ -2881,24 +2885,9 @@ function openFinish() {
   const empty = app.recorder.empty;
   app.finishSplits = empty ? [] : rideSplits(true);
   renderSplits($("finish-splits"), app.finishSplits, app.splitUnitM);
-  $("download-tcx").disabled = empty;
-  $("download-gpx").disabled = empty;
-  $("download-fit").disabled = empty;
   // A studio ride stays in the room: no positions, so no GPX (TCX still works).
   $("download-gpx").hidden = Boolean(app.studio);
-  // Phone paddle rides: photos and the summary card only, no ride files.
-  const exportable = canExportRide(app.trainer);
-  $("finish-files").hidden = !exportable;
-  if (!exportable) for (const id of ["download-tcx", "download-gpx", "download-fit"]) $(id).hidden = true;
-  // Strava gets rides measured by a real trainer only, not taps or keys.
-  const measured = hasRealPowerSource(app.trainer);
   $("ftp-prompt").hidden = true;
-  $("finish-note").textContent = empty
-    ? t("finish.note.tooShort")
-    : !exportable
-      ? t("finish.note.paddle")
-      : !measured ? t("finish.note.simulated") : "";
-  $("finish-retained").hidden = !app.finishRecoverable || app.rideSaved;
   setupFinishUpload();
   $("finish").hidden = false;
   // Nothing behind the summary can be reached or opened any more; the next ride gets a fresh ride screen.
@@ -2906,6 +2895,53 @@ function openFinish() {
   $("finish-title").focus();
   $("finish-chart").hidden = empty;
   if (!empty) drawPowerChart($("finish-chart"), { samples: app.recorder.samples, ftp: app.profile.ftp, colors: themeColors(), windowS: null });
+}
+
+/**
+ * Shows the finished ride's ways out as ride/finishPlan.js decides them: Strava
+ * from here, connecting first, or the .fit file by hand; and which one button
+ * is the main one. Runs again whenever the account or the upload changes.
+ * @param {{phase?: string, code?: ?string}} [upload] the upload so far
+ */
+function renderFinishPlan(upload = app.finishUpload?.state) {
+  const plan = finishPlan({
+    empty: app.recorder.empty,
+    // Phone paddle rides: the image and the photos only, no ride files.
+    exportable: canExportRide(app.trainer),
+    // Strava gets rides measured by a real trainer only, not taps or keys.
+    measured: hasRealPowerSource(app.trainer),
+    stravaEnabled: Boolean(app.info?.strava?.enabled),
+    stravaLimited: stravaLimited(app.info),
+    account: app.stravaAccount ?? null,
+    connectFailed: app.connectMemory.failed,
+    phase: upload?.phase,
+    code: upload?.code,
+  });
+  const toStrava = plan.strava || plan.manual !== "none";
+  $("finish-send-title").textContent = t(toStrava ? "strava.sendTitle" : "finish.keepTitle");
+  $("finish-send-title").hidden = plan.mode === "empty";
+  $("finish-note").textContent = plan.reason ? t(plan.reason) : "";
+  $("finish-send").dataset.main = plan.manual === "main" ? "manual" : "strava";
+  $("finish-strava").hidden = !plan.strava;
+  // With the file in front, the button to connect comes after it, with a line that says for whom it is.
+  $("finish-strava-lead").hidden = plan.mode !== "manual";
+  const manual = $("finish-manual");
+  manual.hidden = plan.manual === "none";
+  // In front it is always open; folded and open are where it starts, the rider may change it.
+  if (manual.dataset.shown !== plan.manual) manual.open = plan.manual !== "folded";
+  manual.dataset.shown = plan.manual;
+  manual.toggleAttribute("data-fixed", plan.manual === "main");
+  $("finish-files").hidden = !plan.files;
+  for (const id of ["download-tcx", "download-fit"]) $(id).hidden = !plan.files;
+  if (!plan.files) $("download-gpx").hidden = true;
+  // One main button at a time: sending, the file, or the image.
+  $("download-fit").className = plan.primary === "fit" ? "primary" : "secondary";
+  $("download-summary").className = plan.primary === "image" ? "primary" : "secondary";
+  $("finish-image").hidden = !plan.image;
+  // How the image gets to Strava is said only for a ride that goes there.
+  $("finish-image-hint").hidden = !toStrava;
+  $("finish-retained").hidden = !app.finishRecoverable || app.rideSaved || plan.mode === "empty";
+  return plan;
 }
 
 /** Final snapshot completion belongs to this recorder, even if the rider leaves. */
@@ -2920,7 +2956,7 @@ function saveFinishedSnapshot() {
 }
 
 /** The same panel renders a finished ride and a ride restored from browser recovery. */
-function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, onConnect }) {
+function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, onState, onConnect }) {
   const action = prefix === "finish-strava" ? "upload-strava" : "unfinished-strava";
   const status = prefix === "finish-strava" ? "upload-status" : "unfinished-upload-status";
   const elements = Object.fromEntries(["account", "detail", "connect", "activity", "storage"].map((part) => [part, $(`${prefix}-${part}`)]));
@@ -2933,6 +2969,7 @@ function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, o
     makeFile: () => recorder.toFit({ indoor, splits }),
     name,
     onSuccess,
+    onState,
     onConnect: nativeApp?.signIn ? () => connectStravaInApp() : onConnect,
     confirm: (message) => confirm(message),
   });
@@ -2942,9 +2979,9 @@ function setupFinishUpload() {
   app.finishUpload?.dispose();
   app.finishUpload = null;
   const recorder = app.recorder;
-  const visible = !recorder.empty && hasRealPowerSource(app.trainer) && Boolean(app.info?.strava?.enabled);
-  $("finish-strava").hidden = !visible;
-  if (!visible) return;
+  // Without an upload so far: the plan says whether Strava is offered for this ride at all.
+  const plan = renderFinishPlan(null);
+  if (!plan.strava) return;
   app.finishUpload = mountUpload("finish-strava", recorder, rideName(), {
     indoor: Boolean(app.studio), splits: app.finishSplits,
     onConnect: async () => {
@@ -2952,8 +2989,11 @@ function setupFinishUpload() {
       if (app.framed) return goToStravaSignIn();
       await app.finishSave;
       if (!app.finishRecoverable && !confirm(t("strava.connectUnsaved"))) return;
+      // The sign-in ends on the start screen: it opens this ride again there, ready to send.
+      app.connectMemory.leaveWithRide();
       goToStravaSignIn();
     },
+    onState: (state) => app.recorder === recorder && renderFinishPlan(state),
     onSuccess: () => {
       if (app.recorder !== recorder) return;
       // Keep the snapshot/photos until leaving, so reconnecting or saving photos is safe.
@@ -2965,8 +3005,11 @@ function setupFinishUpload() {
 
 function setupRecoveryUpload() {
   const snapshot = app.unfinished;
-  const visible = snapshot?.trainerKind === "trainer" && Boolean(app.info?.strava?.enabled) && snapshot.recorder.samples.length > 0;
+  const measured = snapshot?.trainerKind === "trainer" && snapshot.recorder.samples.length > 0;
+  const visible = measured && Boolean(app.info?.strava?.enabled);
   $("unfinished-strava-panel").hidden = !visible;
+  // The file by hand is explained for the rides Strava would take: not for the simulated trainer.
+  $("unfinished-manual").hidden = !measured || $("unfinished-save").hidden;
   // Menu info refreshes every few seconds. Keep this ride's active request and listeners.
   if (visible && app.recoveryUpload?.source === snapshot && app.recoveryUpload?.account === app.stravaAccount) return;
   app.recoveryUpload?.dispose();
@@ -2975,6 +3018,11 @@ function setupRecoveryUpload() {
   if (!visible) return;
   app.recoveryUpload = Object.assign(mountUpload("unfinished-strava-panel", RideRecorder.from(snapshot.recorder), `${APP_NAME} · ${snapshot.routeName}`, {
     indoor: snapshot.studio,
+    onConnect: () => {
+      // Back from the sign-in, this card opens again.
+      if (!app.framed) app.connectMemory.leaveWithRide();
+      goToStravaSignIn();
+    },
     onSuccess: () => {
       if (app.unfinished === snapshot) $("discard-unfinished").textContent = t("unfinished.done");
     },
@@ -3215,15 +3263,7 @@ function initRecovery() {
     renderStartMenu();
     joinRide(restored).catch(joinFailed);
   });
-  $("save-unfinished").addEventListener("click", async () => {
-    const snapshot = app.unfinished;
-    if (!snapshot) return;
-    const photos = await app.autosave.photos();
-    $("unfinished-save").hidden = false;
-    $("save-unfinished").hidden = true;
-    $("unfinished-photos").hidden = photos.length === 0;
-    setupRecoveryUpload();
-  });
+  $("save-unfinished").addEventListener("click", () => openSavedRide());
   const recorderOf = (snapshot) => RideRecorder.from(snapshot.recorder);
   const kept = () => {
     $("unfinished-status").textContent = t("unfinished.saved");
@@ -3240,6 +3280,15 @@ function initRecovery() {
     const photos = await app.autosave.photos();
     saveFiles(photos);
   });
+  $("unfinished-image").addEventListener("click", async () => {
+    const snapshot = app.unfinished;
+    if (!snapshot) return;
+    try {
+      saveFiles([await savedRideImage(snapshot)]);
+    } catch (error) {
+      notify(t("photos.summaryFailed", { message: error.message }), "error");
+    }
+  });
   $("discard-unfinished").addEventListener("click", async () => {
     const snapshot = app.unfinished;
     const uploaded = app.recoveryUpload?.state?.phase === "success";
@@ -3247,7 +3296,46 @@ function initRecovery() {
     if (app.unfinished !== snapshot) return;
     if ((uploaded && !photos.length) || confirm(t("unfinished.confirmDiscard"))) discardUnfinished();
   });
-  refreshUnfinished();
+  // Back from Strava's sign-in with a finished ride waiting: open it, ready to send.
+  refreshUnfinished().then(() => {
+    if (app.connectMemory.takeReturn() && app.unfinished?.finished) openSavedRide({ show: true });
+  });
+}
+
+/** Opens the saved ride on the start screen: its Strava panel, its file, its image and its photos. */
+async function openSavedRide({ show = false } = {}) {
+  const snapshot = app.unfinished;
+  if (!snapshot) return;
+  const photos = await app.autosave.photos();
+  if (app.unfinished !== snapshot) return;
+  $("unfinished-save").hidden = false;
+  $("save-unfinished").hidden = true;
+  $("unfinished-photos").hidden = photos.length === 0;
+  $("unfinished-image").hidden = snapshot.recorder.samples.length < 2;
+  setupRecoveryUpload();
+  if (show) $("unfinished").scrollIntoView({ block: "center" });
+}
+
+/** The ride image of a ride saved in the browser; its route is asked of the server again (no map without it). */
+async function savedRideImage(snapshot) {
+  const recorder = RideRecorder.from(snapshot.recorder);
+  let route = null;
+  let context = null;
+  if (!snapshot.studio) {
+    try {
+      const file = await fetchRouteFile(snapshot.routeId);
+      route = new RouteGeometry(file);
+      const network = await fetchMapNetwork(file, fetchNetworkFile);
+      context = mapContext(route, { network: network ? roadNetworkOf(network) : null });
+    } catch {
+      // A route this server no longer has: the image is drawn without the map.
+    }
+  }
+  const when = new Date(recorder.samples[0]?.t ?? snapshot.savedAt);
+  const model = rideCardModel({ recorder, route, routeName: snapshot.routeName, riderName: app.profile.name, when, profile: app.profile, context });
+  await rideCardFontsReady(model);
+  const blob = await canvasToPng(composeRideCard(model, CARD_FORMATS.portrait));
+  return { blob, name: photoFileName(when.getTime(), snapshot.routeId, "card") };
 }
 
 // --------------------------------------------------------------- photos ---
@@ -3259,14 +3347,22 @@ function initPhotos() {
     // Let the menu close before the next frame is captured.
     requestAnimationFrame(() => takePhoto());
   });
-  $("download-summary").addEventListener("click", () => {
+  const saveImage = () => {
     const image = app.album.summary;
     if (image) saveFiles([image]);
-  });
-  $("download-photos").addEventListener("click", () => {
-    saveFiles(app.album.images);
-  });
-  $("share-photos").addEventListener("click", () => sharePhotos());
+  };
+  $("download-summary").addEventListener("click", saveImage);
+  $("card-preview").addEventListener("click", saveImage);
+  $("share-summary").addEventListener("click", () => app.album.summary && shareImages([app.album.summary]));
+  $("download-photos").addEventListener("click", () => saveFiles(app.album.photos));
+  $("share-photos").addEventListener("click", () => shareImages(app.album.photos));
+  for (const format of Object.keys(CARD_FORMATS)) {
+    $(`card-${format}`).addEventListener("click", () => {
+      if (app.cardFormat === format) return;
+      app.cardFormat = format;
+      refreshSummaryImage();
+    });
+  }
 }
 
 /** Calls back with a copy of the next frame of the visible world (3D or 2D). */
@@ -3309,25 +3405,19 @@ function takePhoto() {
 
 function renderPhotos() {
   const photos = app.album.photos;
-  const images = app.album.images;
   const actions = photoActions(app.album, canShareFiles());
-  $("download-summary").disabled = !actions.summaryEnabled;
+  renderSummaryImage(actions);
+  $("finish-photos").hidden = photos.length === 0;
   $("photos-count").textContent = photos.length ? `(${photos.length})` : "";
   $("download-photos").hidden = !actions.allVisible;
-  $("download-photos").textContent = t("photos.downloadAll");
   $("share-photos").hidden = !actions.shareVisible;
   $("photo-list").replaceChildren(
-    ...images.map((photo) => {
+    ...photos.map((photo) => {
       const item = document.createElement("li");
       const open = Object.assign(document.createElement("button"), { type: "button", className: "photo-thumb", title: t("photos.downloadTitle", { name: photo.name }) });
-      const alt = photo.summary ? t("photos.summaryCard") : t("photos.takenAt", { time: new Date(photo.takenAt).toLocaleTimeString(intlLocale()) });
+      const alt = t("photos.takenAt", { time: new Date(photo.takenAt).toLocaleTimeString(intlLocale()) });
       open.append(Object.assign(document.createElement("img"), { src: photo.url, alt }));
       open.addEventListener("click", () => saveFiles([photo]));
-      if (photo.summary) {
-        item.classList.add("summary-thumb");
-        item.append(open, Object.assign(document.createElement("span"), { className: "summary-label", textContent: t("photos.summary") }));
-        return item;
-      }
       const remove = Object.assign(document.createElement("button"), { type: "button", className: "photo-remove", textContent: "×", title: t("photos.delete") });
       remove.setAttribute("aria-label", t("photos.delete"));
       remove.addEventListener("click", () => {
@@ -3342,31 +3432,56 @@ function renderPhotos() {
   );
 }
 
-/** Draws the summary card and shows it with the photos. */
+/** The ride image's preview and its two actions; "Share" only where the device can hand a file to another app. */
+function renderSummaryImage(actions = photoActions(app.album, canShareFiles())) {
+  const image = app.album.summary;
+  const shown = image?.format === app.cardFormat;
+  for (const format of Object.keys(CARD_FORMATS)) $(`card-${format}`).setAttribute("aria-pressed", String(app.cardFormat === format));
+  $("card-preview").dataset.format = app.cardFormat;
+  $("card-preview").disabled = !shown;
+  $("card-preview").title = shown ? t("photos.downloadTitle", { name: image.name }) : "";
+  $("card-image").hidden = !shown;
+  $("card-pending").hidden = shown;
+  if (shown) Object.assign($("card-image"), { src: image.url, alt: t("card.alt", { route: app.rideRoute?.name ?? "" }) });
+  $("download-summary").disabled = !actions.summaryEnabled || !shown;
+  $("share-summary").hidden = !actions.summaryShareVisible || !shown;
+}
+
+/** Draws the ride image in the format on show and puts it in the dialog. */
 async function refreshSummaryImage() {
+  const recorder = app.recorder;
+  const format = app.cardFormat;
+  if (!$("finish").hidden) renderSummaryImage();
+  if (recorder.empty) return;
   try {
-    const { blob, name } = await summaryImage();
-    app.album.setSummary(blob, { name, takenAt: app.recorder.samples[0]?.t ?? Date.now() });
+    const { blob, name } = await summaryImage(format);
+    // The rider may have switched format, or left, while this one was drawn.
+    if (app.recorder !== recorder || app.cardFormat !== format) return;
+    Object.assign(app.album.setSummary(blob, { name, takenAt: recorder.samples[0]?.t ?? Date.now() }), { format });
     if (!$("finish").hidden) renderPhotos();
   } catch (error) {
     notify(t("photos.summaryFailed", { message: error.message }), "error");
   }
 }
 
-async function summaryImage() {
+/** The ride image of the ride on screen: its route with the world around it, its numbers, the rider's name. */
+async function summaryImage(format) {
   const samples = app.recorder.samples;
-  await photoFontsReady();
-  const canvas = composeSummary({
+  // A studio class has a name but no road.
+  const route = app.rideRoute instanceof RouteGeometry ? app.rideRoute : null;
+  const routes = [...(app.routes?.values() ?? [])].filter((other) => other.id !== OFF_ROUTE_ID);
+  const model = rideCardModel({
+    recorder: app.recorder,
+    route,
     routeName: app.rideRoute.name,
-    serverName: app.finishedServerName,
+    riderName: app.profile.name,
     when: new Date(samples[0]?.t ?? Date.now()),
-    stats: finishStats(),
-    power: samples.map((s) => s.power),
-    elevation: samples.map((s) => s.elevation),
-    scene: app.finishScene,
+    profile: app.profile,
+    context: route ? mapContext(route, { network: app.network, routes }) : null,
   });
-  const blob = await canvasToPng(canvas);
-  return { blob, name: photoFileName(samples[0]?.t ?? Date.now(), app.rideRoute.id, "summary") };
+  await rideCardFontsReady(model);
+  const blob = await canvasToPng(composeRideCard(model, CARD_FORMATS[format]));
+  return { blob, name: photoFileName(samples[0]?.t ?? Date.now(), app.rideRoute.id, format === "portrait" ? "card" : "card-wide") };
 }
 
 /** Ride files and photos: downloads in a browser, the share sheet in the app. */
@@ -3379,14 +3494,14 @@ async function saveFiles(files) {
   }
 }
 
-/** Phones: hand the summary and all photos to another app, e.g. Strava. */
-async function sharePhotos() {
+/** Phones: hand images to another app, e.g. Strava, where the rider adds them to the activity. */
+async function shareImages(images) {
   try {
-    const files = app.album.images.map(({ blob, name }) => new File([blob], name, { type: "image/png" }));
+    const files = images.map(({ blob, name }) => new File([blob], name, { type: "image/png" }));
     await navigator.share({ files, title: rideName() });
   } catch (error) {
     // Sharing refused (a frame without the permission, a browser rule): save the files instead, no error shown.
-    if (error.name === "NotAllowedError") return saveFiles(app.album.images);
+    if (error.name === "NotAllowedError") return saveFiles(images);
     if (error.name !== "AbortError") notify(t("photos.shareFailed", { message: error.message }), "error");
   }
 }

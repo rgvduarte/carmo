@@ -8,7 +8,7 @@
  */
 
 import { formatDistanceWithUnit, formatDuration, formatNumber, formatSpeed, speedUnit } from "../util/format.js";
-import { BRAND_SYMBOL, BRAND_TAG, BRAND_WORD, withServer } from "../brand.js";
+import { BRAND_SYMBOL, BRAND_TAG, BRAND_WORD } from "../brand.js";
 import { intlLocale, t } from "../i18n/i18n.js";
 
 export const MAX_PHOTOS = 30;
@@ -21,7 +21,6 @@ export const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, mono
 export const BG = "#0b0b0c";
 export const INK = "#f2f1ec";
 export const MUTED = "#a3a29c";
-const DIM = "#8a8983";
 const MUTED_ON_PHOTO = "rgba(242, 241, 236, 0.78)";
 export const ACCENT = "#e6b450";
 /** The slant of the site's titles and of the lockup: 10 degrees. */
@@ -93,12 +92,13 @@ export class PhotoAlbum {
   }
 }
 
-/** Keep the summary save action distinct from the optional collection of photos. */
+/** What the finish dialog offers: the ride image has its own save and share, apart from the photos taken on the road. */
 export function photoActions(album, shareable) {
   return {
     summaryEnabled: Boolean(album.summary),
+    summaryShareVisible: shareable && Boolean(album.summary),
     allVisible: album.photos.length > 0,
-    shareVisible: shareable && album.images.length > 0,
+    shareVisible: shareable && album.photos.length > 0,
   };
 }
 
@@ -297,125 +297,6 @@ export function composePhoto(scene, { routeName, stats, when }, doc = document) 
   ctx.font = `500 ${12 * u}px ${MONO}`;
   ctx.fillText(when.toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 12 * u);
   ctx.textAlign = "left";
-  return canvas;
-}
-
-/**
- * Draws the end-of-ride card (1600 × 1200): the last view of the world
- * behind a dark panel with the totals, an elevation profile and the power
- * line of the whole ride. It is 4:3 because that's the shape Strava shows
- * activity photos in; a wider card loses its sides there.
- * @param {{routeName: string, serverName: string, when: Date, stats: [string, string][],
- *          power: number[], elevation: (number|null)[], scene?: HTMLCanvasElement | null}} info
- */
-export function composeSummary({ routeName, serverName, when, stats, power, elevation, scene = null }, doc = document) {
-  const W = 1600;
-  const H = 1200;
-  const canvas = doc.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-
-  ctx.fillStyle = BG;
-  ctx.fillRect(0, 0, W, H);
-  if (scene && scene.width > 0 && scene.height > 0) {
-    // Cover: scale to fill, crop the overflow.
-    const scale = Math.max(W / scene.width, H / scene.height);
-    const sw = W / scale;
-    const sh = H / scale;
-    ctx.drawImage(scene, (scene.width - sw) / 2, (scene.height - sh) / 2, sw, sh, 0, 0, W, H);
-  }
-  const shade = ctx.createLinearGradient(0, 0, W, 0);
-  shade.addColorStop(0, "rgba(11, 11, 12, 0.95)");
-  shade.addColorStop(0.62, "rgba(11, 11, 12, 0.88)");
-  shade.addColorStop(1, "rgba(11, 11, 12, 0.62)");
-  ctx.fillStyle = shade;
-  ctx.fillRect(0, 0, W, H);
-
-  const left = 100;
-  const width = W - 2 * left;
-  ctx.textBaseline = "alphabetic";
-  // The lockup names the app once; the kicker says what the card is.
-  lockup(ctx, left, 140, 54);
-  ctx.textAlign = "right";
-  ctx.fillStyle = ACCENT;
-  ctx.font = `500 22px ${MONO}`;
-  track(ctx, 0.16, 22);
-  ctx.fillText(t("photos.cardTitle"), left + width, 136);
-  track(ctx, 0, 1);
-  ctx.textAlign = "left";
-  ctx.fillStyle = INK;
-  ctx.font = `400 84px ${DISPLAY}`;
-  slanted(ctx, fit(ctx, routeName.toUpperCase(), width - 20), left, 258);
-  ctx.fillStyle = MUTED;
-  ctx.font = `500 28px ${SANS}`;
-  ctx.fillText(fit(ctx, withServer(when.toLocaleString(intlLocale(), { dateStyle: "long", timeStyle: "short" }), serverName), width), left, 308);
-
-  // Totals in a grid of up to 4 columns.
-  const columns = 4;
-  const cellW = width / columns;
-  stats.slice(0, 8).forEach(([label, value], i) => {
-    const x = left + (i % columns) * cellW;
-    const y = 410 + Math.floor(i / columns) * 160;
-    ctx.fillStyle = DIM;
-    ctx.font = `500 19px ${MONO}`;
-    track(ctx, 0.1, 19);
-    ctx.fillText(label.toUpperCase(), x, y);
-    track(ctx, 0, 1);
-    ctx.fillStyle = INK;
-    let size = 80;
-    // Anton has one weight: asking a canvas for bold would smear the digits.
-    do ctx.font = `400 ${size}px ${NUM}`;
-    while (ctx.measureText(value).width > cellW - 32 && (size -= 4) > 28);
-    ctx.fillText(value, x, y + 84);
-  });
-
-  // Elevation (filled) and power (line) over the ride.
-  const chart = { x: left, y: 800, w: width, h: 280 };
-  ctx.fillStyle = DIM;
-  ctx.font = `500 19px ${MONO}`;
-  track(ctx, 0.1, 19);
-  // The legend in the rider's language; the second label starts after the first, however long that is.
-  const powerLabel = t("photos.stat.power").toUpperCase();
-  ctx.fillText(powerLabel, chart.x, chart.y - 20);
-  const elevationX = chart.x + Math.max(110, ctx.measureText(powerLabel).width + 40);
-  ctx.fillStyle = "#5fb47c";
-  ctx.fillText(t("photos.stat.elevation").toUpperCase(), elevationX, chart.y - 20);
-  track(ctx, 0, 1);
-  const heights = elevation.filter((v) => v !== null && Number.isFinite(v));
-  if (heights.length > 1) {
-    const series = downsample(elevation.map((v) => (v === null || !Number.isFinite(v) ? heights[0] : v)), 240);
-    const lo = Math.min(...series);
-    const hi = Math.max(...series, lo + 20);
-    ctx.beginPath();
-    ctx.moveTo(chart.x, chart.y + chart.h);
-    series.forEach((v, i) => ctx.lineTo(chart.x + (i / (series.length - 1)) * chart.w, chart.y + chart.h - ((v - lo) / (hi - lo)) * chart.h * 0.7));
-    ctx.lineTo(chart.x + chart.w, chart.y + chart.h);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(95, 180, 124, 0.28)";
-    ctx.fill();
-  }
-  if (power.length > 1) {
-    const series = downsample(power, 240);
-    const top = Math.max(...series, 100) * 1.1;
-    ctx.beginPath();
-    series.forEach((v, i) => {
-      const x = chart.x + (i / (series.length - 1)) * chart.w;
-      const y = chart.y + chart.h - (v / top) * chart.h;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    });
-    ctx.strokeStyle = ACCENT;
-    ctx.lineWidth = 4;
-    ctx.lineJoin = "round";
-    ctx.stroke();
-  }
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(chart.x, chart.y + chart.h + 0.5);
-  ctx.lineTo(chart.x + chart.w, chart.y + chart.h + 0.5);
-  ctx.stroke();
   return canvas;
 }
 

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { PhotoAlbum, canShareFiles, composeSummary, photoActions, downsample, photoFileName, photoStats } from "../public/js/view/photos.js";
+import { PhotoAlbum, canShareFiles, composePhoto, photoActions, downsample, photoFileName, photoFontsReady, photoStats } from "../public/js/view/photos.js";
+import { recordingDoc } from "./helpers.js";
 
 test("names photo files after the date, route and number", () => {
   const t = new Date(2026, 9, 14, 15, 30).getTime();
@@ -84,62 +85,36 @@ test("sharing files is offered only where the browser supports it", () => {
   assert.equal(canShareFiles({ canShare: () => { throw new Error("nope"); } }), false);
 });
 
-/** A canvas document whose 2D context records the text drawn on it. */
-function recordingDoc() {
-  const texts = [];
-  const state = { font: "10px sans-serif", textAlign: "left" };
-  const ctx = new Proxy(state, {
-    get(target, key) {
-      if (key in target) return target[key];
-      if (key === "measureText") return (text) => ({ width: text.length * Number(/(\d+)px/.exec(target.font)[1]) * 0.6 });
-      if (key === "fillText") return (text, x, y) => texts.push({ text, x, y, align: target.textAlign, width: ctx.measureText(text).width });
-      if (key === "createLinearGradient") return () => ({ addColorStop() {} });
-      return () => {};
-    },
-    set(target, key, value) {
-      target[key] = value;
-      return true;
-    },
-  });
-  const canvas = { width: 0, height: 0, getContext: () => ctx };
-  return { doc: { createElement: () => canvas }, texts };
-}
-
-const RIDE = {
-  routeName: "Col de la Forge",
-  serverName: "OpenRadlr",
-  when: new Date(2026, 10, 10, 15, 48),
-  stats: [["Time", "1:02:38"], ["Distance", "30.53 km"], ["Avg power", "168 W"], ["Max power", "484 W"], ["Elevation", "510 m"], ["Work", "831 kJ"]],
-  power: [100, 200, 150],
-  elevation: [10, 20, 15],
-};
-
-test("the summary card is 4:3, the shape Strava shows photos in, so it isn't cropped", () => {
-  const { doc } = recordingDoc();
-  const canvas = composeSummary(RIDE, doc);
-  assert.equal(canvas.width * 3, canvas.height * 4);
-});
-
-test("the summary card keeps all its text clear of the edges", () => {
+test("a ride photo keeps the scene's size and names the route, never upstream's app", () => {
   const { doc, texts } = recordingDoc();
-  const canvas = composeSummary(RIDE, doc);
-  const margin = canvas.width * 0.04;
-  const outside = texts.filter(({ x, y, align, width }) => {
-    const from = align === "right" ? x - width : x;
-    return from < margin || from + width > canvas.width - margin || y < margin || y > canvas.height - margin;
-  });
-  assert.deepEqual(outside.map((t) => t.text), []);
+  const photo = composePhoto({ width: 1280, height: 720 }, { routeName: "Col de la Forge", stats: [["Distance", "1.81 km"], ["Time", "3:35"], ["Power", "291 W"]], when: new Date(2026, 10, 12, 18, 42) }, doc);
+  assert.deepEqual([photo.width, photo.height], [1280, 720]);
+  const written = texts.map((entry) => entry.text);
+  assert.ok(written.includes("COL DE LA FORGE"));
+  assert.ok(written.includes("GOCARMO") && written.includes("RIDE"));
+  assert.ok(written.every((text) => !/openradlr|strava/i.test(text)));
 });
 
+test("the fonts are asked for at their real weights, with the text that will be drawn", async () => {
+  const asked = [];
+  await photoFontsReady({ fonts: { load: (font, text) => (asked.push([font, text]), Promise.resolve([])) } }, "Łódź");
+  assert.equal(asked.length, 4);
+  assert.ok(asked.every(([, text]) => text.includes("Łódź") && text.includes("0123456789")));
+  // Anton and its tabular cut have one weight: a canvas asked for a bolder one would smear it.
+  for (const [font] of asked) assert.match(font, /^(400|500) /);
+  assert.ok(asked.some(([font]) => font.startsWith("400 ") && font.includes('"GC Anton Tab"')));
+  await photoFontsReady({}, "x"); // a document without the font API: nothing to wait for
+});
 
-test("the summary has its own save action without a duplicate save-all action", () => {
+test("the ride image has its own save and share, apart from the photos taken on the road", () => {
   const { photos } = album();
   photos.setSummary("summary", { name: "summary.png" });
-  assert.deepEqual(photoActions(photos, false), { summaryEnabled: true, allVisible: false, shareVisible: false });
+  assert.deepEqual(photoActions(photos, false), { summaryEnabled: true, summaryShareVisible: false, allVisible: false, shareVisible: false });
+  assert.deepEqual(photoActions(photos, true), { summaryEnabled: true, summaryShareVisible: true, allVisible: false, shareVisible: false });
 });
 
-test("ride photos can be saved and shared before the summary is ready", () => {
+test("ride photos can be saved and shared before the ride image is ready", () => {
   const { photos } = album();
   photos.add("photo", { name: "photo.png" });
-  assert.deepEqual(photoActions(photos, true), { summaryEnabled: false, allVisible: true, shareVisible: true });
+  assert.deepEqual(photoActions(photos, true), { summaryEnabled: false, summaryShareVisible: false, allVisible: true, shareVisible: true });
 });

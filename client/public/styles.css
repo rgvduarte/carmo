@@ -3496,14 +3496,7 @@ body.riding {
   gap: 6px;
 }
 
-.strava-mark {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  fill: #fc4c02;
-}
-
-/* The Strava line is a device line without a dot: the mark, who you are, one action. */
+/* The Strava line is a device line without a dot: who you are and one action; the button to connect sits under it. */
 .strava-line .device-line > .device-status {
   min-width: 0;
   overflow: hidden;
@@ -3527,32 +3520,7 @@ body.riding {
 
 /* The server rides with Strava only: a callout; the Ride button connects. */
 .strava-line.required .device-line {
-  border-color: rgba(252, 76, 2, 0.55);
-  background: rgba(252, 76, 2, 0.08);
-}
-
-/* Optional, so quieter than the main action: Strava's orange as an outline. */
-.strava-button.small {
-  min-height: 32px;
-  padding: 0 14px;
-  font-size: 14px;
-  background: transparent;
-  color: #ff6a2b;
-  border: 1px solid rgba(252, 76, 2, 0.65);
-}
-
-.strava-button.small:hover {
-  background: rgba(252, 76, 2, 0.12);
-}
-
-#join[data-action="strava"] {
-  background: #fc4c02;
-  border-color: #fc4c02;
-  color: #fff;
-}
-
-#join[data-action="strava"]:hover {
-  background: #e34402;
+  border-color: var(--accent);
 }
 
 /* A friend's vehicle: a quiet line under Ride, a valid code turns Ride into Board. */
@@ -3594,34 +3562,6 @@ body.riding {
 .code-input:focus {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-}
-
-.strava-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  font-size: 14px;
-}
-
-.strava-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 18px;
-  border-radius: 8px;
-  border: 0;
-  background: #fc4c02;
-  color: #fff;
-  font-weight: 700;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.strava-button:hover {
-  background: #e34402;
 }
 
 /* End-of-ride dialog */
@@ -3849,19 +3789,6 @@ body.riding {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-}
-
-.summary-label {
-  position: absolute;
-  left: 6px;
-  bottom: 6px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(6, 6, 7, 0.75);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  pointer-events: none;
 }
 
 /* Paused (#89): the ride timer is stopped; below the "reconnecting" pill. */
@@ -5891,87 +5818,6 @@ body.working-out #paddles {
   }
 }
 
-/* Finish/recovery account row uses the same quiet treatment as the start menu. */
-.strava-upload {
-  display: grid;
-  gap: 6px;
-  min-width: 0;
-  padding-block: 12px;
-  border-block: 1px solid var(--border);
-}
-
-.strava-upload h3, .strava-upload p { margin: 0; }
-.strava-upload h3 { font-size: 14px; font-weight: 600; }
-.strava-upload .field-hint { line-height: 1.4; overflow-wrap: anywhere; }
-.strava-upload .strava-row { min-width: 0; flex-wrap: nowrap; gap: 8px; }
-.upload-identity { display: flex; align-items: center; flex: 1 1 0; gap: 8px; min-width: 0; }
-.upload-identity h3 { flex: none; }
-.upload-identity .muted { min-width: 0; flex: 1 1 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.upload-actions { display: flex; flex: none; flex-wrap: nowrap; gap: 6px; align-items: center; }
-.strava-upload .upload-action { padding-inline: 10px; font-size: 13px; }
-.upload-action { gap: 7px; white-space: nowrap; transition: background 150ms, border-color 150ms, color 150ms; }
-.strava-upload[data-spinner="true"] .upload-action { cursor: progress; opacity: 1; }
-.strava-upload[data-spinner="true"] .upload-action::before {
-  content: "";
-  width: 12px;
-  height: 12px;
-  border: 2px solid currentColor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  animation: upload-spin 750ms linear infinite;
-}
-.strava-upload[data-tone="success"] .upload-action {
-  color: var(--terrain-edge);
-  border-color: var(--terrain-edge);
-  background: rgba(95, 180, 124, 0.08);
-}
-.strava-upload[data-tone="success"] .upload-action::before {
-  content: "";
-  width: 5px;
-  height: 9px;
-  margin-right: 2px;
-  border: solid currentColor;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg) translateY(-1px);
-}
-.strava-upload[data-tone="success"] .upload-action::after { content: "↗"; }
-.strava-upload[data-tone="error"] .upload-action { color: var(--danger); border-color: var(--danger); }
-.strava-upload[data-tone="warning"] .upload-action { color: var(--warn); border-color: var(--warn); }
-.strava-upload:is([data-tone="error"], [data-tone="warning"]) .upload-action:first-child::before {
-  content: "!";
-  display: inline-grid;
-  place-items: center;
-  width: 13px;
-  height: 13px;
-  border: 1px solid currentColor;
-  border-radius: 50%;
-  font-size: 10px;
-  line-height: 1;
-}
-.upload-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-@keyframes upload-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) {
-  .strava-upload[data-spinner="true"] .upload-action::before { animation: none; }
-  .upload-action { transition: none; }
-}
-.finish-files > summary { cursor: pointer; color: var(--muted); font-size: 13px; padding-block: 4px; }
-.finish-files[open] > summary { margin-bottom: 10px; }
-#finish .modal-card { scroll-padding-bottom: 96px; }
-#finish .modal-nav { position: static; margin: 0; padding: 14px 0 0; }
-#finish-note:empty { display: none; }
-
-@media (max-width: 380px) {
-  /* Two actions are needed for an uncertain submission; the brand mark keeps room for both. */
-  .strava-upload[data-state="uncertain"] .upload-identity h3 {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-}
-
 /* ===================================================================== */
 /* Phone ride screen: nothing covers the top buttons or another panel.    */
 /* One rhythm: --gap at the edges, 8px between rows, rows 44px tall (the  */
@@ -7078,4 +6924,224 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
   background: currentColor;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath fill-rule='evenodd' d='M2 0h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm0 1.5a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V2a.5.5 0 0 0-.5-.5H2zm2 11h2v1H4z'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath fill-rule='evenodd' d='M2 0h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm0 1.5a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V2a.5.5 0 0 0-.5-.5H2zm2 11h2v1H4z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* ===================================================================== */
+/* The end of a ride: Strava or the file, then the ride image.            */
+/* ===================================================================== */
+
+#finish .modal-card { scroll-padding-bottom: 96px; }
+#finish .modal-nav { position: static; margin: 0; padding: 14px 0 0; }
+
+/* The sections of the finish dialog and of the saved ride on the start screen share one look. */
+.finish-send,
+.finish-image,
+.strava-upload {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.finish-send,
+.finish-image,
+#finish-photos {
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.finish-send h3,
+.finish-image h3,
+.strava-upload h3 {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.finish-send p,
+.finish-image p,
+.strava-upload p { margin: 0; }
+
+/* The one line that says why: what this ride can and cannot do. */
+.finish-reason {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.finish-reason:empty { display: none; }
+
+.strava-upload .field-hint { line-height: 1.45; overflow-wrap: anywhere; }
+.strava-upload .muted { font-size: 13px; overflow-wrap: anywhere; }
+.strava-upload .muted:empty { display: none; }
+
+.upload-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.upload-actions:not(:has(> :not([hidden]))) { display: none; }
+
+.upload-actions > button { width: auto; flex: 1 1 220px; min-height: 48px; }
+
+.upload-action { transition: background 150ms, border-color 150ms, color 150ms; }
+.upload-action[aria-busy="true"] { cursor: progress; opacity: 1; }
+.upload-action[aria-busy="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: upload-spin 750ms linear infinite;
+}
+
+@keyframes upload-spin { to { transform: rotate(360deg); } }
+
+.upload-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* What the upload is doing, in words: always visible, never only a colour. */
+.upload-status { font-size: 14px; font-weight: 600; color: var(--text); }
+.strava-upload[data-tone="success"] .upload-status::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 10px;
+  margin: 0 9px 1px 3px;
+  border: solid var(--terrain-edge);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.strava-upload[data-tone="error"] .upload-status { color: var(--danger); }
+.strava-upload[data-tone="warning"] .upload-status { color: var(--warn); }
+
+/*
+ * Strava's own button, as Strava provides it (strava/README.md): 48 px high, never
+ * restyled. It is the only thing on the page that carries Strava's colour.
+ */
+.strava-connect {
+  display: inline-block;
+  flex: none;
+  height: 48px;
+  border-radius: 6px;
+  line-height: 0;
+}
+
+.strava-connect img { display: block; width: 237px; height: 48px; }
+.strava-connect:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.strava-line .strava-connect { justify-self: start; }
+
+/* "View on Strava": a text link, told apart by weight and underline (Strava's brand guidelines, section 3). */
+.strava-view {
+  color: var(--text);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 8px 0;
+}
+
+.strava-view:hover { text-decoration-thickness: 2px; }
+.strava-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* The file by hand: two steps and where they lead. */
+.finish-manual > summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text);
+  padding-block: 4px;
+}
+
+/* In front (no way to connect): always open, and its title reads as a line, not as a switch. */
+.finish-manual[data-fixed] > summary { list-style: none; cursor: default; font-weight: 600; }
+.finish-manual[data-fixed] > summary::-webkit-details-marker { display: none; }
+
+.finish-steps {
+  margin: 8px 0;
+  padding-left: 22px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.finish-steps a,
+.unfinished a { color: var(--text); font-weight: 600; text-underline-offset: 3px; overflow-wrap: anywhere; }
+
+.finish-files { margin: 0; }
+.finish-files > button.primary { width: auto; flex: 1 1 100%; }
+/* The other formats stay quiet: the .fit file is the one Strava reads as a virtual ride. */
+.finish-files > .quiet { flex: 0 1 auto; color: var(--muted); font-size: 13px; }
+
+.finish-send[data-main="manual"] .finish-manual { order: 1; }
+.finish-send[data-main="manual"] .finish-files { order: 2; }
+.finish-send[data-main="manual"] .strava-upload { order: 3; padding-top: 12px; border-top: 1px solid var(--border); }
+.finish-send[data-main="manual"] #finish-retained { order: 4; }
+
+/* The ride image. */
+.finish-image-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.card-formats { display: flex; gap: 6px; }
+.card-formats button[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+.card-preview {
+  display: grid;
+  place-items: center;
+  justify-self: center;
+  width: min(100%, 340px);
+  aspect-ratio: 1080 / 1350;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.card-preview[data-format="landscape"] { width: 100%; aspect-ratio: 1600 / 900; }
+.card-preview img { display: block; width: 100%; height: 100%; }
+.card-preview:disabled { cursor: default; opacity: 1; }
+.card-preview:not(:disabled):hover,
+.card-preview:focus-visible { border-color: var(--accent); }
+.card-preview .muted { font-size: 13px; }
+
+.photos h3 { font-family: var(--mono); font-size: 12px; font-weight: 500; letter-spacing: 0.1em; }
+
+/* The saved ride on the start screen. */
+.unfinished .strava-upload { padding-top: 12px; border-top: 1px solid var(--border); }
+.unfinished .field-hint { line-height: 1.45; }
+
+@media (max-width: 520px) {
+  .upload-actions > button { flex-basis: 100%; }
+  .finish-files > button:not(.quiet) { flex: 1 1 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .upload-action[aria-busy="true"]::before { animation: none; }
+  .upload-action { transition: none; }
+}
+
+/* The finished ride's numbers: up to twelve, so three to a row; on a phone smaller cells keep the Strava action on the first screen. */
+#finish .summary { gap: 8px; }
+#finish .summary div { padding: 9px 11px; min-width: 0; }
+#finish .summary dt { font-size: 11px; letter-spacing: 0.06em; line-height: 1.25; overflow-wrap: anywhere; }
+#finish .summary dd { font-size: 24px; white-space: nowrap; }
+
+@media (max-width: 520px) {
+  #finish .summary { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #finish .summary div { padding: 8px 9px; }
+  #finish .summary dt { font-size: 10px; letter-spacing: 0.04em; }
+  #finish .summary dd { font-size: 19px; }
 }

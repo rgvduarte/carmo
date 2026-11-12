@@ -6,6 +6,103 @@
 import { t } from "../i18n/i18n.js";
 
 export const activityUrl = (id) => `https://www.strava.com/activities/${id}`;
+/** The rider's own list of activities on Strava: where to look when an upload's answer got lost. */
+export const STRAVA_TRAINING_LOG = "https://www.strava.com/athlete/training";
+/** Where a ride file is uploaded to Strava by hand. */
+export const STRAVA_UPLOAD_PAGE = "https://www.strava.com/upload/select";
+
+/**
+ * Whether this server's Strava application still has the athlete limit Strava
+ * gives every new application: one account, ten after the first upgrade in the
+ * application's settings, more only after Strava's review
+ * (developers.strava.com/docs/rate-limits/, read 12.11.2026). While it has,
+ * most riders cannot connect, so the game says so and puts the .fit file in
+ * front. A server that knows better says `strava.limited: false` in /api/info;
+ * until one does, the limit is assumed.
+ */
+export const stravaLimited = (info) => info?.strava?.limited !== false;
+
+const CONNECT_KEY = "openradlr.strava-connect";
+const RETURN_KEY = "openradlr.strava-return";
+const TAB_KEY = "openradlr.strava-tab";
+/** A sign-in tab opened longer ago than this is no longer taken for one. */
+const TAB_MAX_AGE_MS = 15 * 60 * 1000;
+
+const browserStore = (name) => ({
+  getItem: (key) => globalThis[name].getItem(key),
+  setItem: (key, value) => globalThis[name].setItem(key, value),
+  removeItem: (key) => globalThis[name].removeItem(key),
+});
+
+/**
+ * What the browser remembers about connecting Strava, so a finished ride is
+ * not lost on the way there and back, and a rider whose account Strava would
+ * not connect is shown the file instead of the same button again.
+ * Storage that cannot be read or written (private mode) remembers nothing.
+ */
+export class ConnectMemory {
+  /** @param {{local?: Storage, session?: Storage}} [stores] */
+  constructor({ local = browserStore("localStorage"), session = browserStore("sessionStorage") } = {}) {
+    this.local = local;
+    this.session = session;
+  }
+
+  #read(store, key) {
+    try {
+      return store.getItem(key);
+    } catch {
+      return null;
+    }
+  }
+
+  #write(store, key, value) {
+    try {
+      if (value === null) store.removeItem(key);
+      else store.setItem(key, value);
+    } catch {
+      // Nothing to remember with.
+    }
+  }
+
+  /** The last attempt to connect ended in "failed": Strava answered, and would not connect this account. */
+  get failed() {
+    return this.#read(this.local, CONNECT_KEY) === "failed";
+  }
+
+  /** `result` is the page's `?strava=…` after the sign-in ("failed", "denied", "expired"), or "connected". */
+  record(result) {
+    if (result === "failed") this.#write(this.local, CONNECT_KEY, "failed");
+    if (result === "connected") this.#write(this.local, CONNECT_KEY, null);
+  }
+
+  /** Leaving for Strava's sign-in with a finished ride waiting: coming back opens it. */
+  leaveWithRide() {
+    this.#write(this.session, RETURN_KEY, "ride");
+  }
+
+  /** True once after `leaveWithRide`, in the same tab. */
+  takeReturn() {
+    const waiting = this.#read(this.session, RETURN_KEY) === "ride";
+    if (waiting) this.#write(this.session, RETURN_KEY, null);
+    return waiting;
+  }
+
+  /** The game inside a frame sent the sign-in to a tab of its own, at `now` (epoch ms). */
+  openedTab(now) {
+    this.#write(this.local, TAB_KEY, String(now));
+  }
+
+  /**
+   * True once, in the tab the sign-in ended in: the game that opened it is
+   * still running in its frame, so this tab only has to say "done, go back".
+   */
+  takeTab(now) {
+    const opened = Number(this.#read(this.local, TAB_KEY));
+    if (!opened) return false;
+    this.#write(this.local, TAB_KEY, null);
+    return now - opened >= 0 && now - opened < TAB_MAX_AGE_MS;
+  }
+}
 
 /** Text for `?strava=…` after coming back from Strava, or null. */
 export function stravaMessage(param) {
