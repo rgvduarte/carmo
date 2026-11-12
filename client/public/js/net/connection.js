@@ -54,7 +54,8 @@ export class GameConnection extends Emitter {
             resolve(message.rider_id);
             break;
           case "error":
-            if (!joined) reject(Object.assign(new Error(`${message.code}: ${message.message}`), { code: message.code, serverMessage: message.message }));
+            // The server's English stays out of the rider's way: the code is what the page translates.
+            if (!joined) reject(Object.assign(new Error(message.code), { code: message.code, serverMessage: message.message }));
             this.emit("error", message);
             break;
           default:

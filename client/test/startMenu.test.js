@@ -247,10 +247,25 @@ test("the Strava line: hidden without Strava, a connect offer, the account once 
   assert.equal(required.required, true);
   assert.match(required.text, /needs a Strava account/);
   assert.deepEqual([required.last, required.note], [false, ""], "where the server asks for Strava the line leads the Rider section");
-  const connected = stravaLine({ strava: { enabled: true, required: true } }, { name: "Thore K.", can_upload: true });
-  assert.deepEqual([connected.connected, connected.required, connected.text], [true, false, "Thore K."]);
+  // The server keeps no Strava name: the line says the account is connected, not whose it is.
+  const connected = stravaLine({ strava: { enabled: true, required: true } }, { athlete_id: 42, can_upload: true });
+  assert.deepEqual([connected.connected, connected.required, connected.text], [true, false, "Connected to Strava"]);
   assert.equal(connected.last, false);
-  assert.deepEqual([stravaLine({ strava: { enabled: true } }, { name: "Thore K." }).last, stravaLine({ strava: { enabled: true } }, { name: "Thore K." }).note], [true, ""]);
+  assert.deepEqual([stravaLine({ strava: { enabled: true } }, { athlete_id: 42 }).last, stravaLine({ strava: { enabled: true } }, { athlete_id: 42 }).note], [true, ""]);
+});
+
+test("no Strava offer where it leads nowhere: rides on paddles or the simulator, or a server whose application takes only its owner", () => {
+  const info = { strava: { enabled: true } };
+  assert.equal(stravaLine(info, null, "trainer").shown, true);
+  assert.equal(stravaLine(info, null).shown, true, "the trainer is the default");
+  assert.equal(stravaLine(info, null, "paddles").shown, false);
+  assert.equal(stravaLine(info, null, "sim").shown, false);
+  assert.equal(stravaLine({ strava: { enabled: true, limited: true, owner_only: true } }, null, "trainer").shown, false);
+  // A connected account is said in every mode, with its Disconnect.
+  for (const mode of ["trainer", "paddles", "sim"]) assert.equal(stravaLine(info, { athlete_id: 42 }, mode).connected, true, mode);
+  assert.equal(stravaLine({ strava: { enabled: true, owner_only: true } }, { athlete_id: 42 }).connected, true);
+  // Where the server needs Strava to ride at all, the callout stays.
+  assert.equal(stravaLine({ strava: { enabled: true, required: true } }, null, "paddles").required, true);
 });
 
 test("the main button does one thing: ride, start the workout, board a friend's vehicle or connect Strava first", () => {

@@ -22,6 +22,15 @@ export const STRAVA_UPLOAD_PAGE = "https://www.strava.com/upload/select";
  */
 export const stravaLimited = (info) => info?.strava?.limited !== false;
 
+/**
+ * Only the owner of this server's Strava application can connect yet (a new
+ * application's one athlete, `OPENRADLR_STRAVA_LIMITED=owner`): the game then
+ * shows nobody a "Connect with Strava" button, which would only lead to
+ * Strava's refusal, and gives everyone the .fit file. The owner connects at
+ * /auth/strava himself.
+ */
+export const stravaOwnerOnly = (info) => info?.strava?.owner_only === true;
+
 const CONNECT_KEY = "openradlr.strava-connect";
 const RETURN_KEY = "openradlr.strava-return";
 const TAB_KEY = "openradlr.strava-tab";
@@ -172,8 +181,15 @@ export class StravaClient {
     if (!response.ok) await this.#json(response);
   }
 
+  /**
+   * "Disconnect": the server withdraws its access on Strava and forgets the
+   * athlete. Resolves with what it did, `{revoked, removed}`, for the rider's
+   * written confirmation, or null when it could not be asked.
+   */
   async logout() {
-    await this.fetch("/auth/logout", { method: "POST", credentials: "same-origin" });
+    const response = await this.fetch("/auth/logout", { method: "POST", credentials: "same-origin" });
+    if (!response.ok) return null;
+    return response.json().catch(() => null);
   }
 
   async #json(response) {
@@ -184,11 +200,17 @@ export class StravaClient {
 
   /**
    * Uploads a ride: a FIT file (bytes), or TCX (text); resolves with
-   * Strava's upload status ({id, status, error, activity_id}).
+   * Strava's upload status ({id, status, error, activity_id}). `kind` "class"
+   * is a class in the studio (no virtual ride on a map); `start` is the
+   * ride's first sample in epoch ms, so every attempt at one ride carries one
+   * id on Strava.
    */
-  async upload(file, name) {
+  async upload(file, name, { kind = "route", start = null } = {}) {
     const fit = typeof file !== "string";
-    const response = await this.fetch(`/api/strava/upload?name=${encodeURIComponent(name)}`, {
+    let query = `name=${encodeURIComponent(name)}`;
+    if (kind === "class") query += "&kind=class";
+    if (Number.isFinite(start)) query += `&start=${Math.floor(start / 1000)}`;
+    const response = await this.fetch(`/api/strava/upload?${query}`, {
       method: "POST",
       credentials: "same-origin",
       signal: this.timeoutSignal(30_000),

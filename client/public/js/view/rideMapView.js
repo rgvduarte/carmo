@@ -406,8 +406,7 @@ function drawRiders(ctx, { route, riders, me, myId, camera, colors, width, heigh
     const box = { left: screen.x - labelWidth / 2, right: screen.x + labelWidth / 2, top: screen.y - radius - 16, bottom: screen.y - radius - 4 };
     if (boxes.some((other) => overlaps(other, box))) continue;
     boxes.push(box);
-    ctx.fillStyle = colors.text;
-    ctx.fillText(mark.label, screen.x, screen.y - radius - 4);
+    haloText(ctx, mark.label, screen.x, screen.y - radius - 4, colors.text);
   }
 
   // Me: an arrow pointing up (the camera is heading-up and centred on me).
@@ -423,8 +422,19 @@ function drawRiders(ctx, { route, riders, me, myId, camera, colors, width, heigh
   ctx.strokeStyle = colors.text;
   ctx.lineWidth = 2.5;
   ctx.stroke();
-  ctx.fillStyle = colors.text;
-  ctx.fillText(me.name, x, y - 18);
+  haloText(ctx, me.name, x, y - 18, colors.text);
+}
+
+/** A name over the road: a dark edge under the letters keeps it readable over the white lane lines. */
+function haloText(ctx, text, x, y, colour) {
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(11, 11, 12, 0.8)";
+  ctx.strokeText(text, x, y);
+  ctx.restore();
+  ctx.fillStyle = colour;
+  ctx.fillText(text, x, y);
 }
 
 export function drawRideMap(canvas, { route, riders = [], me = null, draft = null, lemons = [], colors, network = null, routes = null, biome = "temperate", timeMode = "day", date }) {

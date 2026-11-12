@@ -8,21 +8,24 @@ import { t } from "../i18n/i18n.js";
 import { planDuration } from "../workout/plan.js";
 import { VENUES } from "../workout/venues.js";
 
-/** One colour per exercise: strip segments and figure chips. */
+/** Work in the strip and on the chips: the site's gold (upstream: a colour per exercise, a rainbow off the brand). */
+const WORK = "#e6b450";
+
+/** One colour per exercise: strip segments and figure chips. All gold: the names say which exercise. */
 export const EXERCISE_COLORS = Object.freeze({
-  squats: "#ff7a1a",
-  situps: "#3fa7d6",
-  pushups: "#e4572e",
-  jumping_jacks: "#f2c14e",
-  plank: "#59a96a",
-  burpees: "#a06cd5",
-  sun_salutation: "#2ec4b6",
-  forward_fold: "#5b8def",
-  downward_dog: "#1f8a70",
-  cobra: "#7ac47a",
-  child_pose: "#8fb8de",
-  low_lunge: "#3a9bb3",
-  pigeon: "#4f7ea8",
+  squats: WORK,
+  situps: WORK,
+  pushups: WORK,
+  jumping_jacks: WORK,
+  plank: WORK,
+  burpees: WORK,
+  sun_salutation: WORK,
+  forward_fold: WORK,
+  downward_dog: WORK,
+  cobra: WORK,
+  child_pose: WORK,
+  low_lunge: WORK,
+  pigeon: WORK,
 });
 
 /** The translated tag per venue category (literal keys, so the key sweep sees them). */

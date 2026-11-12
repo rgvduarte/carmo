@@ -107,7 +107,9 @@ test("the reasons say plainly what Strava allows, in the three languages", () =>
     assert.match(dictionary["photos.stravaHint"], /Strava/);
     for (const [key, text] of Object.entries(dictionary)) assert.doesNotMatch(text, /(adds?|attach\w*|junta|anexa|hängt|fügt) (the image|a imagem|das Bild) (automatically|automaticamente|automatisch)/i, key);
   }
-  assert.match(pt["photos.stravaHint"], /não deixa as aplicações juntar fotografias/);
+  // Literal: Strava's public API gives this app no way (partner apps may have one), so no claim about all apps.
+  assert.match(pt["photos.stravaHint"], /não dá a esta aplicação forma de juntar fotografias/);
+  for (const dictionary of [en, de, pt]) assert.match(dictionary["finish.reason.ownerOnly"], /\.fit/);
   assert.match(pt["finish.note.simulated"], /simulador/);
   assert.equal(STRAVA_UPLOAD_PAGE, "https://www.strava.com/upload/select");
 });

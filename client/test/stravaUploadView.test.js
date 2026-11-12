@@ -4,7 +4,7 @@ import { uploadPresentation, bindStravaUpload } from "../public/js/view/stravaUp
 import { UploadReceipts } from "../public/js/net/stravaUpload.js";
 import { t } from "../public/js/i18n/i18n.js";
 
-const account = { athlete_id: 7, name: "Rider", can_upload: true };
+const account = { athlete_id: 7, can_upload: true };
 const state = (phase, extra = {}) => ({ phase, persisted: true, ...extra });
 
 test("pending processing offers a status check rather than upload", () => {
@@ -147,7 +147,7 @@ test("the panel shows the upload in words: status and detail are text on the pag
   assert.equal(els.status.hidden, false);
   assert.equal(els.detail.textContent, t("strava.failedHint"));
   assert.equal(els.detail.hidden, false);
-  assert.equal(els.account.textContent, "Connected to Strava as Rider");
+  assert.equal(els.account.textContent, "Connected to Strava");
   assert.equal(els.connect.hidden, true);
   assert.deepEqual(states, ["failed"], "the dialog hears each state, to plan its buttons again");
   binding.dispose();
@@ -181,7 +181,7 @@ test("a lost session is not announced under a line that says the rider is connec
   const receipts = new UploadReceipts({ storage: { getItem: () => null, setItem() {} } });
   const client = { upload: async () => { throw Object.assign(new Error("connect your Strava account first"), { status: 401, code: "not_connected" }); } };
   const binding = bindStravaUpload({ elements: els, client, receipts, key: "7:1", account, makeFile: () => "fit", name: "ride" });
-  assert.equal(els.account.textContent, "Connected to Strava as Rider");
+  assert.equal(els.account.textContent, "Connected to Strava");
   return els.action.click().then(() => {
     assert.equal(els.account.hidden, true);
     assert.equal(els.account.textContent, "");
@@ -190,4 +190,54 @@ test("a lost session is not announced under a line that says the rider is connec
     assert.equal(els.action.hidden, true);
     binding.dispose();
   });
+});
+
+test("a ride Strava already has is on Strava: no failure, a link to the activity, no second copy", () => {
+  const view = uploadPresentation(state("success", { activityId: 16000000001, duplicate: true }), account);
+  assert.equal(view.status, t("strava.state.duplicate"));
+  assert.equal(view.detail, t("strava.duplicateHint"));
+  assert.equal(view.activity, "https://www.strava.com/activities/16000000001");
+  assert.equal(view.action, null);
+  assert.equal(view.tone, "success");
+});
+
+test("Strava's own error is shown without markup", () => {
+  const view = uploadPresentation(state("rejected", { error: "gocarmo-ride.fit <a href='/x'>is broken</a>" }), account);
+  assert.match(view.detail, /gocarmo-ride\.fit is broken/);
+  assert.doesNotMatch(view.detail, /</);
+});
+
+test("a busy Strava is said plainly and sending again is safe; a refusal says so", () => {
+  const busy = uploadPresentation(state("failed", { code: "strava_busy" }), account);
+  assert.equal(busy.status, t("strava.state.busy"));
+  assert.equal(busy.action, t("strava.action.retry"));
+  assert.notEqual(busy.status, t("strava.state.uncertain"));
+  const busyCheck = uploadPresentation(state("check-failed", { uploadId: 9, code: "strava_busy" }), account);
+  assert.equal(busyCheck.status, t("strava.state.busy"));
+  assert.equal(busyCheck.action, t("strava.action.retryCheck"));
+  const refused = uploadPresentation(state("failed", { code: "strava_refused" }), account);
+  assert.equal(refused.detail, t("strava.refusedHint"));
+});
+
+test("where only the application's owner can connect, nobody else gets a button that ends on Strava's refusal", () => {
+  assert.equal(uploadPresentation(state("idle"), null, { canConnect: false }).connect, false);
+  assert.equal(uploadPresentation(state("idle"), null).connect, true);
+  // The owner, whose session went away, still gets his button.
+  assert.equal(uploadPresentation(state("idle", { code: "not_connected" }), account, { canConnect: false }).connect, true);
+});
+
+test("next to every connect button: what connecting keeps; before sending: the name and the link", () => {
+  const els = { ...elements(), consent: { hidden: true }, note: { hidden: true, textContent: "" } };
+  const binding = bindStravaUpload({ elements: els, account: null });
+  assert.equal(els.connect.hidden, false);
+  assert.equal(els.consent.hidden, false, "the consent text shows with the button");
+  binding.dispose();
+  const receipts = new UploadReceipts({ storage: { getItem: () => null, setItem() {} } });
+  const sending = { ...elements(), consent: { hidden: false }, note: { hidden: true, textContent: "" } };
+  const second = bindStravaUpload({ elements: sending, client: {}, receipts, key: "7:2", account, name: "GOCARMO Ride · Col de la Forge" });
+  assert.equal(sending.consent.hidden, true);
+  assert.equal(sending.note.hidden, false);
+  assert.match(sending.note.textContent, /GOCARMO Ride · Col de la Forge/);
+  assert.match(sending.note.textContent, /gocarmo\.com\/ride/);
+  second.dispose();
 });

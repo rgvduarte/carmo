@@ -18,7 +18,29 @@ const SOURCE_BRANCH = "gocarmo-ride";
  * knows it (AGPL section 13 offers the source of the version being run), else
  * the fork's branch. The deploy stamps `build.js` with the fork's commit.
  */
-export const sourceUrl = (sha = BUILD.sha) => `${SOURCE_REPO}/tree/${/^[0-9a-f]{7,40}$/.test(sha) ? sha : SOURCE_BRANCH}`;
+export const sourceUrl = (sha = BUILD.sha) => `${SOURCE_REPO}/tree/${isCommit(sha) ? sha : SOURCE_BRANCH}`;
+
+function isCommit(sha) {
+  return typeof sha === "string" && /^[0-9a-f]{7,40}$/.test(sha);
+}
+
+/**
+ * The running commit: the client's own build when the image stamped it, else
+ * the server's (`/api/info` `build.sha`, which on Render comes from
+ * RENDER_GIT_COMMIT at run time when the image was built without it). The
+ * client and the server are one image built from one commit. Null when
+ * neither knows.
+ */
+export function runningCommit(info, build = BUILD) {
+  if (isCommit(build?.sha)) return build.sha;
+  return isCommit(info?.build?.sha) ? info.build.sha : null;
+}
+
+/** Points every "Source code" link at the running commit, once /api/info has said what the server knows. */
+export function setSourceLinks(info, doc = document) {
+  const href = sourceUrl(runningCommit(info) ?? "");
+  for (const link of doc.querySelectorAll("[data-source-link]")) if (link.href !== href) link.href = href;
+}
 
 /**
  * One of the page's information dialogs: any element carrying `openAttr`

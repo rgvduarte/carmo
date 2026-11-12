@@ -57,7 +57,7 @@ const at = (elapsed) => planPositionAt(withGetReady(plan()), elapsed);
 
 test("an exercise block shows its name, the time left and what comes next", () => {
   const text = workoutHudText(at(60), { state: "block", heartRate: null });
-  assert.deepEqual([text.exercise, text.time, text.next], ["Squats", "0:05", "Next: Rest 15 s"]);
+  assert.deepEqual([text.exercise, text.time, text.next], ["Squats", "0:05", "Next: Rest 15\u00a0s"], "the number and its unit never part at a line end");
 });
 
 test("the time left rounds up so the last second reads 0:01", () => {
@@ -66,7 +66,7 @@ test("the time left rounds up so the last second reads 0:01", () => {
 
 test("a rest block says Rest and names the next exercise", () => {
   const text = workoutHudText(at(70), { state: "block", heartRate: null });
-  assert.deepEqual([text.exercise, text.next], ["Rest", "Next: Burpees 40 s"]);
+  assert.deepEqual([text.exercise, text.next], ["Rest", "Next: Burpees 40\u00a0s"]);
 });
 
 test("the last block has no next", () => {

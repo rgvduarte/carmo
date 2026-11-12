@@ -4,6 +4,22 @@ const PREFIX = "openradlr.strava-upload.";
 const initial = () => ({ phase: "idle", uploadId: null, activityId: null, error: null, code: null });
 const positiveId = (id) => Number.isSafeInteger(id) && id > 0;
 
+/**
+ * The activity a duplicate upload points at, or null. Strava refuses a ride it
+ * already has with "<file> duplicate of activity <id>" (developers.strava.com
+ * /docs/uploads, read 12.11.2026), reportedly with the words in a link: the
+ * markup is dropped first.
+ */
+export function duplicateOf(error) {
+  const text = String(error ?? "").replace(/<[^>]*>/g, "");
+  const match = /duplicate of\s+activity\s+(\d+)/i.exec(text);
+  const id = match ? Number(match[1]) : null;
+  return positiveId(id) ? id : null;
+}
+
+/** Strava's error text without markup, for the rider to read. */
+export const plainError = (error) => String(error ?? "").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+
 /** Small receipts only; files and tokens never go into localStorage. */
 export class UploadReceipts {
   #memory = new Map();
@@ -36,6 +52,7 @@ export class UploadReceipts {
     if (value.uploadId !== null && !positiveId(value.uploadId)) return null;
     if (value.activityId !== null && !positiveId(value.activityId)) return null;
     if (value.phase === "success" && !positiveId(value.activityId)) return null;
+    if (value.duplicate !== undefined && typeof value.duplicate !== "boolean") return null;
     return value;
   }
 
@@ -80,8 +97,11 @@ export class StravaUpload {
     if (this.#active) for (const listener of this.#listeners) listener(this.state);
   }
 
-  /** Explicit user action only; a known upload is checked instead of submitted. */
-  run(makeFile, name, { resubmit = false } = {}) {
+  /**
+   * Explicit user action only; a known upload is checked instead of submitted.
+   * `query` is what the server is told about the ride ({kind, start}, see StravaClient.upload).
+   */
+  run(makeFile, name, { resubmit = false, query = {} } = {}) {
     if (this.#running) return this.#running;
     if (!this.#active) return Promise.resolve();
     // The previous screen may have received its POST response after this one opened.
@@ -93,11 +113,11 @@ export class StravaUpload {
       return Promise.resolve();
     }
     if (this.#state.phase === "uncertain" && !resubmit) return Promise.resolve();
-    this.#running = this.#execute(makeFile, name).finally(() => { this.#running = null; });
+    this.#running = this.#execute(makeFile, name, query).finally(() => { this.#running = null; });
     return this.#running;
   }
 
-  async #execute(makeFile, name) {
+  async #execute(makeFile, name, query) {
     let receipt = { id: this.#state.uploadId };
     if (!receipt.id) {
       let file;
@@ -109,7 +129,7 @@ export class StravaUpload {
       }
       this.#set({ phase: "uploading", error: null, code: null });
       try {
-        receipt = await this.client.upload(file, name);
+        receipt = await this.client.upload(file, name, query);
       } catch (error) {
         // A lost POST response can mean Strava accepted it. Never auto-repost.
         const refused = error.status >= 400 && error.status < 500;
@@ -127,6 +147,12 @@ export class StravaUpload {
   }
 
   #accept(receipt) {
+    // Strava already has this ride: it is on Strava, and no second copy is sent.
+    const already = receipt.error ? duplicateOf(receipt.error) : null;
+    if (already) {
+      this.#set({ phase: "success", uploadId: receipt.id ?? this.#state.uploadId, activityId: already, error: null, code: null, duplicate: true });
+      return true;
+    }
     if (receipt.error) {
       this.#set({ phase: "rejected", uploadId: receipt.id ?? this.#state.uploadId, error: receipt.error });
       return true;

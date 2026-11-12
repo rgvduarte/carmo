@@ -70,7 +70,8 @@ const TRAINER_FOOT = [0.3, 0.31, 0.34];
 const SPEAKER = [0.08, 0.08, 0.09];
 const CREAM = [0.95, 0.95, 0.93];
 const GOLD = [0.9, 0.71, 0.31];
-const NEON_BLUE = [0.3, 0.6, 1.0];
+/** The low strips along the walls: cream, dimmed, under the gold ones (upstream: blue). */
+const NEON_LOW = [0.48, 0.48, 0.46];
 
 /** Quad whose front face points along `direction`. */
 function panel(mesh, a, b, c, d, color, direction) {
@@ -124,7 +125,7 @@ export function buildStudioRoom() {
   for (const side of [-1, 1]) {
     neon.box([side * 3.8, 2.5, f + 0.1], [0.06, 2.76, 0.04], CREAM);
     neon.box([side * (w - 0.05), 3.9, (f + b) / 2], [0.04, 0.07, b - f - 0.4], GOLD);
-    neon.box([side * (w - 0.05), 0.15, (f + b) / 2], [0.04, 0.05, b - f - 0.4], NEON_BLUE);
+    neon.box([side * (w - 0.05), 0.15, (f + b) / 2], [0.04, 0.05, b - f - 0.4], NEON_LOW);
   }
   neon.box([0, STAGE.height + 0.02, STAGE.z + STAGE.depth / 2], [STAGE.halfWidth * 2, 0.04, 0.05], GOLD);
   neon.box([0, 3.9, b - 0.05], [w * 2 - 0.4, 0.07, 0.04], GOLD);

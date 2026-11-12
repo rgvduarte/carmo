@@ -5,7 +5,7 @@
  */
 
 import { t } from "../i18n/i18n.js";
-import { cueText } from "./cueText.js";
+import { className, cueText } from "./cueText.js";
 
 /**
  * @typedef {{duration_s: number, from: number, to: number, cadence: ?number[], cue: string}} ClassSegment
@@ -62,7 +62,7 @@ const kindOf = (segment) => {
 /** The plan as a workout, so the block chart (`drawWorkout`) can draw it. */
 export function classWorkout(plan) {
   return {
-    name: plan.name,
+    name: className(plan),
     segments: plan.segments.map((s) => ({ durationS: s.duration_s, from: s.from, to: s.to, label: cueText(s.cue), kind: kindOf(s) })),
   };
 }

@@ -355,6 +355,35 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   running commit when the image was built without one.
 - **Deploy files**: Render deploys a commit once its checks pass and gets the
   Strava keys from the Dashboard only; the new settings reach Docker Compose.
+- **Client, Strava** (`js/net/strava.js`, `js/net/stravaUpload.js`,
+  `js/view/stravaUploadView.js`, `js/ride/finishPlan.js`,
+  `js/view/startMenu.js`, `main.js`, `index.html`): no offer to connect for a
+  ride on paddles or the simulator, or while only the application's owner
+  can connect (`strava.owner_only`); what connecting keeps is said next to
+  every connect button; "Disconnect" says in writing what was deleted; the
+  name and link an activity gets are said before sending; a ride Strava
+  already has counts as sent; a busy or refusing Strava is said plainly;
+  links to Strava read "View on Strava" in every language; no Strava name is
+  shown; phone riders are told the Strava app cannot upload files; the finish
+  text no longer promises the elevation on a hand-uploaded file.
+- **Privacy text**: names the host (Render, Frankfurt), the legal bases, the
+  rights and the Portuguese data protection authority, and what Strava may
+  collect about the use of its API.
+- **Rider's language** (`js/net/serverErrors.js`, `js/studio/cueText.js`,
+  `js/view/events.js`, `js/i18n/i18n.js`): the server's refusals, the studio
+  and its classes, and the names of event rides are said in the rider's
+  language; a page that frames the game can give its language with `?lang=`.
+- **Source link** (`js/view/about.js`): when the client's build does not know
+  its commit, the server's (`/api/info`) is used.
+- **Look** (`styles.css`, `js/view/workoutView.js`, `js/view/workoutCards.js`,
+  `js/view/rideMapView.js`, `js/view3d/studioScene.js`): inside a frame the
+  start panel does not scroll on its own; a fade above the docked Ride bar;
+  Close pinned to the foot of the About and Privacy dialogs; the power zones,
+  the start screen's profile, the workout cards and the studio's low neon in
+  the site's grey-to-gold; bots without a kit in neutral grey; names on the
+  2D map with a dark edge; the next paddle marked in gold; tabular figures
+  only on numbers; keyboard hints hidden on touch screens; the Strava offer
+  as one block; several Portuguese texts reworded.
 
 ## Third-party material added by this fork
 

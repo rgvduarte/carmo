@@ -1,8 +1,11 @@
 import { totalDuration, zoneFor } from "../ride/workout.js";
 import { prepareCanvas } from "./canvas.js";
 
-/** Zone colours 1–6 (recovery … anaerobic), the usual training-app scheme. */
-export const ZONE_COLORS = Object.freeze(["#8a94a3", "#4c9bff", "#5fb47c", "#f2c94c", "#ff7a1a", "#ff5d5d"]);
+/**
+ * Zone colours 1–6 (recovery … anaerobic): one ramp from grey to the site's gold, the same the ride image uses,
+ * so the finish dialog and the image beside it agree. (Upstream: the usual training-app rainbow.)
+ */
+export const ZONE_COLORS = Object.freeze(["#3a3a3d", "#5c4a26", "#8a6d33", "#b8903f", "#e6b450", "#f2d08a"]);
 
 /**
  * Polygons for a workout chart: x = time, y = target as a fraction of FTP.

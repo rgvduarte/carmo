@@ -9,7 +9,8 @@ import { PRESETS } from "../workout/presets.js";
 import { planDuration } from "../workout/plan.js";
 import { distanceUnit, formatDistance, formatDistanceWithUnit, formatDuration, formatElevation } from "../util/format.js";
 import { t, tn } from "../i18n/i18n.js";
-import { stravaLimited } from "../net/strava.js";
+import { stravaLimited, stravaOwnerOnly } from "../net/strava.js";
+import { className } from "../studio/cueText.js";
 
 /** "3 riding now · 50 max" style status, or a hint when the server is unreachable. */
 export function serverStatus(info) {
@@ -74,7 +75,8 @@ export function privacyUrl(info) {
 
 export function routesOf(info) {
   if (!info) return [];
-  const studio = info.studio ? [{ ...info.studio, kind: "studio" }] : [];
+  // The studio is named in the rider's language; the server says "Spin Studio".
+  const studio = info.studio ? [{ ...info.studio, kind: "studio", name: t("studio.title") }] : [];
   // The workout happens at a café of a real route, so it needs one.
   const workout = [{ id: "workout", kind: "workout", name: t("menu.workout") }];
   if (Array.isArray(info.routes) && info.routes.length) return [...info.routes, ...studio, ...workout];
@@ -97,9 +99,9 @@ export function workoutTagline(presets) {
 /** "HIIT 30/30 starts in 4:12" during the lobby, else what runs and what's next. */
 export function studioTagline(studio, nowS = Date.now() / 1000) {
   const startsIn = studio.class.starts_at_s - nowS;
-  if (startsIn > 0) return t("menu.studio.startsIn", { name: studio.class.name, time: formatDuration(Math.ceil(startsIn)) });
+  if (startsIn > 0) return t("menu.studio.startsIn", { name: className(studio.class), time: formatDuration(Math.ceil(startsIn)) });
   const nextIn = Math.max(0, studio.next.starts_at_s - nowS);
-  return t("menu.studio.running", { name: studio.class.name, next: studio.next.name, time: formatDuration(Math.ceil(nextIn)) });
+  return t("menu.studio.running", { name: className(studio.class), next: className(studio.next), time: formatDuration(Math.ceil(nextIn)) });
 }
 
 /** The saved route if the server still has it, else the server's default (first). */
@@ -341,13 +343,17 @@ export function renderActivityTabs(list, tabs, current, onSelect) {
  * Strava still limits the accounts of this server's application.
  * @returns {{shown: boolean, connected: boolean, required: boolean, last: boolean, text: string, note: string}}
  */
-export function stravaLine(info, account) {
+export function stravaLine(info, account, mode = "trainer") {
   const strava = info?.strava;
-  if (!strava?.enabled) return { shown: false, connected: false, required: false, last: false, text: "", note: "" };
-  if (account) return { shown: true, connected: true, required: false, last: !strava.required, text: account.name, note: "" };
-  return strava.required
-    ? { shown: true, connected: false, required: true, last: false, text: t("strava.line.required"), note: "" }
-    : { shown: true, connected: false, required: false, last: true, text: t("strava.line.optional"), note: stravaLimited(info) ? t("strava.line.limited") : "" };
+  const none = { shown: false, connected: false, required: false, last: false, text: "", note: "" };
+  if (!strava?.enabled) return none;
+  // Connected: said in every mode, with "Disconnect". The server keeps no Strava name, so none is shown.
+  if (account) return { shown: true, connected: true, required: false, last: !strava.required, text: t("strava.connected"), note: "" };
+  if (strava.required) return { shown: true, connected: false, required: true, last: false, text: t("strava.line.required"), note: "" };
+  // No offer where it cannot lead anywhere: rides on phone paddles or the simulator never go to Strava,
+  // and while only the application's owner can connect, the button would end on Strava's refusal.
+  if (mode === "paddles" || mode === "sim" || stravaOwnerOnly(info)) return none;
+  return { shown: true, connected: false, required: false, last: true, text: t("strava.line.optional"), note: stravaLimited(info) ? t("strava.line.limited") : "" };
 }
 
 /**

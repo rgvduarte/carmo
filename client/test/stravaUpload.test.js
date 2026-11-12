@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { StravaUpload, UploadReceipts, uploadKey } from "../public/js/net/stravaUpload.js";
+import { StravaUpload, UploadReceipts, duplicateOf, uploadKey } from "../public/js/net/stravaUpload.js";
 
 function storage() {
   const map = new Map();
@@ -170,4 +170,32 @@ test("a corrupt stored receipt is ignored without calling the storage unavailabl
   const receipts = new UploadReceipts({ storage: disk });
   assert.equal(receipts.load("7:1000"), null);
   assert.equal(receipts.available, true);
+});
+
+test("a ride Strava already has counts as on Strava, in both shapes of Strava's answer", async () => {
+  assert.equal(duplicateOf("gocarmo-ride.fit duplicate of activity 16000000001"), 16000000001);
+  assert.equal(duplicateOf("gocarmo-ride.fit duplicate of <a href='/activities/16000000001' target='_blank'>activity 16000000001</a>"), 16000000001);
+  assert.equal(duplicateOf("Improperly formatted data."), null);
+  assert.equal(duplicateOf(null), null);
+  const { job, calls } = setup({ upload: async () => { calls.push("post"); return { id: 9, error: "gocarmo-ride.fit duplicate of activity 16000000001" }; } });
+  await job.run(file, "ride");
+  assert.equal(job.state.phase, "success");
+  assert.equal(job.state.activityId, 16000000001);
+  assert.equal(job.state.duplicate, true);
+  await job.run(file, "ride");
+  assert.deepEqual(calls, ["post"], "never sent twice");
+});
+
+test("the server is told the ride's kind and start", async () => {
+  const seen = [];
+  const { job } = setup({ upload: async (_file, _name, query) => { seen.push(query); return { id: 9, activity_id: 4 }; } });
+  await job.run(file, "ride", { query: { kind: "class", start: 1794500000123 } });
+  assert.deepEqual(seen, [{ kind: "class", start: 1794500000123 }]);
+});
+
+test("a busy Strava (429) is a refusal: the ride was not taken, sending again is safe", async () => {
+  const { job } = setup({ upload: async () => { throw Object.assign(new Error("busy"), { status: 429, code: "strava_busy" }); } });
+  await job.run(file, "ride");
+  assert.equal(job.state.phase, "failed");
+  assert.equal(job.state.code, "strava_busy");
 });

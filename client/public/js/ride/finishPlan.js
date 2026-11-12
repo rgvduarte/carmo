@@ -25,6 +25,7 @@ const STUCK = new Set(["failed", "rejected", "uncertain", "check-failed"]);
  *   measured: boolean, the power came from a real trainer
  *   stravaEnabled: boolean, this server offers Strava
  *   stravaLimited: boolean, the Strava application still has an athlete limit
+ *   stravaOwnerOnly?: boolean, only the application's owner can connect yet
  *   account: ?{can_upload: boolean}, the connected Strava account
  *   connectFailed: boolean, the last attempt to connect did not work
  *   phase?: string, code?: ?string, the upload so far (net/stravaUpload.js)
@@ -39,7 +40,7 @@ const STUCK = new Set(["failed", "rejected", "uncertain", "check-failed"]);
  *   reason: ?string, the i18n key of the one line that says why
  * }}
  */
-export function finishPlan({ empty, exportable, measured, stravaEnabled, stravaLimited, account, connectFailed, phase = "idle", code = null }) {
+export function finishPlan({ empty, exportable, measured, stravaEnabled, stravaLimited, stravaOwnerOnly = false, account, connectFailed, phase = "idle", code = null }) {
   const none = { strava: false, manual: "none", files: false, image: false, primary: null, reason: null };
   if (empty) return { ...none, mode: "empty", reason: "finish.note.tooShort" };
   if (!exportable) return { ...none, mode: "paddle", image: true, primary: "image", reason: "finish.note.paddle" };
@@ -51,7 +52,10 @@ export function finishPlan({ empty, exportable, measured, stravaEnabled, stravaL
   // The panel says in its own words why to connect (again); the plan's line is for what the panel cannot know.
   if (!account || code === "not_connected") {
     // A session that went away (the server restarted, or it ended): connecting again is the way, the ride stays here.
+    // (Where only the owner can connect, a rider who had a session is the owner: the button is his.)
     if (account) return { ...base, mode: "reconnect", strava: true, manual: "open", primary: "connect" };
+    // Only the application's owner can connect yet: no button that leads to Strava's refusal, the file is the way.
+    if (stravaOwnerOnly) return { ...base, mode: "manual", manual: "main", primary: "fit", reason: "finish.reason.ownerOnly" };
     // Under the athlete limit, or after a failed attempt, most riders cannot connect: the file goes in front.
     if (stravaLimited || connectFailed) return { ...base, mode: "manual", strava: true, manual: "main", primary: "fit", reason: connectFailed ? "finish.reason.connectFailed" : "finish.reason.limited" };
     return { ...base, mode: "connect", strava: true, manual: "open", primary: "connect" };

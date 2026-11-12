@@ -7,14 +7,14 @@ import { join } from "node:path";
 import en from "../public/js/i18n/en.js";
 import de from "../public/js/i18n/de.js";
 import pt from "../public/js/i18n/pt.js";
-import { setLocale } from "../public/js/i18n/i18n.js";
+import { setLocale, t } from "../public/js/i18n/i18n.js";
 import { APP_NAME, BRAND_SYMBOL, withServer } from "../public/js/brand.js";
-import { sourceUrl } from "../public/js/view/about.js";
+import { runningCommit, sourceUrl } from "../public/js/view/about.js";
 import { ClientMessages } from "../public/js/net/protocol.js";
 import { eventRows, eventTitle } from "../public/js/view/events.js";
 import { serverStatus } from "../public/js/view/startMenu.js";
 import { riderName } from "../public/js/view/panels.js";
-import { KNOWN_CUES, cueText } from "../public/js/studio/cueText.js";
+import { KNOWN_CUES, className, cueText } from "../public/js/studio/cueText.js";
 import { classPosition, classWorkout } from "../public/js/studio/classClock.js";
 import { ARCH_MARK } from "../public/js/view3d/gocarmoMark.js";
 import { MARK_COLORS, markBeam } from "../public/js/view3d/banners.js";
@@ -277,6 +277,24 @@ test("the studio's built-in cues are said in the rider's language; an unknown cu
   assert.equal(cueText("Go! Interval 2 of 6"), "Los! Intervall 2 von 6");
 });
 
+test("the studio and its built-in classes are named in the rider's language; an operator's own class keeps its name", () => {
+  const source = read("../../server/crates/sim/src/studio.rs");
+  const builtin = source.slice(source.indexOf("pub fn builtin_classes()"), source.indexOf("pub struct StudioConfig"));
+  const ids = [...builtin.matchAll(/class\(\s*"([a-z0-9-]+)",\s*"([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(ids.length >= 4, `the server's classes: ${ids}`);
+  for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) {
+    for (const id of ids) assert.ok(dictionary[`studio.class.${id}`], `${name}: no name for the class "${id}"`);
+    assert.ok(dictionary["studio.title"], name);
+  }
+  setLocale("pt");
+  assert.equal(className({ id: "climb-pyramid", name: "Climb Pyramid" }), "Pirâmide de subidas");
+  assert.equal(className({ class_id: "tempo", name: "Tempo Ride" }), "Tempo", "the timetable's form of a class");
+  assert.equal(className({ id: "volta-ao-sol", name: "Volta ao sol" }), "Volta ao sol");
+  assert.equal(t("studio.title"), "Estúdio");
+  setLocale("en");
+  assert.equal(className({ id: "climb-pyramid", name: "Climb Pyramid" }), "Climb Pyramid");
+});
+
 test("a rider on phone paddles is marked without an emoji, in every language", () => {
   for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) {
     for (const key of ["menu.server.withPhones", "menu.riders.withPhones", "panels.paddleShort", "panels.paddleTitle"]) {
@@ -348,4 +366,30 @@ test("the collectible sun is a flat plate: a disc and its rays in one plane, see
     if (built.normals[i] < -0.99) away += 1;
   }
   assert.ok(towards > 0 && towards === away, "the same face on both sides");
+});
+
+test("the source link names the running commit when only the server knows it (Render's commit at run time)", () => {
+  const render = "0123456789abcdef0123456789abcdef01234567";
+  assert.equal(runningCommit({ build: { sha: render } }, { sha: "dev" }), render);
+  assert.equal(runningCommit({ build: { sha: render } }, { sha: "9053fa3" }), "9053fa3", "the client's own stamp wins");
+  assert.equal(runningCommit({ build: { sha: "dev" } }, { sha: "dev" }), null);
+  assert.equal(runningCommit(null, { sha: "dev" }), null);
+  assert.equal(sourceUrl(runningCommit({ build: { sha: render } }, { sha: "dev" }) ?? ""), `https://github.com/rgvduarte/carmo/tree/${render}`);
+  assert.equal(sourceUrl(""), "https://github.com/rgvduarte/carmo/tree/gocarmo-ride", "neither knows: the branch");
+});
+
+test("a page that frames the game can give its language; it is kept as the rider's choice", async () => {
+  const { askedLocale, initLocale, getLocale, LOCALE_KEY } = await import("../public/js/i18n/i18n.js");
+  assert.equal(askedLocale("?lang=pt"), "pt");
+  assert.equal(askedLocale("?x=1&lang=EN"), "en");
+  assert.equal(askedLocale("?lang=fr"), null, "a language the game does not have: the usual choice");
+  assert.equal(askedLocale(""), null);
+  const saved = new Map([[LOCALE_KEY, "de"]]);
+  const storage = { getItem: (key) => saved.get(key) ?? null, setItem: (key, value) => saved.set(key, value) };
+  initLocale({ storage, languages: ["en-GB"], asked: "pt" });
+  assert.equal(getLocale(), "pt");
+  assert.equal(saved.get(LOCALE_KEY), "pt");
+  initLocale({ storage, languages: ["en-GB"], asked: null });
+  assert.equal(getLocale(), "pt", "remembered");
+  setLocale("en");
 });

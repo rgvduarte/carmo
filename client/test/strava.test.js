@@ -41,6 +41,20 @@ test("upload posts the TCX and waits until Strava made an activity", async () =>
   assert.equal(activityUrl(77), "https://www.strava.com/activities/77");
 });
 
+test("the upload tells the server a class from a route and the ride's start, in whole seconds", async () => {
+  const { strava, calls } = client([reply(200, { id: 9 }), reply(200, { id: 10 })]);
+  await strava.upload(new Uint8Array([1]), "GOCARMO Ride · Spin", { kind: "class", start: 1794500000999 });
+  assert.equal(calls[0].url, "/api/strava/upload?name=GOCARMO%20Ride%20%C2%B7%20Spin&kind=class&start=1794500000");
+  await strava.upload(new Uint8Array([1]), "R", { kind: "route", start: 1794500000000 });
+  assert.equal(calls[1].url, "/api/strava/upload?name=R&start=1794500000");
+});
+
+test("disconnecting resolves with what the server did, for the rider's confirmation", async () => {
+  const { strava } = client([reply(200, { revoked: true, removed: 2 }), reply(403, { code: "foreign_page" })]);
+  assert.deepEqual(await strava.logout(), { revoked: true, removed: 2 });
+  assert.equal(await strava.logout(), null);
+});
+
 test("upload errors carry the server's message; polling stops on errors", async () => {
   const { strava } = client([reply(403, { code: "upload_not_allowed", message: "allow uploads" })]);
   await assert.rejects(strava.upload("x", "n"), /allow uploads/);

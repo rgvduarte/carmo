@@ -74,8 +74,13 @@ export function groupGapLine(gapS) {
   return t(gapS > 0 ? "events.ahead" : "events.behind", { time });
 }
 
+/**
+ * The name of an event ride on Strava and in its files, in the rider's
+ * language, like the event's title: "GOCARMO Ride · Treino de grupo · …".
+ * File names are made from the route's id, not from this.
+ */
 export function eventRideName(kind, routeName) {
-  return `${APP_NAME} ${kind === "race" ? "race" : "group ride"} · ${routeName}`; // i18n-ok (ride name in exported files)
+  return `${APP_NAME} · ${t(kind === "race" ? "events.kind.race" : "events.kind.groupRide")} · ${routeName}`;
 }
 
 /** One text line per result. */
@@ -94,7 +99,8 @@ export function eventResultRows(results, kind, myId) {
 
 function eventDetail(row) {
   const riders = tn("events.entered", row.entrants);
-  return [row.routeName, `${row.startLabel} (${row.countdown})`, riders, row.note].filter(Boolean).join(" · ");
+  // The title already names the route (eventTitle), so the line under it does not.
+  return [`${row.startLabel} (${row.countdown})`, riders, row.note].filter(Boolean).join(" · ");
 }
 
 /** Writes the events list; `onJoin(row)` runs for the Join button of a joinable row, `onLeave(row)` for the Leave button of the one I'm in. Text only: names come from the server. */

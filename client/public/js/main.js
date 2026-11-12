@@ -23,9 +23,10 @@ import { RidePause } from "./ride/ridePause.js";
 import { AfkPrompt } from "./ride/afkPrompt.js";
 import { defaultServerUrl } from "./net/protocol.js";
 import { InfoPoll, RIDE_INFO_MS, START_IDLE_MS, START_INFO_MS } from "./net/infoPoll.js";
-import { ConnectMemory, StravaClient, appLoginResult, stravaLimited, stravaMessage } from "./net/strava.js";
+import { ConnectMemory, StravaClient, appLoginResult, stravaLimited, stravaMessage, stravaOwnerOnly } from "./net/strava.js";
 import { UploadReceipts, uploadKey } from "./net/stravaUpload.js";
 import { bindStravaUpload } from "./view/stravaUploadView.js";
+import { serverErrorLine } from "./net/serverErrors.js";
 import { levelAfterRace, levelAfterRide, levelLabel, levelOf } from "./profile/level.js";
 import { eventBanner, groupGapLine, eventResultRows, eventRideName, eventRows, eventTitle, renderEventList, sharingLine } from "./view/events.js";
 import { ProfileStore, keepValid, validateProfile } from "./profile/profileStore.js";
@@ -95,7 +96,7 @@ import { renderWorkoutCards } from "./view/workoutCards.js";
 import { WorkoutSession, endAfterAsking } from "./workout/workoutSession.js";
 import { startKeepalive } from "./workout/keepalive.js";
 import { createCue } from "./workout/cue.js";
-import { cueText } from "./studio/cueText.js";
+import { className, cueText } from "./studio/cueText.js";
 import { gymOfRoute } from "./workout/gymSpots.js";
 import { statueRows } from "./workout/venues.js";
 import { WorkoutStudioView, blockProgress, highlightedFigure, resyncWorkout, startingViewMode, summaryText, workoutHudText } from "./view/workoutStudioView.js";
@@ -112,9 +113,9 @@ import { PaddleView } from "./view/paddleView.js";
 import { SeatEnergy, aboardLine, boardingRoute, elsewhereRoute, isCaptain, kindName, normaliseCode, vehicleErrorLine } from "./ride/vehicle.js";
 import { VehicleView } from "./view/vehicleView.js";
 import { applyTranslations } from "./i18n/apply.js";
-import { getLocale, initLocale, intlLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
+import { askedLocale, getLocale, initLocale, intlLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
 import { languageOptions } from "./i18n/selector.js";
-import { initAbout } from "./view/about.js";
+import { initAbout, setSourceLinks } from "./view/about.js";
 import { copyText, initFrame, leaveTo } from "./util/frame.js";
 import { APP_NAME, withServer } from "./brand.js";
 
@@ -815,8 +816,11 @@ function initStartMenu() {
     });
   }
   $("strava-logout").addEventListener("click", async () => {
-    await app.strava.logout().catch(() => {});
+    const done = await app.strava.logout().catch(() => null);
     app.stravaAccount = null;
+    // The written confirmation Strava's API Policy asks for: what was deleted, and whether Strava withdrew the access.
+    $("strava-done").textContent = t(done?.revoked ? "strava.disconnected" : "strava.disconnectedLocal");
+    $("strava-done").hidden = false;
     renderStartMenu();
     if (app.unfinished && !$("unfinished-save").hidden) setupRecoveryUpload();
   });
@@ -1058,8 +1062,10 @@ function renderAccount() {
     app.stravaAccount = null;
     loadStravaAccount();
   }
-  const line = stravaLine(app.info, app.stravaAccount);
-  $("account").hidden = !line.shown;
+  const line = stravaLine(app.info, app.stravaAccount, app.shownRideMode);
+  // The account block also carries the messages after a sign-in or a disconnect: it stays while one shows.
+  $("account").hidden = !line.shown && $("strava-message").hidden && $("strava-done").hidden;
+  for (const part of ["strava-connected", "strava-logout", "strava-disconnected", "strava-connect", "strava-hint", "strava-consent"]) $(part).hidden = true;
   if (!line.shown) return;
   // An offer comes after "How are you riding?"; where the server asks for Strava the line leads the Rider section.
   const account = $("account");
@@ -1072,7 +1078,8 @@ function renderAccount() {
   $("strava-disconnected").hidden = line.connected;
   // Where Strava is required, the Ride button is the way to connect: no second button.
   $("strava-connect").hidden = line.connected || line.required;
-  if (line.connected) $("strava-name").textContent = line.text;
+  $("strava-consent").hidden = $("strava-connect").hidden;
+  if (line.connected) $("strava-connected").textContent = line.text;
   else $("strava-disconnected").textContent = line.required ? t("strava.accountNeeded") : line.text;
   const hint = line.required ? line.text : line.note;
   $("strava-hint").hidden = !hint;
@@ -1085,6 +1092,8 @@ function renderStartMenu() {
   const status = app.infoLoaded ? serverStatus(app.info) : { text: t("menu.server.connecting"), full: false, phoneFull: false, online: false };
   $("server-label").textContent = serverName(app.info);
   $("server-players").textContent = status.text;
+  // The source links follow the running commit, which the server may know when the client's build does not.
+  if (app.infoLoaded) setSourceLinks(app.info);
   const build = buildLabel(app.info, BUILD);
   const privacy = privacyUrl(app.info);
   $("privacy-link").hidden = !privacy;
@@ -1358,6 +1367,11 @@ function renderRideModes() {
     card.title = entry?.reason ?? "";
   }
   const reason = modes.find((m) => m.id === app.rideMode && !m.available)?.reason ?? "";
+  // The Strava offer follows the mode: rides on paddles or the simulator never go to Strava.
+  if (app.shownRideMode !== mode) {
+    app.shownRideMode = mode;
+    renderAccount();
+  }
   $("ride-mode-reason").hidden = !reason;
   $("ride-mode-reason").textContent = reason;
   for (const panel of document.querySelectorAll(".mode-panel")) panel.hidden = panel.dataset.for !== mode;
@@ -1856,7 +1870,8 @@ async function joinWorkout(profile, errors) {
 
 function joinFailed(error) {
   endRide();
-  showSetupError(vehicleErrorLine(error.code) ?? error.message);
+  // A refusal is said in the rider's language, never in the server's English.
+  showSetupError(vehicleErrorLine(error.code) ?? serverErrorLine(error.code, error.serverMessage) ?? error.message);
 }
 
 /** A long hard ride nudges the riding level up (studio rides count too). */
@@ -2078,7 +2093,7 @@ function wireConnection(connection) {
     // A refused turn: the server's plan stands, the next state shows it.
     if (code === "turn_rejected") app.myRoad = app.myRoad && { ...app.myRoad, next: null };
     if (code === "vehicle_elsewhere" && boardElsewhere(elsewhereRoute(message))) return;
-    notify(vehicleErrorLine(code) ?? message, "error");
+    notify(vehicleErrorLine(code) ?? serverErrorLine(code, message) ?? message, "error");
   });
   // The ride goes on: try to get back onto the server (#73).
   on("close", () => connectionLost(connection));
@@ -2522,7 +2537,8 @@ function updateStudioPanels() {
   renderOnline();
   if (app.menuDialog?.isOpen) renderMenuStatus();
   // Files and Strava get the class name once it runs.
-  if (state.class.elapsed_s >= 0) app.route.name = `Spin Studio · ${state.class.name}`; // i18n-ok (names files and Strava)
+  // The finish title, the ride's name on Strava and in its files: in the rider's language.
+  if (state.class.elapsed_s >= 0) app.route.name = `${t("studio.title")} · ${className(state.class)}`;
 }
 
 function studioFrame() {
@@ -2550,7 +2566,7 @@ function studioFrame() {
   // The coach is quiet once the ride is finished.
   const cue = app.finished ? null : studio.newCue(time);
   if (cue) {
-    const text = cue.phase === "lobby" ? t("studio.welcome", { name: plan.name, time: formatDuration(cue.startsInS) }) : cue.cue;
+    const text = cue.phase === "lobby" ? t("studio.welcome", { name: className(plan), time: formatDuration(cue.startsInS) }) : cue.cue;
     notify(`${INSTRUCTOR.name}: ${text}`, "chat");
     speak(text);
   }
@@ -2558,13 +2574,13 @@ function studioFrame() {
   if (position && plan) {
     const lobby = position.phase === "lobby";
     const countdown = lobby ? position.startsInS : (position.blockRemainingS ?? null);
-    $("studio-phase").textContent = lobby ? t("studio.nextClass", { name: plan.name }) : position.phase === "done" ? plan.name : t("studio.block", { name: plan.name, n: position.index + 1, total: plan.segments.length });
+    $("studio-phase").textContent = lobby ? t("studio.nextClass", { name: className(plan) }) : position.phase === "done" ? className(plan) : t("studio.block", { name: className(plan), n: position.index + 1, total: plan.segments.length });
     $("studio-cue").textContent = position.cue;
     $("studio-countdown").textContent = countdown === null ? "–" : formatDuration(countdown);
     $("studio-countdown").classList.toggle("soon", countdown !== null && countdown <= 5);
     const next = position.next;
     $("studio-next").textContent = next ? t("studio.next", { cue: cueText(next.cue), time: formatDuration(next.duration_s), pct: Math.round(((next.from + next.to) / 2) * 100) }) : "";
-    $("studio-class").textContent = plan.name;
+    $("studio-class").textContent = className(plan);
     $("studio-class-left").textContent = lobby ? t("studio.startsIn", { time: formatDuration(position.startsInS) }) : position.classRemainingS ? t("studio.left", { time: formatDuration(position.classRemainingS) }) : "";
     drawWorkout($("studio-chart"), { workout: classWorkout(plan), elapsedS: Math.max(0, studio.elapsed(time)), colors: themeColors() });
   }
@@ -2920,6 +2936,7 @@ function renderFinishPlan(upload = app.finishUpload?.state) {
     measured: hasRealPowerSource(app.trainer),
     stravaEnabled: Boolean(app.info?.strava?.enabled),
     stravaLimited: stravaLimited(app.info),
+    stravaOwnerOnly: stravaOwnerOnly(app.info),
     account: app.stravaAccount ?? null,
     connectFailed: app.connectMemory.failed,
     phase: upload?.phase,
@@ -2967,7 +2984,7 @@ function saveFinishedSnapshot() {
 function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, onState, onConnect }) {
   const action = prefix === "finish-strava" ? "upload-strava" : "unfinished-strava";
   const status = prefix === "finish-strava" ? "upload-status" : "unfinished-upload-status";
-  const elements = Object.fromEntries(["account", "detail", "connect", "activity", "storage"].map((part) => [part, $(`${prefix}-${part}`)]));
+  const elements = Object.fromEntries(["account", "detail", "connect", "activity", "storage", "consent", "note"].map((part) => [part, document.getElementById(`${prefix}-${part}`)]));
   return bindStravaUpload({
     elements: { ...elements, panel: $(prefix), action: $(action), status: $(status) },
     client: app.strava,
@@ -2976,6 +2993,9 @@ function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, o
     account: app.stravaAccount,
     makeFile: () => recorder.toFit({ indoor, splits }),
     name,
+    // A class in the studio is no virtual ride on a map; the start gives every attempt at one ride one id on Strava.
+    query: { kind: indoor ? "class" : "route", start: recorder.samples[0].t },
+    canConnect: !stravaOwnerOnly(app.info),
     onSuccess,
     onState,
     onConnect: nativeApp?.signIn ? () => connectStravaInApp() : onConnect,
@@ -3014,7 +3034,8 @@ function setupFinishUpload() {
 function setupRecoveryUpload() {
   const snapshot = app.unfinished;
   const measured = snapshot?.trainerKind === "trainer" && snapshot.recorder.samples.length > 0;
-  const visible = measured && Boolean(app.info?.strava?.enabled);
+  // Where only the application's owner can connect, the panel is for him alone (it has no button for anyone else).
+  const visible = measured && Boolean(app.info?.strava?.enabled) && (Boolean(app.stravaAccount) || !stravaOwnerOnly(app.info));
   $("unfinished-strava-panel").hidden = !visible;
   // The file by hand is explained for the rides Strava would take: not for the simulated trainer.
   $("unfinished-manual").hidden = !measured || $("unfinished-save").hidden;
@@ -4702,9 +4723,13 @@ function frame() {
   $("trainer-warning").hidden = silentFor < 5;
 }
 
-initLocale({ storage: browserStorage(), languages: navigator.languages });
+// A site that shows the game in a frame says its language with ?lang= (and a link may too).
+const askedLanguage = askedLocale(location.search);
+initLocale({ storage: browserStorage(), languages: navigator.languages, asked: askedLanguage });
 relocalise();
 initSetup();
+// Asked by the page that frames the game: that page has its own language picker, so the game's is not repeated.
+if (askedLanguage && app.framed) document.documentElement.classList.add("lang-given");
 
 // Installable app (PWA). Service workers need https:// or localhost.
 if ("serviceWorker" in navigator && globalThis.isSecureContext) {

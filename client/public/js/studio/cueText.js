@@ -39,3 +39,16 @@ export function cueText(cue) {
   const interval = INTERVAL.exec(cue ?? "");
   return interval ? t("studio.cue.interval", { n: Number(interval[1]), count: Number(interval[2]) }) : cue;
 }
+
+/**
+ * A built-in class's name in the rider's language (key `studio.class.<id>`),
+ * else the name the server sent (an operator's own class). Takes the class
+ * as /api/studio describes it (`id`) or as /api/info's timetable does (`class_id`).
+ */
+export function className(cls) {
+  if (!cls) return "";
+  const id = cls.id ?? cls.class_id;
+  const key = `studio.class.${id}`;
+  const text = id ? t(key) : key;
+  return text === key ? (cls.name ?? "") : text;
+}

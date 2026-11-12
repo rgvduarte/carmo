@@ -61,7 +61,16 @@ export function tn(key, count, params) {
   return template === undefined ? key : interpolate(template, withN);
 }
 
-export function initLocale({ storage, languages } = {}) {
+/**
+ * The language to start in: `asked` (the page's `?lang=`, which a site that
+ * shows the game passes on, so the game speaks the site's language) wins and
+ * is kept as the rider's choice; else the saved choice, else the browser's.
+ */
+export function initLocale({ storage, languages, asked } = {}) {
+  if (SUPPORTED_LOCALES.includes(asked)) {
+    saveLocale(asked, storage);
+    return setLocale(asked);
+  }
   let saved;
   try {
     saved = storage?.getItem(LOCALE_KEY);
@@ -69,6 +78,16 @@ export function initLocale({ storage, languages } = {}) {
     saved = undefined;
   }
   return setLocale(detectLocale({ saved, languages }));
+}
+
+/** `?lang=pt|en|de` of a page address, lower case, or null. */
+export function askedLocale(search) {
+  try {
+    const value = new URLSearchParams(search ?? "").get("lang")?.toLowerCase() ?? null;
+    return SUPPORTED_LOCALES.includes(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 export function saveLocale(code, storage) {

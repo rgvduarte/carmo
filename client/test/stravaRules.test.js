@@ -70,9 +70,9 @@ test("no other part of Strava's logo is in the game, and nothing of the game's o
 });
 
 test("a link to something on Strava reads View on Strava and is told apart by weight and underline", () => {
-  assert.equal(en["strava.view"], "View on Strava");
-  assert.equal(pt["strava.view"], "Ver no Strava");
-  assert.equal(de["strava.view"], "Auf Strava ansehen");
+  // Strava's Brand Guidelines ask for these very words and say nothing of translations: the same in every language,
+  // like Strava's own button.
+  for (const dictionary of [en, pt, de]) assert.equal(dictionary["strava.view"], "View on Strava");
   const links = [...html.matchAll(/<a\b[^>]*class="strava-view"[^>]*>/g)].map((m) => m[0]);
   assert.equal(links.length, 2);
   for (const link of links) {
@@ -135,8 +135,8 @@ test("the upload is the FIT file and a name that says GOCARMO Ride and the route
   assert.equal(calls[0].options.credentials, "same-origin", "the session cookie goes to the game's own server only");
   const body = calls[0].options.body;
   assert.equal(String.fromCharCode(...body.subarray(8, 12)), ".FIT");
-  assert.equal(eventRideName("race", "Riverside Flats"), "GOCARMO Ride race · Riverside Flats");
-  assert.equal(eventRideName("group_ride", "Island Tour"), "GOCARMO Ride group ride · Island Tour");
+  assert.equal(eventRideName("race", "Riverside Flats"), "GOCARMO Ride · Race · Riverside Flats");
+  assert.equal(eventRideName("group_ride", "Island Tour"), "GOCARMO Ride · Group ride · Island Tour");
 });
 
 test("the FIT file is a virtual ride with positions in the virtual world, and names the fork as the program that wrote it", () => {

@@ -75,9 +75,20 @@ test("sharing line", () => {
   assert.equal(sharingLine(undefined), "");
 });
 
+test("an event ride is named in the rider's language, like the event's title", async () => {
+  const { setLocale } = await import("../public/js/i18n/i18n.js");
+  setLocale("pt");
+  try {
+    assert.equal(eventRideName("group_ride", "Balcony Road"), "GOCARMO Ride · Treino de grupo · Balcony Road");
+    assert.equal(eventRideName("race", "Balcony Road"), "GOCARMO Ride · Corrida · Balcony Road");
+  } finally {
+    setLocale("en");
+  }
+});
+
 test("ride names", () => {
-  assert.equal(eventRideName("group_ride", "Riverside Flats"), "GOCARMO Ride group ride · Riverside Flats");
-  assert.equal(eventRideName("race", "Riverside Flats"), "GOCARMO Ride race · Riverside Flats");
+  assert.equal(eventRideName("group_ride", "Riverside Flats"), "GOCARMO Ride · Group ride · Riverside Flats");
+  assert.equal(eventRideName("race", "Riverside Flats"), "GOCARMO Ride · Race · Riverside Flats");
 });
 
 test("result rows", () => {

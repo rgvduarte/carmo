@@ -26,14 +26,17 @@
   --danger: #ff5d5d;
   --grid: #3a3a3d;
   --road: #2a2a2e;
-  --terrain: #24402f;
-  --terrain-edge: #5fb47c;
+  --terrain: #1a1a1d;
+  --terrain-edge: #a3a29c;
   --me: #e6b450;
+  /* Other humans stay sky blue: cream would match Team Kreide's chalk kit (#e9ebe4), and a bot would pass for a rider. */
   --human: #4cc3ff;
-  --bot: #8f99a8;
+  --bot: #6f6e69;
   --remote: #2ec4a6;
-  --climb: rgba(255, 93, 93, 0.12);
-  --sprint: rgba(76, 195, 255, 0.12);
+  /* A state that works (a connected device): green, a signal, not a brand colour. */
+  --ok: #5fb47c;
+  --climb: rgba(230, 180, 80, 0.14);
+  --sprint: rgba(242, 241, 236, 0.08);
   --radius: 14px;
   --display: "Anton", "Impact", "Arial Narrow Bold", sans-serif;
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -920,7 +923,7 @@ label output {
 }
 
 .device-status.ok {
-  color: var(--terrain-edge);
+  color: var(--ok);
 }
 
 /* Focus moved by a controller (Zwift Click, Play, Ride) must be easy to see from the saddle. */
@@ -1406,6 +1409,18 @@ button.small {
   background: rgba(18, 18, 20, 0.99);
 }
 
+/* A line of text running under the bar fades out above it instead of being cut through its letters. */
+.dock-actions::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 28px;
+  background: linear-gradient(to top, rgba(18, 18, 20, 0.99), rgba(18, 18, 20, 0));
+  pointer-events: none;
+}
+
 /* One column (tablets, phones): Ride is a bar along the bottom of the screen, whatever is scrolled into view. */
 @media (max-width: 900px) {
   /* Room for the Ride bar as tall as it is (an error above Ride makes it taller; main.js measures it). */
@@ -1469,6 +1484,42 @@ button.small {
 
   .dock-actions {
     padding-bottom: 20px;
+  }
+
+  /*
+   * In another page's frame the frame is the window, and a short one: a panel that scrolls inside a frame that
+   * scrolls inside a page that scrolls is three levels, and the ride modes ended up under the Ride bar. There the
+   * panel takes the height it needs and the frame's page is the only thing that scrolls; Ride sticks to the
+   * frame's bottom.
+   */
+  html.framed .start-panel {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+/* The page that frames the game gave its language (?lang=) and has its own picker: the game's is not repeated. */
+html.lang-given #lang-select {
+  display: none;
+}
+
+/* Said only on a touch screen (a phone or a tablet), where it applies. */
+.touch-only {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .touch-only {
+    display: list-item;
+  }
+}
+
+/* Keyboard shortcuts mean nothing on a touch screen without a keyboard (a phone, a tablet). */
+@media (pointer: coarse) and (hover: none) {
+  .key-hint,
+  .keys-panel {
+    display: none;
   }
 }
 
@@ -1671,6 +1722,18 @@ body.riding {
   inset: 0;
   pointer-events: none;
   font-variant-numeric: tabular-nums;
+}
+
+/*
+ * Inter's tabular figures also set its hyphen on a figure's width, which reads as "Bem - vindo" in prose: toasts,
+ * notices and the ring's caption are text, not numbers.
+ */
+.hud .hud-ticker,
+.hud .milestone-banner,
+.hud .toast-split,
+.workout-hud .workout-exercise,
+.workout-hud .workout-next {
+  font-variant-numeric: normal;
 }
 
 .hud button,
@@ -3530,6 +3593,14 @@ body.riding {
   margin: 0 0 18px;
 }
 
+/* The offer is one block: its line of text, Strava's button and the notes under it, not an empty card above a button. */
+.strava-line.offer .device-line {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
 /* The server rides with Strava only: a callout; the Ride button connects. */
 .strava-line.required .device-line {
   border-color: var(--accent);
@@ -4877,11 +4948,12 @@ body:not(.riding)::after {
 
 /* The paddle to tap next glows: the rhythm reads at a glance. */
 .paddle.next {
-  background: linear-gradient(to top, rgba(230, 180, 80, 0.38), rgba(230, 180, 80, 0.06));
+  background: linear-gradient(to top, rgba(242, 241, 236, 0.12), rgba(242, 241, 236, 0));
+  box-shadow: inset 0 3px 0 #e6b450;
 }
 
 .paddle.next .paddle-label {
-  color: rgba(230, 180, 80, 0.6);
+  color: #e6b450;
 }
 
 .paddle.hit .paddle-label {
@@ -6536,6 +6608,16 @@ h1,
   margin: 0;
 }
 
+/* Close is always in reach: pinned to the foot of a long card (the privacy text is two phone screens). */
+.about-card > .modal-actions {
+  position: sticky;
+  bottom: -24px;
+  margin: 0 -24px -24px;
+  padding: 12px 24px 24px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
 .about-card h2 {
   margin: 6px 0 0;
 }
@@ -7028,7 +7110,7 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
   width: 5px;
   height: 10px;
   margin: 0 9px 1px 3px;
-  border: solid var(--terrain-edge);
+  border: solid var(--ok);
   border-width: 0 2px 2px 0;
   transform: rotate(45deg);
 }
