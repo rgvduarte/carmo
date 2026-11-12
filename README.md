@@ -1,3 +1,7 @@
+> **This repository is GOCARMO Ride**, a modified version (a fork) of OpenRadlr maintained by GOCARMO.
+> What changed, since when and under which licences: see [NOTICE.md](NOTICE.md).
+> Everything below is the README of the original project, unchanged.
+
 <p align="center">
   <img src="docs/assets/openradlr-emblem.png" width="220"
        alt="OpenRadlr logo: a lemon in an aero helmet racing a time-trial bike on lemon-slice wheels">
