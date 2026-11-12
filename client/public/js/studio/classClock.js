@@ -5,6 +5,7 @@
  */
 
 import { t } from "../i18n/i18n.js";
+import { cueText } from "./cueText.js";
 
 /**
  * @typedef {{duration_s: number, from: number, to: number, cadence: ?number[], cue: string}} ClassSegment
@@ -34,7 +35,8 @@ export function classPosition(plan, elapsedS) {
         segment,
         target: segment.from + (segment.to - segment.from) * t,
         cadence: segment.cadence ?? null,
-        cue: segment.cue,
+        // The server writes its built-in cues in English: said in the rider's language where known.
+        cue: cueText(segment.cue),
         blockRemainingS: Math.ceil(start + segment.duration_s - elapsedS),
         classRemainingS: Math.ceil(total - elapsedS),
         next: plan.segments[index + 1] ?? null,
@@ -61,6 +63,6 @@ const kindOf = (segment) => {
 export function classWorkout(plan) {
   return {
     name: plan.name,
-    segments: plan.segments.map((s) => ({ durationS: s.duration_s, from: s.from, to: s.to, label: s.cue, kind: kindOf(s) })),
+    segments: plan.segments.map((s) => ({ durationS: s.duration_s, from: s.from, to: s.to, label: cueText(s.cue), kind: kindOf(s) })),
   };
 }

@@ -1011,8 +1011,8 @@ export class View3D {
     // A paddler's device can arrive a snapshot after the rider.
     if (rider.device === "paddle" && !element.querySelector(".badge-paddle")) {
       const badge = document.createElement("span");
+      // A small phone drawn by the stylesheet, as in the rider list.
       badge.className = "badge badge-paddle";
-      badge.textContent = "📱";
       element.append(badge);
     }
     return element;

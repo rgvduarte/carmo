@@ -15,7 +15,7 @@ afterEach(() => setLocale("en"));
 
 test("rider counts and phone riders", () => {
   setLocale("de");
-  assert.equal(routeRiders({ players: 3, phone_players: 1 }), "3 Fahrer · 1 📱");
+  assert.equal(routeRiders({ players: 3, phone_players: 1 }), "3 Fahrer · 1 am Handy");
 });
 
 test("race status and online summary", () => {

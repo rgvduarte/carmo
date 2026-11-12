@@ -91,6 +91,7 @@ import { renderWorkoutCards } from "./view/workoutCards.js";
 import { WorkoutSession, endAfterAsking } from "./workout/workoutSession.js";
 import { startKeepalive } from "./workout/keepalive.js";
 import { createCue } from "./workout/cue.js";
+import { cueText } from "./studio/cueText.js";
 import { gymOfRoute } from "./workout/gymSpots.js";
 import { statueRows } from "./workout/venues.js";
 import { WorkoutStudioView, blockProgress, highlightedFigure, resyncWorkout, startingViewMode, summaryText, workoutHudText } from "./view/workoutStudioView.js";
@@ -2539,7 +2540,7 @@ function studioFrame() {
     $("studio-countdown").textContent = countdown === null ? "–" : formatDuration(countdown);
     $("studio-countdown").classList.toggle("soon", countdown !== null && countdown <= 5);
     const next = position.next;
-    $("studio-next").textContent = next ? t("studio.next", { cue: next.cue, time: formatDuration(next.duration_s), pct: Math.round(((next.from + next.to) / 2) * 100) }) : "";
+    $("studio-next").textContent = next ? t("studio.next", { cue: cueText(next.cue), time: formatDuration(next.duration_s), pct: Math.round(((next.from + next.to) / 2) * 100) }) : "";
     $("studio-class").textContent = plan.name;
     $("studio-class-left").textContent = lobby ? t("studio.startsIn", { time: formatDuration(position.startsInS) }) : position.classRemainingS ? t("studio.left", { time: formatDuration(position.classRemainingS) }) : "";
     drawWorkout($("studio-chart"), { workout: classWorkout(plan), elapsedS: Math.max(0, studio.elapsed(time)), colors: themeColors() });

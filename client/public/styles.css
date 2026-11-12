@@ -4097,6 +4097,18 @@ body.riding {
   font-size: 14px;
 }
 
+/* Gold stays with the one main action of a screen (Ride, Finish): an event's "Join" is paper-white. */
+.event-row .primary-small {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--accent-text);
+}
+
+.event-row .primary-small:hover {
+  background: #fff;
+  border-color: #fff;
+}
+
 /* ===================================================================== */
 /* Spin studio: `#ride[data-mode="studio"]` swaps the road HUD for this.  */
 /* ===================================================================== */
@@ -5249,7 +5261,7 @@ body.paddling .lane-button {
   font-size: 13px;
   color: var(--muted);
   background-color: var(--surface);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%239aa3ad' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%23a3a29c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 11px center;
   border: 1px solid var(--border);
@@ -6828,6 +6840,12 @@ body.paddling .cluster .caption {
   color: var(--hud-muted);
 }
 
+/* With the numbers on their own card, the gradient at the top only lay over the ride's buttons
+   and greyed their labels (3.5:1 measured): gone while paddling. */
+body.paddling .layout-cockpit::before {
+  content: none;
+}
+
 /* The combo counts good taps: gold, it is not a warning. */
 .paddle-combo {
   color: var(--gold);
@@ -7030,4 +7048,19 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+/* A rider on phone paddles: a small phone drawn here, in the text colour (no emoji). */
+.badge.badge-paddle,
+.label3d .badge.badge-paddle {
+  display: inline-block;
+  width: 8px;
+  height: 13px;
+  padding: 0;
+  vertical-align: -2px;
+  border: 0;
+  border-radius: 0;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath fill-rule='evenodd' d='M2 0h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm0 1.5a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V2a.5.5 0 0 0-.5-.5H2zm2 11h2v1H4z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 16'%3E%3Cpath fill-rule='evenodd' d='M2 0h6a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2zm0 1.5a.5.5 0 0 0-.5.5v12a.5.5 0 0 0 .5.5h6a.5.5 0 0 0 .5-.5V2a.5.5 0 0 0-.5-.5H2zm2 11h2v1H4z'/%3E%3C/svg%3E") center / contain no-repeat;
 }

@@ -13,6 +13,9 @@ import { sourceUrl } from "../public/js/view/about.js";
 import { ClientMessages } from "../public/js/net/protocol.js";
 import { eventRows, eventTitle } from "../public/js/view/events.js";
 import { serverStatus } from "../public/js/view/startMenu.js";
+import { riderName } from "../public/js/view/panels.js";
+import { KNOWN_CUES, cueText } from "../public/js/studio/cueText.js";
+import { classPosition, classWorkout } from "../public/js/studio/classClock.js";
 import { ARCH_MARK } from "../public/js/view3d/gocarmoMark.js";
 import { MARK_COLORS, markBeam } from "../public/js/view3d/banners.js";
 import { MeshBuilder } from "../public/js/view3d/meshBuilder.js";
@@ -231,6 +234,50 @@ test("the server's own English event names read in the rider's language; an orga
   assert.equal("icon" in row, false, "no emoji in front of the name");
   setLocale("en");
   assert.equal(eventTitle({ name: "Group ride · Cape Loop", kind: "group_ride" }, "Cape Loop"), "Group ride · Cape Loop");
+});
+
+test("the studio's built-in cues are said in the rider's language; an unknown cue is shown as sent", () => {
+  // Every cue the server's built-in classes can send (server/crates/sim/src/studio.rs) is known to the client.
+  const source = read("../../server/crates/sim/src/studio.rs");
+  const builtin = source.slice(source.indexOf("pub fn builtin_classes()"), source.indexOf("pub struct StudioConfig"));
+  // A cue is the last argument of segment(…)/steady(…): a string followed by the closing bracket.
+  const cues = [...builtin.matchAll(/"([^"]+)"\)/g)].map((m) => m[1]);
+  assert.match(source, /steady\(off\.0, off\.1, off\.2, "Easy, breathe"\)/);
+  cues.push("Easy, breathe");
+  assert.equal(new Set(cues).size, KNOWN_CUES.length, `the server's classes have ${new Set(cues).size} cues, the client knows ${KNOWN_CUES.length}`);
+  for (const cue of cues) assert.ok(KNOWN_CUES.includes(cue), `the client has no translation for the server's cue "${cue}"`);
+  assert.match(source, /format!\("Go! Interval \{i\} of \{repeat\}"\)/, "the interval cue the client's pattern reads");
+  setLocale("en");
+  for (const cue of KNOWN_CUES) assert.equal(cueText(cue), cue, "English stays as the server wrote it");
+  assert.equal(cueText("Go! Interval 5 of 8"), "Go! Interval 5 of 8");
+  setLocale("pt");
+  assert.equal(cueText("Warm up and find your rhythm"), "Aquece e encontra o teu ritmo");
+  assert.equal(cueText("Go! Interval 5 of 8"), "Vai. Intervalo 5 de 8");
+  assert.equal(cueText("Cool down, well done!"), "Arrefece. Bom trabalho.");
+  for (const cue of KNOWN_CUES) assert.notEqual(cueText(cue), cue, `"${cue}" reads in Portuguese`);
+  assert.equal(cueText("Volta ao sol: 3 minutos"), "Volta ao sol: 3 minutos", "an operator's own class keeps its words");
+  const plan = { id: "x", name: "X", segments: [{ duration_s: 60, from: 0.5, to: 0.5, cadence: [85, 95], cue: "Recover, spin it out" }, { duration_s: 60, from: 0.8, to: 0.8, cadence: null, cue: "Settle into tempo" }] };
+  assert.equal(classPosition(plan, 10).cue, "Recupera, pedala solto");
+  assert.equal(classWorkout(plan).segments[1].label, "Entra no ritmo de tempo");
+  setLocale("de");
+  assert.equal(cueText("Go! Interval 2 of 6"), "Los! Intervall 2 von 6");
+});
+
+test("a rider on phone paddles is marked without an emoji, in every language", () => {
+  for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) {
+    for (const key of ["menu.server.withPhones", "menu.riders.withPhones", "panels.paddleShort", "panels.paddleTitle"]) {
+      assert.doesNotMatch(dictionary[key], /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u, `${name} ${key}`);
+    }
+  }
+  setLocale("pt");
+  assert.equal(riderName({ id: 2, name: "Rita", device: "paddle" }), "Rita · telemóvel");
+  assert.equal(riderName({ id: 3, name: "Rui" }), "Rui");
+  setLocale("en");
+  assert.equal(riderName({ id: 2, name: "Rita", device: "paddle" }), "Rita · phone");
+  for (const file of ["../public/js/view/panels.js", "../public/js/view3d/view3d.js", "../public/js/view/startMenu.js"]) {
+    assert.doesNotMatch(read(file), /[\u{1F000}-\u{1FAFF}]/u, `${file}: the badge is drawn by the stylesheet`);
+  }
+  assert.match(read("../public/styles.css"), /\.badge\.badge-paddle,\n\.label3d \.badge\.badge-paddle \{/);
 });
 
 test("phone riders are counted in words in Portuguese", () => {
