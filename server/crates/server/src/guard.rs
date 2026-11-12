@@ -185,6 +185,9 @@ pub struct ConnectionLimits {
     pub handshake_timeout_s: f64,
     /// A joined connection that sends nothing for this long is closed.
     pub idle_timeout_s: f64,
+    /// A connection that takes none of the server's messages for this long
+    /// (a frozen or vanished client) is closed.
+    pub write_timeout_s: f64,
     /// Seconds of 0 W before the first "still riding?" warning; `0` turns it off.
     pub afk_timeout_s: f64,
     /// Seconds of 0 W after a "Stay" before the next warning.
@@ -205,6 +208,7 @@ impl Default for ConnectionLimits {
             vehicle_interval_s: 2.0,
             handshake_timeout_s: 15.0,
             idle_timeout_s: 120.0,
+            write_timeout_s: 20.0,
             afk_timeout_s: 1800.0,
             afk_reminder_s: 600.0,
             afk_answer_s: 120.0,

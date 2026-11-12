@@ -311,6 +311,12 @@ impl ServerMessage {
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).expect("server messages always serialise")
     }
+
+    /// A full picture of the moment (`state`, `studio_state`): the next one
+    /// replaces it entirely, so an unsent one may be dropped for a newer one.
+    pub fn is_snapshot(&self) -> bool {
+        matches!(self, ServerMessage::State { .. } | ServerMessage::StudioState { .. })
+    }
 }
 
 /// The viewer's vehicle with every seat (`None`: empty seat).

@@ -330,10 +330,31 @@ pub fn unix_now_s() -> f64 {
         .unwrap_or(0.0)
 }
 
+/// Listens on `addr`. With `send_buffer_bytes` every accepted connection gets
+/// a kernel send buffer of that size (connections inherit the listener's)
+/// instead of one the system grows on its own: a client that stopped reading
+/// then holds that much kernel memory at most, and is noticed sooner.
+pub async fn listen(addr: SocketAddr, send_buffer_bytes: Option<u32>) -> std::io::Result<tokio::net::TcpListener> {
+    let Some(bytes) = send_buffer_bytes else {
+        return tokio::net::TcpListener::bind(addr).await;
+    };
+    let socket = if addr.is_ipv4() {
+        tokio::net::TcpSocket::new_v4()?
+    } else {
+        tokio::net::TcpSocket::new_v6()?
+    };
+    // As `TcpListener::bind` does: a restart must not wait for old connections to time out.
+    #[cfg(not(windows))]
+    socket.set_reuseaddr(true)?;
+    socket.set_send_buffer_size(bytes)?;
+    socket.bind(addr)?;
+    socket.listen(1024)
+}
+
 /// Builds the application and serves it until `shutdown` resolves.
 pub async fn run(config: Config, shutdown: impl Future<Output = ()> + Send + 'static) -> Result<(), BoxError> {
     let (app, stats) = build_with_stats(&config)?;
-    let listener = tokio::net::TcpListener::bind(config.bind_addr).await?;
+    let listener = listen(config.bind_addr, config.send_buffer_bytes).await?;
     tracing::info!(
         addr = %listener.local_addr()?,
         max_players = config.max_players,
@@ -370,6 +391,25 @@ mod tests {
         let route = file.to_route().unwrap();
         let sim = sim_config_for(config, std::slice::from_ref(&file));
         World::new(route, sim, Box::new(SplitMix64::new(1)))
+    }
+
+    #[tokio::test]
+    async fn connections_inherit_the_configured_send_buffer() {
+        async fn accepted_buffer(send_buffer_bytes: Option<u32>) -> u32 {
+            let listener = listen("127.0.0.1:0".parse().unwrap(), send_buffer_bytes).await.unwrap();
+            let addr = listener.local_addr().unwrap();
+            let _client = tokio::net::TcpStream::connect(addr).await.unwrap();
+            let (stream, _) = listener.accept().await.unwrap();
+            let socket = tokio::net::TcpSocket::from_std_stream(stream.into_std().unwrap());
+            socket.send_buffer_size().unwrap()
+        }
+        // The kernel may round the size up (Linux doubles it for its own bookkeeping).
+        let small = accepted_buffer(Some(8192)).await;
+        assert!((8192..=2 * 8192).contains(&small), "{small}");
+        let large = accepted_buffer(Some(262_144)).await;
+        assert!((262_144..=2 * 262_144).contains(&large), "{large}");
+        // Without the setting the listener is the plain one.
+        assert!(accepted_buffer(None).await > 0);
     }
 
     #[test]

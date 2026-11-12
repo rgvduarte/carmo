@@ -79,6 +79,13 @@ pub struct Config {
     pub afk_reminder_s: f64,
     /// Seconds a rider has to answer a warning (no environment variable; for tests).
     pub afk_answer_s: f64,
+    /// Seconds a client may take none of the server's messages before its
+    /// connection is closed (no environment variable; for tests).
+    pub write_timeout_s: f64,
+    /// The kernel's send buffer of every client connection, in bytes
+    /// (`OPENRADLR_SEND_BUFFER_BYTES`). `None` (default) leaves it to the
+    /// system, which may grow it to megabytes for a client that stopped reading.
+    pub send_buffer_bytes: Option<u32>,
     /// WebSocket origins allowed to connect; empty allows all. Pages on these
     /// origins may also read the public JSON API from elsewhere (CORS).
     pub allowed_origins: Vec<String>,
@@ -279,6 +286,16 @@ impl Config {
             "must be a finite number of seconds above 0",
         )?;
 
+        let send_buffer_bytes: Option<u32> = reader.parse_optional("OPENRADLR_SEND_BUFFER_BYTES")?;
+        if let Some(bytes) = send_buffer_bytes {
+            reader.check(
+                "OPENRADLR_SEND_BUFFER_BYTES",
+                bytes,
+                (4096..=16 * 1024 * 1024).contains(&bytes),
+                "must be between 4096 and 16777216 bytes",
+            )?;
+        }
+
         let allowed_origins = reader.origins("OPENRADLR_ALLOWED_ORIGINS")?;
         let frame_ancestors = reader.origins("OPENRADLR_FRAME_ANCESTORS")?;
 
@@ -450,6 +467,8 @@ impl Config {
             afk_timeout_s,
             afk_reminder_s,
             afk_answer_s: 120.0,
+            write_timeout_s: ConnectionLimits::default().write_timeout_s,
+            send_buffer_bytes,
             allowed_origins,
             frame_ancestors,
             public_url,
@@ -479,6 +498,7 @@ impl Config {
             afk_timeout_s: self.afk_timeout_s,
             afk_reminder_s: self.afk_reminder_s,
             afk_answer_s: self.afk_answer_s,
+            write_timeout_s: self.write_timeout_s,
             ..ConnectionLimits::default()
         }
     }
@@ -843,6 +863,29 @@ mod tests {
             config(&[("OPENRADLR_MAX_CONNECTIONS_PER_IP", "0")]).unwrap_err().key,
             "OPENRADLR_MAX_CONNECTIONS_PER_IP"
         );
+    }
+
+    #[test]
+    fn the_send_buffer_is_the_systems_unless_set() {
+        assert_eq!(config(&[]).unwrap().send_buffer_bytes, None);
+        assert_eq!(
+            config(&[("OPENRADLR_SEND_BUFFER_BYTES", "")])
+                .unwrap()
+                .send_buffer_bytes,
+            None
+        );
+        assert_eq!(
+            config(&[("OPENRADLR_SEND_BUFFER_BYTES", "131072")])
+                .unwrap()
+                .send_buffer_bytes,
+            Some(131_072)
+        );
+        for bad in ["0", "100", "99999999", "64k", "-1"] {
+            let err = config(&[("OPENRADLR_SEND_BUFFER_BYTES", bad)]).expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_SEND_BUFFER_BYTES");
+        }
+        // The stall timeout has a default and reaches the connection limits.
+        assert_eq!(config(&[]).unwrap().connection_limits().write_timeout_s, 20.0);
     }
 
     #[test]
