@@ -6,7 +6,14 @@
  *
  * Only what an activity needs: file_id, timer events, one record per
  * sample, one lap, one session and the activity. Little-endian throughout.
+ *
+ * The file says which program wrote it in file_id's `product_name` (FIT's
+ * free-form name of the device or program), as the TCX and GPX files say it
+ * in their creator: a file a rider uploads somewhere by hand carries no other
+ * name.
  */
+
+import { APP_NAME } from "../brand.js";
 
 /** FIT time counts seconds from 1989-12-31 00:00 UTC. */
 const FIT_EPOCH_S = 631065600;
@@ -18,6 +25,8 @@ const TYPES = Object.freeze({
   sint32: { id: 0x85, size: 4, invalid: 0x7fffffff },
   uint32: { id: 0x86, size: 4, invalid: 0xffffffff },
   uint32z: { id: 0x8c, size: 4, invalid: 0 },
+  // UTF-8, ends with a zero byte; its size is that of the text written (see `write`).
+  string: { id: 0x07 },
 });
 
 const SPORT_CYCLING = 2;
@@ -32,7 +41,7 @@ const MANUFACTURER_DEVELOPMENT = 255;
  * `[field number, name, type]`.
  */
 const MESSAGES = Object.freeze({
-  fileId: [0, [[0, "type", "enum"], [1, "manufacturer", "uint16"], [2, "product", "uint16"], [3, "serial", "uint32z"], [4, "created", "uint32"]]],
+  fileId: [0, [[0, "type", "enum"], [1, "manufacturer", "uint16"], [2, "product", "uint16"], [3, "serial", "uint32z"], [4, "created", "uint32"], [8, "productName", "string"]]],
   event: [21, [[253, "timestamp", "uint32"], [0, "event", "enum"], [1, "eventType", "enum"]]],
   record: [
     20,
@@ -129,6 +138,8 @@ class Writer {
   }
 }
 
+/** A FIT string: the text's UTF-8 bytes and the zero byte that ends it. */
+const stringBytes = (text) => [...new TextEncoder().encode(String(text)), 0];
 const fitTime = (ms) => Math.round(ms / 1000) - FIT_EPOCH_S;
 const semicircles = (degrees) => Math.round(degrees * (2 ** 31 / 180));
 /** A value in range, else FIT's "invalid" for that field. */
@@ -159,14 +170,18 @@ export function encodeFitActivity(samples, summary = {}, { indoor = false, pause
       out.u8(0); // little-endian
       out.value("uint16", global);
       out.u8(fields.length);
-      for (const [number, , type] of fields) {
+      for (const [number, name, type] of fields) {
         out.u8(number);
-        out.u8(TYPES[type].size);
+        // A string field is as long as the one text written with it: a message with one is written once.
+        out.u8(type === "string" ? stringBytes(values[name]).length : TYPES[type].size);
         out.u8(TYPES[type].id);
       }
     }
     out.u8(local);
-    for (const [, name, type] of fields) out.value(type, values[name]);
+    for (const [, name, type] of fields) {
+      if (type === "string") for (const byte of stringBytes(values[name])) out.u8(byte);
+      else out.value(type, values[name]);
+    }
   };
 
   const first = samples[0];
@@ -176,7 +191,7 @@ export function encodeFitActivity(samples, summary = {}, { indoor = false, pause
   const elapsedMs = Math.max(0, last.t - first.t);
   const distanceM = Math.max(0, last.distance - first.distance);
 
-  write("fileId", { type: 4, manufacturer: MANUFACTURER_DEVELOPMENT, product: 1, serial: (first.t / 1000) % 2 ** 32 || 1, created: start });
+  write("fileId", { type: 4, manufacturer: MANUFACTURER_DEVELOPMENT, product: 1, serial: (first.t / 1000) % 2 ** 32 || 1, created: start, productName: APP_NAME });
   write("event", { timestamp: start, event: 0, eventType: 0 }); // timer start
   const inside = pauses.filter((pause) => pause.from >= first.t && pause.to <= last.t);
   const pausedMs = inside.reduce((sum, pause) => sum + (pause.to - pause.from), 0);

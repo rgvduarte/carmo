@@ -83,7 +83,8 @@ It is forgotten when the account connects.
 - The FIT file: sport cycling, sub-sport virtual activity (indoor cycling for
   a class), manufacturer 255 ("development"), product 1; one record a second
   with position, altitude, distance, speed, power, cadence and heart rate
-  where recorded; laps from the splits. It carries no product name.
+  where recorded; laps from the splits. `file_id` names the program that
+  wrote it: `product_name` is `GOCARMO Ride`.
 - Positions are in the virtual world at 39.0° N, 2.6° E (38.0° N, 2.6° E for
   Lanzarote Lava 180), as upstream defines them. The origin is not moved.
 - The client sends no description. The server adds its own, its file name and
@@ -91,8 +92,9 @@ It is forgotten when the account connects.
 - Downloads: `gocarmo-ride-<date>-<time>-<route>.fit|tcx|gpx`; TCX
   `<Creator><Name>GOCARMO Ride</Name>`, GPX `creator="GOCARMO Ride"`.
 
-A file uploaded by hand has no name from the game: Strava names the activity
-itself, and the rider can rename it.
+A file uploaded by hand gives the activity no name: Strava names the activity
+itself, and the rider can rename it. What the file says of the game is its
+creator (`product_name` in the FIT file, `Creator` in TCX, `creator` in GPX).
 
 ## Strava's rules, as the client keeps them
 

@@ -139,7 +139,7 @@ test("the upload is the FIT file and a name that says GOCARMO Ride and the route
   assert.equal(eventRideName("group_ride", "Island Tour"), "GOCARMO Ride group ride · Island Tour");
 });
 
-test("the FIT file is a virtual ride with positions in the virtual world, and carries no name of its own", () => {
+test("the FIT file is a virtual ride with positions in the virtual world, and names the fork as the program that wrote it", () => {
   const bytes = recorded().toFit();
   const messages = fitMessages(bytes);
   const session = messages.find((message) => message.global === 18);
@@ -147,6 +147,7 @@ test("the FIT file is a virtual ride with positions in the virtual world, and ca
   assert.equal(session.values[6], 58, "sub-sport: virtual activity");
   const fileId = messages.find((message) => message.global === 0);
   assert.equal(fileId.values[1], 255, "manufacturer: development (no registered maker)");
+  assert.equal(fileId.values[8], "GOCARMO Ride", "product_name: the file says what wrote it, like the TCX and GPX creator");
   const first = messages.find((message) => message.global === 20);
   assert.ok(Math.abs(first.values[0] * (180 / 2 ** 31) - WORLD_ORIGIN.lat) < 1e-6);
   assert.ok(Math.abs(first.values[1] * (180 / 2 ** 31) - WORLD_ORIGIN.lon) < 1e-6);

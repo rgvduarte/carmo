@@ -147,15 +147,21 @@ export function fitMessages(bytes) {
       const count = view.getUint8(at + 4);
       at += 5;
       const fields = [];
-      for (let i = 0; i < count; i += 1, at += 3) fields.push({ number: view.getUint8(at), size: view.getUint8(at + 1) });
+      for (let i = 0; i < count; i += 1, at += 3) fields.push({ number: view.getUint8(at), size: view.getUint8(at + 1), type: view.getUint8(at + 2) });
       definitions.set(local, { global, fields });
     } else {
       const { global, fields } = definitions.get(local);
       const values = {};
-      for (const { number, size } of fields) {
-        let value = 0;
-        for (let i = 0; i < size; i += 1) value += view.getUint8(at + i) * 256 ** i;
-        values[number] = value;
+      for (const { number, size, type } of fields) {
+        if (type === 0x07) {
+          // A string: UTF-8 up to its zero byte.
+          const raw = bytes.subarray(at, at + size);
+          values[number] = new TextDecoder().decode(raw.subarray(0, raw.indexOf(0) < 0 ? size : raw.indexOf(0)));
+        } else {
+          let value = 0;
+          for (let i = 0; i < size; i += 1) value += view.getUint8(at + i) * 256 ** i;
+          values[number] = value;
+        }
         at += size;
       }
       messages.push({ global, values });
