@@ -48,6 +48,20 @@ pub mod studio;
 pub mod vehicle_codes;
 pub mod worlds;
 
+/// The name this server gives itself to riders and to the services it talks
+/// to (Strava, an OpenBikeNet server). This is GOCARMO Ride, a modified version
+/// of OpenRadlr: nobody outside may take it for OpenRadlr itself. Internal
+/// names (the `OPENRADLR_` settings, the crates, cookies and files) stay.
+pub const APP_NAME: &str = "GOCARMO Ride";
+
+/// The public page of this fork, for those who want to know who is calling.
+pub const APP_URL: &str = "https://gocarmo.com/ride/";
+
+/// The `User-Agent` of the server's own HTTP requests (to Strava).
+pub fn user_agent() -> String {
+    format!("GOCARMO-Ride/{} (+{APP_URL})", env!("CARGO_PKG_VERSION"))
+}
+
 /// Which build is running: set by the Docker build (`OPENRADLR_BUILD_SHA`, `OPENRADLR_BUILD_DATE`).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct BuildInfo {
@@ -100,6 +114,22 @@ pub struct ServerInfo {
 #[cfg(test)]
 mod tests {
     use super::BuildInfo;
+
+    #[test]
+    fn the_server_introduces_itself_as_the_fork() {
+        let agent = super::user_agent();
+        assert_eq!(
+            agent,
+            format!(
+                "GOCARMO-Ride/{} (+https://gocarmo.com/ride/)",
+                env!("CARGO_PKG_VERSION")
+            )
+        );
+        // A product token has no spaces; the rest is a comment in brackets.
+        assert!(!agent.split_once(' ').unwrap().0.contains("OpenRadlr"));
+        assert!(agent.is_ascii());
+        assert_eq!(super::APP_NAME, "GOCARMO Ride");
+    }
 
     #[test]
     fn build_falls_back_to_dev() {

@@ -49,7 +49,7 @@ impl Strava {
     ) -> Result<Self, reqwest::Error> {
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
-            .user_agent(concat!("OpenRadlr/", env!("CARGO_PKG_VERSION")))
+            .user_agent(crate::user_agent())
             .build()?;
         Ok(Self {
             config,

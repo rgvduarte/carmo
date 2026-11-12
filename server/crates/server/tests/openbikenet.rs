@@ -73,6 +73,7 @@ fn velodrome_config(obn_url: Option<String>) -> Config {
         events: EventsSetting::Off,
         bot_seed: Some(1),
         obn_url,
+        obn_app_id: Some("example-ride".into()),
         obn_backoff_unit: Duration::from_millis(10),
         ..Config::default()
     }
@@ -127,7 +128,10 @@ async fn http_get(addr: SocketAddr, path: &str) -> String {
 async fn expect_hello_and_subscribe(fake: &mut Fake) {
     let hello = recv(fake).await;
     assert_eq!(hello["type"], "hello");
-    assert_eq!(hello["app"]["id"], "openradlr");
+    // The operator's id, and the fork's own name and page: never upstream's.
+    assert_eq!(hello["app"]["id"], "example-ride");
+    assert_eq!(hello["app"]["name"], "GOCARMO Ride");
+    assert_eq!(hello["app"]["url"], "https://gocarmo.com/ride/");
     let subscribe = recv(fake).await;
     assert_eq!(subscribe["type"], "subscribe");
     assert_eq!(subscribe["route"], "velodrome-250");

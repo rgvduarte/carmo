@@ -182,9 +182,15 @@ pub fn build_with_stats(config: &Config) -> Result<(Router, DistanceStats), BoxE
         if let (Some(index), Some(obn_route), Some(receiver), Some(url)) =
             (shared_index, obn_route, link_frames, &config.obn_url)
         {
-            tracing::info!(route = %obn_route, "sharing the route through OpenBikeNet");
+            // The configuration from the environment guarantees the id; one built in code may lack it.
+            let app_id = config
+                .obn_app_id
+                .clone()
+                .ok_or("OPENRADLR_OBN_URL is set without OPENRADLR_OBN_APP_ID")?;
+            tracing::info!(route = %obn_route, app_id = %app_id, "sharing the route through OpenBikeNet");
             spawn_link(
                 url.clone(),
+                app_id,
                 obn_route,
                 routes[index].length(),
                 config.obn_backoff_unit,

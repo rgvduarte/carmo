@@ -125,6 +125,10 @@ pub struct Config {
     pub privacy_url: Option<String>,
     /// The OpenBikeNet server to share the velodrome with (`OPENRADLR_OBN_URL`); `None` = not connected.
     pub obn_url: Option<String>,
+    /// The app id this server says `hello` with there (`OPENRADLR_OBN_APP_ID`).
+    /// No default: the id is agreed with the OpenBikeNet server's operator, and
+    /// upstream's own id is not this fork's to use. Needed with `obn_url`.
+    pub obn_app_id: Option<String>,
     /// Base of the reconnect delay to OpenBikeNet (no environment variable; for tests).
     pub obn_backoff_unit: Duration,
     /// When a quiet OpenBikeNet server is pinged and given up on (no environment variable;
@@ -382,7 +386,7 @@ impl Config {
 
         let server_name = reader
             .raw("OPENRADLR_SERVER_NAME")
-            .unwrap_or_else(|| "OpenRadlr".into());
+            .unwrap_or_else(|| crate::APP_NAME.into());
         reader.check(
             "OPENRADLR_SERVER_NAME",
             &server_name,
@@ -449,6 +453,28 @@ impl Config {
             )?;
         }
 
+        let obn_app_id = reader.raw("OPENRADLR_OBN_APP_ID").filter(|id| !id.is_empty());
+        if let Some(id) = &obn_app_id {
+            reader.check(
+                "OPENRADLR_OBN_APP_ID",
+                id,
+                id.len() <= 64
+                    && id
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '.')),
+                "must be 1 to 64 lower-case letters, digits, '-', '_' or '.'",
+            )?;
+        }
+        if obn_url.is_some() && obn_app_id.is_none() {
+            return Err(ConfigError {
+                key: "OPENRADLR_OBN_APP_ID",
+                value: String::new(),
+                reason: "is required with OPENRADLR_OBN_URL: the app id this server introduces itself with, as \
+                         agreed with the OpenBikeNet server's operator (there is no default)"
+                    .into(),
+            });
+        }
+
         Ok(Self {
             bind_addr: reader.parse("OPENRADLR_BIND", SocketAddr::from(([0, 0, 0, 0], 8080)))?,
             route_file: reader
@@ -500,6 +526,7 @@ impl Config {
             analytics,
             privacy_url,
             obn_url,
+            obn_app_id,
             obn_backoff_unit: Duration::from_secs(1),
             obn_heartbeat: Heartbeat::default(),
         })
@@ -798,10 +825,46 @@ mod tests {
     fn obn_url_must_be_websocket() {
         assert_eq!(config(&[]).unwrap().obn_url, None);
         assert_eq!(config(&[("OPENRADLR_OBN_URL", "")]).unwrap().obn_url, None);
-        let c = config(&[("OPENRADLR_OBN_URL", "wss://obn.example/v0")]).unwrap();
+        let c = config(&[
+            ("OPENRADLR_OBN_URL", "wss://obn.example/v0"),
+            ("OPENRADLR_OBN_APP_ID", "example-ride"),
+        ])
+        .unwrap();
         assert_eq!(c.obn_url.as_deref(), Some("wss://obn.example/v0"));
         let err = config(&[("OPENRADLR_OBN_URL", "https://x")]).unwrap_err();
         assert_eq!(err.key, "OPENRADLR_OBN_URL");
+    }
+
+    #[test]
+    fn the_obn_link_needs_an_app_id_of_its_own() {
+        assert_eq!(config(&[]).unwrap().obn_app_id, None);
+        let c = config(&[
+            ("OPENRADLR_OBN_URL", "wss://obn.example/v0"),
+            ("OPENRADLR_OBN_APP_ID", "example-ride"),
+        ])
+        .unwrap();
+        assert_eq!(c.obn_app_id.as_deref(), Some("example-ride"));
+        // No default id: without one the link is refused, not opened under a made-up name.
+        let err = config(&[("OPENRADLR_OBN_URL", "wss://obn.example/v0")]).unwrap_err();
+        assert_eq!(err.key, "OPENRADLR_OBN_APP_ID");
+        // An id alone connects nothing.
+        let alone = config(&[("OPENRADLR_OBN_APP_ID", "example-ride")]).unwrap();
+        assert_eq!(alone.obn_url, None);
+        for bad in ["Example Ride", "ride/1", "ü"] {
+            let err = config(&[
+                ("OPENRADLR_OBN_URL", "wss://obn.example/v0"),
+                ("OPENRADLR_OBN_APP_ID", bad),
+            ])
+            .expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_OBN_APP_ID");
+        }
+    }
+
+    #[test]
+    fn the_server_is_named_after_the_fork_unless_the_operator_names_it() {
+        assert_eq!(config(&[]).unwrap().server_name, "GOCARMO Ride");
+        let c = config(&[("OPENRADLR_SERVER_NAME", "Club Night")]).unwrap();
+        assert_eq!(c.server_name, "Club Night");
     }
 
     #[test]
