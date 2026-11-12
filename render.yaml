@@ -92,6 +92,12 @@ services:
         sync: false
       - key: OPENRADLR_STRAVA_CLIENT_SECRET
         sync: false
+      # A new Strava application lets one athlete connect (ten after an upgrade
+      # in Strava's API settings). While this is true the game says so and
+      # offers the .fit file first. Set it to false once Strava has approved
+      # more athletes.                                      (new in GOCARMO Ride)
+      - key: OPENRADLR_STRAVA_LIMITED
+        value: "true"
       # Encrypts the stored Strava logins. Render makes a random value once and
       # keeps it; nobody has to type or know it. Without a disk the logins are
       # lost with every new container anyway.

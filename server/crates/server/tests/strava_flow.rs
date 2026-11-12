@@ -145,6 +145,7 @@ fn config(strava_url: &str) -> Config {
             redirect_uri: format!("{PUBLIC_URL}/auth/strava/callback"),
             public_url: PUBLIC_URL.into(),
             api_url: strava_url.to_owned(),
+            limited: true,
         }),
         ..Config::default()
     }
@@ -626,4 +627,31 @@ async fn without_the_upload_permission_the_rider_is_told_so() {
         (403, json!("upload_not_allowed"))
     );
     assert!(fake.lock().unwrap().requests.iter().all(|(kind, ..)| kind != "upload"));
+}
+
+/// The client asks `/api/info` whether Strava's athlete limit still holds for
+/// this server's application, and offers the ride file first while it does.
+#[tokio::test]
+async fn info_says_whether_the_athlete_limit_still_holds() {
+    let (strava_url, _fake) = fake_strava().await;
+    let mut config = config(&strava_url);
+    let info = request(start_server(&config).await, "GET", "/api/info", "", b"")
+        .await
+        .json();
+    assert_eq!(info["strava"]["enabled"], true);
+    assert_eq!(info["strava"]["limited"], true, "a new application is limited");
+
+    config.strava.as_mut().unwrap().limited = false;
+    let info = request(start_server(&config).await, "GET", "/api/info", "", b"")
+        .await
+        .json();
+    assert_eq!(info["strava"]["enabled"], true);
+    assert_eq!(info["strava"]["limited"], false);
+
+    config.strava = None;
+    let info = request(start_server(&config).await, "GET", "/api/info", "", b"")
+        .await
+        .json();
+    assert_eq!(info["strava"]["enabled"], false);
+    assert_eq!(info["strava"]["limited"], true, "nothing to connect to");
 }

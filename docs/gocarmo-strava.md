@@ -61,10 +61,13 @@ own and the game picks the session up when the rider comes back.
 
 The client assumes the limit until the server says otherwise:
 `/api/info` → `strava.limited: false` (read by `stravaLimited` in
-`client/public/js/net/strava.js`). **The unmodified server does not send that
-field.** Once Strava has approved the application, either the server sends it
-or `stravaLimited` is changed; until then riders who are not connected see the
-file first, with Strava's button after it.
+`client/public/js/net/strava.js`). The fork's server sends the field from the
+setting `OPENRADLR_STRAVA_LIMITED`, which is `true` unless the person who runs
+the server changes it (the original's server does not send the field, which
+the client reads as "limited"). Once Strava has approved the application for
+enough athletes, set `OPENRADLR_STRAVA_LIMITED=false` on the host; until then
+riders who are not connected see the file first, with Strava's button after
+it. The server does not count athletes: the value is what the operator says.
 
 A failed attempt (`/?strava=failed`) is remembered in the browser
 (`openradlr.strava-connect`), so that rider is shown the file first next time.

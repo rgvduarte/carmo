@@ -153,6 +153,10 @@ pub struct StravaInfo {
     pub enabled: bool,
     /// Joining needs a connected Strava account.
     pub required: bool,
+    /// Strava still limits how many athletes may connect to this server's API
+    /// application (`OPENRADLR_STRAVA_LIMITED`). The client then offers the
+    /// ride file first. Always true while Strava is off.
+    pub limited: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -667,6 +671,7 @@ async fn info(State(state): State<AppState>) -> Json<InfoResponse> {
         strava: StravaInfo {
             enabled: state.strava.is_some(),
             required: state.strava.as_ref().is_some_and(|s| s.required),
+            limited: state.strava.as_ref().is_none_or(|s| s.config.limited),
         },
         now_s,
         events,

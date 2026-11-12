@@ -45,6 +45,11 @@ pub struct StravaConfig {
     pub public_url: String,
     /// Where Strava is: [`STRAVA_URL`] (no environment variable; tests put a stand-in here).
     pub api_url: String,
+    /// Whether Strava still limits how many athletes may connect to this API
+    /// application (`OPENRADLR_STRAVA_LIMITED`, default true: every new
+    /// application starts with one). The client then puts the ride file in
+    /// front of "Connect with Strava"; the server itself does nothing with it.
+    pub limited: bool,
 }
 
 /// Percent-encodes everything except RFC 3986 unreserved characters.
@@ -396,6 +401,7 @@ mod tests {
             redirect_uri: "https://ride.example.com/auth/strava/callback".into(),
             public_url: "https://ride.example.com".into(),
             api_url: STRAVA_URL.into(),
+            limited: true,
         }
     }
 

@@ -20,14 +20,15 @@ says otherwise.
 | `OPENRADLR_SEND_BUFFER_BYTES` | empty (the system decides) | Kernel send buffer of every client connection, 4096 to 16777216. A client that stops reading then holds this much kernel memory (Linux accounts about twice the value) instead of up to 4 MB, and is closed sooner. | Too small slows the first page load on slow, distant links. 131072 was used in the tests below. |
 | `OPENRADLR_METRICS_TOKEN` | empty | `/internal/metrics` answers only requests with `Authorization: Bearer <token>` (at least 16 characters, no spaces). | Changed default, see "Metrics". Keep the token out of the repository. |
 | `OPENRADLR_OBN_APP_ID` | none | The app id the server says `hello` with to an OpenBikeNet server. Needed with `OPENRADLR_OBN_URL`; there is no default. | See "Identity". |
+| `OPENRADLR_STRAVA_LIMITED` | `true` | Whether Strava still limits how many athletes may connect to this server's Strava application. The server only reports it in `/api/info` (`strava.limited`); while it is true the client tells riders about the limit and offers the `.fit` file before "Connect with Strava". | Set to `false` too early, riders are sent to a Strava page that refuses them. |
 | `OPENRADLR_SERVER_NAME` | `GOCARMO Ride` (was `OpenRadlr`) | Unchanged otherwise. | |
 
 `docker-compose.yml` hands the container a fixed list of variables. The new
-ones are not in it yet, its `OPENRADLR_ALLOWED_ORIGINS` is the public URL
-alone, and its default for `OPENRADLR_SERVER_NAME` is still `OpenRadlr`, which
-overrides the server's own default. On a platform that sets variables on the
-container directly none of this matters; for Docker Compose the file has to be
-extended first.
+ones are in it, its `OPENRADLR_ALLOWED_ORIGINS` is the public URL alone unless
+set, and its default for `OPENRADLR_SERVER_NAME` is `GOCARMO Ride`. A variable
+that is not in that list does not reach the container. The values for each
+host are in `render.yaml`, `fly.toml` and `deploy/gocarmo.env.example`
+([gocarmo-deploy.md](gocarmo-deploy.md)).
 
 Both origin lists are checked at start-up. An entry must be
 `scheme://host[:port]`: no path, no wildcard, no spaces, nothing else. A
@@ -133,7 +134,7 @@ Upstream answered `/internal/metrics` to anyone. The fork answers:
 Upstream's monitoring stack scrapes the endpoint from another container over
 the private `openradlr-metrics` Docker network. That is not a loopback peer, so
 it now needs the token: pass `OPENRADLR_METRICS_TOKEN` to the server (the
-compose file does not pass it yet) and give it to Prometheus:
+compose file passes it on) and give it to Prometheus:
 
 ```yaml
 scrape_configs:
@@ -168,9 +169,9 @@ A modified fork must not present itself as OpenRadlr.
 
 Not changed, on purpose: the `openradlr://` address the native app's Strava
 sign-in ends on (the fork ships no native app), the cookie and metric names,
-the database file. Not the server's: the browser client still sends the app id
-`openradlr` to OpenBikeControl controllers
-(`client/public/js/ble/openBikeControl.js`).
+the database file. The browser client names itself too: it sends the app id
+`gocarmo-ride` to OpenBikeControl controllers (`APP_ID` in
+`client/public/js/brand.js`).
 
 ## Strava
 
@@ -422,8 +423,7 @@ Measured with exactly these values: 6.4 % of one core with 50 riders on one
 route (5.2 % with 30, 1.3 % idle), 21 MiB of memory; 56 to 64 kB/s to each
 rider, 200 to 230 MB per rider-hour. 50 riders are 22 Mbit/s and 10 GB an
 hour: on a plan with metered traffic set `OPENRADLR_MAX_VISIBLE_RIDERS=30`
-(100 MB per rider-hour). The compose file needs the new variables first (see
-above).
+(100 MB per rider-hour).
 
 ## Not verified
 

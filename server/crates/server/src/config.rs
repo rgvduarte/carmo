@@ -330,6 +330,7 @@ impl Config {
             )?;
         }
 
+        let strava_limited = reader.flag("OPENRADLR_STRAVA_LIMITED", true)?;
         let client_id = reader.raw("OPENRADLR_STRAVA_CLIENT_ID").filter(|v| !v.is_empty());
         let client_secret = reader.raw("OPENRADLR_STRAVA_CLIENT_SECRET").filter(|v| !v.is_empty());
         let strava = match (client_id, client_secret) {
@@ -348,6 +349,7 @@ impl Config {
                     redirect_uri: format!("{url}/auth/strava/callback"),
                     public_url: url.clone(),
                     api_url: crate::strava::STRAVA_URL.into(),
+                    limited: strava_limited,
                 })
             }
             (Some(_), None) | (None, Some(_)) => {
@@ -1066,8 +1068,24 @@ mod tests {
         .unwrap();
         let strava = c.strava.unwrap();
         assert_eq!(strava.redirect_uri, "https://ride.example.com/auth/strava/callback");
+        assert!(
+            strava.limited,
+            "a new Strava application has the athlete limit until the operator says otherwise"
+        );
         assert!(c.require_strava);
         assert_eq!(c.public_url.as_deref(), Some("https://ride.example.com"));
+        let unlimited = config(&[
+            ("OPENRADLR_STRAVA_CLIENT_ID", "123"),
+            ("OPENRADLR_STRAVA_CLIENT_SECRET", "abc"),
+            ("OPENRADLR_PUBLIC_URL", "https://ride.example.com"),
+            ("OPENRADLR_STRAVA_LIMITED", "false"),
+        ])
+        .unwrap();
+        assert!(!unlimited.strava.unwrap().limited);
+        assert_eq!(
+            config(&[("OPENRADLR_STRAVA_LIMITED", "maybe")]).unwrap_err().key,
+            "OPENRADLR_STRAVA_LIMITED"
+        );
 
         let key = |vars: &[(&str, &str)]| config(vars).unwrap_err().key;
         assert_eq!(
