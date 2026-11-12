@@ -11,6 +11,7 @@ indoor-cycling game.
 | Copyright of the original | © The OpenRadlr contributors |
 | Modified from | 12.11.2026 (2026-11-12) |
 | Source code of this fork | <https://github.com/rgvduarte/carmo/tree/gocarmo-ride> |
+| GOCARMO artwork (added by this fork) | © Gonçalo Carmo, CC BY-SA 4.0; the name and the use as a brand are reserved (see "The GOCARMO name and symbol") |
 
 The original authors wrote OpenRadlr; GOCARMO maintains the changes listed
 below and nothing else. This fork is not the official OpenRadlr and is not
@@ -25,8 +26,8 @@ endorsed by its authors.
 - **Upstream artwork**: Creative Commons Attribution-ShareAlike 4.0, see
   [ASSETS-LICENSE.md](ASSETS-LICENSE.md). "Artwork © The OpenRadlr
   contributors, CC BY-SA 4.0", <https://github.com/Lethonium/OpenRadlr>,
-  unchanged; kept in `docs/assets/`, `landing/` and `app/`, not used by the
-  game.
+  unchanged; kept in `docs/assets/` only, where the original's README
+  (`README-upstream.md`) shows it. The game uses none of it.
 - **Name and logo of the original**: see [TRADEMARKS.md](TRADEMARKS.md). A fork
   must have its own name and icon, and may say what it is based on. That is why
   this fork is called GOCARMO Ride and shows "based on OpenRadlr" in its About
@@ -34,6 +35,10 @@ endorsed by its authors.
 
 `LICENSE`, `ASSETS-LICENSE.md`, `TRADEMARKS.md` and every copyright notice are
 kept as upstream wrote them.
+
+What this fork adds has its own notices: the GOCARMO artwork (see "The
+GOCARMO name and symbol") and the fonts (see "Third-party material added by
+this fork").
 
 ## Where the credits show in the game
 
@@ -48,13 +53,18 @@ AGPL version 3 or later), no warranty, and links to this fork's source code,
 to the original project, to the licence text and to this notice.
 
 - The source link points at the commit of the running build when the build
-  knows it (`client/public/js/build.js`, written by the Dockerfile from
-  `OPENRADLR_BUILD_SHA`; a deploy without Docker must write that file), else
-  at the branch `gocarmo-ride` (`client/public/js/view/about.js`).
+  knows it (`client/public/js/build.js`, written by the Dockerfile from the
+  build argument `OPENRADLR_BUILD_SHA`, or from Render's `RENDER_GIT_COMMIT`
+  when the first is not given; a deploy without Docker must write that
+  file), else at the branch `gocarmo-ride`
+  (`client/public/js/view/about.js`). Every deploy path passes the commit:
+  see `docs/gocarmo-deploy.md`, "The source link and the build label".
 - The licence and this notice are served with the game:
   `client/public/LICENSE.txt` and `client/public/NOTICE.txt` are copies of
   `LICENSE` and `NOTICE.md` (a test keeps them identical; copy again after
-  every edit of this file).
+  every edit of this file). The Docker image also carries `LICENSE` and
+  `NOTICE.md` in `/app`, and its labels name the source repository and the
+  licence.
 - The dev-only model gallery (`client/public/gallery.html`) carries the source
   link too.
 
@@ -163,6 +173,57 @@ Keep this list up to date with every change.
   `gocarmoRide.test.js` (source link, licence copies, credits, logo folder,
   symbol, event names, arch lockup, sun).
 
+### 12.11.2026 — repository, image and deploy files
+
+- **Removed**: `landing/` (the original's marketing site) and `app/` (its
+  native iOS and Android wrapper, with the original's app id and icons).
+  GOCARMO Ride ships neither. Both are unchanged in the original repository:
+  <https://github.com/Lethonium/OpenRadlr/tree/2b09a79b34b8fb0d2f7c81d3a7acb150b8e23190>.
+  With them went the `landing` service of `docker-compose.yml`, the landing
+  block of `deploy/Caddyfile` and the landing settings of `.env.example`.
+- **`.github/`**: nothing of the original's automation is left. Removed, in
+  addition to the files named above: `dependabot.yml`, the issue templates
+  (their links sent reports to the original project) and the pull request
+  template. `ci.yml` became `ride-ci.yml`: it runs on pushes to
+  `gocarmo-ride` only, and builds and checks the Docker image without
+  publishing it. New: `ride-deploy-fly.yml`, which deploys to Fly.io only
+  when the repository variable `RIDE_DEPLOY` is `fly`.
+  `release-please-config.json`, `.release-please-manifest.json` and
+  `version.txt` are kept unchanged; no workflow uses them.
+- **Docker image** (`Dockerfile`, `.dockerignore`): the image carries
+  `LICENSE` and `NOTICE.md` and labels with its source and licence; the
+  build label can come from Render's `RENDER_GIT_COMMIT`; the default server
+  name is "GOCARMO Ride". The build stage, the user and the entry point are
+  the original's.
+- **Docker Compose** (`docker-compose.yml`, `.env.example`): default name
+  "GOCARMO Ride"; the settings this fork adds reach the container; so do the
+  paddle, studio, events and AFK settings, which the original listed in
+  `.env.example` but did not hand to the container.
+- **New deploy files**: `render.yaml` (Render, the free pilot), `fly.toml`
+  (Fly.io), `deploy/gocarmo.env.example` (a VPS with Docker Compose and
+  Caddy), `deploy/check-image.sh` (checks a built image).
+- **New documents**: `docs/gocarmo-deploy.md`, `docs/README.md` (which pages
+  are the original's). `Makefile` and `deploy/Caddyfile`: one message and the
+  comments name the fork.
+
+### Still to be listed here before the branch is made public
+
+**For whoever merges the branches (delete this heading when done):** the
+changes below are in the branch but not yet described in this notice. Add one
+dated entry for each, in the style of the entries above.
+
+- [ ] **Server (`server/`)**: framing by listed sites and CORS on the public
+  JSON API, the client address from a platform proxy's header, the bound on
+  what a stalled client can hold, the closed `/internal/metrics`, the
+  server's identity towards Strava and OpenBikeNet, the Strava answers
+  changed by the fork. Source: `docs/gocarmo-server-settings.md` and the
+  commits that touch `server/`.
+- [ ] **Client, second round (`client/`)**: running inside a frame, the
+  privacy text, the licence statement of the GOCARMO artwork
+  (`client/public/brand/README.md`), the app id sent to OpenBikeControl
+  devices, and what else the commits that touch `client/` changed.
+- [ ] Copy this file to `client/public/NOTICE.txt` again.
+
 ## Third-party material added by this fork
 
 - **Fonts** in `client/public/fonts/`: Anton (© The Anton Project Authors),
@@ -183,45 +244,56 @@ Keep this list up to date with every change.
   and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by
   the European Union and ESA. The same credit shows in the game's About
   dialog (`about.data`).
+- **Rust libraries.** The server is built from the libraries listed in
+  `server/Cargo.lock`, each under its own permissive licence, as in the
+  original. The server runs on GOCARMO's host and the Docker image is built
+  there from this source; it is not published. Whoever publishes the image or
+  the binary has to add the licence texts of those libraries to it.
 
 ## The GOCARMO name and symbol
 
 "GOCARMO", "GOCARMO Ride" and the sun-and-moon symbol identify this fork and
 gocarmo.com, the way "OpenRadlr" and the lemon identify the original.
 
-- The image files in `client/public/brand/` and the symbol drawn in code
-  (`client/public/index.html`, `client/public/js/brand.js`,
-  `client/public/js/view3d/gocarmoMark.js`) were made for this fork from
-  GOCARMO's own logo. They are not upstream artwork: "Artwork © The OpenRadlr
-  contributors" does not apply to them. `ASSETS-LICENSE.md` is upstream's
-  text, kept unchanged; the folder it lists for the client
-  (`client/public/icons/`) does not exist in this fork and none of upstream's
-  files from it is shipped.
-- **Open, to be settled by the owner of the GOCARMO brand before this branch
-  is made public:** the copyright holder (a person or an entity; "GOCARMO"
-  alone is a brand) and the licence of the image files in
-  `client/public/brand/`. Until that is written here, this notice grants no
-  licence for those files. Where the symbol is drawn in code, that code is
-  under the AGPL like the rest of the code.
-- Whatever licence the files get, it covers the copyright in them, not the
-  name or the symbol as a brand (AGPL section 7(e)). The licences of the code
-  and of the upstream artwork give no right to use "GOCARMO", "GOCARMO Ride"
-  or the symbol as the name, logo or app icon of another product or service:
-  a fork of this fork should pick its own.
+- **The image files** in `client/public/brand/` (the symbol, the GOCARMO Ride
+  lockups and the app icons made from them) were made for this fork from
+  GOCARMO's own logo. They are not upstream artwork, and "Artwork © The
+  OpenRadlr contributors" does not apply to them. They are **© Gonçalo
+  Carmo**, licensed under the Creative Commons Attribution-ShareAlike 4.0
+  International licence (CC BY-SA 4.0),
+  <https://creativecommons.org/licenses/by-sa/4.0/>. Credit them as "GOCARMO
+  artwork © Gonçalo Carmo, CC BY-SA 4.0".
+- **The symbol drawn in code** (`client/public/index.html`,
+  `client/public/js/brand.js`, `client/public/js/view3d/gocarmoMark.js`) is
+  under the GNU AGPL, version 3 or later, like the rest of the code.
+- **The name and the use as a brand are reserved.** These licences cover the
+  copyright in the files and in the code, not the name or the symbol as a
+  brand (AGPL section 7(e)); this is the model the original uses for its
+  lemon. They give no right to use "GOCARMO", "GOCARMO Ride" or the symbol as
+  the name, logo or app icon of another product or service. A fork of this
+  fork picks its own name and icon.
 
-## Not changed, and not used by this fork
+`ASSETS-LICENSE.md` is the original project's text, kept unchanged. It
+describes the original's artwork, not GOCARMO's. Of the folders it lists:
 
-- `landing/` (upstream's landing page), `app/` (upstream's native app
-  wrapper), `docs/` and `README-upstream.md` (upstream's README, unchanged)
-  still describe OpenRadlr and carry its name and artwork, unchanged, under
-  their licences. They are kept as reference and are not built, deployed or
-  published under the GOCARMO name.
-  Before any of them is used, it has to be renamed and given GOCARMO's icon,
-  as `TRADEMARKS.md` asks.
-- `server/` is unmodified. The name riders see comes from the server setting
-  `OPENRADLR_SERVER_NAME` ("GOCARMO Ride"); a deploy must set it (the default
-  is "OpenRadlr"). The unmodified server still names itself "OpenRadlr" to
-  the services it can be linked to (OpenBikeNet, Strava): keep
-  `OPENRADLR_OBN_URL` and the Strava settings unset until the server is
-  forked. If a server patch is applied for a deploy, commit it here and
-  update this line first.
+| Folder in `ASSETS-LICENSE.md` | In this fork |
+| --- | --- |
+| `docs/assets/` | kept, unchanged: the original's emblem and two screenshots |
+| `client/public/icons/` | does not exist; none of its files is shipped. GOCARMO's own files are in `client/public/brand/` |
+| `landing/public/`, `landing/src/assets/` | removed with `landing/` |
+
+## Kept from the original, unchanged
+
+- `README-upstream.md` (the original's README) and `docs/` (its
+  documentation, see `docs/README.md`) still describe OpenRadlr and carry its
+  name and artwork, unchanged, under their licences. They are kept as
+  reference. Some of their links point at `landing/` and `app/`, which this
+  fork removed.
+- `LICENSE`, `ASSETS-LICENSE.md`, `TRADEMARKS.md`, `CONTRIBUTING.md`,
+  `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CHANGELOG.md` and `AGENTS.md` are the
+  original's files, unchanged. Where they say "this repository" or name
+  maintainers, they mean the original project. Problems with GOCARMO Ride go
+  to GOCARMO, not to the original project.
+- Internal names are the original's: the settings start with `OPENRADLR_`,
+  the server binary is `openradlr-server`, and the Docker Compose project,
+  the image, the volumes and the cookies keep their names.
