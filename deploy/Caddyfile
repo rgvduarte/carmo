@@ -1,7 +1,7 @@
-# HTTPS reverse proxy for public OpenRadlr servers.
+# HTTPS reverse proxy for a public GOCARMO Ride server (the original project's file).
 # Caddy fetches and renews certificates automatically and proxies WebSockets.
 
-# The app: game server, client and WebSocket (e.g. app.openradlr.com).
+# The game: server, client and WebSocket (e.g. ride.gocarmo.com).
 {$OPENRADLR_DOMAIN} {
 	encode zstd gzip
 

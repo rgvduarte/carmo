@@ -1,4 +1,4 @@
-# OpenRadlr — common tasks. Run `make` to see all targets.
+# GOCARMO Ride (a modified version of OpenRadlr): common tasks. Run `make` to see all targets.
 #
 # Rust and Node are optional on the host: if `cargo` or `npm` is missing,
 # the targets run the tools in throwaway Docker containers instead.
@@ -50,7 +50,7 @@ setup: ## Create .env from .env.example, or add settings that are new there
 up: setup ## Build and start in the background, then wait until healthy
 	$(COMPOSE) up -d --build --remove-orphans
 	@$(MAKE) --no-print-directory health
-	@echo "OpenRadlr is running: http://localhost:$$(grep -E '^OPENRADLR_HTTP_PORT=' .env | cut -d= -f2 | grep . || echo 8080)"
+	@echo "GOCARMO Ride is running: http://localhost:$$(grep -E '^OPENRADLR_HTTP_PORT=' .env | cut -d= -f2 | grep . || echo 8080)"
 
 .PHONY: down
 down: guard ## Stop and remove the containers (asks first if riders are on; FORCE=1 skips)

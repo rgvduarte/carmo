@@ -1,4 +1,5 @@
-# OpenRadlr — proof of concept
+# GOCARMO Ride (a modified version of OpenRadlr): Docker Compose stack.
+# The project, image, volume and network names are the original's.
 #
 #   make up        build and start (http://localhost:8080)
 #   make update    git pull, rebuild, restart
@@ -20,7 +21,7 @@ services:
     image: openradlr-server:${OPENRADLR_IMAGE_TAG:-local}
     restart: unless-stopped
     environment:
-      OPENRADLR_SERVER_NAME: ${OPENRADLR_SERVER_NAME:-OpenRadlr}
+      OPENRADLR_SERVER_NAME: ${OPENRADLR_SERVER_NAME:-GOCARMO Ride}
       OPENRADLR_ROUTE_FILE: /app/routes/${OPENRADLR_ROUTE:-rolling-hills}.json
       OPENRADLR_TARGET_RIDERS: ${OPENRADLR_TARGET_RIDERS:-12}
       OPENRADLR_MAX_PLAYERS: ${OPENRADLR_MAX_PLAYERS:-50}
@@ -35,16 +36,32 @@ services:
       OPENRADLR_ROUTES_DIR: /app/routes
       OPENRADLR_PUBLIC_URL: ${OPENRADLR_PUBLIC_URL:-}
       OPENRADLR_TRUST_PROXY: ${OPENRADLR_TRUST_PROXY:-false}
+      # Added by GOCARMO Ride (docs/gocarmo-server-settings.md).
+      OPENRADLR_CLIENT_IP_HEADER: ${OPENRADLR_CLIENT_IP_HEADER:-}
+      OPENRADLR_SEND_BUFFER_BYTES: ${OPENRADLR_SEND_BUFFER_BYTES:-}
+      OPENRADLR_METRICS_TOKEN: ${OPENRADLR_METRICS_TOKEN:-}
+      # Sites that may show the game in a frame; empty forbids framing.
+      OPENRADLR_FRAME_ANCESTORS: ${OPENRADLR_FRAME_ANCESTORS:-}
       OPENRADLR_MAX_CONNECTIONS_PER_IP: ${OPENRADLR_MAX_CONNECTIONS_PER_IP:-4}
       OPENRADLR_MESSAGES_PER_SECOND: ${OPENRADLR_MESSAGES_PER_SECOND:-20}
-      OPENRADLR_ALLOWED_ORIGINS: ${OPENRADLR_PUBLIC_URL:-}
+      # Pages that may open game connections and read the public JSON API.
+      # Unset, it is the public URL alone, as in the original.
+      OPENRADLR_ALLOWED_ORIGINS: ${OPENRADLR_ALLOWED_ORIGINS:-${OPENRADLR_PUBLIC_URL:-}}
       OPENRADLR_STRAVA_CLIENT_ID: ${OPENRADLR_STRAVA_CLIENT_ID:-}
       OPENRADLR_STRAVA_CLIENT_SECRET: ${OPENRADLR_STRAVA_CLIENT_SECRET:-}
       OPENRADLR_SECRET_KEY: ${OPENRADLR_SECRET_KEY:-}
       OPENRADLR_REQUIRE_STRAVA: ${OPENRADLR_REQUIRE_STRAVA:-false}
       OPENRADLR_ALLOW_SIMULATED_TRAINER: ${OPENRADLR_ALLOW_SIMULATED_TRAINER:-true}
+      # Listed in .env.example but not handed to the container by the original file.
+      OPENRADLR_ALLOW_PADDLE_MODE: ${OPENRADLR_ALLOW_PADDLE_MODE:-true}
+      OPENRADLR_STUDIO: ${OPENRADLR_STUDIO:-true}
+      OPENRADLR_EVENTS: ${OPENRADLR_EVENTS:-default}
+      OPENRADLR_EVENT_LOBBY_S: ${OPENRADLR_EVENT_LOBBY_S:-600}
+      OPENRADLR_AFK_TIMEOUT_S: ${OPENRADLR_AFK_TIMEOUT_S:-1800}
+      OPENRADLR_AFK_REMINDER_S: ${OPENRADLR_AFK_REMINDER_S:-600}
       OPENRADLR_PRIVACY_URL: ${OPENRADLR_PRIVACY_URL:-}
       OPENRADLR_OBN_URL: ${OPENRADLR_OBN_URL:-}
+      OPENRADLR_OBN_APP_ID: ${OPENRADLR_OBN_APP_ID:-}
       OPENRADLR_ANALYTICS_DOMAIN: ${OPENRADLR_ANALYTICS_DOMAIN:-}
       OPENRADLR_ANALYTICS_SCRIPT: ${OPENRADLR_ANALYTICS_SCRIPT:-}
       RUST_LOG: ${RUST_LOG:-info}
