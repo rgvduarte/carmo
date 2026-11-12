@@ -51,8 +51,10 @@ export function bindStravaUpload({ elements, client, receipts, key, account, mak
     elements.panel.dataset.state = state.phase;
     elements.panel.dataset.tone = state.persisted === false && view.tone === "neutral" ? "warning" : view.tone;
     elements.action.setAttribute("aria-busy", String(view.busy));
-    elements.account.textContent = account ? t("strava.account", { name: account.name }) : "";
-    elements.account.hidden = !account;
+    // "Connected as …" is not said over a session that has just been lost.
+    const connected = Boolean(account) && state.code !== "not_connected";
+    elements.account.textContent = connected ? t("strava.account", { name: account.name }) : "";
+    elements.account.hidden = !connected;
     // While the button itself says "Sending…", the same words are not repeated under it.
     elements.status.textContent = view.busy ? "" : view.status;
     elements.status.hidden = view.busy || !view.status;

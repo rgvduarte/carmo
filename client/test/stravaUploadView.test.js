@@ -175,3 +175,19 @@ test("the browser upload row leaves the OAuth link navigation intact", () => {
   assert.equal(prevented, false);
   binding.dispose();
 });
+
+test("a lost session is not announced under a line that says the rider is connected", () => {
+  const els = elements();
+  const receipts = new UploadReceipts({ storage: { getItem: () => null, setItem() {} } });
+  const client = { upload: async () => { throw Object.assign(new Error("connect your Strava account first"), { status: 401, code: "not_connected" }); } };
+  const binding = bindStravaUpload({ elements: els, client, receipts, key: "7:1", account, makeFile: () => "fit", name: "ride" });
+  assert.equal(els.account.textContent, "Connected to Strava as Rider");
+  return els.action.click().then(() => {
+    assert.equal(els.account.hidden, true);
+    assert.equal(els.account.textContent, "");
+    assert.equal(els.status.textContent, t("strava.state.sessionLost"));
+    assert.equal(els.connect.hidden, false);
+    assert.equal(els.action.hidden, true);
+    binding.dispose();
+  });
+});
