@@ -360,8 +360,13 @@ pub fn router(state: AppState, static_dir: Option<&Path>, headers: &[(header::He
     let router = match static_dir {
         // Revalidate on every load (cheap: 304 when unchanged), so a deploy never
         // pairs new HTML with a stylesheet the browser cached heuristically.
+        // A file with a `.gz` copy next to it (the Docker image writes them at
+        // build time) is sent as that copy to a browser that takes gzip: no
+        // compressing on every first visit, which costs about 0.2 s of a full
+        // core for the whole client, two seconds on a 0.1-CPU host. The
+        // compression layer below leaves an answer that is already encoded alone.
         Some(dir) => router.fallback_service(SetResponseHeader::overriding(
-            ServeDir::new(dir),
+            ServeDir::new(dir).precompressed_gzip(),
             header::CACHE_CONTROL,
             HeaderValue::from_static("no-cache"),
         )),

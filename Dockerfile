@@ -44,6 +44,13 @@ COPY --from=builder /usr/local/bin/openradlr-server /usr/local/bin/openradlr-ser
 COPY client/public /app/client
 # The client reports its own build, so a rider's cached copy can be told from the server's.
 RUN printf 'export const BUILD = { sha: "%s", date: "%s" };\n' "${GC_BUILD_SHA}" "${OPENRADLR_BUILD_DATE}" > /app/client/js/build.js
+# The client's text files, compressed once here (gzip at its best; `-n` leaves
+# out names and times, so the same files give the same bytes). The server sends
+# these copies instead of compressing on every first visit: about 0.2 s of a
+# full core for the whole client, two seconds on a free host's 0.1 CPU.
+RUN find /app/client -type f \( -name '*.html' -o -name '*.js' -o -name '*.mjs' -o -name '*.css' \
+      -o -name '*.json' -o -name '*.svg' -o -name '*.txt' -o -name '*.webmanifest' \) \
+      -exec gzip -9 -k -n {} +
 COPY routes /app/routes
 # The licence and the fork's notice travel with the image (the client serves
 # its own copies as /LICENSE.txt and /NOTICE.txt).

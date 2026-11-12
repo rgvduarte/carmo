@@ -635,3 +635,41 @@ async fn an_https_host_asks_browsers_to_stay_on_https() {
         None
     );
 }
+
+/// The client's files compressed at build time (`<file>.gz`, written by the
+/// Docker image) are sent as they are, not compressed again on every visit.
+#[tokio::test]
+async fn a_precompressed_copy_is_sent_instead_of_compressing_again() {
+    const GZ: [u8; 48] = [
+        31, 139, 8, 0, 0, 0, 0, 0, 2, 255, 75, 206, 207, 43, 206, 207, 73, 213, 203, 201, 79, 215, 80, 47, 40, 74, 77,
+        206, 207, 5, 146, 197, 197, 169, 41, 234, 154, 214, 92, 0, 154, 118, 106, 212, 30, 0, 0, 0,
+    ];
+    let dir = client_dir("precompressed");
+    std::fs::write(dir.join("app.js"), "console.log('plain, as on disk');\n".repeat(50)).unwrap();
+    std::fs::write(dir.join("app.js.gz"), GZ).unwrap();
+    let addr = start_server(Config {
+        static_dir: Some(dir.clone()),
+        ..test_config()
+    })
+    .await;
+    let raw = |encoding: &'static str| async move {
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        let head =
+            format!("GET /app.js HTTP/1.1\r\nHost: test\r\nConnection: close\r\nAccept-Encoding: {encoding}\r\n\r\n");
+        stream.write_all(head.as_bytes()).await.unwrap();
+        let mut bytes = Vec::new();
+        stream.read_to_end(&mut bytes).await.unwrap();
+        let split = bytes.windows(4).position(|w| w == b"\r\n\r\n").unwrap();
+        let head = String::from_utf8_lossy(&bytes[..split]).to_ascii_lowercase();
+        (head, bytes[split + 4..].to_vec())
+    };
+    // A browser that takes gzip (and Brotli, which has no copy here) gets the copy, byte for byte.
+    let (head, body) = raw("gzip, deflate, br, zstd").await;
+    assert!(head.contains("content-encoding: gzip"), "{head}");
+    assert_eq!(body, GZ);
+    // One that takes no compression gets the file itself.
+    let (head, body) = raw("identity").await;
+    assert!(!head.contains("content-encoding"), "{head}");
+    assert!(body.starts_with(b"console.log('plain"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

@@ -3,8 +3,11 @@
 # Runs on every push to `gocarmo-ride` and on nothing else. The branch lives in
 # the site's repository, whose default branch is the site itself. It tests the
 # client and the server, builds the Docker image WITHOUT pushing it anywhere
-# and checks the built image. It uses no secrets and can only read the
-# repository.
+# and checks the built image. These jobs use no secrets and can only read the
+# repository. Render waits for these checks before it deploys (render.yaml,
+# `autoDeployTrigger: checksPass`). The last job deploys to Fly.io only when
+# the repository variable RIDE_DEPLOY is `fly` (ride-deploy-fly.yml), and only
+# after every check passed.
 name: Ride CI
 
 on:
@@ -80,3 +83,11 @@ jobs:
           cache-to: type=gha,mode=max
       - name: Check the image (user, licence files, build label, health, clean stop)
         run: sh deploy/check-image.sh gocarmo-ride:ci "$GITHUB_SHA"
+
+  deploy-fly:
+    name: Deploy to Fly.io (only with RIDE_DEPLOY=fly)
+    needs: [server, client, image]
+    if: vars.RIDE_DEPLOY == 'fly'
+    uses: ./.github/workflows/ride-deploy-fly.yml
+    # The deploy job reads FLY_API_TOKEN from its Environment (ride-fly).
+    secrets: inherit

@@ -355,6 +355,13 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   running commit when the image was built without one.
 - **Deploy files**: Render deploys a commit once its checks pass and gets the
   Strava keys from the Dashboard only; the new settings reach Docker Compose.
+  The Docker image keeps a gzip copy of each of the client's text files,
+  which the server sends instead of compressing on every visit
+  (`precompressed_gzip` in `http.rs`); `deploy/check-image.sh` checks the
+  copies. The Fly deploy runs as the last job of `ride-ci.yml`, after every
+  check, with its token in a GitHub Environment and only in the steps that
+  call flyctl, a fixed flyctl version and the Strava key made by the
+  workflow.
 - **Client, Strava** (`js/net/strava.js`, `js/net/stravaUpload.js`,
   `js/view/stravaUploadView.js`, `js/ride/finishPlan.js`,
   `js/view/startMenu.js`, `main.js`, `index.html`): no offer to connect for a

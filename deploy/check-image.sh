@@ -41,6 +41,9 @@ docker run --rm --network none --entrypoint /bin/sh -e EXPECTED_SHA="$sha" "$ima
   cmp -s /app/NOTICE.md /app/client/NOTICE.txt || { echo "the served NOTICE.txt differs from NOTICE.md"; exit 1; }
   grep -q "sha: \"$EXPECTED_SHA\"" /app/client/js/build.js || { echo "the client build label is not $EXPECTED_SHA:"; cat /app/client/js/build.js; exit 1; }
   [ "$OPENRADLR_BUILD_SHA" = "$EXPECTED_SHA" ] || { echo "the server build label is $OPENRADLR_BUILD_SHA, not $EXPECTED_SHA"; exit 1; }
+  for f in /app/client/index.html /app/client/js/build.js /app/client/js/main.js; do
+    gzip -dc "$f.gz" 2>/dev/null | cmp -s - "$f" || { echo "the precompressed copy of $f is missing or not the file"; exit 1; }
+  done
   [ -w /app/data ] || { echo "/app/data is not writable by the server user"; exit 1; }
   [ ! -w /app/client/index.html ] || { echo "the client files are writable by the server user"; exit 1; }
 ' || fail "the image is not what a deploy expects"
