@@ -222,6 +222,11 @@ dated entry for each, in the style of the entries above.
   privacy text, the licence statement of the GOCARMO artwork
   (`client/public/brand/README.md`), the app id sent to OpenBikeControl
   devices, and what else the commits that touch `client/` changed.
+- [ ] **Third-party material**: if the client branch brings Strava's
+  "Connect with Strava" button file (`client/public/strava/`), list it under
+  "Third-party material added by this fork": Strava's own artwork, unmodified,
+  used under Strava's API Agreement and Brand Guidelines, not under this
+  repository's licences.
 - [ ] Copy this file to `client/public/NOTICE.txt` again.
 
 ## Third-party material added by this fork
