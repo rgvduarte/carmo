@@ -43,6 +43,8 @@ services:
       # Sites that may show the game in a frame; empty forbids framing.
       OPENRADLR_FRAME_ANCESTORS: ${OPENRADLR_FRAME_ANCESTORS:-}
       OPENRADLR_MAX_CONNECTIONS_PER_IP: ${OPENRADLR_MAX_CONNECTIONS_PER_IP:-4}
+      # Added by GOCARMO Ride: open game connections in all; empty is four per seat.
+      OPENRADLR_MAX_CONNECTIONS: ${OPENRADLR_MAX_CONNECTIONS:-}
       OPENRADLR_MESSAGES_PER_SECOND: ${OPENRADLR_MESSAGES_PER_SECOND:-20}
       # Pages that may open game connections and read the public JSON API.
       # Unset, it is the public URL alone, as in the original.
@@ -53,6 +55,8 @@ services:
       OPENRADLR_REQUIRE_STRAVA: ${OPENRADLR_REQUIRE_STRAVA:-false}
       # Added by GOCARMO Ride: false once Strava lets more than a few athletes connect.
       OPENRADLR_STRAVA_LIMITED: ${OPENRADLR_STRAVA_LIMITED:-true}
+      # Added by GOCARMO Ride: the secret part of the address of Strava's webhook.
+      OPENRADLR_STRAVA_WEBHOOK_TOKEN: ${OPENRADLR_STRAVA_WEBHOOK_TOKEN:-}
       OPENRADLR_ALLOW_SIMULATED_TRAINER: ${OPENRADLR_ALLOW_SIMULATED_TRAINER:-true}
       # Listed in .env.example but not handed to the container by the original file.
       OPENRADLR_ALLOW_PADDLE_MODE: ${OPENRADLR_ALLOW_PADDLE_MODE:-true}

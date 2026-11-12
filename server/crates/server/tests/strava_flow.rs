@@ -19,6 +19,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 const ROUTES_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../routes");
 const PUBLIC_URL: &str = "https://ride.example.org";
 const SECRET_KEY: &str = "a-test-secret-key-of-32-characters";
+const WEBHOOK_TOKEN: &str = "webhook-token-0123456789";
 
 /// What the stand-in Strava was asked, and how it answers next.
 #[derive(Default)]
@@ -31,6 +32,8 @@ struct Strava {
     token_forms: Vec<String>,
     /// Every request to the API: its headers and its body as text.
     requests: Vec<(String, HeaderMap, String)>,
+    /// HTTP status for revoking access (200 unless set).
+    revoke_status: Option<u16>,
 }
 
 type Fake = Arc<Mutex<Strava>>;
@@ -109,6 +112,13 @@ async fn fake_upload_status(
     }
 }
 
+async fn fake_revoke(State(fake): State<Fake>, headers: HeaderMap, body: String) -> StatusCode {
+    let mut fake = fake.lock().unwrap();
+    fake.requests.push(("revoke".into(), headers, body));
+    fake.revoke_status
+        .map_or(StatusCode::OK, |status| StatusCode::from_u16(status).unwrap())
+}
+
 async fn fake_activity(State(fake): State<Fake>, Path(id): Path<u64>, headers: HeaderMap, body: String) -> Json<Value> {
     fake.lock()
         .unwrap()
@@ -122,6 +132,7 @@ async fn fake_strava() -> (String, Fake) {
     let fake = Fake::default();
     let router = Router::new()
         .route("/oauth/token", post(fake_token))
+        .route("/oauth/revoke", post(fake_revoke))
         .route("/api/v3/uploads", post(fake_upload))
         .route("/api/v3/uploads/{id}", get(fake_upload_status))
         .route("/api/v3/activities/{id}", put(fake_activity))
@@ -146,6 +157,8 @@ fn config(strava_url: &str) -> Config {
             public_url: PUBLIC_URL.into(),
             api_url: strava_url.to_owned(),
             limited: true,
+            owner_only: false,
+            webhook_token: Some(WEBHOOK_TOKEN.into()),
         }),
         ..Config::default()
     }
@@ -196,10 +209,25 @@ impl Reply {
 }
 
 async fn request(addr: SocketAddr, method: &str, path: &str, cookie: &str, body: &[u8]) -> Reply {
+    request_from(addr, method, path, cookie, body, &[]).await
+}
+
+/// The same, with headers a browser adds (`Origin`, `Sec-Fetch-Site`, a content type).
+async fn request_from(
+    addr: SocketAddr,
+    method: &str,
+    path: &str,
+    cookie: &str,
+    body: &[u8],
+    extra: &[(&str, &str)],
+) -> Reply {
     let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
     let mut head = format!("{method} {path} HTTP/1.1\r\nHost: test\r\nConnection: close\r\n");
     if !cookie.is_empty() {
         head.push_str(&format!("Cookie: {cookie}\r\n"));
+    }
+    for (name, value) in extra {
+        head.push_str(&format!("{name}: {value}\r\n"));
     }
     if method != "GET" {
         head.push_str(&format!("Content-Length: {}\r\n", body.len()));
@@ -309,10 +337,9 @@ async fn connecting_sets_cookies_the_page_cannot_read() {
 
     let me = get_with(addr, "/api/me", &back.cookie("openradlr_session")).await;
     assert_eq!(me.status, 200);
-    assert_eq!(
-        me.json(),
-        json!({"athlete_id": 42, "name": "Marta S.", "can_upload": true})
-    );
+    // No Strava name: the server keeps none.
+    assert_eq!(me.json(), json!({"athlete_id": 42, "can_upload": true}));
+    assert!(!me.body.contains("Marta"));
     assert!(!me.body.contains("access-1") && !me.body.contains("refresh-1"));
 
     // What Strava was told: the app's id and secret in the form, the fork's name as the caller.
@@ -331,7 +358,12 @@ async fn an_upload_names_the_fork_and_becomes_a_virtual_ride() {
     let addr = start_server(&config(&strava_url)).await;
     let session = connect(addr).await;
 
-    let sent = upload(addr, "?name=Rolling%20Hills%20%C2%B7%20GOCARMO%20Ride", &session).await;
+    let sent = upload(
+        addr,
+        "?name=Rolling%20Hills%20%C2%B7%20GOCARMO%20Ride&start=1794500000",
+        &session,
+    )
+    .await;
     assert_eq!(sent.status, 200, "{}", sent.body);
     assert_eq!(sent.json()["id"], 7);
     let status = get_with(addr, "/api/strava/upload/7", &session).await;
@@ -339,6 +371,8 @@ async fn an_upload_names_the_fork_and_becomes_a_virtual_ride() {
     assert_eq!(status.json()["activity_id"], 99);
     // Without a name from the client the activity is named after the fork.
     assert_eq!(upload(addr, "", &session).await.status, 200);
+    // A class in the studio is no virtual ride on a map.
+    assert_eq!(upload(addr, "?name=Class&kind=class", &session).await.status, 200);
 
     let fake = fake.lock().unwrap();
     let uploads: Vec<_> = fake.requests.iter().filter(|(kind, ..)| kind == "upload").collect();
@@ -352,10 +386,19 @@ async fn an_upload_names_the_fork_and_becomes_a_virtual_ride() {
         value.split_once("\r\n--").unwrap().0.to_owned()
     };
     assert_eq!(field(body, "name"), "Rolling Hills · GOCARMO Ride");
-    assert_eq!(field(body, "description"), "GOCARMO Ride: https://ride.example.org");
+    // The page that explains the game, not the bare game host.
+    assert_eq!(field(body, "description"), "GOCARMO Ride: https://gocarmo.com/ride/");
     assert_eq!(field(body, "data_type"), "fit");
-    let external_id = field(body, "external_id");
+    // The ride's start makes the id: a second attempt at the same ride has the same one.
+    assert_eq!(field(body, "external_id"), "gocarmo-ride-42-1794500000");
+    let external_id = field(&uploads[1].2, "external_id");
     assert!(external_id.starts_with("gocarmo-ride-42-"), "{external_id}");
+    // A ride on a route is filed as a virtual ride by the upload itself.
+    assert_eq!(field(body, "sport_type"), "VirtualRide");
+    assert!(
+        !uploads[2].2.contains("name=\"sport_type\""),
+        "a class keeps the file's type"
+    );
     assert!(body.contains("filename=\"gocarmo-ride.fit\""));
     assert_eq!(field(&uploads[1].2, "name"), "GOCARMO Ride");
     // Nothing Strava receives presents the server as upstream's.
@@ -364,16 +407,8 @@ async fn an_upload_names_the_fork_and_becomes_a_virtual_ride() {
         assert!(!head.contains("openradlr"), "{kind}: {head}");
         assert!(!body.to_lowercase().contains("openradlr"), "{kind}: {body}");
     }
-    // Once the activity exists, it is filed as a virtual ride.
-    let (_, _, activity) = fake
-        .requests
-        .iter()
-        .find(|(kind, ..)| kind == "activity 99")
-        .expect("the activity was updated");
-    assert_eq!(
-        serde_json::from_str::<Value>(activity).unwrap(),
-        json!({"sport_type": "VirtualRide"})
-    );
+    // No second call to change the activity: the upload said it all.
+    assert!(!fake.requests.iter().any(|(kind, ..)| kind.starts_with("activity")));
 }
 
 #[tokio::test]
@@ -421,7 +456,7 @@ async fn with_a_data_directory_and_key_logins_survive_a_restart() {
     let restarted = start_server(&config).await;
     let me = get_with(restarted, "/api/me", &session).await;
     assert_eq!(me.status, 200);
-    assert_eq!(me.json()["name"], "Marta S.");
+    assert_eq!(me.json()["athlete_id"], 42);
     // The access token was not kept: the first upload fetches a new one.
     assert_eq!(upload(restarted, "?name=Ride", &session).await.status, 200);
     {
@@ -497,7 +532,8 @@ async fn strava_being_down_does_not_log_the_rider_out() {
     let addr = start_server(&config(&strava_url)).await;
     let session = connect(addr).await;
 
-    for status in [500, 503, 429, 403] {
+    // No answer, or Strava's own failure: uncertain, the rider checks Strava first.
+    for status in [500, 503] {
         fake.lock().unwrap().upload_status = Some(status);
         let failed = upload(addr, "?name=Ride", &session).await;
         assert_eq!(failed.status, 502, "{status}");
@@ -506,6 +542,26 @@ async fn strava_being_down_does_not_log_the_rider_out() {
         assert_eq!(
             (check.status, check.json()["code"].clone()),
             (502, json!("status_failed"))
+        );
+    }
+    // Strava answered and the ride is certainly not there: said plainly.
+    fake.lock().unwrap().upload_status = Some(429);
+    let busy = upload(addr, "?name=Ride", &session).await;
+    assert_eq!((busy.status, busy.json()["code"].clone()), (429, json!("strava_busy")));
+    let wait: i64 = busy.all("retry-after")[0].parse().unwrap();
+    assert!((1..=900).contains(&wait), "until the next quarter hour: {wait}");
+    let check = get_with(addr, "/api/strava/upload/7", &session).await;
+    assert_eq!(
+        (check.status, check.json()["code"].clone()),
+        (429, json!("strava_busy"))
+    );
+    for status in [400, 403, 422] {
+        fake.lock().unwrap().upload_status = Some(status);
+        let refused = upload(addr, "?name=Ride", &session).await;
+        assert_eq!(
+            (refused.status, refused.json()["code"].clone()),
+            (422, json!("strava_refused")),
+            "{status}"
         );
     }
     // Still connected: the rider tries again later, with the same ride.
@@ -573,7 +629,8 @@ async fn made_up_and_missing_cookies_and_files_get_plain_answers() {
     assert_eq!(empty.status, 400);
     // Logging out ends the session for good.
     let out = request(addr, "POST", "/auth/logout", &session, b"").await;
-    assert_eq!(out.status, 204);
+    assert_eq!(out.status, 200);
+    assert_eq!(out.json()["removed"], 1);
     assert!(out.set_cookie("openradlr_session").unwrap().contains("Max-Age=0"));
     assert_asks_to_connect_again(&get_with(addr, "/api/me", &session).await, "after logout");
 }
@@ -647,6 +704,18 @@ async fn info_says_whether_the_athlete_limit_still_holds() {
         .json();
     assert_eq!(info["strava"]["enabled"], true);
     assert_eq!(info["strava"]["limited"], true, "a new application is limited");
+    assert_eq!(info["strava"]["owner_only"], false);
+
+    config.strava.as_mut().unwrap().owner_only = true;
+    let info = request(start_server(&config).await, "GET", "/api/info", "", b"")
+        .await
+        .json();
+    assert_eq!(
+        (info["strava"]["limited"].clone(), info["strava"]["owner_only"].clone()),
+        (json!(true), json!(true)),
+        "only the owner can connect: the game offers no button"
+    );
+    config.strava.as_mut().unwrap().owner_only = false;
 
     config.strava.as_mut().unwrap().limited = false;
     let info = request(start_server(&config).await, "GET", "/api/info", "", b"")
@@ -695,4 +764,163 @@ async fn me_is_quiet_for_a_browser_that_never_signed_in() {
     );
     // The upload routes still say `not_connected` to a browser without a cookie: the finish dialog relies on it.
     assert_asks_to_connect_again(&upload(restarted, "?name=Ride", "").await, "upload without a cookie");
+}
+
+/// "Disconnect" withdraws the server's access on Strava and forgets the
+/// athlete on every device; the answer says so, for the rider's confirmation.
+#[tokio::test]
+async fn disconnecting_withdraws_the_access_on_strava_and_forgets_every_session() {
+    let (strava_url, fake) = fake_strava().await;
+    let addr = start_server(&config(&strava_url)).await;
+    let phone = connect(addr).await;
+    let laptop = connect(addr).await;
+    assert_ne!(phone, laptop);
+
+    let out = request(addr, "POST", "/auth/logout", &phone, b"").await;
+    assert_eq!(out.status, 200, "{}", out.body);
+    assert_eq!(out.json(), json!({"revoked": true, "removed": 2}));
+    assert!(out.set_cookie("openradlr_session").unwrap().contains("Max-Age=0"));
+    assert_eq!(
+        get_with(addr, "/api/me", &laptop).await.status,
+        401,
+        "the other device too"
+    );
+    {
+        let fake = fake.lock().unwrap();
+        let (_, headers, body) = fake
+            .requests
+            .iter()
+            .find(|(kind, ..)| kind == "revoke")
+            .expect("Strava was asked to revoke");
+        // HTTP Basic with the application's id and secret, the refresh token in the form.
+        assert_eq!(headers["authorization"], "Basic MTIzNDU6dGhlLWNsaWVudC1zZWNyZXQ=");
+        assert_eq!(body, "token=refresh-1&token_type_hint=refresh_token");
+    }
+
+    // Strava cannot be reached: the server still forgets, and says it could not withdraw.
+    let session = connect(addr).await;
+    fake.lock().unwrap().revoke_status = Some(503);
+    let out = request(addr, "POST", "/auth/logout", &session, b"").await;
+    assert_eq!(out.json(), json!({"revoked": false, "removed": 1}));
+    assert_eq!(get_with(addr, "/api/me", &session).await.status, 401);
+    // Nobody signed in: nothing to withdraw.
+    let nobody = request(addr, "POST", "/auth/logout", "", b"").await;
+    assert_eq!(nobody.json(), json!({"revoked": false, "removed": 0}));
+}
+
+/// Strava's webhook: the subscription check, and an athlete who withdrew the
+/// access in Strava's settings. Only the address with the secret answers.
+#[tokio::test]
+async fn an_athlete_who_withdraws_on_strava_is_forgotten_at_once() {
+    let (strava_url, _fake) = fake_strava().await;
+    let addr = start_server(&config(&strava_url)).await;
+    let session = connect(addr).await;
+    let hook = format!("/auth/strava/webhook/{WEBHOOK_TOKEN}");
+
+    let check = get_with(
+        addr,
+        &format!(
+            "{hook}?hub.mode=subscribe&hub.verify_token={WEBHOOK_TOKEN}&hub.challenge=15f7d1a91c1f40f8a748fd134752feb3"
+        ),
+        "",
+    )
+    .await;
+    assert_eq!(check.status, 200);
+    assert_eq!(
+        check.json(),
+        json!({"hub.challenge": "15f7d1a91c1f40f8a748fd134752feb3"})
+    );
+    let wrong = get_with(
+        addr,
+        &format!("{hook}?hub.mode=subscribe&hub.verify_token=nope&hub.challenge=x"),
+        "",
+    )
+    .await;
+    assert_eq!(wrong.status, 403);
+    assert_eq!(
+        get_with(addr, "/auth/strava/webhook/guessed-token-000000", "")
+            .await
+            .status,
+        404
+    );
+
+    let event = |athlete: u64, authorized: &str| {
+        format!(
+            r#"{{"aspect_type":"update","event_time":1516126040,"object_id":{athlete},"object_type":"athlete","owner_id":{athlete},"subscription_id":120475,"updates":{{"authorized":"{authorized}"}}}}"#
+        )
+    };
+    let post = |path: String, body: String| async move {
+        request_from(
+            addr,
+            "POST",
+            &path,
+            "",
+            body.as_bytes(),
+            &[("Content-Type", "application/json")],
+        )
+        .await
+    };
+    // A forged event at a guessed address does nothing.
+    assert_eq!(
+        post("/auth/strava/webhook/guessed-token-000000".into(), event(42, "false"))
+            .await
+            .status,
+        404
+    );
+    assert_eq!(get_with(addr, "/api/me", &session).await.status, 200);
+    // Another athlete, or another kind of event: nothing to do, still 200 for Strava.
+    assert_eq!(post(hook.clone(), event(7, "false")).await.status, 200);
+    assert_eq!(get_with(addr, "/api/me", &session).await.status, 200);
+    // The athlete withdrew: gone.
+    assert_eq!(post(hook.clone(), event(42, "false")).await.status, 200);
+    assert_asks_to_connect_again(&get_with(addr, "/api/me", &session).await, "after the webhook");
+
+    // Without the setting the route does not exist.
+    let mut quiet = config(&strava_url);
+    quiet.strava.as_mut().unwrap().webhook_token = None;
+    let quiet = start_server(&quiet).await;
+    assert_eq!(get_with(quiet, &hook, "").await.status, 404);
+}
+
+/// gocarmo.com and every host under it are the same site as the game: the
+/// browser sends the rider's cookie with their requests too. The routes that
+/// act on the account answer only the game's own pages.
+#[tokio::test]
+async fn other_pages_of_the_same_site_cannot_upload_or_sign_out() {
+    let (strava_url, fake) = fake_strava().await;
+    let addr = start_server(&config(&strava_url)).await;
+    let session = connect(addr).await;
+
+    let same_site = [("Origin", "https://example.org"), ("Sec-Fetch-Site", "same-site")];
+    let upload_from = |extra: &'static [(&'static str, &'static str)]| {
+        let session = session.clone();
+        async move { request_from(addr, "POST", "/api/strava/upload?name=X", &session, &fit_file(), extra).await }
+    };
+    const SAME_SITE: &[(&str, &str)] = &[("Origin", "https://example.org"), ("Sec-Fetch-Site", "same-site")];
+    const NO_CORS_TEXT: &[(&str, &str)] = &[("Sec-Fetch-Site", "same-site"), ("Content-Type", "text/plain")];
+    const OWN_PAGE: &[(&str, &str)] = &[("Origin", PUBLIC_URL), ("Sec-Fetch-Site", "same-origin")];
+    for extra in [SAME_SITE, NO_CORS_TEXT] {
+        let refused = upload_from(extra).await;
+        assert_eq!(
+            (refused.status, refused.json()["code"].clone()),
+            (403, json!("foreign_page"))
+        );
+    }
+    assert!(
+        !fake.lock().unwrap().requests.iter().any(|(kind, ..)| kind == "upload"),
+        "nothing reached Strava"
+    );
+    let out = request_from(addr, "POST", "/auth/logout", &session, b"", &same_site).await;
+    assert_eq!(out.status, 403);
+    assert_eq!(get_with(addr, "/api/me", &session).await.status, 200, "still connected");
+
+    // The game's own page may.
+    assert_eq!(upload_from(OWN_PAGE).await.status, 200);
+
+    // A second session cookie (planted by another host of the domain with a
+    // longer path, so the browser sends it first) makes the request anonymous.
+    let planted = format!("openradlr_session=planted; {session}");
+    assert_asks_to_connect_again(&upload(addr, "?name=X", &planted).await, "two session cookies");
+    let twice = format!("{session}; {session}");
+    assert_ne!(get_with(addr, "/api/me", &twice).await.status, 200);
 }

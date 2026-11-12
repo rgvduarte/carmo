@@ -69,6 +69,9 @@ pub struct Config {
     /// is the only way in. `None` (default): the header means nothing.
     pub client_ip_header: Option<HeaderName>,
     pub max_connections_per_ip: usize,
+    /// Open WebSocket connections in all (`OPENRADLR_MAX_CONNECTIONS`, default
+    /// four per seat): bounds the memory many addresses together can take.
+    pub max_connections: usize,
     pub messages_per_second: f64,
     /// Seconds a rider lingers (coasting) after their socket dies before
     /// being removed; `0` removes at once.
@@ -254,6 +257,17 @@ impl Config {
             "must be between 1 and 1000",
         )?;
 
+        let max_connections: usize = reader.parse(
+            "OPENRADLR_MAX_CONNECTIONS",
+            4 * (max_players + max_paddle_players).max(1),
+        )?;
+        reader.check(
+            "OPENRADLR_MAX_CONNECTIONS",
+            max_connections,
+            max_connections >= 1,
+            "must be at least 1",
+        )?;
+
         let client_ip_header = match reader.raw("OPENRADLR_CLIENT_IP_HEADER").filter(|v| !v.is_empty()) {
             None => None,
             Some(name) => Some(HeaderName::from_bytes(name.as_bytes()).map_err(|_| ConfigError {
@@ -330,7 +344,32 @@ impl Config {
             )?;
         }
 
-        let strava_limited = reader.flag("OPENRADLR_STRAVA_LIMITED", true)?;
+        // true (default), false, or "owner": only the application's owner can connect yet.
+        let (strava_limited, strava_owner_only) = match reader
+            .raw("OPENRADLR_STRAVA_LIMITED")
+            .map(|v| v.to_ascii_lowercase())
+            .as_deref()
+        {
+            Some("owner") => (true, true),
+            Some(other) => (
+                reader.flag("OPENRADLR_STRAVA_LIMITED", true).map_err(|_| ConfigError {
+                    key: "OPENRADLR_STRAVA_LIMITED",
+                    value: other.to_owned(),
+                    reason: "must be true, false or owner".into(),
+                })?,
+                false,
+            ),
+            None => (true, false),
+        };
+        let webhook_token = reader.raw("OPENRADLR_STRAVA_WEBHOOK_TOKEN").filter(|v| !v.is_empty());
+        if let Some(token) = &webhook_token {
+            reader.check(
+                "OPENRADLR_STRAVA_WEBHOOK_TOKEN",
+                "(hidden)",
+                token.len() >= 16 && token.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'),
+                "must be at least 16 letters, digits, - or _ (it is part of a URL), e.g. from openssl rand -hex 16",
+            )?;
+        }
         let client_id = reader.raw("OPENRADLR_STRAVA_CLIENT_ID").filter(|v| !v.is_empty());
         let client_secret = reader.raw("OPENRADLR_STRAVA_CLIENT_SECRET").filter(|v| !v.is_empty());
         let strava = match (client_id, client_secret) {
@@ -350,6 +389,8 @@ impl Config {
                     public_url: url.clone(),
                     api_url: crate::strava::STRAVA_URL.into(),
                     limited: strava_limited,
+                    owner_only: strava_owner_only,
+                    webhook_token,
                 })
             }
             (Some(_), None) | (None, Some(_)) => {
@@ -505,6 +546,7 @@ impl Config {
             trust_proxy: reader.flag("OPENRADLR_TRUST_PROXY", false)?,
             client_ip_header,
             max_connections_per_ip,
+            max_connections,
             messages_per_second,
             grace_s,
             afk_timeout_s,
@@ -1081,11 +1123,40 @@ mod tests {
             ("OPENRADLR_STRAVA_LIMITED", "false"),
         ])
         .unwrap();
-        assert!(!unlimited.strava.unwrap().limited);
+        let unlimited = unlimited.strava.unwrap();
+        assert!(!unlimited.limited && !unlimited.owner_only);
         assert_eq!(
             config(&[("OPENRADLR_STRAVA_LIMITED", "maybe")]).unwrap_err().key,
             "OPENRADLR_STRAVA_LIMITED"
         );
+        let strava_with = |extra: (&'static str, &'static str)| {
+            config(&[
+                ("OPENRADLR_STRAVA_CLIENT_ID", "123"),
+                ("OPENRADLR_STRAVA_CLIENT_SECRET", "abc"),
+                ("OPENRADLR_PUBLIC_URL", "https://ride.example.com"),
+                extra,
+            ])
+        };
+        let owner = strava_with(("OPENRADLR_STRAVA_LIMITED", "Owner"))
+            .unwrap()
+            .strava
+            .unwrap();
+        assert!(
+            owner.limited && owner.owner_only,
+            "only the application's owner can connect"
+        );
+        assert!(!strava.owner_only && strava.webhook_token.is_none());
+        let hooked = strava_with(("OPENRADLR_STRAVA_WEBHOOK_TOKEN", "0123456789abcdef0123"))
+            .unwrap()
+            .strava
+            .unwrap();
+        assert_eq!(hooked.webhook_token.as_deref(), Some("0123456789abcdef0123"));
+        for weak in ["short", "has a space in it, too long", "slash/is/not/allowed/here"] {
+            assert_eq!(
+                strava_with(("OPENRADLR_STRAVA_WEBHOOK_TOKEN", weak)).unwrap_err().key,
+                "OPENRADLR_STRAVA_WEBHOOK_TOKEN"
+            );
+        }
 
         let key = |vars: &[(&str, &str)]| config(vars).unwrap_err().key;
         assert_eq!(

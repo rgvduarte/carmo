@@ -335,6 +335,26 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   committed `Cargo.lock` (`--locked`). `make up` labels a build with
   uncommitted changes `dev`, so its source link opens the branch.
 - **Texts**: two English and German texts of the fork lost their "!".
+- **Server, protection** (`http.rs`, `guard.rs`, `headers.rs`, `config.rs`,
+  `app.rs`): a game connection's frames are capped like its messages and
+  read in small chunks; the limit per address counts an IPv6 address by its
+  /64 network; new setting `OPENRADLR_MAX_CONNECTIONS` caps the open game
+  connections in all; a missing platform client-address header is logged
+  once; an `https://` public URL adds `Strict-Transport-Security`.
+- **Server, Strava** (`auth.rs`, `strava.rs`, `strava_api.rs`,
+  `session_store.rs`, `config.rs`, `http.rs`): "Disconnect" withdraws the
+  server's access on Strava and forgets the athlete on every device; new
+  setting `OPENRADLR_STRAVA_WEBHOOK_TOKEN` and route
+  `/auth/strava/webhook/<token>` for Strava's webhook; no Strava name is kept
+  and the log no longer writes the athlete number; uploads carry the sport
+  type and an id from the ride's start, and the activity is no longer changed
+  afterwards; Strava's refusals are told apart from no answer; only the
+  game's own pages may upload or disconnect; `OPENRADLR_STRAVA_LIMITED`
+  takes `owner`; the description links gocarmo.com/ride/.
+- **Server, build label** (`lib.rs`): Render's `RENDER_GIT_COMMIT` names the
+  running commit when the image was built without one.
+- **Deploy files**: Render deploys a commit once its checks pass and gets the
+  Strava keys from the Dashboard only; the new settings reach Docker Compose.
 
 ## Third-party material added by this fork
 

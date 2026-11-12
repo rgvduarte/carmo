@@ -26,8 +26,9 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
-    # Deploy on every push to the branch.
-    autoDeployTrigger: commit
+    # Deploy a pushed commit once its checks on GitHub (Ride CI) have passed:
+    # a commit whose tests or image check fail never reaches riders.
+    autoDeployTrigger: checksPass
     domains:
       - ride.gocarmo.com
     envVars:
@@ -55,9 +56,15 @@ services:
         value: CF-Connecting-IP
       - key: OPENRADLR_TRUST_PROXY
         value: "false"
-      # Mobile operators put many riders behind one address: 8, not 4.
+      # Mobile operators put many riders behind one address: 8, not 4. (An
+      # IPv6 address counts by its /64 network.) If the server's log says
+      # "OPENRADLR_CLIENT_IP_HEADER is set but this upgrade request did not
+      # carry it", every rider counts as one address and the ninth is
+      # refused: then set this to "60" until the cause is found.
       - key: OPENRADLR_MAX_CONNECTIONS_PER_IP
         value: "8"
+      # OPENRADLR_MAX_CONNECTIONS (game connections in all) is left at its
+      # default, four per seat: 160 here, about 3 MB.         (new in GOCARMO Ride)
 
       # --- Capacity: the "free pilot" values of docs/gocarmo-server-settings.md -
       # Measured with these: 34 to 38 MB of traffic per rider-hour, 3 % of one
@@ -85,19 +92,24 @@ services:
         value: "true"
 
       # --- Strava -------------------------------------------------------------
-      # Off until BOTH values exist. The owner types them in the Render
-      # Dashboard (asked once, when the Blueprint is created; later under the
-      # service's Environment page). Never write them into this file.
-      - key: OPENRADLR_STRAVA_CLIENT_ID
-        sync: false
-      - key: OPENRADLR_STRAVA_CLIENT_SECRET
-        sync: false
-      # A new Strava application lets one athlete connect (ten after an upgrade
-      # in Strava's API settings). While this is true the game says so and
-      # offers the .fit file first. Set it to false once Strava has approved
-      # more athletes.                                      (new in GOCARMO Ride)
+      # Off until BOTH OPENRADLR_STRAVA_CLIENT_ID and
+      # OPENRADLR_STRAVA_CLIENT_SECRET exist. They are not listed here: the
+      # owner adds them himself, when the Strava application exists, in the
+      # Render Dashboard (the service > Environment > Add Environment
+      # Variable, both at once, then "Save and deploy"). A Blueprint sync keeps
+      # variables it does not list. The same for OPENRADLR_STRAVA_WEBHOOK_TOKEN
+      # (docs/gocarmo-deploy.md, "Strava"). Never write them into this file.
+      #
+      # "owner": a new Strava application lets only its owner connect. The
+      # game then shows no "Connect with Strava" button and gives everyone the
+      # .fit file; the owner connects at https://ride.gocarmo.com/auth/strava.
+      # "true" once the application takes ten athletes (Strava's API
+      # settings): the game says so and offers the .fit file first. "false"
+      # once Strava has approved more. Change it here and push: a Blueprint
+      # sync puts back a value changed only in the Dashboard.
+      #                                                     (new in GOCARMO Ride)
       - key: OPENRADLR_STRAVA_LIMITED
-        value: "true"
+        value: "owner"
       # Encrypts the stored Strava logins. Render makes a random value once and
       # keeps it; nobody has to type or know it. Without a disk the logins are
       # lost with every new container anyway.

@@ -19,7 +19,7 @@ use crate::afk::{AfkCounts, AfkStats};
 use crate::app::unix_now_s;
 use crate::auth::{self, Strava};
 use crate::connection;
-use crate::guard::{client_ip, origin_allowed, platform_client_ip, same_secret, ConnectionLimits, Slots};
+use crate::guard::{client_ip, ip_bucket, origin_allowed, platform_client_ip, same_secret, ConnectionLimits, Slots};
 use crate::map_file::Maps;
 use crate::protocol::{DeviceKind, EventInfoWire, PROTOCOL_VERSION};
 use crate::route_file::RouteFile;
@@ -38,6 +38,7 @@ use openradlr_sim::studio::{ClassPlan, Timetable, LOBBY_S, SEATS_PER_ROOM, SLOT_
 use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tower_http::compression::CompressionLayer;
@@ -57,8 +58,15 @@ pub struct Protection {
     pub seats: Slots<()>,
     /// The same for riders on phone paddles (`OPENRADLR_MAX_PADDLE_PLAYERS`): they never take a trainer rider's seat.
     pub paddle_seats: Slots<()>,
-    /// Open WebSocket connections per client IP.
+    /// Open WebSocket connections per client address (an IPv6 address counts
+    /// by its /64 network, see [`ip_bucket`]).
     pub per_ip: Slots<IpAddr>,
+    /// Open WebSocket connections in all (`OPENRADLR_MAX_CONNECTIONS`): many
+    /// addresses together cannot open more than this.
+    pub connections: Slots<()>,
+    /// Set once the platform's client address header was missing on an
+    /// upgrade, so the warning is logged once, not for every rider.
+    pub ip_header_missing_logged: AtomicBool,
     pub trust_proxy: bool,
     /// The header in which a hosting platform's proxy reports the client's
     /// address (`OPENRADLR_CLIENT_IP_HEADER`); `None`: no header is believed.
@@ -157,6 +165,10 @@ pub struct StravaInfo {
     /// application (`OPENRADLR_STRAVA_LIMITED`). The client then offers the
     /// ride file first. Always true while Strava is off.
     pub limited: bool,
+    /// Only the Strava application's owner can connect yet
+    /// (`OPENRADLR_STRAVA_LIMITED=owner`): the client shows no "Connect with
+    /// Strava" button, and everyone gets the ride file.
+    pub owner_only: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -333,6 +345,10 @@ pub fn router(state: AppState, static_dir: Option<&Path>, headers: &[(header::He
         .route("/auth/strava/app", post(auth::app_login))
         .route("/auth/strava/app/claim", post(auth::app_claim))
         .route("/auth/logout", post(auth::logout))
+        .route(
+            "/auth/strava/webhook/{token}",
+            get(auth::webhook_check).post(auth::webhook_event),
+        )
         .route("/api/me", get(auth::me))
         .route(
             "/api/strava/upload",
@@ -672,6 +688,7 @@ async fn info(State(state): State<AppState>) -> Json<InfoResponse> {
             enabled: state.strava.is_some(),
             required: state.strava.as_ref().is_some_and(|s| s.required),
             limited: state.strava.as_ref().is_none_or(|s| s.config.limited),
+            owner_only: state.strava.as_ref().is_some_and(|s| s.config.owner_only),
         },
         now_s,
         events,
@@ -738,6 +755,12 @@ async fn websocket(
         return (StatusCode::FORBIDDEN, "origin not allowed").into_response();
     }
 
+    // Every open socket costs memory: past this many in all, nobody new gets one.
+    let Some(connection_permit) = protection.connections.try_acquire(()) else {
+        tracing::warn!(limit = protection.connections.limit(), "too many open connections");
+        return (StatusCode::SERVICE_UNAVAILABLE, "the server is full, try again later").into_response();
+    };
+
     // Without connection info (e.g. in tests) or a usable address, no per-IP limit applies.
     let peer = extensions.get::<ConnectInfo<SocketAddr>>().map(|info| info.0);
     let forwarded_for = headers.get("x-forwarded-for").and_then(|value| value.to_str().ok());
@@ -747,7 +770,19 @@ async fn websocket(
         .client_ip_header
         .as_ref()
         .and_then(|name| platform_client_ip(headers.get_all(name).iter().map(|value| value.to_str().unwrap_or(""))));
-    let ip_permit = match platform_ip.or_else(|| client_ip(peer, forwarded_for, protection.trust_proxy)) {
+    if let Some(name) = &protection.client_ip_header {
+        if platform_ip.is_none() && !protection.ip_header_missing_logged.swap(true, Ordering::Relaxed) {
+            tracing::warn!(
+                header = %name,
+                "OPENRADLR_CLIENT_IP_HEADER is set but this upgrade request did not carry it: the limit per address \
+                 counts the proxy's address instead (logged once)"
+            );
+        }
+    }
+    let ip_permit = match platform_ip
+        .or_else(|| client_ip(peer, forwarded_for, protection.trust_proxy))
+        .map(ip_bucket)
+    {
         Some(ip) => match protection.per_ip.try_acquire(ip) {
             Some(permit) => Some(permit),
             None => {
@@ -772,9 +807,17 @@ async fn websocket(
 
     upgrade
         .max_message_size(MAX_MESSAGE_BYTES)
+        // A frame is read whole before the message limit is checked: cap the
+        // frame too, so a client cannot make the server buffer megabytes.
+        .max_frame_size(MAX_MESSAGE_BYTES)
+        // tungstenite reads in 128 KiB chunks by default, per connection; the
+        // game's messages are a few hundred bytes.
+        .read_buffer_size(4 * 1024)
+        .write_buffer_size(0)
         .on_upgrade(move |socket| async move {
             connection::serve(socket, state).await;
             drop(ip_permit);
             drop(athlete_permit);
+            drop(connection_permit);
         })
 }

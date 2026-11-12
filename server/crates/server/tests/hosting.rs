@@ -530,3 +530,108 @@ async fn metrics_need_the_token_when_one_is_set() {
     let in_query = get(addr, &format!("/internal/metrics?token={METRICS_TOKEN}"), &[]).await;
     assert_eq!(in_query.status, 401);
 }
+
+#[tokio::test]
+async fn one_ipv6_network_counts_as_one_address() {
+    let addr = start_server(behind_a_platform_proxy()).await;
+    // One home or one server holds a whole /64 and can pick any address in it.
+    let _first = open_game(addr, &[("fly-client-ip", "2001:db8:1234:5678::1")])
+        .await
+        .unwrap();
+    assert_eq!(
+        open_game(addr, &[("fly-client-ip", "2001:db8:1234:5678::2")])
+            .await
+            .err(),
+        Some(TOO_MANY),
+        "another address of the same /64"
+    );
+    assert_eq!(
+        open_game(addr, &[("fly-client-ip", "2001:db8:1234:5678:ffff:1:2:3")])
+            .await
+            .err(),
+        Some(TOO_MANY)
+    );
+    // The next network is someone else.
+    let _other = open_game(addr, &[("fly-client-ip", "2001:db8:1234:5679::1")])
+        .await
+        .unwrap();
+}
+
+#[tokio::test]
+async fn many_addresses_together_cannot_open_more_than_the_server_allows() {
+    let addr = start_server(Config {
+        max_connections: 3,
+        ..behind_a_platform_proxy()
+    })
+    .await;
+    let mut open = Vec::new();
+    for ip in ["203.0.113.1", "203.0.113.2", "203.0.113.3"] {
+        open.push(open_game(addr, &[("fly-client-ip", ip)]).await.unwrap());
+    }
+    assert_eq!(
+        open_game(addr, &[("fly-client-ip", "203.0.113.4")]).await.err(),
+        Some(503),
+        "a fourth address finds the server full"
+    );
+    open.pop();
+    let again = async {
+        loop {
+            if let Ok(socket) = open_game(addr, &[("fly-client-ip", "203.0.113.4")]).await {
+                return socket;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(5), again)
+        .await
+        .expect("a closed connection makes room");
+}
+
+/// A client that announces a frame of megabytes is cut off at the frame's
+/// header, not after the server has buffered what it sent (the message limit
+/// alone is checked only once a frame is complete).
+#[tokio::test]
+async fn an_oversized_frame_is_refused_at_its_header() {
+    let addr = start_server(test_config()).await;
+    let socket = open_game(addr, &[]).await.unwrap();
+    let mut stream = match socket.into_inner() {
+        MaybeTlsStream::Plain(stream) => stream,
+        _ => unreachable!("plain ws"),
+    };
+    // A masked text frame announcing 15 MiB, then the first kilobyte of it.
+    let mut frame = vec![0x81, 0xff];
+    frame.extend_from_slice(&(15u64 * 1024 * 1024).to_be_bytes());
+    frame.extend_from_slice(&[1, 2, 3, 4]);
+    frame.extend_from_slice(&[b'x'; 1024]);
+    stream.write_all(&frame).await.unwrap();
+    // The handshake timeout (15 s) would close it too; the frame limit does at once.
+    let closed = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        let mut buffer = [0u8; 256];
+        loop {
+            match stream.read(&mut buffer).await {
+                Ok(0) | Err(_) => return,
+                Ok(_) => {}
+            }
+        }
+    })
+    .await;
+    assert!(closed.is_ok(), "the connection is closed at the frame's header");
+}
+
+#[tokio::test]
+async fn an_https_host_asks_browsers_to_stay_on_https() {
+    let addr = start_server(Config {
+        public_url: Some("https://ride.example.org".into()),
+        ..test_config()
+    })
+    .await;
+    assert_eq!(
+        get(addr, "/api/info", &[]).await.header("strict-transport-security"),
+        Some("max-age=31536000")
+    );
+    let local = start_server(test_config()).await;
+    assert_eq!(
+        get(local, "/api/info", &[]).await.header("strict-transport-security"),
+        None
+    );
+}

@@ -78,6 +78,12 @@ pub fn security_headers(
     if frame_ancestors.is_empty() {
         headers.insert(1, (header::X_FRAME_OPTIONS, "DENY".to_owned()));
     }
+    // Served over HTTPS: the browser keeps to HTTPS for a year, so a later
+    // visit typed as http:// never goes out in the clear. Only this host:
+    // includeSubDomains would bind every other host of the domain too.
+    if public_url.is_some_and(|url| url.starts_with("https://")) {
+        headers.push((header::STRICT_TRANSPORT_SECURITY, "max-age=31536000".to_owned()));
+    }
     headers
 }
 
@@ -164,5 +170,21 @@ mod tests {
         );
         assert_eq!(get(header::X_CONTENT_TYPE_OPTIONS), Some("nosniff"));
         assert_eq!(get(header::REFERRER_POLICY), Some("no-referrer"));
+    }
+
+    #[test]
+    fn https_hosts_ask_browsers_to_stay_on_https() {
+        let hsts = |url: Option<&str>| {
+            security_headers(None, url, &[])
+                .into_iter()
+                .find(|(name, _)| *name == header::STRICT_TRANSPORT_SECURITY)
+                .map(|(_, value)| value)
+        };
+        assert_eq!(
+            hsts(Some("https://ride.example.com")).as_deref(),
+            Some("max-age=31536000")
+        );
+        assert_eq!(hsts(Some("http://localhost:8080")), None);
+        assert_eq!(hsts(None), None);
     }
 }

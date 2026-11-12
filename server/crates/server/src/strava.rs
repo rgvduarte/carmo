@@ -50,6 +50,14 @@ pub struct StravaConfig {
     /// application starts with one). The client then puts the ride file in
     /// front of "Connect with Strava"; the server itself does nothing with it.
     pub limited: bool,
+    /// Only the application's owner can connect (`OPENRADLR_STRAVA_LIMITED=owner`:
+    /// a new application's single athlete): the game shows no "Connect with
+    /// Strava" button, and the owner opens `/auth/strava` himself.
+    pub owner_only: bool,
+    /// The secret part of the address Strava's webhook calls
+    /// (`OPENRADLR_STRAVA_WEBHOOK_TOKEN`): `/auth/strava/webhook/<token>`.
+    /// `None`: no webhook route.
+    pub webhook_token: Option<String>,
 }
 
 /// Percent-encodes everything except RFC 3986 unreserved characters.
@@ -82,6 +90,18 @@ pub fn scope_allows_upload(scope: Option<&str>) -> bool {
     scope.is_some_and(|scope| scope.split(',').any(|s| s.trim() == "activity:write"))
 }
 
+/// How many values of cookie `name` the `Cookie` headers carry. A browser
+/// sends two when another site of the same domain set one with a longer path:
+/// such a request is not trusted with an account.
+pub fn cookie_count<'a>(cookie_headers: impl IntoIterator<Item = &'a str>, name: &str) -> usize {
+    cookie_headers
+        .into_iter()
+        .flat_map(|header| header.split(';'))
+        .filter_map(|pair| pair.trim().split_once('='))
+        .filter(|(key, _)| *key == name)
+        .count()
+}
+
 /// The value of cookie `name` from all `Cookie` header values.
 pub fn cookie_value<'a>(cookie_headers: impl IntoIterator<Item = &'a str>, name: &str) -> Option<&'a str> {
     cookie_headers
@@ -112,33 +132,17 @@ pub struct TokenResponse {
     pub athlete: Option<Athlete>,
 }
 
+/// The athlete in Strava's token answer. Only the number is kept: Strava's
+/// API Policy keeps the data an application holds to what it needs, and the
+/// game needs no name (the rider's name is the one typed in the game).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct Athlete {
     pub id: u64,
-    #[serde(default)]
-    pub firstname: Option<String>,
-    #[serde(default)]
-    pub lastname: Option<String>,
-}
-
-impl Athlete {
-    /// "Leon F." — first name and initial, like Strava shows in feeds.
-    pub fn display_name(&self) -> String {
-        let first = self.firstname.as_deref().unwrap_or("").trim();
-        let initial = self.lastname.as_deref().and_then(|l| l.trim().chars().next());
-        let name = match (first.is_empty(), initial) {
-            (false, Some(initial)) => format!("{first} {initial}."),
-            (false, None) => first.to_owned(),
-            (true, _) => format!("Athlete {}", self.id),
-        };
-        name.chars().take(24).collect()
-    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Account {
     pub athlete_id: u64,
-    pub name: String,
     pub can_upload: bool,
     pub access_token: String,
     pub refresh_token: String,
@@ -150,7 +154,6 @@ impl Account {
         let athlete = token.athlete?;
         Some(Self {
             athlete_id: athlete.id,
-            name: athlete.display_name(),
             can_upload,
             access_token: token.access_token,
             refresh_token: token.refresh_token,
@@ -281,6 +284,19 @@ impl Accounts {
         }
     }
 
+    /// Forgets every session of the athlete, in memory and on disk: the
+    /// rider disconnected, or withdrew this server's access on Strava.
+    /// Returns how many there were.
+    pub fn remove_athlete(&self, athlete_id: u64) -> usize {
+        let mut sessions = self.sessions.lock().unwrap_or_else(|e| e.into_inner());
+        let before = sessions.len();
+        sessions.retain(|_, s| s.account.athlete_id != athlete_id);
+        if let Some(store) = &self.store {
+            log_store(store.remove_athlete(athlete_id));
+        }
+        before - sessions.len()
+    }
+
     pub fn session_count(&self) -> usize {
         self.sessions.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
@@ -402,13 +418,14 @@ mod tests {
             public_url: "https://ride.example.com".into(),
             api_url: STRAVA_URL.into(),
             limited: true,
+            owner_only: false,
+            webhook_token: None,
         }
     }
 
     fn account(id: u64) -> Account {
         Account {
             athlete_id: id,
-            name: "Leon F.".into(),
             can_upload: true,
             access_token: "a".into(),
             refresh_token: "r".into(),
@@ -454,28 +471,40 @@ mod tests {
         .unwrap();
         let account = Account::from_token(first, true).unwrap();
         assert_eq!(account.athlete_id, 42);
-        assert_eq!(account.name, "Leon F.");
         let refreshed: TokenResponse =
             serde_json::from_str(r#"{"access_token":"a2","refresh_token":"r2","expires_at":1600000000}"#).unwrap();
         assert!(Account::from_token(refreshed, true).is_none());
     }
 
     #[test]
-    fn display_names_fall_back_sensibly() {
-        let athlete = |first: Option<&str>, last: Option<&str>| Athlete {
-            id: 7,
-            firstname: first.map(Into::into),
-            lastname: last.map(Into::into),
-        };
-        assert_eq!(athlete(Some("Mara"), None).display_name(), "Mara");
-        assert_eq!(athlete(None, Some("K")).display_name(), "Athlete 7");
+    fn a_second_session_cookie_is_counted() {
+        assert_eq!(cookie_count(["openradlr_session=a; x=1"], SESSION_COOKIE), 1);
         assert_eq!(
-            athlete(Some("A very long first name indeed"), Some("X"))
-                .display_name()
-                .chars()
-                .count(),
-            24
+            cookie_count(["openradlr_session=planted; openradlr_session=mine"], SESSION_COOKIE),
+            2
         );
+        assert_eq!(
+            cookie_count(["openradlr_session=a", "openradlr_session=b"], SESSION_COOKIE),
+            2
+        );
+        assert_eq!(cookie_count(["x=1"], SESSION_COOKIE), 0);
+    }
+
+    #[test]
+    fn disconnecting_forgets_every_session_of_the_athlete() {
+        let dir = std::env::temp_dir().join(format!("openradlr-sessions-{}", random_token()));
+        let accounts = Accounts::with_store(SessionStore::open(&dir, "a-test-secret-key").unwrap(), 0);
+        let phone = accounts.insert(account(1), 0);
+        let laptop = accounts.insert(account(1), 5);
+        let other = accounts.insert(account(2), 5);
+        assert_eq!(accounts.remove_athlete(1), 2);
+        assert!(accounts.get(&phone, 10).is_none() && accounts.get(&laptop, 10).is_none());
+        assert_eq!(accounts.get(&other, 10).unwrap().athlete_id, 2);
+        assert_eq!(accounts.remove_athlete(1), 0);
+        drop(accounts);
+        let restarted = Accounts::with_store(SessionStore::open(&dir, "a-test-secret-key").unwrap(), 20);
+        assert_eq!(restarted.session_count(), 1, "gone from the disk too");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

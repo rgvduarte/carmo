@@ -310,6 +310,8 @@ pub fn build_with_stats(config: &Config) -> Result<(Router, DistanceStats), BoxE
             seats: Slots::new(config.max_players),
             paddle_seats: Slots::new(config.max_paddle_players),
             per_ip: Slots::new(config.max_connections_per_ip),
+            connections: Slots::new(config.max_connections),
+            ip_header_missing_logged: std::sync::atomic::AtomicBool::new(false),
             trust_proxy: config.trust_proxy,
             client_ip_header: config.client_ip_header.clone(),
             metrics_token: config.metrics_token.clone(),

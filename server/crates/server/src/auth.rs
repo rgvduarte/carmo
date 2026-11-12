@@ -6,17 +6,25 @@
 //! | `GET /auth/strava/callback`    | Back from Strava: create the session cookie   |
 //! | `POST /auth/strava/app`        | The app starts a login (see [`AppLogins`])    |
 //! | `POST /auth/strava/app/claim`  | The app's web view takes the new session      |
-//! | `POST /auth/logout`            | Forget the session                            |
-//! | `GET /api/me`                  | The connected account, or 401                 |
-//! | `POST /api/strava/upload`      | Upload a TCX ride (body), `?name=` optional   |
+//! | `POST /auth/logout`            | Withdraw the access on Strava, forget the athlete |
+//! | `GET /api/me`                  | The connected account, 204 or 401             |
+//! | `POST /api/strava/upload`      | Upload a FIT or TCX ride (body), `?name=`, `?kind=class`, `?start=` |
 //! | `GET /api/strava/upload/{id}`  | Whether Strava finished processing it         |
+//! | `GET/POST /auth/strava/webhook/{token}` | Strava's webhook: an athlete withdrew access |
+//!
+//! The routes that act on a rider's account (`POST`) answer only requests from
+//! the game's own pages: any other page of the same site (gocarmo.com and
+//! every other host under it) could otherwise send them with the rider's
+//! cookie (see [`foreign_page`]).
 
+use crate::guard::same_secret;
 use crate::guard::Slots;
 use crate::http::AppState;
 use crate::session_store::SessionStore;
 use crate::strava::{
-    authorize_url, cookie, cookie_value, login_result_url, scope_allows_upload, Account, Accounts, AppLogins,
-    StravaConfig, APP_ID_COOKIE, APP_LOGIN_COOKIE, SESSION_COOKIE, SESSION_SECONDS, STATE_COOKIE, STATE_SECONDS,
+    authorize_url, cookie, cookie_count, cookie_value, login_result_url, scope_allows_upload, Account, Accounts,
+    AppLogins, StravaConfig, APP_ID_COOKIE, APP_LOGIN_COOKIE, SESSION_COOKIE, SESSION_SECONDS, STATE_COOKIE,
+    STATE_SECONDS,
 };
 use crate::strava_api;
 use axum::extract::{Path, Query, State};
@@ -62,10 +70,15 @@ impl Strava {
         })
     }
 
-    /// The account behind the request's session cookie.
+    /// The account behind the request's session cookie. A request with two
+    /// session cookies has none: another host of the same domain can plant a
+    /// second one with a longer path, which the browser sends first.
     pub fn account(&self, headers: &HeaderMap) -> Option<(String, Account)> {
-        let cookies = headers.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok());
-        let session = cookie_value(cookies, SESSION_COOKIE)?.to_owned();
+        let cookies = || headers.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok());
+        if cookie_count(cookies(), SESSION_COOKIE) > 1 {
+            return None;
+        }
+        let session = cookie_value(cookies(), SESSION_COOKIE)?.to_owned();
         let account = self.accounts.get(&session, now_s())?;
         Some((session, account))
     }
@@ -91,6 +104,39 @@ pub fn now_s() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX))
+}
+
+/// The origin (`scheme://host[:port]`) of a URL such as `OPENRADLR_PUBLIC_URL`.
+fn origin_of(url: &str) -> &str {
+    match url.find("://") {
+        Some(scheme_end) => {
+            let rest = &url[scheme_end + 3..];
+            &url[..scheme_end + 3 + rest.find('/').unwrap_or(rest.len())]
+        }
+        None => url,
+    }
+}
+
+/// True when a request that changes a rider's account comes from a page that
+/// is not the game's own. The browser says where a request comes from:
+/// `Sec-Fetch-Site` (`same-origin` for the game itself, `same-site` for
+/// another host of the domain, which the session cookie would otherwise reach
+/// too) and `Origin`. Requests without either (tools, the tests) pass, as
+/// they carry no rider's cookie unless their author put it there.
+fn foreign_page(headers: &HeaderMap, public_url: &str) -> bool {
+    let header_text = |name| headers.get(name).map(|value| value.to_str().unwrap_or("?"));
+    if header_text("sec-fetch-site").is_some_and(|site| site != "same-origin") {
+        return true;
+    }
+    header_text(header::ORIGIN.as_str()).is_some_and(|origin| !origin.eq_ignore_ascii_case(origin_of(public_url)))
+}
+
+fn from_another_page() -> Response {
+    error(
+        StatusCode::FORBIDDEN,
+        "foreign_page",
+        "only the game's own pages may do this",
+    )
 }
 
 fn error(status: StatusCode, code: &str, message: &str) -> Response {
@@ -206,11 +252,8 @@ pub async fn callback(
         tracing::warn!("strava token response without athlete");
         return back("failed");
     };
-    tracing::info!(
-        athlete_id = account.athlete_id,
-        app = app_id.is_some(),
-        "strava account connected"
-    );
+    // No athlete number in the log: the host's log is not the place for Strava data.
+    tracing::info!(app = app_id.is_some(), "strava account connected");
     let session = strava.accounts.insert(account, now_s());
     let secure = strava.secure_cookies;
     let clear_state = cookie(STATE_COOKIE, "", "/auth/strava", 0, secure);
@@ -248,10 +291,13 @@ pub struct AppLoginResponse {
 }
 
 /// The app starts a login: the secret stays in its web view, the id goes to the sign-in sheet.
-pub async fn app_login(State(state): State<AppState>) -> Response {
+pub async fn app_login(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let Some(strava) = state.strava.as_deref() else {
         return not_configured();
     };
+    if foreign_page(&headers, &strava.config.public_url) {
+        return from_another_page();
+    }
     let (id, secret) = strava.app_logins.start(now_s());
     (
         [(
@@ -282,6 +328,9 @@ pub async fn app_claim(State(state): State<AppState>, headers: HeaderMap, Json(c
     let Some(strava) = state.strava.as_deref() else {
         return not_configured();
     };
+    if foreign_page(&headers, &strava.config.public_url) {
+        return from_another_page();
+    }
     let cookies = headers.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok());
     let session = cookie_value(cookies, APP_LOGIN_COOKIE)
         .and_then(|secret| strava.app_logins.claim(secret, &claim.ticket, now_s()));
@@ -305,27 +354,123 @@ pub async fn app_claim(State(state): State<AppState>, headers: HeaderMap, Json(c
         .into_response()
 }
 
+#[derive(Debug, Serialize)]
+pub struct LogoutResponse {
+    /// Strava confirmed that this server's access to the athlete is withdrawn.
+    /// False when there was no account, or Strava could not be reached: the
+    /// rider then withdraws it in Strava's settings.
+    pub revoked: bool,
+    /// Sessions of the athlete this server forgot (on every device).
+    pub removed: usize,
+}
+
+/// "Disconnect": this server withdraws its access on Strava (which frees the
+/// athlete's place in the application's athlete limit) and forgets every
+/// session of the athlete, on every device, in memory and on disk. What the
+/// rider is shown is the written confirmation Strava's API Policy asks for.
 pub async fn logout(State(state): State<AppState>, headers: HeaderMap) -> Response {
     let Some(strava) = state.strava.as_deref() else {
         return not_configured();
     };
-    if let Some((session, _)) = strava.account(&headers) {
-        strava.accounts.remove(&session);
+    if foreign_page(&headers, &strava.config.public_url) {
+        return from_another_page();
+    }
+    let mut answer = LogoutResponse {
+        revoked: false,
+        removed: 0,
+    };
+    if let Some((_, account)) = strava.account(&headers) {
+        match strava_api::revoke(&strava.http, &strava.config, &account.refresh_token).await {
+            Ok(()) => answer.revoked = true,
+            Err(e) => tracing::warn!(error = %e, "withdrawing the access on strava failed"),
+        }
+        // Strava's revocation ends every token of the athlete: every session goes with it.
+        answer.removed = strava.accounts.remove_athlete(account.athlete_id);
+        tracing::info!(revoked = answer.revoked, "strava account disconnected");
     }
     (
-        StatusCode::NO_CONTENT,
         [(
             header::SET_COOKIE,
             cookie(SESSION_COOKIE, "", "/", 0, strava.secure_cookies),
         )],
+        Json(answer),
     )
         .into_response()
 }
 
+#[derive(Debug, Deserialize)]
+pub struct WebhookCheck {
+    #[serde(rename = "hub.mode")]
+    pub mode: Option<String>,
+    #[serde(rename = "hub.verify_token")]
+    pub verify_token: Option<String>,
+    #[serde(rename = "hub.challenge")]
+    pub challenge: Option<String>,
+}
+
+/// The webhook's address carries its secret (`OPENRADLR_STRAVA_WEBHOOK_TOKEN`):
+/// Strava's events are not signed, so only who knows the address can send one.
+fn webhook_open<'a>(state: &'a AppState, token: &str) -> Option<&'a Strava> {
+    let strava = state.strava.as_deref()?;
+    let expected = strava.config.webhook_token.as_deref()?;
+    same_secret(token, expected).then_some(strava)
+}
+
+/// Strava checks the webhook once, when the owner creates the subscription
+/// (developers.strava.com/docs/webhooks, read 12.11.2026): it sends
+/// `hub.challenge` and the `hub.verify_token` it was given, and wants the
+/// challenge back within two seconds.
+pub async fn webhook_check(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Query(check): Query<WebhookCheck>,
+) -> Response {
+    let Some(strava) = webhook_open(&state, &token) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let expected = strava.config.webhook_token.as_deref().unwrap_or_default();
+    match (check.mode.as_deref(), check.verify_token.as_deref(), check.challenge) {
+        (Some("subscribe"), Some(given), Some(challenge)) if same_secret(given, expected) => {
+            Json(serde_json::json!({ "hub.challenge": challenge })).into_response()
+        }
+        _ => StatusCode::FORBIDDEN.into_response(),
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WebhookEvent {
+    pub object_type: Option<String>,
+    pub owner_id: Option<u64>,
+    #[serde(default)]
+    pub updates: serde_json::Map<String, serde_json::Value>,
+}
+
+/// An event from Strava. The one this server acts on: an athlete withdrew
+/// its access in Strava's settings (`object_type` athlete, `updates.authorized`
+/// "false"). Every session of the athlete is forgotten at once. Strava wants an
+/// answer within two seconds, whatever the event.
+pub async fn webhook_event(
+    State(state): State<AppState>,
+    Path(token): Path<String>,
+    Json(event): Json<WebhookEvent>,
+) -> Response {
+    let Some(strava) = webhook_open(&state, &token) else {
+        return StatusCode::NOT_FOUND.into_response();
+    };
+    let withdrawn = event.object_type.as_deref() == Some("athlete")
+        && event.updates.get("authorized").and_then(|v| v.as_str()) == Some("false");
+    if let (true, Some(athlete_id)) = (withdrawn, event.owner_id) {
+        let removed = strava.accounts.remove_athlete(athlete_id);
+        tracing::info!(sessions = removed, "strava access withdrawn by the athlete");
+    }
+    StatusCode::OK.into_response()
+}
+
+/// The connected account. No Strava name: the server keeps none (see
+/// [`crate::strava::Athlete`]).
 #[derive(Debug, Serialize)]
 pub struct MeResponse {
     pub athlete_id: u64,
-    pub name: String,
     pub can_upload: bool,
 }
 
@@ -336,7 +481,6 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
     match strava.account(&headers) {
         Some((_, account)) => Json(MeResponse {
             athlete_id: account.athlete_id,
-            name: account.name,
             can_upload: account.can_upload,
         })
         .into_response(),
@@ -360,6 +504,43 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
 #[derive(Debug, Deserialize)]
 pub struct UploadQuery {
     pub name: Option<String>,
+    /// `class` for a class in the studio; anything else is a ride on a route.
+    pub kind: Option<String>,
+    /// When the ride started (Unix seconds), so a second attempt at the same
+    /// ride carries the same `external_id`.
+    pub start: Option<i64>,
+}
+
+/// Seconds until Strava's next quarter hour, when its 15-minute request
+/// budget starts again (developers.strava.com/docs/rate-limits).
+fn until_next_quarter_hour(now_s: i64) -> i64 {
+    900 - now_s.rem_euclid(900)
+}
+
+/// What the browser is told when Strava said no to an upload or to a question
+/// about one. A refusal (Strava answered, and the ride is not on Strava) is a
+/// 4xx the game can say plainly; only no answer or Strava's own failure is
+/// uncertain (502), and then the rider checks Strava before sending again.
+fn strava_refused(e: &strava_api::StravaError, uncertain_code: &str, uncertain_message: &str) -> Response {
+    match e.status {
+        Some(429) => {
+            let mut response = error(
+                StatusCode::TOO_MANY_REQUESTS,
+                "strava_busy",
+                "Strava is receiving too many requests; the ride was not sent",
+            );
+            if let Ok(value) = until_next_quarter_hour(now_s()).to_string().parse() {
+                response.headers_mut().insert(header::RETRY_AFTER, value);
+            }
+            response
+        }
+        Some(400 | 403 | 404 | 409 | 422) => error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "strava_refused",
+            "Strava refused the ride",
+        ),
+        _ => error(StatusCode::BAD_GATEWAY, uncertain_code, uncertain_message),
+    }
 }
 
 pub async fn upload(
@@ -371,6 +552,9 @@ pub async fn upload(
     let Some(strava) = state.strava.as_deref() else {
         return not_configured();
     };
+    if foreign_page(&headers, &strava.config.public_url) {
+        return from_another_page();
+    }
     // Also after a restart without a data directory: the cookie is from a
     // session this server no longer knows.
     let Some((session, account)) = strava.account(&headers) else {
@@ -409,14 +593,25 @@ pub async fn upload(
             );
         }
     };
-    let external_id = format!("{}-{}-{}", strava_api::EXTERNAL_ID_PREFIX, account.athlete_id, now_s());
+    // The ride's own start when the client gives one (a plausible time, from
+    // 2020 to a day ahead), so every attempt at one ride has one id.
+    let started = query
+        .start
+        .filter(|start| (1_577_836_800..=now_s() + 86_400).contains(start))
+        .unwrap_or_else(now_s);
+    let external_id = format!("{}-{}-{}", strava_api::EXTERNAL_ID_PREFIX, account.athlete_id, started);
+    let kind = match query.kind.as_deref() {
+        Some("class") => strava_api::RideKind::Class,
+        _ => strava_api::RideKind::Route,
+    };
     match strava_api::upload(
         &strava.http,
         &strava.config,
         &access_token,
         ride,
+        kind,
         &name,
-        &strava_api::description(&strava.config.public_url),
+        &strava_api::description(),
         &external_id,
     )
     .await
@@ -425,10 +620,10 @@ pub async fn upload(
         Err(e) if e.unauthorized() => disconnected(strava, &session),
         Err(e) => {
             tracing::warn!(error = %e, "strava upload failed");
-            error(
-                StatusCode::BAD_GATEWAY,
+            strava_refused(
+                &e,
                 "upload_failed",
-                "Strava didn't accept the upload, try again later",
+                "Strava didn't answer the upload, check Strava before sending again",
             )
         }
     }
@@ -447,19 +642,9 @@ pub async fn upload_status(State(state): State<AppState>, headers: HeaderMap, Pa
         Err(_) => return error(StatusCode::BAD_GATEWAY, "strava_unavailable", "could not reach Strava"),
     };
     match strava_api::upload_status(&strava.http, &strava.config, &access_token, id).await {
-        Ok(status) => {
-            // The client stops polling once the activity exists, so this runs
-            // about once per upload; the update is idempotent anyway.
-            if let Some(activity_id) = status.activity_id {
-                if let Err(e) =
-                    strava_api::mark_virtual_ride(&strava.http, &strava.config, &access_token, activity_id).await
-                {
-                    tracing::warn!(error = %e, activity_id, "marking strava activity as virtual ride failed");
-                }
-            }
-            Json(status).into_response()
-        }
+        Ok(status) => Json(status).into_response(),
         Err(e) if e.unauthorized() => disconnected(strava, &session),
+        Err(e) if e.status == Some(429) => strava_refused(&e, "status_failed", ""),
         Err(e) => {
             tracing::warn!(error = %e, "strava upload status failed");
             error(
@@ -468,5 +653,48 @@ pub async fn upload_status(State(state): State<AppState>, headers: HeaderMap, Pa
                 "could not ask Strava about the upload",
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn headers(pairs: &[(&'static str, &str)]) -> HeaderMap {
+        let mut map = HeaderMap::new();
+        for (name, value) in pairs {
+            map.insert(*name, value.parse().unwrap());
+        }
+        map
+    }
+
+    #[test]
+    fn only_the_games_own_pages_may_change_an_account() {
+        let url = "https://ride.example.org";
+        assert!(!foreign_page(&headers(&[]), url), "no browser: no rider's cookie");
+        assert!(!foreign_page(
+            &headers(&[
+                ("sec-fetch-site", "same-origin"),
+                ("origin", "https://ride.example.org")
+            ]),
+            url
+        ));
+        // Another host of the same site: the cookie would go along, so no.
+        assert!(foreign_page(&headers(&[("sec-fetch-site", "same-site")]), url));
+        assert!(foreign_page(&headers(&[("origin", "https://example.org")]), url));
+        assert!(foreign_page(
+            &headers(&[("sec-fetch-site", "cross-site"), ("origin", "https://evil.example")]),
+            url
+        ));
+        assert!(foreign_page(&headers(&[("origin", "null")]), url));
+        assert_eq!(origin_of("https://ride.example.org/game/"), "https://ride.example.org");
+        assert_eq!(origin_of("http://127.0.0.1:8080"), "http://127.0.0.1:8080");
+    }
+
+    #[test]
+    fn a_busy_strava_is_asked_again_at_the_next_quarter_hour() {
+        assert_eq!(until_next_quarter_hour(0), 900);
+        assert_eq!(until_next_quarter_hour(899), 1);
+        assert_eq!(until_next_quarter_hour(1_800_000_450), 450);
     }
 }

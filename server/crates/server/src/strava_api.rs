@@ -1,5 +1,5 @@
-//! The HTTP calls to Strava: token exchange and refresh, uploads, marking
-//! activities as virtual rides.
+//! The HTTP calls to Strava: token exchange and refresh, revoking access,
+//! uploads and their status.
 
 use crate::strava::{StravaConfig, TokenResponse, UploadStatus};
 
@@ -103,6 +103,25 @@ pub async fn refresh(
     .await
 }
 
+/// Withdraws this server's access to the athlete on Strava
+/// (`POST /oauth/revoke`, read 12.11.2026): every access and refresh token the
+/// application holds for the athlete stops working, and the athlete's place
+/// in the application's athlete limit is free again. Strava answers 200
+/// whether or not it knew the token.
+pub async fn revoke(http: &reqwest::Client, config: &StravaConfig, refresh_token: &str) -> Result<(), StravaError> {
+    let response = http
+        .post(format!("{}/oauth/revoke", config.api_url))
+        .basic_auth(&config.client_id, Some(&config.client_secret))
+        .form(&[("token", refresh_token), ("token_type_hint", "refresh_token")])
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await?;
+    if !response.status().is_success() {
+        return Err(StravaError::http("revoking access", response.status()));
+    }
+    Ok(())
+}
+
 /// A ride file the client sends for upload.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RideFile {
@@ -127,10 +146,12 @@ impl RideFile {
 }
 
 /// The activity description. Strava descriptions are plain text, but it turns
-/// full URLs into links, so the server links to itself. Just the fork's name
-/// and the address: it reads the same in every rider's language.
-pub fn description(public_url: &str) -> String {
-    format!("{}: {public_url}", crate::APP_NAME)
+/// full URLs into links: the fork's name and the page that explains the game
+/// (the address the Strava application lists as its website). It reads the
+/// same in every rider's language; the finish dialog tells the rider before
+/// sending.
+pub fn description() -> String {
+    format!("{}: {}", crate::APP_NAME, crate::APP_URL)
 }
 
 /// The activity's name when the client sent none (it sends the route's name).
@@ -139,13 +160,25 @@ pub const DEFAULT_ACTIVITY_NAME: &str = crate::APP_NAME;
 /// The start of the `external_id` Strava keeps with an upload.
 pub const EXTERNAL_ID_PREFIX: &str = "gocarmo-ride";
 
-/// Uploads a ride file. A TCX ride is turned into a virtual ride by
-/// [`mark_virtual_ride`] once it is processed (where Strava allows it).
+/// What kind of ride an upload is: on a route (filed as a virtual ride, which
+/// Strava keeps off real-world segments but draws on its map), or a class in
+/// the studio (left as the file says: an indoor ride without a map).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RideKind {
+    Route,
+    Class,
+}
+
+/// Uploads a ride file. A ride on a route goes up as a `VirtualRide`: the
+/// upload's `sport_type` overrides what Strava detects in the file, so no
+/// second call is needed once the activity exists.
+#[allow(clippy::too_many_arguments)]
 pub async fn upload(
     http: &reqwest::Client,
     config: &StravaConfig,
     access_token: &str,
     ride: RideFile,
+    kind: RideKind,
     name: &str,
     description: &str,
     external_id: &str,
@@ -170,6 +203,10 @@ pub async fn upload(
         .text("name", name.to_owned())
         .text("description", description.to_owned())
         .text("external_id", external_id.to_owned());
+    let form = match kind {
+        RideKind::Route => form.text("sport_type", "VirtualRide"),
+        RideKind::Class => form,
+    };
     let response = http
         .post(format!("{}/api/v3/uploads", config.api_url))
         .bearer_auth(access_token)
@@ -180,27 +217,6 @@ pub async fn upload(
         return Err(StravaError::http("upload", response.status()));
     }
     Ok(response.json().await?)
-}
-
-/// Sets the sport type to `VirtualRide`: Strava keeps those off real-world
-/// segments and outdoor stats but still shows the map. (The upload API has no
-/// field for the sport type, and TCX only knows "Biking".)
-pub async fn mark_virtual_ride(
-    http: &reqwest::Client,
-    config: &StravaConfig,
-    access_token: &str,
-    activity_id: u64,
-) -> Result<(), StravaError> {
-    let response = http
-        .put(format!("{}/api/v3/activities/{activity_id}", config.api_url))
-        .bearer_auth(access_token)
-        .json(&serde_json::json!({ "sport_type": "VirtualRide" }))
-        .send()
-        .await?;
-    if !response.status().is_success() {
-        return Err(StravaError::http("updating the activity", response.status()));
-    }
-    Ok(())
 }
 
 /// Asks Strava whether an upload became an activity yet.
@@ -226,11 +242,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn description_names_the_fork_and_links_to_the_server() {
-        assert_eq!(
-            description("https://ride.example.com"),
-            "GOCARMO Ride: https://ride.example.com"
-        );
+    fn description_names_the_fork_and_links_to_its_page() {
+        assert_eq!(description(), "GOCARMO Ride: https://gocarmo.com/ride/");
         assert_eq!(DEFAULT_ACTIVITY_NAME, "GOCARMO Ride");
     }
 

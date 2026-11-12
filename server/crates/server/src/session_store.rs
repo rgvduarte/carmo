@@ -110,11 +110,23 @@ impl SessionStore {
             params![
                 id_hash,
                 i64::try_from(account.athlete_id).unwrap_or(i64::MAX),
-                account.name,
+                // The column is kept for databases written by older versions;
+                // no Strava name is stored any more.
+                "",
                 account.can_upload,
                 sealed,
                 created_s
             ],
+        )?;
+        Ok(())
+    }
+
+    /// Deletes every session of the athlete.
+    pub fn remove_athlete(&self, athlete_id: u64) -> Result<(), StoreError> {
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        conn.execute(
+            "DELETE FROM strava_sessions WHERE athlete_id = ?1",
+            params![i64::try_from(athlete_id).unwrap_or(i64::MAX)],
         )?;
         Ok(())
     }
@@ -135,31 +147,22 @@ impl SessionStore {
     /// Every saved session. Rows that don't decrypt (the key changed) are
     /// dropped: those riders connect again.
     pub fn load(&self) -> Result<Vec<StoredSession>, StoreError> {
-        let rows: Vec<(String, i64, String, bool, Vec<u8>, i64)> = {
+        let rows: Vec<(String, i64, bool, Vec<u8>, i64)> = {
             let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
-            let mut statement = conn.prepare(
-                "SELECT id_hash, athlete_id, name, can_upload, refresh_token, created_s FROM strava_sessions",
-            )?;
+            let mut statement =
+                conn.prepare("SELECT id_hash, athlete_id, can_upload, refresh_token, created_s FROM strava_sessions")?;
             let rows = statement.query_map([], |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                ))
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
             })?;
             rows.collect::<Result<_, _>>()?
         };
         let mut sessions = Vec::new();
-        for (id_hash, athlete_id, name, can_upload, sealed, created_s) in rows {
+        for (id_hash, athlete_id, can_upload, sealed, created_s) in rows {
             match (self.decrypt(&sealed), u64::try_from(athlete_id)) {
                 (Some(refresh_token), Ok(athlete_id)) => sessions.push(StoredSession {
                     id_hash,
                     account: Account {
                         athlete_id,
-                        name,
                         can_upload,
                         access_token: String::new(),
                         refresh_token,
@@ -192,7 +195,6 @@ mod tests {
     fn account() -> Account {
         Account {
             athlete_id: 7,
-            name: "Leon F.".into(),
             can_upload: true,
             access_token: "live".into(),
             refresh_token: "refresh-secret".into(),
@@ -256,5 +258,28 @@ mod tests {
         assert_eq!(store.load().unwrap().len(), 1);
         store.remove_older_than(30).unwrap();
         assert!(store.load().unwrap().is_empty());
+    }
+
+    #[test]
+    fn no_strava_name_is_written_and_an_athlete_is_removed_whole() {
+        let store = store("k");
+        store.save("a", &account(), 10).unwrap();
+        store.save("b", &account(), 20).unwrap();
+        let other = Account {
+            athlete_id: 8,
+            ..account()
+        };
+        store.save("c", &other, 20).unwrap();
+        let names: Vec<String> = {
+            let conn = store.conn.lock().unwrap();
+            let mut statement = conn.prepare("SELECT name FROM strava_sessions").unwrap();
+            let rows = statement.query_map([], |r| r.get(0)).unwrap();
+            rows.collect::<Result<_, _>>().unwrap()
+        };
+        assert!(names.iter().all(String::is_empty), "{names:?}");
+        store.remove_athlete(7).unwrap();
+        let left = store.load().unwrap();
+        assert_eq!(left.len(), 1);
+        assert_eq!(left[0].account.athlete_id, 8);
     }
 }

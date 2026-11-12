@@ -15,7 +15,7 @@
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Mutex};
 
 /// Classic token bucket: `capacity` tokens, refilled at `per_second`.
@@ -150,6 +150,20 @@ pub fn platform_client_ip<'a>(values: impl IntoIterator<Item = &'a str>) -> Opti
     let ip = values.next()?.trim().parse::<IpAddr>().ok()?;
     // `::ffff:203.0.113.9` and `203.0.113.9` are one client.
     values.next().is_none().then(|| ip.to_canonical())
+}
+
+/// The key the limit of connections per address counts by: an IPv4 address
+/// as it is, an IPv6 address by its /64 network. One home or one server
+/// holds a whole /64 and can pick any address in it, so counting IPv6
+/// addresses one by one would be no limit at all.
+pub fn ip_bucket(ip: IpAddr) -> IpAddr {
+    match ip.to_canonical() {
+        IpAddr::V6(v6) => {
+            let [a, b, c, d, ..] = v6.segments();
+            IpAddr::V6(Ipv6Addr::new(a, b, c, d, 0, 0, 0, 0))
+        }
+        v4 => v4,
+    }
 }
 
 /// True if `presented` is the `expected` secret. Takes the same time wherever
@@ -341,5 +355,17 @@ mod tests {
         assert!(origin_allowed(Some("https://RIDE.example.com/"), &allowed));
         assert!(!origin_allowed(Some("https://evil.example"), &allowed));
         assert!(!origin_allowed(None, &allowed));
+    }
+
+    #[test]
+    fn ipv6_addresses_count_by_their_64_network_and_ipv4_by_the_address() {
+        let ip = |text: &str| text.parse::<IpAddr>().unwrap();
+        assert_eq!(ip_bucket(ip("2001:db8:1:2::1:2")), ip_bucket(ip("2001:db8:1:2::1:3")));
+        assert_eq!(ip_bucket(ip("2001:db8:1:2:ffff:ffff:ffff:ffff")), ip("2001:db8:1:2::"));
+        assert_ne!(ip_bucket(ip("2001:db8:1:2::1")), ip_bucket(ip("2001:db8:1:3::1")));
+        assert_eq!(ip_bucket(ip("203.0.113.9")), ip("203.0.113.9"));
+        assert_ne!(ip_bucket(ip("203.0.113.9")), ip_bucket(ip("203.0.113.10")));
+        // An IPv4 client seen through an IPv6 socket is still that IPv4 address.
+        assert_eq!(ip_bucket(ip("::ffff:203.0.113.9")), ip("203.0.113.9"));
     }
 }

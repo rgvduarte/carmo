@@ -20,7 +20,9 @@ says otherwise.
 | `OPENRADLR_SEND_BUFFER_BYTES` | empty (the system decides) | Kernel send buffer of every client connection, 4096 to 16777216. A client that stops reading then holds this much kernel memory (Linux accounts about twice the value) instead of up to 4 MB, and is closed sooner. | Too small slows the first page load on slow, distant links. 131072 was used in the tests below. |
 | `OPENRADLR_METRICS_TOKEN` | empty | `/internal/metrics` answers only requests with `Authorization: Bearer <token>` (at least 16 characters, no spaces). | Changed default, see "Metrics". Keep the token out of the repository. |
 | `OPENRADLR_OBN_APP_ID` | none | The app id the server says `hello` with to an OpenBikeNet server. Needed with `OPENRADLR_OBN_URL`; there is no default. | See "Identity". |
-| `OPENRADLR_STRAVA_LIMITED` | `true` | Whether Strava still limits how many athletes may connect to this server's Strava application. The server only reports it in `/api/info` (`strava.limited`); while it is true the client tells riders about the limit and offers the `.fit` file before "Connect with Strava". | Set to `false` too early, riders are sent to a Strava page that refuses them. |
+| `OPENRADLR_STRAVA_LIMITED` | `true` | Whether Strava still limits how many athletes may connect to this server's Strava application. The server only reports it in `/api/info` (`strava.limited`); while it is true the client tells riders about the limit and offers the `.fit` file before "Connect with Strava". `owner`: only the application's owner can connect (a new application's one athlete); `/api/info` also says `strava.owner_only: true`, the game shows no "Connect with Strava" button at all and offers everyone the `.fit` file, and the owner connects by opening `/auth/strava` himself. | Set to `false` too early, riders are sent to a Strava page that refuses them. |
+| `OPENRADLR_STRAVA_WEBHOOK_TOKEN` | empty | The secret part of the address of Strava's webhook, `/auth/strava/webhook/<token>`, and the `verify_token` of the subscription (at least 16 letters, digits, `-` or `_`). With it the server answers Strava's subscription check and forgets an athlete the moment they withdraw this server's access in Strava's settings. Empty: no webhook route. | Strava's events are not signed: only the secret address keeps others from sending one. Keep it out of the repository. |
+| `OPENRADLR_MAX_CONNECTIONS` | four per seat (`4 × (MAX_PLAYERS + MAX_PADDLE_PLAYERS)`) | Open game connections in all; one more is answered `503`. Bounds the memory many addresses together can take. | Too small refuses riders on a busy day. |
 | `OPENRADLR_SERVER_NAME` | `GOCARMO Ride` (was `OpenRadlr`) | Unchanged otherwise. | |
 
 `docker-compose.yml` hands the container a fixed list of variables. The new
@@ -45,6 +47,19 @@ also holds for `OPENRADLR_ALLOWED_ORIGINS`, where upstream accepted anything
   instead of "try again". See "Strava".
 - **Identity**: the server no longer calls itself OpenRadlr to Strava or to an
   OpenBikeNet server. See "Identity".
+- **Game connections** take at most 16 KiB per frame as well as per message
+  (upstream: a frame of up to 16 MiB was read whole before the message limit
+  was checked) and read in 4 KiB chunks (upstream: 128 KiB). An idle
+  connection costs about 16 kB instead of about 140 kB, and a client that
+  announces a huge frame is closed at its header.
+- **The per-address limit** counts an IPv6 address by its /64 network: one
+  home or one server holds a whole /64 and could otherwise take every seat.
+- **HTTPS**: with an `https://` `OPENRADLR_PUBLIC_URL` every answer carries
+  `Strict-Transport-Security: max-age=31536000` (this host only, no
+  `includeSubDomains`).
+- **The build label** (`/api/info` `build.sha`): when the image was built
+  without `OPENRADLR_BUILD_SHA`, Render's `RENDER_GIT_COMMIT`, which Render
+  sets at run time, names the commit.
 - **`/api/me`** answers `204` with no body to a browser that sends no session
   cookie (upstream: `401`). The page asks it on every load, and a `401` there
   is a red line in every visitor's console. A cookie whose login is gone
@@ -88,9 +103,21 @@ rider would share the four connections of one address. Set
 | a host behind Cloudflare | `CF-Connecting-IP` | not tested; confirm in the host's documentation |
 | your own Caddy or nginx on a VPS | none: use `OPENRADLR_TRUST_PROXY=true` | upstream's behaviour |
 
-The per-IP limit (`OPENRADLR_MAX_CONNECTIONS_PER_IP`, default 4) counts one
-IPv6 address, not a network, and mobile operators put many customers behind
-one IPv4 address. For a public pilot 8 is a safer value than 4.
+The per-IP limit (`OPENRADLR_MAX_CONNECTIONS_PER_IP`, default 4) counts an
+IPv6 address by its /64 network, and mobile operators put many customers
+behind one IPv4 address. For a public pilot 8 is a safer value than 4.
+
+When `OPENRADLR_CLIENT_IP_HEADER` is set and an upgrade request arrives
+without it, the server logs once: `OPENRADLR_CLIENT_IP_HEADER is set but this
+upgrade request did not carry it`. Then every rider counts as the proxy's
+address and the ninth is refused (`429`). Look for that line in the host's
+log on the first day.
+
+The game port (8080 in the image) must never be reachable from the internet
+without the platform's proxy or Caddy in front of it: the server has no
+timeout for reading a request's headers, which those proxies provide (a
+thousand half-sent requests stayed open for 40 s in a test), and the client
+address header would be believed from anyone.
 
 ## Stalled clients
 
@@ -189,6 +216,41 @@ of the FIT file as a virtual ride with positions that draw a map, and `.fit`,
   more. Until then everybody else downloads the `.fit` file and uploads it on
   strava.com by hand.
 - Rides on the simulated trainer or the phone paddles are not uploaded.
+
+What the fork changed in the Strava routes:
+
+- **Disconnect** (`POST /auth/logout`) withdraws the server's access on
+  Strava (`POST /oauth/revoke`, HTTP Basic with the application's id and
+  secret, read on developers.strava.com on 12.11.2026), which frees the
+  athlete's place in the application's athlete limit, and forgets every
+  session of the athlete on every device, in memory and on disk. It answers
+  `{"revoked": true|false, "removed": n}`; the game shows the rider a written
+  confirmation from it. Upstream only forgot the one session.
+- **Withdrawn on Strava**: with `OPENRADLR_STRAVA_WEBHOOK_TOKEN` the server
+  learns it from Strava's webhook and forgets the athlete at once. The
+  subscription is made once by the owner (see `gocarmo-deploy.md`). A free host
+  asleep at that moment misses the event; its memory was emptied by the
+  sleep anyway.
+- **No Strava name** is kept: `/api/me` answers `{"athlete_id", "can_upload"}`,
+  and the database column of older versions gets an empty value. The server
+  log no longer writes the athlete number when an account connects.
+- **Uploads** go up with `sport_type=VirtualRide` for a ride on a route (a
+  class in the studio, `?kind=class`, keeps the file's own type); upstream
+  changed the activity with a second call once it existed. The `external_id`
+  is made from the ride's start (`?start=`, Unix seconds) when the client
+  sends it, so a second attempt at one ride carries the same id. The
+  description is `GOCARMO Ride: https://gocarmo.com/ride/`.
+- **Strava's answers**: `429` from Strava becomes `429` `strava_busy` with
+  `Retry-After` (seconds to the next quarter hour); `400`, `403`, `404`, `409`
+  and `422` become `422` `strava_refused`. Only no answer or Strava's own
+  failure stays `502`, where the rider checks Strava before sending again.
+- **Only the game's own pages** may upload, disconnect or claim a login:
+  a request whose `Sec-Fetch-Site` is not `same-origin`, or whose `Origin` is
+  not the origin of `OPENRADLR_PUBLIC_URL`, gets `403` `foreign_page`.
+  gocarmo.com and every host under it are the same site as ride.gocarmo.com,
+  so the browser would send the rider's cookie with their requests too. A
+  request with two session cookies (another host of the domain can plant one
+  with a longer path, which the browser sends first) counts as signed out.
 
 ### Logins without a disk
 

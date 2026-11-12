@@ -83,9 +83,18 @@ impl BuildInfo {
     }
 
     pub fn from_env() -> Self {
+        Self::from_lookup(|key| std::env::var(key).ok())
+    }
+
+    /// `OPENRADLR_BUILD_SHA` (the Docker build writes it); when that is
+    /// missing or `dev`, Render's own `RENDER_GIT_COMMIT`, which Render sets
+    /// at run time on every deploy: the running commit is known even when the
+    /// build did not get it as a build argument.
+    pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Self {
+        let given = lookup("OPENRADLR_BUILD_SHA").filter(|sha| !matches!(sha.trim(), "" | "dev"));
         Self::new(
-            std::env::var("OPENRADLR_BUILD_SHA").ok(),
-            std::env::var("OPENRADLR_BUILD_DATE").ok(),
+            given.or_else(|| lookup("RENDER_GIT_COMMIT")),
+            lookup("OPENRADLR_BUILD_DATE"),
         )
     }
 }
@@ -139,5 +148,25 @@ mod tests {
         assert_eq!(blank.sha, "dev");
         let set = BuildInfo::new(Some("3f2a9c1\n".into()), Some("2026-10-16T09:12Z".into()));
         assert_eq!((set.sha.as_str(), set.date.as_str()), ("3f2a9c1", "2026-10-16T09:12Z"));
+    }
+
+    #[test]
+    fn render_s_commit_names_the_build_when_the_image_does_not() {
+        let build = |pairs: &[(&str, &str)]| {
+            BuildInfo::from_lookup(|key| pairs.iter().find(|(k, _)| *k == key).map(|(_, v)| (*v).to_owned())).sha
+        };
+        let render = "0123456789abcdef0123456789abcdef01234567";
+        assert_eq!(
+            build(&[("OPENRADLR_BUILD_SHA", "dev"), ("RENDER_GIT_COMMIT", render)]),
+            render
+        );
+        assert_eq!(build(&[("RENDER_GIT_COMMIT", render)]), render);
+        assert_eq!(
+            build(&[("OPENRADLR_BUILD_SHA", "3f2a9c1"), ("RENDER_GIT_COMMIT", render)]),
+            "3f2a9c1",
+            "the image's own label wins"
+        );
+        assert_eq!(build(&[("OPENRADLR_BUILD_SHA", "dev")]), "dev");
+        assert_eq!(build(&[]), "dev");
     }
 }

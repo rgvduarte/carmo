@@ -52,13 +52,15 @@ kill_timeout = 30
   OPENRADLR_ALLOW_SIMULATED_TRAINER = "true"
   OPENRADLR_ALLOW_PADDLE_MODE = "true"
 
-  # true while Strava limits how many athletes may connect to the application:
-  # the game then offers the .fit file first.             (new in GOCARMO Ride)
-  OPENRADLR_STRAVA_LIMITED = "true"
+  # owner while only the application's owner can connect (a new application):
+  # no "Connect with Strava" button, everyone gets the .fit file. true while
+  # Strava limits the application to ten athletes. false once Strava has
+  # approved more.                                        (new in GOCARMO Ride)
+  OPENRADLR_STRAVA_LIMITED = "owner"
 
-  # Strava is off: its three values are Fly secrets, never written here
+  # Strava is off: its values are Fly secrets, never written here
   # (OPENRADLR_STRAVA_CLIENT_ID, OPENRADLR_STRAVA_CLIENT_SECRET,
-  # OPENRADLR_SECRET_KEY; see the guide). OpenBikeNet is off:
+  # OPENRADLR_SECRET_KEY, OPENRADLR_STRAVA_WEBHOOK_TOKEN; see the guide). OpenBikeNet is off:
   # OPENRADLR_OBN_URL is not set.
 
 [http_service]
