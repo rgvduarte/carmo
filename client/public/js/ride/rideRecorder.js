@@ -153,9 +153,10 @@ export class RideRecorder {
 
   /**
    * The ride as TCX, with positions where the sample has one.
-   * @param {{name?: string, splits?: object[]}} [options] `splits` (see ride/splits.js): one `<Lap>` each, one lap over the whole ride without
+   * @param {{name?: string, splits?: object[], credit?: ?string}} [options] `splits` (see ride/splits.js): one `<Lap>` each, one lap over the whole ride without;
+   *   `credit`: the notice the route's data asks for (view/rideCardModel.js `routeDataCredit`), on its own line in `<Notes>` under the name
    */
-  toTcx({ name = APP_NAME, splits = [] } = {}) {
+  toTcx({ name = APP_NAME, splits = [], credit = null } = {}) {
     if (this.samples.length === 0) throw new Error("nothing recorded yet");
     const start = iso(this.samples[0].t);
     const summary = this.summary();
@@ -190,7 +191,7 @@ export class RideRecorder {
 <TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:ns3="http://www.garmin.com/xmlschemas/ActivityExtension/v2">
 <Activities><Activity Sport="Biking"><Id>${start}</Id>
 ${laps.join("\n")}
-<Notes>${xmlEscape(name)}</Notes>
+<Notes>${xmlEscape(credit ? `${name}\n${credit}` : name)}</Notes>
 <Creator xsi:type="Device_t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Name>${APP_NAME}</Name></Creator>
 </Activity></Activities>
 </TrainingCenterDatabase>
@@ -200,16 +201,19 @@ ${laps.join("\n")}
   /**
    * The ride as GPX 1.1. Power uses the `<power>` extension Strava reads,
    * heart rate and cadence Garmin's TrackPointExtension. Samples without a
-   * position are left out.
-   * @param {{name?: string}} [options]
+   * position are left out. `credit`, the notice the route's data asks for
+   * (view/rideCardModel.js `routeDataCredit`), is the file's and the track's
+   * `<desc>`.
+   * @param {{name?: string, credit?: ?string}} [options]
    */
-  toGpx({ name = APP_NAME } = {}) {
+  toGpx({ name = APP_NAME, credit = null } = {}) {
     if (this.samples.length === 0) throw new Error("nothing recorded yet");
     const located = this.segments()
       .map((segment) => segment.filter(hasPosition))
       .filter((segment) => segment.length > 0);
     if (located.length === 0) throw new Error("the ride has no positions");
     const title = xmlEscape(name);
+    const desc = credit ? `<desc>${xmlEscape(credit)}</desc>` : "";
     const trackpoints = (samples) =>
       samples
         .map((p) => {
@@ -228,8 +232,8 @@ ${laps.join("\n")}
     const trackSegments = located.map((segment) => `<trkseg>\n${trackpoints(segment)}\n</trkseg>`).join("\n");
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="${APP_NAME}" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
-<metadata><name>${title}</name><time>${iso(this.samples[0].t)}</time></metadata>
-<trk><name>${title}</name><type>VirtualRide</type>${trackSegments}</trk>
+<metadata><name>${title}</name>${desc}<time>${iso(this.samples[0].t)}</time></metadata>
+<trk><name>${title}</name>${desc}<type>VirtualRide</type>${trackSegments}</trk>
 </gpx>
 `;
   }

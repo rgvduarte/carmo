@@ -30,7 +30,8 @@ use Strava's API should remove this folder and the three links to it in
 - No other part of a Strava logo is in the game: no mark next to a text, no
   icon, nothing on the ride image; no control of the game's own is drawn in
   Strava's orange.
-- A link to something on Strava reads "View on Strava" (in the rider's
-  language) and is told apart by its weight and underline.
+- A link to something on Strava reads "View on Strava", in English in every
+  language of the game (Strava's Brand Guidelines give that wording), and is
+  told apart by its weight and underline.
 - The word Strava is plain text in sentences that say what the game does with
   it, never larger than the text around it and never part of the game's name.

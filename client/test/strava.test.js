@@ -49,6 +49,17 @@ test("the upload tells the server a class from a route and the ride's start, in 
   assert.equal(calls[1].url, "/api/strava/upload?name=R&start=1794500000");
 });
 
+test("the upload names the route, so the server can add the notice of a route made from others' data", async () => {
+  const { strava, calls } = client([reply(200, { id: 9 }), reply(200, { id: 10 }), reply(200, { id: 11 })]);
+  await strava.upload(new Uint8Array([1]), "L", { kind: "route", start: 1794500000000, route: "lanzarote-lava-180" });
+  assert.equal(calls[0].url, "/api/strava/upload?name=L&start=1794500000&route=lanzarote-lava-180");
+  await strava.upload(new Uint8Array([1]), "R", { route: "a b&c" });
+  assert.equal(calls[1].url, "/api/strava/upload?name=R&route=a%20b%26c");
+  // A class, or a ride without a route: no route in the query.
+  await strava.upload(new Uint8Array([1]), "S", { kind: "class", route: null });
+  assert.equal(calls[2].url, "/api/strava/upload?name=S&kind=class");
+});
+
 test("disconnecting resolves with what the server did, for the rider's confirmation", async () => {
   const { strava } = client([reply(200, { revoked: true, removed: 2 }), reply(403, { code: "foreign_page" })]);
   assert.deepEqual(await strava.logout(), { revoked: true, removed: 2 });

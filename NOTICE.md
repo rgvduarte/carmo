@@ -9,6 +9,7 @@ indoor-cycling game.
 | Maintainer of the fork | GOCARMO (gocarmo.com) |
 | Based on | OpenRadlr, <https://github.com/Lethonium/OpenRadlr>, at commit `2b09a79` (`2b09a79b34b8fb0d2f7c81d3a7acb150b8e23190`) |
 | Copyright of the original | © The OpenRadlr contributors |
+| Copyright of the changes made by this fork | © 2026 Gonçalo Carmo, AGPL-3.0-or-later |
 | Modified from | 12.11.2026 (2026-11-12) |
 | Source code of this fork | <https://github.com/rgvduarte/carmo/tree/gocarmo-ride> |
 | GOCARMO artwork (added by this fork) | © Gonçalo Carmo, CC BY-SA 4.0; the name and the use as a brand are reserved (see "The GOCARMO name and symbol") |
@@ -47,7 +48,8 @@ and, beside them, a direct link "Código-fonte" / "Source code". Ride menu: Sett
 "Credits and licences", with the same direct link beside the button. Both
 buttons open the same dialog: fork name, maintainer, "based on OpenRadlr,
 © The OpenRadlr contributors, AGPL-3.0-or-later licence", that it is a
-modified version of which commit and since when, that it is not the official
+modified version of which commit and since when, who holds the copyright of
+the changes, that it is not the official
 OpenRadlr, what a rider may do with it (use, change, share, under the GNU
 AGPL version 3 or later), no warranty, and links to this fork's source code,
 to the original project, to the licence text and to this notice.
@@ -392,6 +394,28 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   only on numbers; keyboard hints hidden on touch screens; the Strava offer
   as one block; several Portuguese texts reworded.
 
+### 12.11.2026 — map data credit in ride files and on Strava, copyright line, a correction
+
+- **Credit in what leaves the game** (`js/ride/rideRecorder.js`, `main.js`,
+  `js/net/strava.js`, `js/view/stravaUploadView.js`, `js/i18n/`; server
+  `strava_api.rs`, `auth.rs`): a ride on Lanzarote Lava 180 carries the
+  OpenStreetMap and Copernicus notice (ODbL 1.0, section 4.3; the Copernicus
+  DEM licence) in the downloaded `.tcx` file (`<Notes>`, on a line under the
+  name) and `.gpx` file (`<desc>` of the file and of the track), and in the
+  description of the activity the game sends to Strava, after a blank line.
+  The client sends the route's id; the server takes the notice from its own
+  fixed list, in the same words as the client's `ROUTE_DATA_CREDIT` (a test
+  compares them), and adds nothing for any other route. The note before
+  sending says so. The `.fit` file has no standard field for such a text and
+  gets none: a `.fit` file uploaded by hand relies on the credit in the game
+  and on the ride image. The files of the other routes are unchanged.
+- **Copyright of the changes**: "© 2026 Gonçalo Carmo" in the table at the
+  top, in the README and in the About dialog (`about.modified`).
+- **Correction**: `client/public/strava/README.md` and
+  `docs/gocarmo-strava.md` said that the "View on Strava" link is translated.
+  It is not: the game shows it in English in all three languages, on purpose,
+  because Strava's Brand Guidelines give that wording.
+
 ## Third-party material added by this fork
 
 - **Fonts** in `client/public/fonts/`: Anton (© The Anton Project Authors),
@@ -423,7 +447,9 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   COPERNICUS by the European Union and ESA; all rights reserved. The same
   credit shows in the game's About dialog (`about.data`), and on the ride
   image and the ride photos of that route (`ROUTE_DATA_CREDIT` in
-  `client/public/js/view/rideCardModel.js`), which leave the game. The road
+  `client/public/js/view/rideCardModel.js`), in its `.tcx` and `.gpx` files
+  and in the description of its activities sent to Strava, all of which leave
+  the game (the `.fit` file has no field for it). The road
   geometry in these files stays under the Open Database License 1.0
   (<https://opendatacommons.org/licenses/odbl/1-0/>), not under the AGPL; the
   elevation under the Copernicus DEM licence.

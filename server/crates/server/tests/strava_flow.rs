@@ -373,6 +373,19 @@ async fn an_upload_names_the_fork_and_becomes_a_virtual_ride() {
     assert_eq!(upload(addr, "", &session).await.status, 200);
     // A class in the studio is no virtual ride on a map.
     assert_eq!(upload(addr, "?name=Class&kind=class", &session).await.status, 200);
+    // A route made from others' data, and one the server does not know.
+    assert_eq!(
+        upload(addr, "?name=Lanzarote&route=lanzarote-lava-180", &session)
+            .await
+            .status,
+        200
+    );
+    assert_eq!(
+        upload(addr, "?name=Other&route=%3Cb%3Emade%20up%3C%2Fb%3E", &session)
+            .await
+            .status,
+        200
+    );
 
     let fake = fake.lock().unwrap();
     let uploads: Vec<_> = fake.requests.iter().filter(|(kind, ..)| kind == "upload").collect();
@@ -400,6 +413,17 @@ async fn an_upload_names_the_fork_and_becomes_a_virtual_ride() {
         "a class keeps the file's type"
     );
     assert!(body.contains("filename=\"gocarmo-ride.fit\""));
+    // The notice OpenStreetMap's and Copernicus's data ask for, after a blank
+    // line; an unknown route gets the plain description and is not echoed.
+    assert_eq!(
+        field(&uploads[3].2, "description"),
+        "GOCARMO Ride: https://gocarmo.com/ride/\n\n© OpenStreetMap contributors, ODbL · Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+    );
+    assert_eq!(
+        field(&uploads[4].2, "description"),
+        "GOCARMO Ride: https://gocarmo.com/ride/"
+    );
+    assert!(!uploads[4].2.contains("made up"));
     assert_eq!(field(&uploads[1].2, "name"), "GOCARMO Ride");
     // Nothing Strava receives presents the server as upstream's.
     for (kind, headers, body) in &fake.requests {

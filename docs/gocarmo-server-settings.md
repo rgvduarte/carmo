@@ -186,8 +186,10 @@ A modified fork must not present itself as OpenRadlr.
 
 - Requests to Strava carry `User-Agent: GOCARMO-Ride/<version>
   (+https://gocarmo.com/ride/)`.
-- An uploaded activity's description is `GOCARMO Ride: <public URL>`; its name
-  is what the client sends, or `GOCARMO Ride`; the uploaded file is called
+- An uploaded activity's description is `GOCARMO Ride: <public URL>` (on a
+  route made from others' data, then a blank line and that data's notice:
+  see "Strava" below); its name is what the client sends, or `GOCARMO Ride`;
+  the uploaded file is called
   `gocarmo-ride.fit`; the `external_id` starts with `gocarmo-ride-`.
 - The default server name is `GOCARMO Ride`.
 - OpenBikeNet: the `hello` carries the name `GOCARMO Ride` and the page
@@ -239,7 +241,11 @@ What the fork changed in the Strava routes:
   changed the activity with a second call once it existed. The `external_id`
   is made from the ride's start (`?start=`, Unix seconds) when the client
   sends it, so a second attempt at one ride carries the same id. The
-  description is `GOCARMO Ride: https://gocarmo.com/ride/`.
+  description is `GOCARMO Ride: https://gocarmo.com/ride/`. With `?route=`
+  naming a route made from others' data (only `lanzarote-lava-180` today),
+  a blank line and the notice that data asks for follow (OpenStreetMap, ODbL
+  1.0 section 4.3, and the Copernicus DEM licence), taken from a fixed list
+  in `strava_api.rs`; any other value adds nothing and is not echoed.
 - **Strava's answers**: `429` from Strava becomes `429` `strava_busy` with
   `Retry-After` (seconds to the next quarter hour); `400`, `403`, `404`, `409`
   and `422` become `422` `strava_refused`. Only no answer or Strava's own

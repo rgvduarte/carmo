@@ -99,7 +99,7 @@ export class StravaUpload {
 
   /**
    * Explicit user action only; a known upload is checked instead of submitted.
-   * `query` is what the server is told about the ride ({kind, start}, see StravaClient.upload).
+   * `query` is what the server is told about the ride ({kind, start, route}, see StravaClient.upload).
    */
   run(makeFile, name, { resubmit = false, query = {} } = {}) {
     if (this.#running) return this.#running;

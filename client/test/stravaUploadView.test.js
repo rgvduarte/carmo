@@ -239,5 +239,26 @@ test("next to every connect button: what connecting keeps; before sending: the n
   assert.equal(sending.note.hidden, false);
   assert.match(sending.note.textContent, /GOCARMO Ride · Col de la Forge/);
   assert.match(sending.note.textContent, /gocarmo\.com\/ride/);
+  assert.equal(sending.note.textContent, t("strava.sendNote", { name: "GOCARMO Ride · Col de la Forge" }));
   second.dispose();
+});
+
+test("before sending a ride on a route made from others' data, the note says the description carries their credit", async () => {
+  const receipts = new UploadReceipts({ storage: { getItem: () => null, setItem() {} } });
+  const seen = [];
+  const client = { upload: async (_file, _name, query) => { seen.push(query); return { id: 9, activity_id: 4 }; } };
+  const name = "GOCARMO Ride · Lanzarote Lava 180";
+  const els = { ...elements(), consent: { hidden: false }, note: { hidden: true, textContent: "" } };
+  const query = { kind: "route", start: 1794500000000, route: "lanzarote-lava-180" };
+  const binding = bindStravaUpload({ elements: els, client, receipts, key: "7:3", account, makeFile: () => "fit", name, query });
+  assert.equal(els.note.hidden, false);
+  assert.equal(els.note.textContent, t("strava.sendNoteCredit", { name }));
+  assert.notEqual(t("strava.sendNoteCredit", { name }), t("strava.sendNote", { name }));
+  await els.action.click();
+  assert.deepEqual(seen, [query], "the route goes to the server with the upload");
+  binding.dispose();
+  const other = { ...elements(), consent: { hidden: false }, note: { hidden: true, textContent: "" } };
+  const plain = bindStravaUpload({ elements: other, client: {}, receipts, key: "7:4", account, name, query: { kind: "route", route: "rolling-hills" } });
+  assert.equal(other.note.textContent, t("strava.sendNote", { name }));
+  plain.dispose();
 });

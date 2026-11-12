@@ -73,6 +73,11 @@ test("a link to something on Strava reads View on Strava and is told apart by we
   // Strava's Brand Guidelines ask for these very words and say nothing of translations: the same in every language,
   // like Strava's own button.
   for (const dictionary of [en, pt, de]) assert.equal(dictionary["strava.view"], "View on Strava");
+  // And the notes that describe the game say so: no translation of it is claimed.
+  for (const doc of [read("strava/README.md"), readFileSync(join(PUBLIC, "../../docs/gocarmo-strava.md"), "utf8")]) {
+    assert.doesNotMatch(doc, /Ver no Strava|Auf Strava ansehen|in the rider's\s+language/);
+    assert.match(doc, /"View on Strava"[\s\S]{0,120}\bEnglish\b/);
+  }
   const links = [...html.matchAll(/<a\b[^>]*class="strava-view"[^>]*>/g)].map((m) => m[0]);
   assert.equal(links.length, 2);
   for (const link of links) {

@@ -8,7 +8,7 @@
 //! | `POST /auth/strava/app/claim`  | The app's web view takes the new session      |
 //! | `POST /auth/logout`            | Withdraw the access on Strava, forget the athlete |
 //! | `GET /api/me`                  | The connected account, 204 or 401             |
-//! | `POST /api/strava/upload`      | Upload a FIT or TCX ride (body), `?name=`, `?kind=class`, `?start=` |
+//! | `POST /api/strava/upload`      | Upload a FIT or TCX ride (body), `?name=`, `?kind=class`, `?start=`, `?route=` |
 //! | `GET /api/strava/upload/{id}`  | Whether Strava finished processing it         |
 //! | `GET/POST /auth/strava/webhook/{token}` | Strava's webhook: an athlete withdrew access |
 //!
@@ -509,6 +509,9 @@ pub struct UploadQuery {
     /// When the ride started (Unix seconds), so a second attempt at the same
     /// ride carries the same `external_id`.
     pub start: Option<i64>,
+    /// The route's id. Only picks a notice from a fixed list
+    /// ([`strava_api::route_data_credit`]); it is never written anywhere.
+    pub route: Option<String>,
 }
 
 /// Seconds until Strava's next quarter hour, when its 15-minute request
@@ -611,7 +614,7 @@ pub async fn upload(
         ride,
         kind,
         &name,
-        &strava_api::description(),
+        &strava_api::description(query.route.as_deref()),
         &external_id,
     )
     .await

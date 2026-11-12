@@ -203,13 +203,16 @@ export class StravaClient {
    * Strava's upload status ({id, status, error, activity_id}). `kind` "class"
    * is a class in the studio (no virtual ride on a map); `start` is the
    * ride's first sample in epoch ms, so every attempt at one ride carries one
-   * id on Strava.
+   * id on Strava; `route` is the route's id, from which the server adds the
+   * notice a route made from others' data asks for (its own fixed list) to
+   * the description.
    */
-  async upload(file, name, { kind = "route", start = null } = {}) {
+  async upload(file, name, { kind = "route", start = null, route = null } = {}) {
     const fit = typeof file !== "string";
     let query = `name=${encodeURIComponent(name)}`;
     if (kind === "class") query += "&kind=class";
     if (Number.isFinite(start)) query += `&start=${Math.floor(start / 1000)}`;
+    if (typeof route === "string" && route) query += `&route=${encodeURIComponent(route)}`;
     const response = await this.fetch(`/api/strava/upload?${query}`, {
       method: "POST",
       credentials: "same-origin",

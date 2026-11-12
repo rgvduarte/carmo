@@ -145,13 +145,40 @@ impl RideFile {
     }
 }
 
+/// Routes made from third parties' data, and the notice their licences ask for
+/// on every work produced from that data and shown to the public (OpenStreetMap:
+/// ODbL 1.0, section 4.3; the elevation: the Copernicus DEM licence, its
+/// wording for adapted data). A fixed list: the client names the route, and
+/// only a route listed here adds text to the description. Word for word the
+/// same as `ROUTE_DATA_CREDIT` in `client/public/js/view/rideCardModel.js`
+/// (a test compares the two).
+const ROUTE_DATA_CREDIT: &[(&str, &str)] = &[(
+    "lanzarote-lava-180",
+    "© OpenStreetMap contributors, ODbL · Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved",
+)];
+
+/// The notice a route's data asks for, or `None` for any other route, an
+/// unknown one or none.
+pub fn route_data_credit(route_id: Option<&str>) -> Option<&'static str> {
+    let route_id = route_id?;
+    ROUTE_DATA_CREDIT
+        .iter()
+        .find(|(known, _)| *known == route_id)
+        .map(|(_, credit)| *credit)
+}
+
 /// The activity description. Strava descriptions are plain text, but it turns
 /// full URLs into links: the fork's name and the page that explains the game
-/// (the address the Strava application lists as its website). It reads the
-/// same in every rider's language; the finish dialog tells the rider before
-/// sending.
-pub fn description() -> String {
-    format!("{}: {}", crate::APP_NAME, crate::APP_URL)
+/// (the address the Strava application lists as its website). A ride on a
+/// route made from others' data adds that data's notice after a blank line.
+/// It reads the same in every rider's language; the finish dialog tells the
+/// rider before sending. Nothing the client sends is copied into it.
+pub fn description(route_id: Option<&str>) -> String {
+    let base = format!("{}: {}", crate::APP_NAME, crate::APP_URL);
+    match route_data_credit(route_id) {
+        Some(credit) => format!("{base}\n\n{credit}"),
+        None => base,
+    }
 }
 
 /// The activity's name when the client sent none (it sends the route's name).
@@ -243,8 +270,68 @@ mod tests {
 
     #[test]
     fn description_names_the_fork_and_links_to_its_page() {
-        assert_eq!(description(), "GOCARMO Ride: https://gocarmo.com/ride/");
+        assert_eq!(description(None), "GOCARMO Ride: https://gocarmo.com/ride/");
         assert_eq!(DEFAULT_ACTIVITY_NAME, "GOCARMO Ride");
+    }
+
+    #[test]
+    fn a_ride_on_a_route_made_from_others_data_carries_their_notice() {
+        assert_eq!(
+            description(Some("lanzarote-lava-180")),
+            "GOCARMO Ride: https://gocarmo.com/ride/\n\n© OpenStreetMap contributors, ODbL · Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"
+        );
+        // Any other route, an unknown one or none: the description as before,
+        // and never the client's own words.
+        for other in [
+            None,
+            Some(""),
+            Some("rolling-hills"),
+            Some("Lanzarote-Lava-180"),
+            Some("lanzarote-lava-180 "),
+            Some("<b>made up</b>"),
+        ] {
+            assert_eq!(
+                description(other),
+                "GOCARMO Ride: https://gocarmo.com/ride/",
+                "{other:?}"
+            );
+        }
+        assert_eq!(route_data_credit(Some("rolling-hills")), None);
+    }
+
+    /// The client's `ROUTE_DATA_CREDIT`, as `"route": "notice",` lines.
+    fn client_route_data_credit() -> Vec<(String, String)> {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../client/public/js/view/rideCardModel.js"
+        );
+        let code = std::fs::read_to_string(path).unwrap();
+        let block = code
+            .split_once("export const ROUTE_DATA_CREDIT = Object.freeze({")
+            .unwrap()
+            .1
+            .split_once("});")
+            .unwrap()
+            .0;
+        block
+            .lines()
+            .filter_map(|line| {
+                let (id, rest) = line.trim().strip_prefix('"')?.split_once("\": \"")?;
+                let (credit, _) = rest.split_once("\",")?;
+                Some((id.to_owned(), credit.to_owned()))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_notices_are_word_for_word_the_clients() {
+        let client = client_route_data_credit();
+        assert!(!client.is_empty());
+        let server: Vec<(String, String)> = ROUTE_DATA_CREDIT
+            .iter()
+            .map(|(id, credit)| ((*id).to_owned(), (*credit).to_owned()))
+            .collect();
+        assert_eq!(server, client);
     }
 
     #[test]

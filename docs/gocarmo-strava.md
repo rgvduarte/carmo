@@ -75,8 +75,9 @@ It is forgotten when the account connects.
 
 ## What the client hands to Strava
 
-- `POST /api/strava/upload?name=<name>` to the game's own server, with the
-  session cookie; the body is the FIT file, `content-type: application/vnd.ant.fit`.
+- `POST /api/strava/upload?name=<name>&start=<seconds>&route=<route id>` to
+  the game's own server, with the session cookie (`&kind=class` and no route
+  for a class); the body is the FIT file, `content-type: application/vnd.ant.fit`.
 - `<name>` is `GOCARMO Ride · <route name>`; for an event
   `GOCARMO Ride race · <route>` or `GOCARMO Ride group ride · <route>`; for a
   class `GOCARMO Ride · Spin Studio · <class>`.
@@ -88,9 +89,22 @@ It is forgotten when the account connects.
 - Positions are in the virtual world at 39.0° N, 2.6° E (38.0° N, 2.6° E for
   Lanzarote Lava 180), as upstream defines them. The origin is not moved.
 - The client sends no description. The server adds its own, its file name and
-  its `external_id`; those are the server's strings.
+  its `external_id`; those are the server's strings. The description is
+  `GOCARMO Ride: https://gocarmo.com/ride/`. For a ride on a route made from
+  others' data (Lanzarote Lava 180: OpenStreetMap and Copernicus) the server
+  adds, after a blank line, the notice those licences ask for, from its own
+  fixed list keyed by the route's id (`ROUTE_DATA_CREDIT` in `strava_api.rs`,
+  word for word the client's, which a server test checks). An unknown or
+  missing route id adds nothing, and nothing the client sends is copied into
+  the description. Before sending, the dialog says so
+  (`strava.sendNoteCredit`).
 - Downloads: `gocarmo-ride-<date>-<time>-<route>.fit|tcx|gpx`; TCX
-  `<Creator><Name>GOCARMO Ride</Name>`, GPX `creator="GOCARMO Ride"`.
+  `<Creator><Name>GOCARMO Ride</Name>`, GPX `creator="GOCARMO Ride"`. On a
+  route made from others' data the TCX `<Notes>` has the same notice on a
+  line of its own under the name, and the GPX has it as the `<desc>` of the
+  file (`<metadata>`) and of the track; other routes' files are unchanged.
+  The FIT file has no standard field for such a text and gets none: a `.fit`
+  uploaded by hand relies on the credit in the game and on the ride image.
 
 A file uploaded by hand gives the activity no name: Strava names the activity
 itself, and the rider can rename it. What the file says of the game is its
@@ -109,9 +123,9 @@ creator (`product_name` in the FIT file, `Creator` in TCX, `creator` in GPX).
   its Strava lines and coloured its own buttons in Strava's orange; both are
   gone. The game's buttons are the game's.
 - **"View on Strava"** is the text of every link to something on Strava
-  (`strava.view`; "Ver no Strava", "Auf Strava ansehen"), bold and underlined.
-  The guidelines give the English wording only. If Strava asks for it in
-  English everywhere, change the two translations.
+  (`strava.view`), bold and underlined. It stays in English in Portuguese and
+  German too, on purpose: Strava's Brand Guidelines give that wording, and no
+  other.
 - **The name Strava** is plain text in sentences that say what the game does,
   never larger than the text around it, never part of the game's name.
 - **What Strava says about an account is shown to that rider only** (API

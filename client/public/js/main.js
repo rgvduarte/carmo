@@ -2801,7 +2801,7 @@ function initFinish() {
   $("back-to-start").addEventListener("click", () => leaveRide());
   $("download-tcx").addEventListener("click", () => {
     if (!canExportRide(app.trainer)) return;
-    const tcx = app.recorder.toTcx({ name: rideName(), splits: app.finishSplits });
+    const tcx = app.recorder.toTcx({ name: rideName(), splits: app.finishSplits, credit: routeDataCredit(app.rideRoute.id) });
     saveFiles([{ blob: new Blob([tcx], { type: "application/vnd.garmin.tcx+xml" }), name: rideFileName(app.recorder.samples[0].t, app.rideRoute.id) }]);
     rideKept();
   });
@@ -2812,7 +2812,7 @@ function initFinish() {
   });
   $("download-gpx").addEventListener("click", () => {
     if (!canExportRide(app.trainer)) return;
-    const gpx = app.recorder.toGpx({ name: rideName() });
+    const gpx = app.recorder.toGpx({ name: rideName(), credit: routeDataCredit(app.rideRoute.id) });
     saveFiles([{ blob: new Blob([gpx], { type: "application/gpx+xml" }), name: rideFileName(app.recorder.samples[0].t, app.rideRoute.id, "gpx") }]);
     rideKept();
   });
@@ -2981,7 +2981,7 @@ function saveFinishedSnapshot() {
 }
 
 /** The same panel renders a finished ride and a ride restored from browser recovery. */
-function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, onState, onConnect }) {
+function mountUpload(prefix, recorder, name, { indoor, routeId = null, splits = [], onSuccess, onState, onConnect }) {
   const action = prefix === "finish-strava" ? "upload-strava" : "unfinished-strava";
   const status = prefix === "finish-strava" ? "upload-status" : "unfinished-upload-status";
   const elements = Object.fromEntries(["account", "detail", "connect", "activity", "storage", "consent", "note"].map((part) => [part, document.getElementById(`${prefix}-${part}`)]));
@@ -2993,8 +2993,9 @@ function mountUpload(prefix, recorder, name, { indoor, splits = [], onSuccess, o
     account: app.stravaAccount,
     makeFile: () => recorder.toFit({ indoor, splits }),
     name,
-    // A class in the studio is no virtual ride on a map; the start gives every attempt at one ride one id on Strava.
-    query: { kind: indoor ? "class" : "route", start: recorder.samples[0].t },
+    // A class in the studio is no virtual ride on a map; the start gives every attempt at one ride one id on Strava;
+    // the route lets the server add the notice of a route made from others' data to the description.
+    query: { kind: indoor ? "class" : "route", start: recorder.samples[0].t, route: indoor ? null : routeId },
     canConnect: !stravaOwnerOnly(app.info),
     onSuccess,
     onState,
@@ -3011,7 +3012,7 @@ function setupFinishUpload() {
   const plan = renderFinishPlan(null);
   if (!plan.strava) return;
   app.finishUpload = mountUpload("finish-strava", recorder, rideName(), {
-    indoor: Boolean(app.studio), splits: app.finishSplits,
+    indoor: Boolean(app.studio), routeId: app.rideRoute.id, splits: app.finishSplits,
     onConnect: async () => {
       // In a frame the sign-in opens in another tab and this ride stays on screen: nothing to save first.
       if (app.framed) return goToStravaSignIn();
@@ -3046,7 +3047,7 @@ function setupRecoveryUpload() {
   $("discard-unfinished").textContent = t("unfinished.discard");
   if (!visible) return;
   app.recoveryUpload = Object.assign(mountUpload("unfinished-strava-panel", RideRecorder.from(snapshot.recorder), `${APP_NAME} · ${snapshot.routeName}`, {
-    indoor: snapshot.studio,
+    indoor: snapshot.studio, routeId: snapshot.routeId,
     onConnect: () => {
       // Back from the sign-in, this card opens again.
       if (!app.framed) app.connectMemory.leaveWithRide();

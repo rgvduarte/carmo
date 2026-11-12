@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { RideRecorder, rideFileName } from "../public/js/ride/rideRecorder.js";
+import { routeDataCredit } from "../public/js/view/rideCardModel.js";
 
 const T0 = Date.UTC(2026, 9, 14, 13, 30, 0);
 
@@ -80,6 +81,32 @@ test("GPX has a track point per sample with time, elevation, power, cadence and 
 test("GPX needs positions", () => {
   assert.throws(() => ride(3, { gps: false }).toGpx(), /position/);
   assert.throws(() => new RideRecorder().toGpx());
+});
+
+test("a route made from others' data puts their notice in the TCX notes and the GPX descriptions, escaped", () => {
+  const credit = routeDataCredit("lanzarote-lava-180");
+  assert.ok(credit.startsWith("© OpenStreetMap contributors, ODbL · Elevation produced using Copernicus WorldDEM-30"));
+  const name = "GOCARMO Ride · Lanzarote Lava 180";
+  const tcx = ride(3).toTcx({ name, credit });
+  assert.ok(tcx.includes(`<Notes>${name}\n${credit}</Notes>\n<Creator`), "the name, then the notice on a line of its own");
+  const gpx = ride(3).toGpx({ name, credit });
+  // GPX 1.1 order: metadata name, desc, …, time; trk name, cmt, desc, …, type.
+  assert.ok(gpx.includes(`<metadata><name>${name}</name><desc>${credit}</desc><time>2026-10-14T13:30:00Z</time></metadata>`));
+  assert.ok(gpx.includes(`<trk><name>${name}</name><desc>${credit}</desc><type>VirtualRide</type>`));
+  // A notice with markup characters cannot break the file.
+  assert.match(ride(2).toTcx({ credit: "A & B <c>" }), /<Notes>GOCARMO Ride\nA &amp; B &lt;c&gt;<\/Notes>/);
+  assert.match(ride(2).toGpx({ credit: "A & B <c>" }), /<desc>A &amp; B &lt;c&gt;<\/desc>/);
+});
+
+test("other routes' files are the same with or without the credit option", () => {
+  const name = "GOCARMO Ride · Rolling Hills";
+  const credit = routeDataCredit("rolling-hills");
+  assert.equal(credit, null);
+  assert.equal(ride(3).toTcx({ name, credit }), ride(3).toTcx({ name }));
+  assert.equal(ride(3).toGpx({ name, credit }), ride(3).toGpx({ name }));
+  assert.equal(ride(3).toTcx({ name, credit: undefined }), ride(3).toTcx({ name }));
+  assert.doesNotMatch(ride(3).toGpx({ name, credit }), /<desc>/);
+  assert.match(ride(3).toTcx({ name, credit }), new RegExp(`<Notes>${name}</Notes>`));
 });
 
 test("file names carry date, time, route and format", () => {

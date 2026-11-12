@@ -104,6 +104,18 @@ test("the credits say the licence in full words and that there is no warranty, i
   assert.match(html, /<a href="https:\/\/www\.openstreetmap\.org\/copyright"[^>]*data-i18n="about\.osm"/, "the map data credit links OpenStreetMap's copyright page");
 });
 
+test("the fork's own changes carry their copyright line, beside the original's, never in its place", () => {
+  const line = "© 2026 Gonçalo Carmo";
+  const notice = read("../../NOTICE.md");
+  assert.ok(notice.includes("| Copyright of the original | © The OpenRadlr contributors |"));
+  assert.ok(notice.includes(`| Copyright of the changes made by this fork | ${line}, AGPL-3.0-or-later |`));
+  assert.ok(read("../../README.md").includes(`are ${line}, under the same licence`));
+  for (const [name, dictionary] of [["en", en], ["de", de], ["pt", pt]]) {
+    assert.ok(dictionary["about.modified"].includes(line), `${name}: About names who holds the changes`);
+    assert.ok(dictionary["about.credit"].includes("© The OpenRadlr contributors"), `${name}: the original's notice stays`);
+  }
+});
+
 test("the GOCARMO artwork says whose it is: image files CC BY-SA 4.0, name and brand reserved", () => {
   const holder = "© Gonçalo Carmo, CC BY-SA 4.0";
   for (const [name, dictionary, reserved] of [["en", en, /name GOCARMO and its use as a brand are reserved/], ["de", de, /Name GOCARMO und seine Verwendung als Marke bleiben vorbehalten/], ["pt", pt, /nome GOCARMO e o seu uso como marca ficam reservados/]]) {

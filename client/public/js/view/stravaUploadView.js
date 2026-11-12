@@ -1,6 +1,7 @@
 import { t } from "../i18n/i18n.js";
 import { STRAVA_TRAINING_LOG, activityUrl } from "../net/strava.js";
 import { StravaUpload, plainError } from "../net/stravaUpload.js";
+import { routeDataCredit } from "./rideCardModel.js";
 
 /**
  * One state-appropriate action, shared by the summary and recovered ride.
@@ -78,9 +79,10 @@ export function bindStravaUpload({ elements, client, receipts, key, account, mak
     elements.connect.hidden = !view.connect;
     // What connecting means, next to every button that does it (Strava API Policy 2.1).
     if (elements.consent) elements.consent.hidden = !view.connect;
-    // Before sending: the name and the link the activity gets, which the rider can change on Strava.
+    // Before sending: the name and the link the activity gets, which the rider can change on Strava, and on a
+    // route made from others' data the notice the server adds to the description.
     if (elements.note) {
-      elements.note.textContent = t("strava.sendNote", { name });
+      elements.note.textContent = t(routeDataCredit(query.route) ? "strava.sendNoteCredit" : "strava.sendNote", { name });
       elements.note.hidden = !(account?.can_upload && state.code !== "not_connected" && (state.phase === "idle" || state.phase === "failed"));
     }
     // Strava's button is a picture of English words: its label is said in the rider's language.

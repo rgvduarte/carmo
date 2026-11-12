@@ -20,10 +20,14 @@ export const CARD_FORMATS = Object.freeze({
 
 /**
  * Routes made from third parties' data, and the notice their licences ask for
- * wherever that data is shown to the public: the ride image and the ride's
- * photos leave the game, so they carry it themselves (the About dialog covers
- * only the game). OpenStreetMap: ODbL 1.0, section 4.3; the elevation: the
- * Copernicus DEM licence, its wording for adapted data, word for word.
+ * wherever that data is shown to the public: the ride image, the ride's
+ * photos and the .tcx and .gpx files leave the game, so they carry it
+ * themselves (the About dialog covers only the game). OpenStreetMap: ODbL 1.0,
+ * section 4.3; the elevation: the Copernicus DEM licence, its wording for
+ * adapted data, word for word. The server keeps the same words for the
+ * description of a ride sent to Strava (`ROUTE_DATA_CREDIT` in
+ * server/crates/server/src/strava_api.rs; a server test compares the two):
+ * change both together.
  */
 export const ROUTE_DATA_CREDIT = Object.freeze({
   "lanzarote-lava-180": "© OpenStreetMap contributors, ODbL · Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved", // i18n-ok (a licence notice, kept as its owners wrote it)

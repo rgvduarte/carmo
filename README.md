@@ -11,7 +11,7 @@ with or endorsed by its authors.
 
 - **Licence**: GNU Affero General Public License, version 3 or (at your
   option) any later version. See [LICENSE](LICENSE). The changes of this fork
-  are under the same licence.
+  are © 2026 Gonçalo Carmo, under the same licence.
 - **What this fork changes, credits and third-party material**:
   [NOTICE.md](NOTICE.md).
 - **Source of the running game**: this branch, `gocarmo-ride`, of
