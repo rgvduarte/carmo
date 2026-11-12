@@ -74,8 +74,12 @@ pub struct Config {
     pub afk_reminder_s: f64,
     /// Seconds a rider has to answer a warning (no environment variable; for tests).
     pub afk_answer_s: f64,
-    /// WebSocket origins allowed to connect; empty allows all.
+    /// WebSocket origins allowed to connect; empty allows all. Pages on these
+    /// origins may also read the public JSON API from elsewhere (CORS).
     pub allowed_origins: Vec<String>,
+    /// Origins that may show the client in an `<iframe>` (`OPENRADLR_FRAME_ANCESTORS`);
+    /// empty forbids framing.
+    pub frame_ancestors: Vec<String>,
     /// The address riders use, e.g. `https://ride.example.com` (needed for Strava).
     pub public_url: Option<String>,
     /// "Connect with Strava", if a Strava API app is configured.
@@ -261,13 +265,8 @@ impl Config {
             "must be a finite number of seconds above 0",
         )?;
 
-        let allowed_origins: Vec<String> = reader
-            .raw("OPENRADLR_ALLOWED_ORIGINS")
-            .unwrap_or_default()
-            .split(',')
-            .map(|origin| origin.trim().trim_end_matches('/').to_owned())
-            .filter(|origin| !origin.is_empty())
-            .collect();
+        let allowed_origins = reader.origins("OPENRADLR_ALLOWED_ORIGINS")?;
+        let frame_ancestors = reader.origins("OPENRADLR_FRAME_ANCESTORS")?;
 
         let public_url = reader
             .raw("OPENRADLR_PUBLIC_URL")
@@ -437,6 +436,7 @@ impl Config {
             afk_reminder_s,
             afk_answer_s: 120.0,
             allowed_origins,
+            frame_ancestors,
             public_url,
             strava,
             data_dir,
@@ -479,6 +479,48 @@ impl Config {
     }
 }
 
+/// A web origin as browsers send it, in lower case: `scheme://host[:port]` and
+/// nothing else. Strict, because the lists are compared with `Origin` headers
+/// and written into a response header (`frame-ancestors`): no wildcard, no path,
+/// and no character that could start another directive or header.
+fn parse_origin(text: &str) -> Option<String> {
+    let origin = text.trim_end_matches('/').to_ascii_lowercase();
+    let (scheme, rest) = origin.split_once("://")?;
+    let scheme_ok = scheme.starts_with(|c: char| c.is_ascii_lowercase())
+        && scheme
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '+' | '-' | '.'));
+    let (host, port) = match rest.strip_prefix('[') {
+        // An IPv6 address in brackets.
+        Some(bracketed) => {
+            let (address, after) = bracketed.split_once(']')?;
+            address.parse::<std::net::Ipv6Addr>().ok()?;
+            match after.strip_prefix(':') {
+                Some(port) => (None, Some(port)),
+                None if after.is_empty() => (None, None),
+                None => return None,
+            }
+        }
+        None => match rest.split_once(':') {
+            Some((host, port)) => (Some(host), Some(port)),
+            None => (Some(rest), None),
+        },
+    };
+    let host_ok = host.is_none_or(|host| {
+        host.split('.').all(|label| {
+            !label.is_empty()
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        })
+    });
+    let port_ok = port
+        .is_none_or(|port| port.chars().all(|c| c.is_ascii_digit()) && port.parse::<u16>().is_ok_and(|port| port > 0));
+    (scheme_ok && host_ok && port_ok).then_some(origin)
+}
+
 struct Reader<'a> {
     lookup: &'a dyn Fn(&str) -> Option<String>,
 }
@@ -486,6 +528,26 @@ struct Reader<'a> {
 impl Reader<'_> {
     fn raw(&self, key: &str) -> Option<String> {
         (self.lookup)(key).map(|v| v.trim().to_owned())
+    }
+
+    /// A comma-separated list of origins; a malformed entry is an error, so a
+    /// typing mistake never becomes a list that silently matches nothing.
+    fn origins(&self, key: &'static str) -> Result<Vec<String>, ConfigError> {
+        self.raw(key)
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+            .map(|entry| {
+                parse_origin(entry).ok_or_else(|| ConfigError {
+                    key,
+                    value: entry.to_owned(),
+                    reason: "must be a list of origins like https://ride.example.com, separated by commas \
+                             (scheme://host[:port]; no path, no wildcard)"
+                        .into(),
+                })
+            })
+            .collect()
     }
 
     fn parse<T: FromStr>(&self, key: &'static str, default: T) -> Result<T, ConfigError> {
@@ -766,6 +828,65 @@ mod tests {
             config(&[("OPENRADLR_MAX_CONNECTIONS_PER_IP", "0")]).unwrap_err().key,
             "OPENRADLR_MAX_CONNECTIONS_PER_IP"
         );
+    }
+
+    #[test]
+    fn origins_are_normalised() {
+        let c = config(&[(
+            "OPENRADLR_FRAME_ANCESTORS",
+            " https://Example.org/ ,https://www.example.org:8443,, http://[::1]:8080 , capacitor://localhost",
+        )])
+        .unwrap();
+        assert_eq!(
+            c.frame_ancestors,
+            vec![
+                "https://example.org".to_owned(),
+                "https://www.example.org:8443".to_owned(),
+                "http://[::1]:8080".to_owned(),
+                "capacitor://localhost".to_owned(),
+            ]
+        );
+        assert!(config(&[]).unwrap().frame_ancestors.is_empty());
+        assert!(config(&[("OPENRADLR_FRAME_ANCESTORS", " , ")])
+            .unwrap()
+            .frame_ancestors
+            .is_empty());
+    }
+
+    #[test]
+    fn malformed_origins_stop_the_server_from_starting() {
+        for bad in [
+            "example.org",
+            "https://",
+            "https://*.example.org",
+            "*",
+            "'self'",
+            "https://example.org/ride",
+            "https://example.org?x=1",
+            "https://user@example.org",
+            "https://example.org:0",
+            "https://example.org:99999",
+            "https://example.org:+80",
+            "https://example.org:",
+            "https://exa mple.org",
+            "https://example.org; script-src *",
+            "https://example.org\r\nSet-Cookie: a=b",
+            "https://example.org\tx",
+            "https://-example.org",
+            "https://example..org",
+            "https://[::1",
+            "https://[::1]x",
+            "https://[not-an-address]",
+            "https://exämple.org",
+            "1https://example.org",
+        ] {
+            for key in ["OPENRADLR_FRAME_ANCESTORS", "OPENRADLR_ALLOWED_ORIGINS"] {
+                let list = format!("https://fine.example, {bad}");
+                let err = config(&[(key, &list)]).expect_err(bad);
+                assert_eq!(err.key, key, "{bad}");
+                assert!(err.to_string().contains("scheme://host"), "{err}");
+            }
+        }
     }
 
     #[test]

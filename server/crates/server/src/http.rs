@@ -10,6 +10,10 @@
 //! | `/ws`              | WebSocket game protocol                              |
 //! | `/auth/*`, `/api/me`, `/api/strava/*` | Strava account and uploads (see [`crate::auth`]) |
 //! | `/*`               | Browser client (only if a static dir is set)         |
+//!
+//! The four `/api/info`, `/api/route`, `/api/map` and `/api/studio` routes are
+//! the public JSON API: pages on `OPENRADLR_ALLOWED_ORIGINS` may read them
+//! from another origin (CORS, without credentials).
 
 use crate::afk::{AfkCounts, AfkStats};
 use crate::app::unix_now_s;
@@ -26,7 +30,7 @@ use crate::ServerInfo;
 use axum::extract::connect_info::ConnectInfo;
 use axum::extract::ws::WebSocketUpgrade;
 use axum::extract::{DefaultBodyLimit, Query, State};
-use axum::http::{header, Extensions, HeaderMap, HeaderValue, StatusCode};
+use axum::http::{header, Extensions, HeaderMap, HeaderValue, Method, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -35,7 +39,9 @@ use serde::{Deserialize, Serialize};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 use std::sync::Arc;
+use std::time::Duration;
 use tower_http::compression::CompressionLayer;
+use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::services::ServeDir;
 use tower_http::set_header::{SetResponseHeader, SetResponseHeaderLayer};
 use tower_http::trace::TraceLayer;
@@ -277,15 +283,40 @@ pub struct RouteQuery {
     pub id: Option<String>,
 }
 
+/// Lets pages on the allowed origins read the public JSON API from another
+/// origin, e.g. a club site that shows who is riding: the request's `Origin`
+/// is echoed when it is on the list (exact match), preflights are answered,
+/// and credentials are never allowed, so the Strava routes stay same-origin.
+/// `None` without an allow-list: no CORS headers at all.
+fn public_api_cors(allowed_origins: &[String]) -> Option<CorsLayer> {
+    let origins: Vec<HeaderValue> = allowed_origins
+        .iter()
+        .filter_map(|origin| HeaderValue::from_str(origin).ok())
+        .collect();
+    (!origins.is_empty()).then(|| {
+        CorsLayer::new()
+            .allow_origin(AllowOrigin::list(origins))
+            .allow_methods([Method::GET])
+            .max_age(Duration::from_secs(600))
+    })
+}
+
 /// `headers` (see [`crate::headers`]) go on every response that doesn't set them itself.
 pub fn router(state: AppState, static_dir: Option<&Path>, headers: &[(header::HeaderName, String)]) -> Router {
-    let router = Router::new()
-        .route("/healthz", get(healthz))
-        .route("/internal/metrics", get(metrics))
+    // What any visitor may read: only these routes answer cross-origin requests.
+    let public_api = Router::new()
         .route("/api/info", get(info))
         .route("/api/route", get(route))
         .route("/api/map", get(map))
-        .route("/api/studio", get(studio))
+        .route("/api/studio", get(studio));
+    let public_api = match public_api_cors(&state.protection.allowed_origins) {
+        Some(cors) => public_api.layer(cors),
+        None => public_api,
+    };
+    let router = Router::new()
+        .route("/healthz", get(healthz))
+        .route("/internal/metrics", get(metrics))
+        .merge(public_api)
         .route("/ws", get(websocket))
         .route("/auth/strava", get(auth::login))
         .route("/auth/strava/callback", get(auth::callback))

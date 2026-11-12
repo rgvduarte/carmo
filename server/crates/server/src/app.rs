@@ -314,7 +314,11 @@ pub fn build_with_stats(config: &Config) -> Result<(Router, DistanceStats), BoxE
         stats: stats.clone(),
         afk: AfkStats::default(),
     };
-    let headers = crate::headers::security_headers(config.analytics.as_ref(), config.public_url.as_deref());
+    let headers = crate::headers::security_headers(
+        config.analytics.as_ref(),
+        config.public_url.as_deref(),
+        &config.frame_ancestors,
+    );
     Ok((router(state, config.static_dir.as_deref(), &headers), stats))
 }
 
