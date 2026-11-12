@@ -18,10 +18,10 @@ export const MAP_COLORS = Object.freeze({
   land: "#2d5b3b",
   sand: "#cdb98a",
   road: "rgba(232, 236, 241, 0.5)",
-  accent: "#ff7a1a",
+  accent: "#e6b450",
   climb: "#ff5d5d",
   sprint: "#4cc3ff",
-  start: "#ffd21f",
+  start: "#f2f1ec",
 });
 
 /** How strongly each time of day does what to the map. */

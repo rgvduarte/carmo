@@ -11,11 +11,11 @@ import { roadFrame } from "./world.js";
 const UP = [0, 1, 0];
 
 export const HIGHLIGHT = Object.freeze({
-  route: [1.0, 0.5, 0.12],
+  route: [0.9, 0.71, 0.31],
   climb: [1.0, 0.3, 0.26],
   sprint: [0.3, 0.76, 1.0],
   other: [0.86, 0.9, 0.95],
-  beacon: [1.0, 0.82, 0.2],
+  beacon: [0.95, 0.95, 0.93],
 });
 
 /**

@@ -1,7 +1,7 @@
 import { SUPPORTED_LOCALES } from "./i18n.js";
 
 /** Each language in its own name (never translated), so a rider finds theirs in any language. */
-const NATIVE_NAMES = { en: "English", de: "Deutsch" };
+const NATIVE_NAMES = { en: "English", de: "Deutsch", pt: "Português" };
 
 /** The language dropdown's options, one per supported locale, with the current one selected. */
 export function languageOptions(current) {

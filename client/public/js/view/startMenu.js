@@ -4,6 +4,7 @@
  * the DOM with textContent only, because route names come from the server.
  */
 
+import { APP_NAME } from "../brand.js";
 import { PRESETS } from "../workout/presets.js";
 import { planDuration } from "../workout/plan.js";
 import { distanceUnit, formatDistance, formatDistanceWithUnit, formatDuration, formatElevation } from "../util/format.js";
@@ -25,10 +26,10 @@ export function serverStatus(info) {
   return { text, full, phoneFull, online: true };
 }
 
-/** The server's name for the status pill, empty for the default "OpenRadlr" (the logo says it already). */
+/** The server's name for the status pill, empty for the fork's own name and the upstream default (the logo says it already). */
 export function serverName(info) {
   const name = info?.name;
-  return name && name !== "OpenRadlr" ? name : "";
+  return name && name !== APP_NAME && name !== "OpenRadlr" ? name : "";
 }
 
 /**

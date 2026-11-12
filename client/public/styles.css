@@ -1,27 +1,46 @@
+/* GOCARMO Ride: self-hosted fonts (SIL OFL 1.1, licences in fonts/). No external font requests. */
+@font-face { font-family: "Anton"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/anton-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Anton"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/anton-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+/* Anton's digit 1 at the width of the other digits (derived from Anton, see NOTICE.md): live numbers stay put. */
+@font-face { font-family: "GC Anton Tab"; font-style: normal; font-weight: 400; font-display: swap; src: url(fonts/gc-anton-tab.woff2) format("woff2"); unicode-range: U+0031; }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 300 800; font-display: swap; src: url(fonts/inter-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 300 800; font-display: swap; src: url(fonts/inter-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 600; font-display: swap; src: url(fonts/jetbrains-mono-latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 400 600; font-display: swap; src: url(fonts/jetbrains-mono-latin.woff2) format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
 :root {
   color-scheme: dark;
-  --bg: #0f1216;
-  --surface: #171b21;
-  --surface-2: #1f252d;
-  --border: #2a313b;
-  --text: #e8ecf1;
-  --muted: #8a94a3;
-  --accent: #ff7a1a;
-  --accent-text: #1a0d02;
-  --lemon: #ffd21f;
+  /* GOCARMO palette (gocarmo.com): near-black surfaces, off-white ink, gold accent. */
+  --gold: #e6b450;
+  --ink-dark: #111112;
+  --bg: #0b0b0c;
+  --surface: #121214;
+  --surface-2: #1a1a1d;
+  --border: #2a2a2d;
+  --text: #f2f1ec;
+  --muted: #a3a29c;
+  --accent: var(--gold);
+  --accent-text: var(--ink-dark);
+  /* Pending and warnings: orange, so it is not read as the gold accent. */
+  --warn: #f59a4a;
   --danger: #ff5d5d;
-  --grid: #3a434f;
-  --road: #2b3139;
+  --grid: #3a3a3d;
+  --road: #2a2a2e;
   --terrain: #24402f;
   --terrain-edge: #5fb47c;
-  --me: #ff7a1a;
+  --me: #e6b450;
   --human: #4cc3ff;
   --bot: #8f99a8;
   --remote: #2ec4a6;
   --climb: rgba(255, 93, 93, 0.12);
   --sprint: rgba(76, 195, 255, 0.12);
-  --radius: 10px;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 14px;
+  --display: "Anton", "Impact", "Arial Narrow Bold", sans-serif;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--sans);
+  /* Anton has one weight and no italic: never fake them. */
+  font-synthesis: none;
 }
 
 * {
@@ -129,8 +148,8 @@ kbd {
   min-height: 100vh;
   padding: 0 24px 40px;
   background:
-    radial-gradient(1200px 500px at 15% -10%, rgba(255, 122, 26, 0.14), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(76, 195, 255, 0.08), transparent 60%),
+    radial-gradient(1200px 500px at 15% -10%, rgba(230, 180, 80, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(76, 195, 255, 0.05), transparent 60%),
     var(--bg);
 }
 
@@ -181,8 +200,8 @@ kbd {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(15, 18, 22, 0.6) 0%, rgba(15, 18, 22, 0.05) 28%, rgba(15, 18, 22, 0.15) 55%, rgba(15, 18, 22, 0.88) 100%),
-    linear-gradient(90deg, rgba(15, 18, 22, 0.35) 0%, transparent 40%, transparent 60%, rgba(15, 18, 22, 0.55) 100%);
+    linear-gradient(180deg, rgba(11, 11, 12, 0.6) 0%, rgba(11, 11, 12, 0.05) 28%, rgba(11, 11, 12, 0.15) 55%, rgba(11, 11, 12, 0.88) 100%),
+    linear-gradient(90deg, rgba(11, 11, 12, 0.35) 0%, transparent 40%, transparent 60%, rgba(11, 11, 12, 0.55) 100%);
 }
 
 .start.world-ready .menu-world {
@@ -221,18 +240,18 @@ kbd {
 /* Solid, not see-through: easier to read over the island, and Chrome can drop a translucent
    background on a rounded scroll container with a sticky child (seen in production). */
 .start.world-ready .start-panel {
-  background-color: rgb(21, 25, 31);
+  background-color: rgb(18, 18, 20);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 18px 48px rgba(0, 0, 0, 0.4);
 }
 
 .start.world-ready .start-routes h1,
 .start.world-ready .lede {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 18px rgba(15, 18, 22, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 18px rgba(11, 11, 12, 0.8);
 }
 
 .start.world-ready .lede {
-  color: #c9d1db;
+  color: #c9c8c1;
 }
 
 .start.world-ready .route-card:hover {
@@ -240,9 +259,9 @@ kbd {
 }
 
 .start.world-ready .route-card[aria-pressed="true"] {
-  background: rgba(31, 26, 22, 0.9);
+  background: rgba(30, 26, 18, 0.9);
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 30px rgba(255, 122, 26, 0.16);
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 30px rgba(230, 180, 80, 0.16);
 }
 
 /* The window the drone camera looks through: the map until the island is ready. */
@@ -323,8 +342,8 @@ kbd {
   margin: 0;
   padding: 6px 12px 6px 10px;
   border-radius: 999px;
-  background: rgba(15, 18, 22, 0.7);
-  color: var(--hud-muted, #c3cad3);
+  background: rgba(11, 11, 12, 0.7);
+  color: var(--hud-muted, #c9c8c1);
   font-size: 13px;
 }
 
@@ -466,7 +485,7 @@ kbd {
 }
 
 .activity-tab:focus-visible {
-  outline: 2px solid var(--lemon);
+  outline: 2px solid var(--text);
   outline-offset: 2px;
 }
 
@@ -509,7 +528,7 @@ kbd {
 }
 
 .start.world-ready .stage-stats {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 18px rgba(15, 18, 22, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75), 0 0 18px rgba(11, 11, 12, 0.8);
 }
 
 /* The events tab lists events right under its headline: no profile of the picked route. */
@@ -564,7 +583,7 @@ kbd {
   display: block;
   width: 100%;
   height: 96px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface);
 }
@@ -596,27 +615,37 @@ kbd {
   gap: 12px;
 }
 
-/* The lemon tucks into the aero position on hover. */
+/* GOCARMO Ride lockup: the sun-and-moon symbol (moon in ink, sun in gold), the name in Anton slanted 10 degrees. */
 .brand-mark {
-  height: 54px;
-  width: auto;
-  transition: transform 0.25s ease;
-}
-
-.brand:hover .brand-mark {
-  transform: translateX(3px) rotate(-6deg);
+  height: 46px;
+  width: 46px;
+  flex: none;
+  color: var(--text);
 }
 
 .brand-word {
-  font-size: 28px;
-  font-weight: 900;
-  font-style: italic;
-  letter-spacing: -0.01em;
+  display: inline-block;
+  font-family: var(--display);
+  font-size: 30px;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  transform: skewX(-10deg);
+  transform-origin: left bottom;
+  white-space: nowrap;
 }
 
-.brand-word span,
+.brand-word span {
+  margin-left: 0.3em;
+  font-size: 0.5em;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+
 .hud-brand span {
-  color: var(--lemon);
+  margin-left: 0.25em;
+  color: var(--gold);
 }
 
 .server-status {
@@ -669,7 +698,7 @@ kbd {
   padding: 8px 8px 8px 16px;
   font-size: 14px;
   background: var(--surface);
-  border: 1px solid var(--lemon);
+  border: 1px solid var(--gold);
   border-radius: 999px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
 }
@@ -681,9 +710,9 @@ kbd {
 .update-reload {
   padding: 6px 14px;
   border-radius: 999px;
-  background: var(--lemon);
-  border-color: var(--lemon);
-  color: #1a1a1a;
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--ink-dark);
   font-weight: 700;
 }
 
@@ -757,7 +786,7 @@ kbd {
 
 .route-card[aria-pressed="true"] {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 30px rgba(255, 122, 26, 0.12);
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 30px rgba(230, 180, 80, 0.12);
 }
 
 .route-head {
@@ -897,8 +926,8 @@ label output {
   margin: 0;
   padding: 10px;
   border-radius: 8px;
-  background: rgba(255, 122, 26, 0.1);
-  border: 1px solid rgba(255, 122, 26, 0.4);
+  background: rgba(230, 180, 80, 0.1);
+  border: 1px solid rgba(230, 180, 80, 0.4);
   font-size: 14px;
 }
 
@@ -973,7 +1002,7 @@ label output {
 }
 
 .label3d {
-  --label-bg: rgba(15, 18, 22, 0.72);
+  --label-bg: rgba(11, 11, 12, 0.72);
   position: absolute;
   left: 0;
   top: 0;
@@ -1011,7 +1040,7 @@ label output {
 .label3d .badge {
   background: transparent;
   border-color: rgba(255, 255, 255, 0.4);
-  color: #e8ecf1;
+  color: #f2f1ec;
   font-weight: 600;
 }
 
@@ -1036,7 +1065,7 @@ label output {
   align-content: start;
   gap: 2px;
   padding: 12px 8px 10px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   text-align: center;
   line-height: 1.2;
 }
@@ -1065,7 +1094,7 @@ label output {
 .mode-card[aria-checked="true"] {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
-  background: rgba(255, 122, 26, 0.1);
+  background: rgba(230, 180, 80, 0.1);
 }
 
 .mode-card[aria-checked="true"] svg {
@@ -1119,7 +1148,7 @@ label output {
   gap: 12px;
   min-height: 60px;
   padding: 8px 8px 8px 14px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   border: 1px solid var(--border);
   background: var(--surface-2);
   transition: border-color 0.2s ease;
@@ -1196,8 +1225,8 @@ label output {
 
 .device-line[data-state="pending"] .device-dot,
 .device-line[data-state="reconnecting"] .device-dot {
-  border-color: var(--lemon);
-  background: var(--lemon);
+  border-color: var(--warn);
+  background: var(--warn);
   animation: device-breathe 1.4s ease-in-out infinite;
 }
 
@@ -1222,8 +1251,8 @@ label output {
 
 /* Connected but silent (asleep, taken by another app), or a connect that failed: what to try, in full. */
 .device-line[data-state="silent"] .device-dot {
-  border-color: var(--lemon);
-  background: var(--lemon);
+  border-color: var(--warn);
+  background: var(--warn);
 }
 
 .device-line[data-state="error"] .device-dot {
@@ -1237,7 +1266,7 @@ label output {
 }
 
 .device-line[data-state="silent"] .device-status {
-  color: var(--lemon);
+  color: var(--warn);
 }
 
 .device-line[data-state="error"] {
@@ -1300,7 +1329,7 @@ button.small {
 
 .bluetooth-note strong {
   display: block;
-  color: var(--lemon);
+  color: var(--warn);
   margin-bottom: 2px;
 }
 
@@ -1360,7 +1389,7 @@ button.small {
 }
 
 .start.world-ready .dock-actions {
-  background: rgb(21, 25, 31);
+  background: rgb(18, 18, 20);
 }
 
 /* One column (tablets, phones): Ride is a bar along the bottom of the screen, whatever is scrolled into view. */
@@ -1387,7 +1416,7 @@ button.small {
     padding: 10px max(16px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    background: rgba(15, 18, 22, 0.96);
+    background: rgba(11, 11, 12, 0.96);
     border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
@@ -1575,12 +1604,12 @@ button.small {
 /* ===================================================================== */
 
 :root {
-  --glass: rgba(15, 18, 22, 0.72);
-  --glass-strong: rgba(15, 18, 22, 0.86);
+  --glass: rgba(11, 11, 12, 0.72);
+  --glass-strong: rgba(11, 11, 12, 0.86);
   --glass-line: rgba(255, 255, 255, 0.1);
-  --hud-text: #f2f4f7;
-  --hud-muted: #c3cad3;
-  --num: "Barlow Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif;
+  --hud-text: #f2f1ec;
+  --hud-muted: #c9c8c1;
+  --num: "GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif;
   --gap: 20px;
   --band-height: 250px;
 }
@@ -1593,7 +1622,7 @@ body.riding {
   position: fixed;
   inset: 0;
   color: var(--hud-text);
-  background: #0b0e11;
+  background: #0b0b0c;
 }
 
 .world-wrap,
@@ -1691,7 +1720,7 @@ body.riding {
 }
 
 .grade {
-  color: #ffb27a;
+  color: #f0cf8a;
 }
 
 .unit {
@@ -1722,11 +1751,15 @@ body.riding {
 }
 
 .hud-brand {
-  font-size: 12px;
-  font-weight: 800;
-  font-style: italic;
+  justify-self: start;
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.2;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  transform: skewX(-10deg);
+  transform-origin: left bottom;
   color: var(--hud-text);
 }
 
@@ -1870,7 +1903,7 @@ body.riding {
   color: #ff8a7a;
 }
 
-/* A personal milestone: a lemon-yellow banner across the top for a few seconds. */
+/* A personal milestone: a gold banner across the top for a few seconds. */
 .milestone-banner {
   position: absolute;
   top: 18%;
@@ -1880,7 +1913,7 @@ body.riding {
   margin: 0;
   padding: 12px 28px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #ffd21a, #ffe774);
+  background: linear-gradient(90deg, #e6b450, #f0cf8a);
   color: #1d1d20;
   font-size: clamp(18px, 3vw, 30px);
   font-weight: 800;
@@ -1961,7 +1994,7 @@ body.riding {
   right: 0;
   bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
   height: calc(var(--cockpit-scrim, 300px) + env(safe-area-inset-bottom, 0px));
-  background: linear-gradient(to top, rgba(10, 12, 15, 0.8) 0%, rgba(10, 12, 15, 0.74) 12%, rgba(10, 12, 15, 0.62) 25%, rgba(10, 12, 15, 0.47) 38%, rgba(10, 12, 15, 0.33) 50%, rgba(10, 12, 15, 0.2) 62%, rgba(10, 12, 15, 0.1) 75%, rgba(10, 12, 15, 0.03) 88%, rgba(10, 12, 15, 0) 100%);
+  background: linear-gradient(to top, rgba(8, 8, 9, 0.8) 0%, rgba(8, 8, 9, 0.74) 12%, rgba(8, 8, 9, 0.62) 25%, rgba(8, 8, 9, 0.47) 38%, rgba(8, 8, 9, 0.33) 50%, rgba(8, 8, 9, 0.2) 62%, rgba(8, 8, 9, 0.1) 75%, rgba(8, 8, 9, 0.03) 88%, rgba(8, 8, 9, 0) 100%);
 }
 
 .cluster {
@@ -2119,7 +2152,7 @@ body.riding {
 }
 
 .nearby .rider.me {
-  background: rgba(255, 122, 26, 0.18);
+  background: rgba(230, 180, 80, 0.18);
 }
 
 .canvas-minimap {
@@ -2268,7 +2301,7 @@ body.riding {
 }
 
 .targets .off-target {
-  color: #ffb27a;
+  color: var(--warn);
 }
 
 .band {
@@ -2277,7 +2310,7 @@ body.riding {
   right: 0;
   bottom: 0;
   height: var(--band-height);
-  background: #12161b;
+  background: #0e0e10;
   border-top: 1px solid var(--glass-line);
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr) 200px;
@@ -2451,7 +2484,7 @@ body.riding {
 }
 
 .group-list li.mine {
-  background: rgba(255, 122, 26, 0.18);
+  background: rgba(230, 180, 80, 0.18);
   font-weight: 700;
 }
 
@@ -2546,7 +2579,7 @@ body.riding {
   align-items: center;
   justify-content: center;
   padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
-  background: rgba(8, 10, 13, 0.5);
+  background: rgba(6, 6, 7, 0.5);
   -webkit-backdrop-filter: blur(6px) saturate(0.8);
   backdrop-filter: blur(6px) saturate(0.8);
   animation: menu-fade 0.16s ease-out;
@@ -2676,8 +2709,8 @@ body.riding {
 }
 
 .menu-nav-item[aria-current="true"] {
-  background: rgba(255, 122, 26, 0.14);
-  border-color: rgba(255, 122, 26, 0.28);
+  background: rgba(230, 180, 80, 0.14);
+  border-color: rgba(230, 180, 80, 0.28);
   color: var(--accent);
 }
 
@@ -2811,9 +2844,9 @@ body.riding {
 
 .menu-foot .finish-confirm {
   padding: 12px 14px;
-  border: 1px solid rgba(255, 122, 26, 0.35);
+  border: 1px solid rgba(230, 180, 80, 0.35);
   border-radius: var(--radius);
-  background: rgba(255, 122, 26, 0.08);
+  background: rgba(230, 180, 80, 0.08);
 }
 
 .menu-foot .finish-confirm[hidden] {
@@ -3537,7 +3570,7 @@ body.riding {
   border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg);
-  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-family: var(--mono);
   font-size: 15px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -3591,7 +3624,7 @@ body.riding {
   z-index: 8;
   display: grid;
   place-items: center;
-  background: rgba(8, 10, 13, 0.6);
+  background: rgba(6, 6, 7, 0.6);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   padding: 16px;
@@ -3606,7 +3639,7 @@ body.riding {
   overscroll-behavior: contain;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius);
   padding: 24px;
   display: grid;
   gap: 14px;
@@ -3804,7 +3837,7 @@ body.riding {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: rgba(8, 10, 13, 0.75);
+  background: rgba(6, 6, 7, 0.75);
   color: #fff;
   font-size: 16px;
   line-height: 1;
@@ -3817,7 +3850,7 @@ body.riding {
   bottom: 6px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: rgba(8, 10, 13, 0.75);
+  background: rgba(6, 6, 7, 0.75);
   color: #fff;
   font-size: 11px;
   font-weight: 600;
@@ -3954,7 +3987,7 @@ body.riding {
 
 .junction-option[aria-pressed="true"] {
   border-color: var(--accent);
-  background: rgba(255, 122, 26, 0.22);
+  background: rgba(230, 180, 80, 0.22);
 }
 
 .junction-arrow {
@@ -3994,7 +4027,7 @@ body.riding {
   padding: 8px 8px 8px 16px;
   font-size: 15px;
   white-space: nowrap;
-  border-color: rgba(255, 122, 26, 0.6);
+  border-color: rgba(230, 180, 80, 0.6);
   z-index: 2;
 }
 
@@ -4056,7 +4089,7 @@ body.riding {
   justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
-  border-radius: 12px;
+  border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.06);
 }
 
@@ -4095,7 +4128,7 @@ body.riding {
 }
 
 .label3d.coach {
-  --label-bg: #ffd23a;
+  --label-bg: #e6b450;
   color: #1a1400;
   font-weight: 700;
 }
@@ -4138,7 +4171,7 @@ body.riding {
 }
 
 .studio-countdown.soon {
-  color: #ffd23a;
+  color: var(--gold);
 }
 
 .studio-next {
@@ -4435,7 +4468,7 @@ body:not(.riding)::after {
   }
 
   .lane-button:active {
-    background: rgba(255, 122, 26, 0.35);
+    background: rgba(230, 180, 80, 0.35);
     border-color: var(--accent);
   }
 
@@ -4490,7 +4523,7 @@ body:not(.riding)::after {
   }
 
   .sim-stepper button:active {
-    background: rgba(255, 122, 26, 0.45);
+    background: rgba(230, 180, 80, 0.45);
   }
 
   .sim-readout {
@@ -4691,7 +4724,7 @@ body:not(.riding)::after {
     position: absolute;
     inset: 0;
     z-index: 4;
-    background: rgba(8, 10, 13, 0.45);
+    background: rgba(6, 6, 7, 0.45);
   }
 
   .drawer {
@@ -4861,7 +4894,7 @@ body:not(.riding)::after {
   place-items: center;
   cursor: pointer;
   border-top: 1px solid rgba(255, 255, 255, 0.14);
-  background: linear-gradient(to top, rgba(10, 12, 15, 0.7), rgba(10, 12, 15, 0.25));
+  background: linear-gradient(to top, rgba(8, 8, 9, 0.7), rgba(8, 8, 9, 0.25));
   transition: background 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
@@ -4886,7 +4919,7 @@ body:not(.riding)::after {
 
 /* The paddle to tap next glows: the rhythm reads at a glance. */
 .paddle.next {
-  background: linear-gradient(to top, rgba(255, 122, 26, 0.38), rgba(255, 122, 26, 0.06));
+  background: linear-gradient(to top, rgba(230, 180, 80, 0.38), rgba(230, 180, 80, 0.06));
 }
 
 .paddle.next .paddle-label {
@@ -4916,7 +4949,7 @@ body:not(.riding)::after {
 @keyframes paddle-hit {
   from {
     transform: scale(1.35);
-    color: var(--lemon);
+    color: var(--gold);
   }
 }
 
@@ -4960,7 +4993,7 @@ body:not(.riding)::after {
   align-items: center;
   pointer-events: none;
   color: var(--hud-text);
-  background: rgba(15, 18, 22, 0.42);
+  background: rgba(11, 11, 12, 0.42);
   border-color: rgba(255, 255, 255, 0.06);
   border-radius: 12px;
 }
@@ -4988,7 +5021,7 @@ body:not(.riding)::after {
   font-family: var(--num);
   font-weight: 700;
   font-size: 15px;
-  color: var(--lemon);
+  color: var(--warn);
 }
 
 .paddle-combo.milestone {
@@ -5015,7 +5048,7 @@ body:not(.riding)::after {
   display: block;
   height: 100%;
   width: 100%;
-  background: linear-gradient(to right, #3ddc97, var(--lemon));
+  background: linear-gradient(to right, #3ddc97, var(--warn));
   transition: width 0.25s linear;
 }
 
@@ -5082,7 +5115,7 @@ body.paddling .layout-cockpit::before {
   top: calc(-1 * env(safe-area-inset-top));
   bottom: auto;
   height: calc(170px + env(safe-area-inset-top));
-  background: linear-gradient(to bottom, rgba(10, 12, 15, 0.72) 0%, rgba(10, 12, 15, 0.67) 12%, rgba(10, 12, 15, 0.56) 25%, rgba(10, 12, 15, 0.42) 38%, rgba(10, 12, 15, 0.3) 50%, rgba(10, 12, 15, 0.18) 62%, rgba(10, 12, 15, 0.09) 75%, rgba(10, 12, 15, 0.03) 88%, rgba(10, 12, 15, 0) 100%);
+  background: linear-gradient(to bottom, rgba(8, 8, 9, 0.72) 0%, rgba(8, 8, 9, 0.67) 12%, rgba(8, 8, 9, 0.56) 25%, rgba(8, 8, 9, 0.42) 38%, rgba(8, 8, 9, 0.3) 50%, rgba(8, 8, 9, 0.18) 62%, rgba(8, 8, 9, 0.09) 75%, rgba(8, 8, 9, 0.03) 88%, rgba(8, 8, 9, 0) 100%);
 }
 
 body.paddling .cluster {
@@ -5272,7 +5305,7 @@ body.paddling .lane-button {
 
 .vehicle-code {
   color: var(--text);
-  font-family: ui-monospace, monospace;
+  font-family: var(--mono);
   letter-spacing: 0.12em;
 }
 
@@ -5718,7 +5751,7 @@ body.working-out #paddles {
   text-align: center;
   background: var(--surface-2);
   border: 1px solid var(--danger);
-  border-radius: 12px;
+  border-radius: var(--radius);
   z-index: 7;
 }
 
@@ -5768,7 +5801,7 @@ body.working-out #paddles {
 
 .workout-card.selected .workout-card-body {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 30px rgba(255, 122, 26, 0.12);
+  box-shadow: 0 0 0 1px var(--accent) inset, 0 8px 30px rgba(230, 180, 80, 0.12);
 }
 
 .block-strip {
@@ -5884,7 +5917,7 @@ body.working-out #paddles {
 }
 .strava-upload[data-tone="success"] .upload-action::after { content: "↗"; }
 .strava-upload[data-tone="error"] .upload-action { color: var(--danger); border-color: var(--danger); }
-.strava-upload[data-tone="warning"] .upload-action { color: var(--lemon); border-color: var(--lemon); }
+.strava-upload[data-tone="warning"] .upload-action { color: var(--warn); border-color: var(--warn); }
 .strava-upload:is([data-tone="error"], [data-tone="warning"]) .upload-action:first-child::before {
   content: "!";
   display: inline-grid;
@@ -5935,7 +5968,7 @@ body.working-out #paddles {
    no blur, so they never read as a main control. Larger screens keep theirs. */
 @media (max-width: 760px), (max-height: 500px) and (orientation: landscape) {
   .lane-button {
-    background: rgba(15, 18, 22, 0.22);
+    background: rgba(11, 11, 12, 0.22);
     border-color: rgba(255, 255, 255, 0.14);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
@@ -6223,7 +6256,7 @@ body.working-out #paddles {
    so small captions stay readable in front of a bright sky. */
 @media (max-width: 760px) {
   .ride {
-    --glass: rgba(15, 18, 22, 0.82);
+    --glass: rgba(11, 11, 12, 0.82);
     --top-stack: calc(var(--gap) + var(--hud-row));
   }
 
@@ -6242,7 +6275,7 @@ body.working-out #paddles {
 
 @media (max-height: 500px) and (orientation: landscape) {
   .ride {
-    --glass: rgba(15, 18, 22, 0.82);
+    --glass: rgba(11, 11, 12, 0.82);
     /* The simulator stepper at the top left is 58px tall, the buttons 44px. */
     --top-stack: calc(var(--gap) + 58px);
   }
@@ -6567,3 +6600,105 @@ body.working-out #paddles {
   }
 }
 
+
+/* ===================================================================== */
+/* GOCARMO Ride                                                           */
+/* ===================================================================== */
+
+/* Titles in Anton, as on gocarmo.com. One weight: never bold. */
+h1,
+.modal-card h2,
+.menu-head h2,
+.route-name {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: 0.015em;
+}
+
+/* About and credits: a native dialog, so it works over the start screen and over the ride menu alike. */
+.about {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+}
+
+.about[open] {
+  display: grid;
+  place-items: center;
+}
+
+.about::backdrop {
+  background: rgba(6, 6, 7, 0.72);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.about-card {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.about-card p {
+  margin: 0;
+}
+
+.about-card h2 {
+  margin: 6px 0 0;
+}
+
+.about-card .muted {
+  color: var(--muted);
+}
+
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+}
+
+.about-links a {
+  color: var(--gold);
+  text-underline-offset: 3px;
+}
+
+.about-links a:focus-visible,
+.about-card button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Portuguese is longer than English: a route card's figures and its rider count move to a second line whole, never broken inside. */
+.route-foot {
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.route-foot > * {
+  white-space: nowrap;
+}
+
+.route-head {
+  flex-wrap: wrap;
+  column-gap: 8px;
+}
+
+.route-tag {
+  white-space: nowrap;
+}

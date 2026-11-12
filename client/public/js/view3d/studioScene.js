@@ -34,7 +34,7 @@ const RISER = 0.35;
 const STAGE = Object.freeze({ z: -5.4, height: 0.55, halfWidth: 2.4, depth: 2.6 });
 
 /** The instructor: id 0 (riders start at 1), on the stage, facing the room. */
-export const INSTRUCTOR = Object.freeze({ id: 0, name: "Coach Lemon", position: [0, STAGE.height, STAGE.z], yaw: Math.PI }); // i18n-ok (English id label; the UI translates by mode)
+export const INSTRUCTOR = Object.freeze({ id: 0, name: "Coach", position: [0, STAGE.height, STAGE.z], yaw: Math.PI }); // i18n-ok (English id label; the UI translates by mode)
 
 export const STUDIO_CAMERAS = Object.freeze(["seat", "wide", "coach"]);
 export const STUDIO_CAMERA_LABELS = Object.freeze({ seat: "Behind me", wide: "Whole room", coach: "Coach's view" }); // i18n-ok (English id label; the UI translates by mode)
@@ -57,7 +57,7 @@ export function studioCamera(mode, mySeat) {
   return { eye: [seat[0] * 0.9, seat[1] + 2.25, seat[2] + 1.9], target: [coachHead[0], coachHead[1] - 0.4, coachHead[2]] };
 }
 
-// Colours: dark walls, a warm wooden floor, neon in the brand's lemon and accent orange.
+// Colours: dark walls, a warm wooden floor, neon in the brand's moon cream and gold.
 const WALL = [0.12, 0.11, 0.16];
 const FLOOR = [0.36, 0.27, 0.2];
 const CEILING = [0.06, 0.06, 0.08];
@@ -67,8 +67,8 @@ const SCREEN = [0.04, 0.05, 0.08];
 const TRAINER = [0.1, 0.1, 0.12];
 const TRAINER_FOOT = [0.3, 0.31, 0.34];
 const SPEAKER = [0.08, 0.08, 0.09];
-const LEMON = [1.0, 0.86, 0.2];
-const ORANGE = [1.0, 0.48, 0.1];
+const CREAM = [0.95, 0.95, 0.93];
+const GOLD = [0.9, 0.71, 0.31];
 const NEON_BLUE = [0.3, 0.6, 1.0];
 
 /** Quad whose front face points along `direction`. */
@@ -118,15 +118,15 @@ export function buildStudioRoom() {
 
   const neon = new MeshBuilder();
   // Frame around the screen, strips along the walls and the stage edge.
-  neon.box([0, 3.85, f + 0.1], [7.6, 0.06, 0.04], LEMON);
-  neon.box([0, 1.15, f + 0.1], [7.6, 0.06, 0.04], LEMON);
+  neon.box([0, 3.85, f + 0.1], [7.6, 0.06, 0.04], CREAM);
+  neon.box([0, 1.15, f + 0.1], [7.6, 0.06, 0.04], CREAM);
   for (const side of [-1, 1]) {
-    neon.box([side * 3.8, 2.5, f + 0.1], [0.06, 2.76, 0.04], LEMON);
-    neon.box([side * (w - 0.05), 3.9, (f + b) / 2], [0.04, 0.07, b - f - 0.4], ORANGE);
+    neon.box([side * 3.8, 2.5, f + 0.1], [0.06, 2.76, 0.04], CREAM);
+    neon.box([side * (w - 0.05), 3.9, (f + b) / 2], [0.04, 0.07, b - f - 0.4], GOLD);
     neon.box([side * (w - 0.05), 0.15, (f + b) / 2], [0.04, 0.05, b - f - 0.4], NEON_BLUE);
   }
-  neon.box([0, STAGE.height + 0.02, STAGE.z + STAGE.depth / 2], [STAGE.halfWidth * 2, 0.04, 0.05], ORANGE);
-  neon.box([0, 3.9, b - 0.05], [w * 2 - 0.4, 0.07, 0.04], ORANGE);
+  neon.box([0, STAGE.height + 0.02, STAGE.z + STAGE.depth / 2], [STAGE.halfWidth * 2, 0.04, 0.05], GOLD);
+  neon.box([0, 3.9, b - 0.05], [w * 2 - 0.4, 0.07, 0.04], GOLD);
   return { room: room.build(), neon: neon.build() };
 }
 

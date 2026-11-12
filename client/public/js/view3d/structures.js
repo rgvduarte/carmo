@@ -297,7 +297,7 @@ export function buildCafe({ terraceDepth = 7 } = {}) {
   const wall = [0.95, 0.9, 0.8];
   const wood = [0.55, 0.38, 0.24];
   const woodDark = [0.4, 0.27, 0.17];
-  const orange = [1.0, 0.48, 0.1];
+  const gold = [0.9, 0.71, 0.31]; // GOCARMO Ride: the café wears gold where upstream has orange
   const front = -d / 2;
 
   // Building with a shallow roof and a timber band.
@@ -313,11 +313,11 @@ export function buildCafe({ terraceDepth = 7 } = {}) {
   for (let i = 0; i < 10; i += 1) {
     const x0 = -w / 2 + 0.2 + i * ((w - 0.4) / 10);
     const x1 = x0 + (w - 0.4) / 10;
-    const color = i % 2 === 0 ? orange : PALETTE.white;
+    const color = i % 2 === 0 ? gold : PALETTE.white;
     m.quad([x0, h - 0.5, front], [x1, h - 0.5, front], [x1, h - 1.2, front - 2.4], [x0, h - 1.2, front - 2.4], color);
     m.quad([x0, h - 1.2, front - 2.4], [x1, h - 1.2, front - 2.4], [x1, h - 0.5, front], [x0, h - 0.5, front], color);
   }
-  m.box([0, h - 1.38, front - 2.4], [w - 0.4, 0.35, 0.05], orange);
+  m.box([0, h - 1.38, front - 2.4], [w - 0.4, 0.35, 0.05], gold);
 
   // Wooden terrace with railing posts at the ends.
   const tz = front - terraceDepth / 2;
@@ -329,7 +329,7 @@ export function buildCafe({ terraceDepth = 7 } = {}) {
   }
 
   // Tables with chairs and parasols.
-  const parasolColors = [orange, PALETTE.white, orange, [0.2, 0.42, 0.85]];
+  const parasolColors = [gold, PALETTE.white, gold, [0.2, 0.42, 0.85]];
   [-4.5, -0.8, 2.9].forEach((x, i) => {
     const z = tz - 0.3 + (i % 2) * 0.6;
     m.cylinder([x, 0.06, z], 0.06, 0.72, PALETTE.pole, 6);
@@ -387,11 +387,11 @@ export function buildCafe({ terraceDepth = 7 } = {}) {
     m.box([x, bars[1] + 0.05, bars[2] - 0.05], [0.42, 0.05, 0.06], PALETTE.black);
   });
 
-  // Sign on two posts at the roadside: an orange board with a coffee cup.
+  // Sign on two posts at the roadside: a gold board with a coffee cup.
   const sx = -w / 2 - 1.2;
   const sz = front - terraceDepth - 0.6;
   for (const x of [sx - 0.8, sx + 0.8]) m.box([x, 1.2, sz], [0.1, 2.4, 0.1], woodDark);
-  bright.box([sx, 2.15, sz - 0.06], [2.2, 1.1, 0.06], orange);
+  bright.box([sx, 2.15, sz - 0.06], [2.2, 1.1, 0.06], gold);
   bright.box([sx - 0.15, 2.05, sz - 0.1], [0.55, 0.5, 0.03], PALETTE.white);
   bright.box([sx + 0.22, 2.1, sz - 0.1], [0.18, 0.24, 0.03], PALETTE.white);
   bright.box([sx - 0.15, 1.75, sz - 0.1], [0.8, 0.07, 0.03], PALETTE.white);

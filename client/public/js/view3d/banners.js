@@ -10,7 +10,7 @@ import { temperate } from "./biomes/index.js";
 import { roadFrame, roadHalfWidth } from "./world.js";
 
 /** What each arch says, by marker type. */
-export const ARCH_TEXT = Object.freeze({ start_finish: "OPENRADLR", climb: "KOM", sprint: "SPRINT" });
+export const ARCH_TEXT = Object.freeze({ start_finish: "GOCARMO", climb: "KOM", sprint: "SPRINT" });
 
 export const BANNERS = Object.freeze({
   text: Object.freeze({ halfway: "1/2", climb1000: "1 KM ^", climb500: "500 M ^" }),
@@ -20,10 +20,10 @@ export const BANNERS = Object.freeze({
   climbBelowM: 150,
   /** No banner this close to an arch. */
   clearOfArchM: 60,
-  /** Banner cloth: bottom edge and height (metres over the road); lemon yellow for halfway. */
+  /** Banner cloth: bottom edge and height (metres over the road); gold for halfway. */
   bottom: 4.1,
   height: 0.95,
-  halfway: [1.0, 0.82, 0.1],
+  halfway: [0.9, 0.71, 0.31],
 });
 
 const INK = Object.freeze({ light: [1, 1, 1], dark: [0.12, 0.12, 0.14] });
@@ -95,10 +95,10 @@ export function buildBanners(mesh, route, { biome = temperate } = {}) {
   }
 }
 
-/** The name on an arch's beam (see `ARCH_TEXT`), white on its colour. */
+/** The name on an arch's beam (see `ARCH_TEXT`), white on its colour; dark on the gold start arch. */
 export function letterArch(mesh, route, marker, { height, halfWidth, depth }) {
   const text = ARCH_TEXT[marker.type];
   if (!text) return;
   const frame = levelFrame(route, marker.distance);
-  letterBeam(mesh, { center: add(frame.center, [0, height, 0]), right: frame.right, forward: frame.level, width: 2 * halfWidth, height: 1.0, depth }, text, INK.light);
+  letterBeam(mesh, { center: add(frame.center, [0, height, 0]), right: frame.right, forward: frame.level, width: 2 * halfWidth, height: 1.0, depth }, text, marker.type === "start_finish" ? INK.dark : INK.light);
 }

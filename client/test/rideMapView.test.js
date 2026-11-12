@@ -180,7 +180,7 @@ test("my best lap's ghost is drawn see-through, dashed and labelled", () => {
   assert.ok(calls.fillText >= 2, "the ghost keeps its label");
 });
 
-test("the map draws the lemons still on the road and skips collected ones", () => {
+test("the map draws the golden suns (upstream: lemons) still on the road and skips collected ones", () => {
   const road = east();
   const me = { id: 1, name: "Me", distance: 500, lane: 2, is_bot: false };
   const { canvas, fills } = fakeCanvas();
@@ -195,7 +195,7 @@ test("the map draws the lemons still on the road and skips collected ones", () =
       { id: "c", distance: 507, lane: 2, collected: false },
     ],
   });
-  assert.equal(fills.filter((fill) => fill === "#ffcc14").length, 2, "two lemons, not the collected one");
+  assert.equal(fills.filter((fill) => fill === "#f0cf8a").length, 2, "two suns, not the collected one");
 });
 
 test("the view reuses a route's offset lines across frames", () => {

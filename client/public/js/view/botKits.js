@@ -1,14 +1,16 @@
 /**
  * Bot teams' kit colours (#64). The server sends each bot's `team`; its jersey
- * takes the team's colour in the 3D view. None is orange (me) or sky blue
- * (humans), so bots still read as bots. Unknown teams keep the bot grey.
+ * takes the team's colour in the 3D view. None is gold (me, in GOCARMO Ride)
+ * or sky blue (humans), so bots still read as bots: upstream's lemon yellow
+ * for the "zitrone" team became a lime here, and the chalk white of "kreide"
+ * lost its faint warm tint. Unknown teams keep the bot grey.
  */
 export const TEAM_KITS = Object.freeze({
-  zitrone: "#f2cf2a",
+  zitrone: "#b9d23a",
   moos: "#4f8f3a",
   kirsche: "#b3263a",
   lavendel: "#8c6bc8",
-  kreide: "#ecebe4",
+  kreide: "#e9ebe4",
   schiefer: "#2f3339",
   petrol: "#1f7f7a",
   rose: "#e58fb2",

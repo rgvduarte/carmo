@@ -1,12 +1,12 @@
 /**
- * OpenRadlr service worker: makes the client installable and lets it open
+ * GOCARMO Ride service worker (from OpenRadlr): makes the client installable and lets it open
  * without a network (the start screen then says the server is unreachable).
  *
  * Network first, so `make update` on the server reaches riders right away;
  * the cache is only a fallback. Live data is never cached: /api, /ws, /auth.
  */
 const CACHE = "openradlr-shell-v2";
-const SHELL = ["/", "/index.html", "/styles.css", "/manifest.webmanifest", "/js/main.js", "/js/i18n/i18n.js", "/js/i18n/apply.js", "/js/i18n/en.js", "/js/i18n/de.js", "/js/i18n/selector.js", "/icons/icon-192.png", "/icons/brand-mark.png"];
+const SHELL = ["/", "/index.html", "/styles.css", "/manifest.webmanifest", "/js/main.js", "/js/i18n/i18n.js", "/js/i18n/apply.js", "/js/i18n/en.js", "/js/i18n/de.js", "/js/i18n/pt.js", "/js/i18n/selector.js", "/icons/icon-192.png", "/icons/favicon.svg", "/fonts/inter-latin.woff2", "/fonts/anton-latin.woff2", "/fonts/gc-anton-tab.woff2"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -3,6 +3,7 @@
  * Keeps a bounded log plus packet counters, and can render a copyable report
  * so riders can attach it to a bug report.
  */
+import { APP_NAME } from "../brand.js";
 import { Emitter } from "../util/emitter.js";
 
 export const toHex = (dataView) =>
@@ -68,7 +69,7 @@ export class DeviceLog extends Emitter {
 
   report(extra = {}) {
     const header = [
-      `OpenRadlr device diagnostics`, // i18n-ok
+      `${APP_NAME} device diagnostics`, // i18n-ok
       ...(extra.build ? [`Build: ${extra.build}`] : []), // i18n-ok
       `User agent: ${extra.userAgent ?? "unknown"}`, // i18n-ok
       `Packets: ${JSON.stringify(this.packets)}`, // i18n-ok

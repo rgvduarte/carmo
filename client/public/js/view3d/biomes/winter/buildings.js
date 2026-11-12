@@ -332,7 +332,7 @@ export function buildWinterCafe({ terraceDepth = 7 } = {}) {
   const sx = -w / 2 - 1.2;
   const sz = front - terraceDepth - 0.6;
   for (const x of [sx - 0.8, sx + 0.8]) m.box([x, 1.2, sz], [0.1, 2.4, 0.1], woodDark);
-  bright.box([sx, 2.15, sz - 0.06], [2.2, 1.1, 0.06], [1.0, 0.48, 0.1]);
+  bright.box([sx, 2.15, sz - 0.06], [2.2, 1.1, 0.06], [0.9, 0.71, 0.31]);
   bright.box([sx - 0.15, 2.05, sz - 0.1], [0.55, 0.5, 0.03], WINTER_PALETTE.white);
   bright.box([sx + 0.22, 2.1, sz - 0.1], [0.18, 0.24, 0.03], WINTER_PALETTE.white);
   m.box([sx, 2.15, sz + 0.02], [2.2, 1.1, 0.06], woodDark);

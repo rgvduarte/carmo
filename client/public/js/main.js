@@ -107,8 +107,10 @@ import { PaddleView } from "./view/paddleView.js";
 import { SeatEnergy, aboardLine, boardingRoute, elsewhereRoute, isCaptain, kindName, normaliseCode, vehicleErrorLine } from "./ride/vehicle.js";
 import { VehicleView } from "./view/vehicleView.js";
 import { applyTranslations } from "./i18n/apply.js";
-import { getLocale, initLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
+import { getLocale, initLocale, intlLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
 import { languageOptions } from "./i18n/selector.js";
+import { initAbout } from "./view/about.js";
+import { APP_NAME } from "./brand.js";
 
 // Inside the OpenRadlr app: native Bluetooth, wake lock and file saving (docs/app.md).
 const nativeApp = installNativeApp();
@@ -482,7 +484,7 @@ const relocaliseHooks = [];
 
 /** Translates the page and the pre-cloned ride template and refreshes JS-built text. */
 function relocalise() {
-  document.documentElement.lang = getLocale();
+  document.documentElement.lang = intlLocale();
   applyTranslations(document);
   applyTranslations(rideTemplate);
   renderLanguageSelect();
@@ -578,7 +580,7 @@ function refreshFtpFields() {
 }
 
 function renderFtpSource() {
-  $("ftp-source").textContent = ftpProvenance(app.profile, { locale: getLocale() });
+  $("ftp-source").textContent = ftpProvenance(app.profile, { locale: intlLocale() });
 }
 
 /** Makes `ftp` the rider's FTP everywhere it is read: profile, trainer, workouts, studio and the form. */
@@ -685,6 +687,7 @@ function initSetup() {
     app.drawerByController = false;
   });
   initDiagnostics();
+  initAbout();
   initStartVehicle();
   initStartMenu();
   initRecovery();
@@ -1606,7 +1609,7 @@ function formProfile() {
 function keepFormEdits() {
   if (app.ride) return;
   app.profile = profiles.save(keepValid(app.profile, formProfile()));
-  $("ftp-source").textContent = ftpProvenance(app.profile, { locale: getLocale() });
+  $("ftp-source").textContent = ftpProvenance(app.profile, { locale: intlLocale() });
 }
 
 /** @param {{snapshot: object, photos: object[]} | null} [restored] an autosaved ride to continue (#73) */
@@ -2410,7 +2413,7 @@ function speak(text) {
   if (!app.coachVoice || !("speechSynthesis" in globalThis)) return;
   speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = getLocale();
+  utterance.lang = intlLocale();
   speechSynthesis.speak(utterance);
 }
 
@@ -2716,7 +2719,7 @@ function initFinish() {
   });
 }
 
-const rideName = () => (app.eventRide ? eventRideName(app.eventRide.kind, app.eventRide.routeName) : `OpenRadlr · ${app.rideRoute.name}`);
+const rideName = () => (app.eventRide ? eventRideName(app.eventRide.kind, app.eventRide.routeName) : `${APP_NAME} · ${app.rideRoute.name}`);
 
 function finishStats() {
   const summary = app.recorder.summary();
@@ -2908,7 +2911,7 @@ function setupRecoveryUpload() {
   app.recoveryUpload = null;
   $("discard-unfinished").textContent = t("unfinished.discard");
   if (!visible) return;
-  app.recoveryUpload = Object.assign(mountUpload("unfinished-strava-panel", RideRecorder.from(snapshot.recorder), `OpenRadlr · ${snapshot.routeName}`, {
+  app.recoveryUpload = Object.assign(mountUpload("unfinished-strava-panel", RideRecorder.from(snapshot.recorder), `${APP_NAME} · ${snapshot.routeName}`, {
     indoor: snapshot.studio,
     onSuccess: () => {
       if (app.unfinished === snapshot) $("discard-unfinished").textContent = t("unfinished.done");
@@ -3254,7 +3257,7 @@ function renderPhotos() {
     ...images.map((photo) => {
       const item = document.createElement("li");
       const open = Object.assign(document.createElement("button"), { type: "button", className: "photo-thumb", title: t("photos.downloadTitle", { name: photo.name }) });
-      const alt = photo.summary ? t("photos.summaryCard") : t("photos.takenAt", { time: new Date(photo.takenAt).toLocaleTimeString(getLocale()) });
+      const alt = photo.summary ? t("photos.summaryCard") : t("photos.takenAt", { time: new Date(photo.takenAt).toLocaleTimeString(intlLocale()) });
       open.append(Object.assign(document.createElement("img"), { src: photo.url, alt }));
       open.addEventListener("click", () => saveFiles([photo]));
       if (photo.summary) {

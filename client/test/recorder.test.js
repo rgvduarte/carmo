@@ -67,7 +67,7 @@ test("samples keep a position only when both coordinates are numbers", () => {
 test("GPX has a track point per sample with time, elevation, power, cadence and heart rate", () => {
   const gpx = ride(3).toGpx({ name: "Rolling Hills <test>" });
   assert.match(gpx, /^<\?xml/);
-  assert.match(gpx, /<gpx version="1\.1" creator="OpenRadlr"/);
+  assert.match(gpx, /<gpx version="1\.1" creator="GOCARMO Ride"/);
   assert.match(gpx, /<metadata><name>Rolling Hills &lt;test&gt;<\/name><time>2026-10-14T13:30:00Z<\/time><\/metadata>/);
   assert.match(gpx, /<trk><name>Rolling Hills &lt;test&gt;<\/name><type>VirtualRide<\/type>/);
   assert.equal((gpx.match(/<trkpt /g) ?? []).length, 4);
@@ -84,8 +84,8 @@ test("GPX needs positions", () => {
 
 test("file names carry date, time, route and format", () => {
   const t = new Date(2026, 9, 14, 15, 7).getTime();
-  assert.equal(rideFileName(t, "Col de la Forge!"), "openradlr-2026-10-14-1507-col-de-la-forge.tcx");
-  assert.equal(rideFileName(t, "rolling-hills", "gpx"), "openradlr-2026-10-14-1507-rolling-hills.gpx");
+  assert.equal(rideFileName(t, "Col de la Forge!"), "gocarmo-ride-2026-10-14-1507-col-de-la-forge.tcx");
+  assert.equal(rideFileName(t, "rolling-hills", "gpx"), "gocarmo-ride-2026-10-14-1507-rolling-hills.gpx");
 });
 
 /** 60 s of riding with a pause from 20 s to 50 s and no samples inside it. */

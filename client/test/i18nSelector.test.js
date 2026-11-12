@@ -6,9 +6,10 @@ test("one option per supported language, in its own name, with only the current 
   assert.deepEqual(languageOptions("de"), [
     { code: "en", label: "English", selected: false },
     { code: "de", label: "Deutsch", selected: true },
+    { code: "pt", label: "Português", selected: false },
   ]);
   assert.deepEqual(
     languageOptions("en").map((option) => option.selected),
-    [true, false],
+    [true, false, false],
   );
 });

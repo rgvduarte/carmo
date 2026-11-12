@@ -5,6 +5,7 @@
  * cadence and heart rate. Positions (see route/geo.js) give the ride a map
  * track. Strava gets the FIT file: only FIT can say it was a virtual ride.
  */
+import { APP_NAME } from "../brand.js";
 import { encodeFitActivity } from "./fitFile.js";
 
 const xmlEscape = (text) =>
@@ -154,7 +155,7 @@ export class RideRecorder {
    * The ride as TCX, with positions where the sample has one.
    * @param {{name?: string, splits?: object[]}} [options] `splits` (see ride/splits.js): one `<Lap>` each, one lap over the whole ride without
    */
-  toTcx({ name = "OpenRadlr", splits = [] } = {}) {
+  toTcx({ name = APP_NAME, splits = [] } = {}) {
     if (this.samples.length === 0) throw new Error("nothing recorded yet");
     const start = iso(this.samples[0].t);
     const summary = this.summary();
@@ -190,7 +191,7 @@ export class RideRecorder {
 <Activities><Activity Sport="Biking"><Id>${start}</Id>
 ${laps.join("\n")}
 <Notes>${xmlEscape(name)}</Notes>
-<Creator xsi:type="Device_t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Name>OpenRadlr</Name></Creator>
+<Creator xsi:type="Device_t" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><Name>${APP_NAME}</Name></Creator>
 </Activity></Activities>
 </TrainingCenterDatabase>
 `;
@@ -202,7 +203,7 @@ ${laps.join("\n")}
    * position are left out.
    * @param {{name?: string}} [options]
    */
-  toGpx({ name = "OpenRadlr" } = {}) {
+  toGpx({ name = APP_NAME } = {}) {
     if (this.samples.length === 0) throw new Error("nothing recorded yet");
     const located = this.segments()
       .map((segment) => segment.filter(hasPosition))
@@ -226,7 +227,7 @@ ${laps.join("\n")}
     // One track segment per stretch between pauses.
     const trackSegments = located.map((segment) => `<trkseg>\n${trackpoints(segment)}\n</trkseg>`).join("\n");
     return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="OpenRadlr" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
+<gpx version="1.1" creator="${APP_NAME}" xmlns="http://www.topografix.com/GPX/1/1" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1">
 <metadata><name>${title}</name><time>${iso(this.samples[0].t)}</time></metadata>
 <trk><name>${title}</name><type>VirtualRide</type>${trackSegments}</trk>
 </gpx>
@@ -234,10 +235,10 @@ ${laps.join("\n")}
   }
 }
 
-/** "openradlr-2026-10-14-1530-rolling-hills.tcx" */
+/** "gocarmo-ride-2026-10-14-1530-rolling-hills.tcx" */
 export function rideFileName(startT, routeId = "ride", extension = "tcx") {
   const d = new Date(startT);
   const pad = (n) => String(n).padStart(2, "0");
   const safe = String(routeId).replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "ride";
-  return `openradlr-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${safe}.${extension}`;
+  return `gocarmo-ride-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${safe}.${extension}`;
 }

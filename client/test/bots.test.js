@@ -19,14 +19,14 @@ const hue = ([r, g, b]) => {
   return (h * 60 + 360) % 360;
 };
 
-test("no team rides in my orange or the humans' sky blue", () => {
-  const me = hue(rgb("#ff7a1a"));
+test("no team rides in my gold or the humans' sky blue", () => {
+  const me = hue(rgb("#e6b450"));
   const human = hue(rgb("#4cc3ff"));
   for (const [team, hex] of Object.entries(TEAM_KITS)) {
     const h = hue(rgb(hex));
     if (h === null) continue;
     const apart = (a, b) => Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
-    assert.ok(apart(h, me) > 15, `${team} is too close to orange`);
+    assert.ok(apart(h, me) > 15, `${team} is too close to gold`);
     assert.ok(apart(h, human) > 15, `${team} is too close to sky blue`);
   }
 });

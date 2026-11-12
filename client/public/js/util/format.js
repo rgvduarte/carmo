@@ -6,7 +6,7 @@
  * state, set once from the profile with `setUnits`.
  */
 
-import { getLocale } from "../i18n/i18n.js";
+import { intlLocale } from "../i18n/i18n.js";
 
 export const UNIT_SYSTEMS = Object.freeze(["metric", "imperial"]);
 
@@ -44,10 +44,10 @@ const numberFormats = new Map();
 
 /** A number with `digits` decimals in the active language ("36.0" / "36,0"). Display only: never for inputs, protocol or files. */
 export function formatNumber(value, digits) {
-  const key = `${getLocale()}|${digits}`;
+  const key = `${intlLocale()}|${digits}`;
   let format = numberFormats.get(key);
   if (!format) {
-    format = new Intl.NumberFormat(getLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    format = new Intl.NumberFormat(intlLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
     numberFormats.set(key, format);
   }
   return format.format(value);

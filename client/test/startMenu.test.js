@@ -200,8 +200,9 @@ test("the privacy link comes from the server, only as a web address", () => {
   assert.equal(privacyUrl({ privacy_url: "javascript:alert(1)" }), null);
 });
 
-test("the server pill names the server only when it isn't the default OpenRadlr", () => {
+test("the server pill names the server only when it isn't the fork's own name or the upstream default", () => {
   assert.equal(serverName({ name: "Club Tuesday" }), "Club Tuesday");
+  assert.equal(serverName({ name: "GOCARMO Ride" }), "");
   assert.equal(serverName({ name: "OpenRadlr" }), "");
   assert.equal(serverName({}), "");
   assert.equal(serverName(null), "");

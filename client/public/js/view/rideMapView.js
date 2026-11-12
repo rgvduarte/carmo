@@ -3,8 +3,8 @@
  *
  * The rider sits mid-screen heading up, so roughly half the map is the road
  * ahead. The map draws the island (when the road network is known), every
- * road once, the road being ridden with its lane markings, the golden lemons
- * still on the road, the draft gap ahead of me when I am drafting, and the
+ * road once, the road being ridden with its lane markings, the golden suns
+ * (upstream: lemons) still on the road, the draft gap ahead of me when I am drafting, and the
  * riders around me — including my best lap's ghost. It uses the same
  * route/rider data as the 3D view, so a device without WebGL 2 can still
  * follow the ride.
@@ -22,6 +22,9 @@ import { rideMapTheme } from "./rideMapTheme.js";
  *  The rider sits mid-screen: in the cockpit layout the paddle meter overlays
  *  the lower third, and the arrow must stay clear of its hint card. */
 export const MAP_VIEW = Object.freeze({ spanM: 120, riderY: 0.5 });
+
+/** The golden collectibles (ride/lemons.js) on the map: a pale gold, so they don't read as my own marker. */
+const SUN_COLOR = "#f0cf8a";
 
 /** Width of the 3D road's edge stripe (metres). */
 const EDGE_LINE = 0.12;
@@ -325,15 +328,25 @@ function drawMarkings(ctx, route, camera, theme) {
   }
 }
 
-/** Golden lemons along the road, under the riders, collected ones gone. */
+/** The golden collectibles along the road (suns in GOCARMO Ride), under the riders, collected ones gone. */
 function drawLemons(ctx, { route, lemons, camera, width, height }) {
   for (const lemon of lemons) {
     if (lemon.collected) continue;
     const screen = camera.toScreen(roadPointAt(route, lemon.distance, lemon.lane));
     if (screen.x < -10 || screen.x > width + 10 || screen.y < -10 || screen.y > height + 10) continue;
-    ctx.fillStyle = "#ffcc14";
+    // A small sun: eight rays around a disc, paler than my own gold marker.
+    ctx.strokeStyle = SUN_COLOR;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(screen.x, screen.y, 7, 5, 0, 0, Math.PI * 2);
+    for (let i = 0; i < 8; i += 1) {
+      const angle = (i / 8) * Math.PI * 2;
+      ctx.moveTo(screen.x + Math.cos(angle) * 6, screen.y + Math.sin(angle) * 6);
+      ctx.lineTo(screen.x + Math.cos(angle) * 8.5, screen.y + Math.sin(angle) * 8.5);
+    }
+    ctx.stroke();
+    ctx.fillStyle = SUN_COLOR;
+    ctx.beginPath();
+    ctx.arc(screen.x, screen.y, 4.5, 0, Math.PI * 2);
     ctx.fill();
   }
 }

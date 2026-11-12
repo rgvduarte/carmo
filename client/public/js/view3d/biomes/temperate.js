@@ -50,7 +50,7 @@ export const COLORS = Object.freeze({
   rock: [0.52, 0.51, 0.49],
   postWhite: [0.94, 0.94, 0.92],
   postRed: [0.82, 0.18, 0.16],
-  start: [1.0, 0.48, 0.1],
+  start: [0.9, 0.71, 0.31],
   climb: [0.86, 0.3, 0.3],
   sprint: [0.3, 0.7, 0.95],
   post: [0.92, 0.92, 0.92],

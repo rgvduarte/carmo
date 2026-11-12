@@ -1,5 +1,6 @@
+import { APP_NAME } from "../brand.js";
 import { formatDistanceWithUnit, formatDuration, formatNumber } from "../util/format.js";
-import { getLocale, t, tn } from "../i18n/i18n.js";
+import { getLocale, intlLocale, t, tn } from "../i18n/i18n.js";
 
 /** Pure helpers for scheduled events: the menu list, lobby banner, power sharing and results. */
 
@@ -16,7 +17,7 @@ export const formatCountdown = (seconds) => formatDuration(seconds);
  * @param {{locale?: string, timeZone?: string}} format
  * @param {string | null} enteredId the event I'm entered in, if any
  */
-export function eventRows(info, nowMs = Date.now(), { locale = getLocale(), timeZone } = {}, enteredId = null) {
+export function eventRows(info, nowMs = Date.now(), { locale = intlLocale(), timeZone } = {}, enteredId = null) {
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", hour12: false, hourCycle: "h23", timeZone });
   const skewMs = info.now_s * 1000 - nowMs;
   const label = (seconds) => clock.format(new Date(seconds * 1000 - skewMs));
@@ -62,7 +63,7 @@ export function groupGapLine(gapS) {
 }
 
 export function eventRideName(kind, routeName) {
-  return `OpenRadlr ${kind === "race" ? "race" : "group ride"} · ${routeName}`; // i18n-ok (ride name in exported files)
+  return `${APP_NAME} ${kind === "race" ? "race" : "group ride"} · ${routeName}`; // i18n-ok (ride name in exported files)
 }
 
 /** One text line per result. */

@@ -4,9 +4,9 @@ import { PhotoAlbum, canShareFiles, composeSummary, photoActions, downsample, ph
 
 test("names photo files after the date, route and number", () => {
   const t = new Date(2026, 9, 14, 15, 30).getTime();
-  assert.equal(photoFileName(t, "rolling-hills", 3), "openradlr-2026-10-14-1530-rolling-hills-3.png");
-  assert.equal(photoFileName(t, "Col de la Forge!", "summary"), "openradlr-2026-10-14-1530-col-de-la-forge-summary.png");
-  assert.equal(photoFileName(t, "", ""), "openradlr-2026-10-14-1530-ride.png");
+  assert.equal(photoFileName(t, "rolling-hills", 3), "gocarmo-ride-2026-10-14-1530-rolling-hills-3.png");
+  assert.equal(photoFileName(t, "Col de la Forge!", "summary"), "gocarmo-ride-2026-10-14-1530-col-de-la-forge-summary.png");
+  assert.equal(photoFileName(t, "", ""), "gocarmo-ride-2026-10-14-1530-ride.png");
 });
 
 function album(max) {

@@ -1,12 +1,13 @@
 // Dependency-free i18n: module-state locale, flat dictionaries, {name} interpolation.
 import en from "./en.js";
 import de from "./de.js";
+import pt from "./pt.js";
 
-export const SUPPORTED_LOCALES = ["en", "de"];
+export const SUPPORTED_LOCALES = ["en", "de", "pt"];
 export const DEFAULT_LOCALE = "en";
 export const LOCALE_KEY = "openradlr.locale";
 
-const dictionaries = { en, de };
+const dictionaries = { en, de, pt };
 let locale = DEFAULT_LOCALE;
 
 function baseLanguage(tag) {
@@ -24,6 +25,14 @@ export function detectLocale({ saved, languages } = {}) {
 
 export function getLocale() {
   return locale;
+}
+
+/** Locales whose bare code would give another country's conventions: "pt" alone is Brazilian for `Intl`. */
+const INTL_TAGS = { pt: "pt-PT" };
+
+/** The current locale as a tag for `Intl`, dates, `lang` attributes and speech: European Portuguese for "pt". */
+export function intlLocale() {
+  return INTL_TAGS[locale] ?? locale;
 }
 
 export function setLocale(code) {
@@ -46,7 +55,7 @@ export function t(key, params) {
 }
 
 export function tn(key, count, params) {
-  const form = new Intl.PluralRules(locale).select(count);
+  const form = new Intl.PluralRules(intlLocale()).select(count);
   const withN = { ...params, n: count };
   const template = lookup(`${key}.${form}`) ?? lookup(`${key}.other`);
   return template === undefined ? key : interpolate(template, withN);

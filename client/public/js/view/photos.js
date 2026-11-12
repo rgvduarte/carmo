@@ -7,20 +7,21 @@
  */
 
 import { formatDistanceWithUnit, formatDuration, formatNumber, formatSpeed, speedUnit } from "../util/format.js";
-import { getLocale, t } from "../i18n/i18n.js";
+import { APP_NAME } from "../brand.js";
+import { intlLocale, t } from "../i18n/i18n.js";
 
 export const MAX_PHOTOS = 30;
-const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; // i18n-ok
-const NUM = '"Barlow Condensed", "Roboto Condensed", "Arial Narrow", system-ui, sans-serif'; // i18n-ok
-const ACCENT = "#ff7a1a";
+const SANS = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; // i18n-ok
+const NUM = '"GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+const ACCENT = "#e6b450";
 
-/** "openradlr-2026-10-14-1530-rolling-hills-3.png" */
+/** "gocarmo-ride-2026-10-14-1530-rolling-hills-3.png" */
 export function photoFileName(t, routeId = "ride", suffix = "") {
   const d = new Date(t);
   const pad = (n) => String(n).padStart(2, "0");
   const safe = String(routeId).replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "ride";
   const tail = suffix === "" ? "" : `-${suffix}`;
-  return `openradlr-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${safe}${tail}.png`;
+  return `gocarmo-ride-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}-${safe}${tail}.png`;
 }
 
 /**
@@ -160,7 +161,7 @@ export function composePhoto(scene, { routeName, stats, when }, doc = document) 
   ctx.textBaseline = "alphabetic";
   ctx.fillStyle = ACCENT;
   ctx.font = `800 ${14 * u}px ${SANS}`;
-  ctx.fillText("OPENRADLR", pad, baseline - 30 * u);
+  ctx.fillText(APP_NAME.toUpperCase(), pad, baseline - 30 * u);
   ctx.fillStyle = "#fff";
   ctx.font = `600 ${24 * u}px ${SANS}`;
   ctx.fillText(fit(ctx, routeName, w * 0.3), pad, baseline);
@@ -186,7 +187,7 @@ export function composePhoto(scene, { routeName, stats, when }, doc = document) 
   ctx.textAlign = "right";
   ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
   ctx.font = `500 ${13 * u}px ${SANS}`;
-  ctx.fillText(when.toLocaleString(getLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 13 * u);
+  ctx.fillText(when.toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 13 * u);
   ctx.textAlign = "left";
   return canvas;
 }
@@ -234,7 +235,7 @@ export function composeSummary({ routeName, serverName, when, stats, power, elev
   ctx.fillText(fit(ctx, routeName, width), left, 220);
   ctx.fillStyle = "#aab3c0";
   ctx.font = `500 28px ${SANS}`;
-  ctx.fillText(fit(ctx, `${when.toLocaleString(getLocale(), { dateStyle: "long", timeStyle: "short" })} · ${serverName}`, width), left, 270);
+  ctx.fillText(fit(ctx, `${when.toLocaleString(intlLocale(), { dateStyle: "long", timeStyle: "short" })} · ${serverName}`, width), left, 270);
 
   // Totals in a grid of up to 4 columns.
   const columns = 4;
@@ -256,9 +257,12 @@ export function composeSummary({ routeName, serverName, when, stats, power, elev
   const chart = { x: left, y: 800, w: width, h: 280 };
   ctx.fillStyle = "#8a94a3";
   ctx.font = `700 20px ${SANS}`;
-  ctx.fillText("POWER", chart.x, chart.y - 20);
+  // The legend in the rider's language; the second label starts after the first, however long that is.
+  const powerLabel = t("photos.stat.power").toUpperCase();
+  ctx.fillText(powerLabel, chart.x, chart.y - 20);
+  const elevationX = chart.x + Math.max(110, ctx.measureText(powerLabel).width + 36);
   ctx.fillStyle = "#5fb47c";
-  ctx.fillText("ELEVATION", chart.x + 110, chart.y - 20);
+  ctx.fillText(t("photos.stat.elevation").toUpperCase(), elevationX, chart.y - 20);
   const heights = elevation.filter((v) => v !== null && Number.isFinite(v));
   if (heights.length > 1) {
     const series = downsample(elevation.map((v) => (v === null || !Number.isFinite(v) ? heights[0] : v)), 240);
