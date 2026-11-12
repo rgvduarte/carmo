@@ -306,6 +306,7 @@ pub fn build_with_stats(config: &Config) -> Result<(Router, DistanceStats), BoxE
             per_ip: Slots::new(config.max_connections_per_ip),
             trust_proxy: config.trust_proxy,
             client_ip_header: config.client_ip_header.clone(),
+            metrics_token: config.metrics_token.clone(),
             allowed_origins: config.allowed_origins.clone(),
             limits: config.connection_limits(),
         }),

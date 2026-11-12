@@ -82,6 +82,10 @@ pub struct Config {
     /// Seconds a client may take none of the server's messages before its
     /// connection is closed (no environment variable; for tests).
     pub write_timeout_s: f64,
+    /// What `/internal/metrics` asks for as `Authorization: Bearer …`
+    /// (`OPENRADLR_METRICS_TOKEN`). `None` (default): only requests from this
+    /// machine itself are answered.
+    pub metrics_token: Option<String>,
     /// The kernel's send buffer of every client connection, in bytes
     /// (`OPENRADLR_SEND_BUFFER_BYTES`). `None` (default) leaves it to the
     /// system, which may grow it to megabytes for a client that stopped reading.
@@ -286,6 +290,16 @@ impl Config {
             "must be a finite number of seconds above 0",
         )?;
 
+        let metrics_token = reader.raw("OPENRADLR_METRICS_TOKEN").filter(|v| !v.is_empty());
+        if let Some(token) = &metrics_token {
+            reader.check(
+                "OPENRADLR_METRICS_TOKEN",
+                "(hidden)",
+                token.len() >= 16 && token.chars().all(|c| c.is_ascii_graphic()),
+                "must be at least 16 characters without spaces (try `openssl rand -hex 32`)",
+            )?;
+        }
+
         let send_buffer_bytes: Option<u32> = reader.parse_optional("OPENRADLR_SEND_BUFFER_BYTES")?;
         if let Some(bytes) = send_buffer_bytes {
             reader.check(
@@ -468,6 +482,7 @@ impl Config {
             afk_reminder_s,
             afk_answer_s: 120.0,
             write_timeout_s: ConnectionLimits::default().write_timeout_s,
+            metrics_token,
             send_buffer_bytes,
             allowed_origins,
             frame_ancestors,
@@ -863,6 +878,19 @@ mod tests {
             config(&[("OPENRADLR_MAX_CONNECTIONS_PER_IP", "0")]).unwrap_err().key,
             "OPENRADLR_MAX_CONNECTIONS_PER_IP"
         );
+    }
+
+    #[test]
+    fn the_metrics_token_is_optional_and_never_echoed() {
+        assert_eq!(config(&[]).unwrap().metrics_token, None);
+        assert_eq!(config(&[("OPENRADLR_METRICS_TOKEN", " ")]).unwrap().metrics_token, None);
+        let c = config(&[("OPENRADLR_METRICS_TOKEN", "0123456789abcdef")]).unwrap();
+        assert_eq!(c.metrics_token.as_deref(), Some("0123456789abcdef"));
+        for bad in ["short", "sixteen chars but spaced"] {
+            let err = config(&[("OPENRADLR_METRICS_TOKEN", bad)]).expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_METRICS_TOKEN");
+            assert!(!err.to_string().contains(bad), "{err}");
+        }
     }
 
     #[test]

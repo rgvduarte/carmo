@@ -19,7 +19,7 @@ use crate::afk::{AfkCounts, AfkStats};
 use crate::app::unix_now_s;
 use crate::auth::{self, Strava};
 use crate::connection;
-use crate::guard::{client_ip, origin_allowed, platform_client_ip, ConnectionLimits, Slots};
+use crate::guard::{client_ip, origin_allowed, platform_client_ip, same_secret, ConnectionLimits, Slots};
 use crate::map_file::Maps;
 use crate::protocol::{DeviceKind, EventInfoWire, PROTOCOL_VERSION};
 use crate::route_file::RouteFile;
@@ -63,6 +63,9 @@ pub struct Protection {
     /// The header in which a hosting platform's proxy reports the client's
     /// address (`OPENRADLR_CLIENT_IP_HEADER`); `None`: no header is believed.
     pub client_ip_header: Option<header::HeaderName>,
+    /// The bearer token `/internal/metrics` asks for (`OPENRADLR_METRICS_TOKEN`);
+    /// `None`: only this machine itself may read the metrics.
+    pub metrics_token: Option<String>,
     pub allowed_origins: Vec<String>,
     pub limits: ConnectionLimits,
 }
@@ -359,10 +362,76 @@ async fn healthz() -> &'static str {
     "ok"
 }
 
+/// Who asks for `/internal/metrics`, as far as the server can tell.
+#[derive(Debug, PartialEq, Eq)]
+enum MetricsAccess {
+    Allowed,
+    /// A token is configured and the request did not bring it.
+    Unauthorized,
+    /// No token is configured and the request is not from this machine.
+    Hidden,
+}
+
+/// With a token (`OPENRADLR_METRICS_TOKEN`) the request needs
+/// `Authorization: Bearer <token>`, wherever it comes from. Without one only
+/// this machine itself is answered: a loopback peer whose request no proxy
+/// forwarded (a reverse proxy on the same machine is a loopback peer too, and
+/// marks what it passes on). `forwarding_header` is the platform's header
+/// (`OPENRADLR_CLIENT_IP_HEADER`), if one is configured.
+fn metrics_access(
+    token: Option<&str>,
+    headers: &HeaderMap,
+    peer: Option<SocketAddr>,
+    forwarding_header: Option<&header::HeaderName>,
+) -> MetricsAccess {
+    if let Some(token) = token {
+        let mut presented = headers
+            .get_all(header::AUTHORIZATION)
+            .iter()
+            .map(|value| value.to_str().unwrap_or(""));
+        let authorised = match (presented.next(), presented.next()) {
+            (Some(value), None) => value
+                .split_once(' ')
+                .is_some_and(|(scheme, given)| scheme.eq_ignore_ascii_case("bearer") && same_secret(given, token)),
+            _ => false,
+        };
+        return if authorised {
+            MetricsAccess::Allowed
+        } else {
+            MetricsAccess::Unauthorized
+        };
+    }
+    let local = peer.is_some_and(|addr| addr.ip().to_canonical().is_loopback());
+    let forwarded = ["x-forwarded-for", "forwarded", "x-real-ip"]
+        .into_iter()
+        .any(|name| headers.contains_key(name))
+        || forwarding_header.is_some_and(|name| headers.contains_key(name));
+    if local && !forwarded {
+        MetricsAccess::Allowed
+    } else {
+        MetricsAccess::Hidden
+    }
+}
+
 // This endpoint is intended for the host's private Prometheus network. It only
 // exports aggregate counters already exposed by /api/info; never rider data,
-// names, IDs, credentials, or request details.
-async fn metrics(State(state): State<AppState>) -> ([(header::HeaderName, &'static str); 1], String) {
+// names, IDs, credentials, or request details. It is still not for everyone:
+// see [`metrics_access`].
+async fn metrics(State(state): State<AppState>, headers: HeaderMap, extensions: Extensions) -> Response {
+    let peer = extensions.get::<ConnectInfo<SocketAddr>>().map(|info| info.0);
+    let protection = &state.protection;
+    match metrics_access(
+        protection.metrics_token.as_deref(),
+        &headers,
+        peer,
+        protection.client_ip_header.as_ref(),
+    ) {
+        MetricsAccess::Allowed => {}
+        MetricsAccess::Unauthorized => {
+            return (StatusCode::UNAUTHORIZED, [(header::WWW_AUTHENTICATE, "Bearer")]).into_response();
+        }
+        MetricsAccess::Hidden => return StatusCode::NOT_FOUND.into_response(),
+    }
     let distance = state.stats.snapshot();
     let body = metrics_body(
         state.worlds.player_count(),
@@ -377,6 +446,7 @@ async fn metrics(State(state): State<AppState>) -> ([(header::HeaderName, &'stat
         [(header::CONTENT_TYPE, "text/plain; version=0.0.4; charset=utf-8")],
         body,
     )
+        .into_response()
 }
 
 fn metrics_body(
@@ -412,8 +482,142 @@ fn metrics_body(
 
 #[cfg(test)]
 mod metrics_tests {
-    use super::metrics_body;
+    use super::{metrics_access, metrics_body, MetricsAccess};
     use crate::afk::AfkCounts;
+    use axum::http::{header, HeaderMap, HeaderName, HeaderValue};
+    use std::net::SocketAddr;
+
+    const TOKEN: &str = "0123456789abcdef0123456789abcdef";
+
+    fn headers(pairs: &[(&'static str, &str)]) -> HeaderMap {
+        let mut map = HeaderMap::new();
+        for (name, value) in pairs {
+            map.append(HeaderName::from_static(name), HeaderValue::from_str(value).unwrap());
+        }
+        map
+    }
+
+    fn peer(addr: &str) -> Option<SocketAddr> {
+        Some(addr.parse().unwrap())
+    }
+
+    #[test]
+    fn without_a_token_only_this_machine_reads_the_metrics() {
+        let none = HeaderMap::new();
+        for local in [
+            "127.0.0.1:4000",
+            "127.8.9.1:4000",
+            "[::1]:4000",
+            "[::ffff:127.0.0.1]:4000",
+        ] {
+            assert_eq!(
+                metrics_access(None, &none, peer(local), None),
+                MetricsAccess::Allowed,
+                "{local}"
+            );
+        }
+        for remote in [
+            "203.0.113.9:4000",
+            "10.0.0.5:4000",
+            "172.17.0.1:4000",
+            "192.168.1.20:4000",
+            "[2001:db8::1]:4000",
+            "[fd00::2]:4000",
+            "0.0.0.0:4000",
+        ] {
+            assert_eq!(
+                metrics_access(None, &none, peer(remote), None),
+                MetricsAccess::Hidden,
+                "{remote}"
+            );
+        }
+        // No peer address at all: nothing proves the request is local.
+        assert_eq!(metrics_access(None, &none, None, None), MetricsAccess::Hidden);
+        // A bearer token means nothing while none is configured.
+        let bearer = headers(&[("authorization", "Bearer 0123456789abcdef0123456789abcdef")]);
+        assert_eq!(
+            metrics_access(None, &bearer, peer("203.0.113.9:4000"), None),
+            MetricsAccess::Hidden
+        );
+    }
+
+    #[test]
+    fn without_a_token_requests_through_a_proxy_on_this_machine_are_not_local() {
+        let local = peer("127.0.0.1:4000");
+        for name in ["x-forwarded-for", "forwarded", "x-real-ip"] {
+            let forwarded = headers(&[(name, "203.0.113.9")]);
+            assert_eq!(
+                metrics_access(None, &forwarded, local, None),
+                MetricsAccess::Hidden,
+                "{name}"
+            );
+        }
+        let platform = HeaderName::from_static("fly-client-ip");
+        let forwarded = headers(&[("fly-client-ip", "203.0.113.9")]);
+        assert_eq!(
+            metrics_access(None, &forwarded, local, Some(&platform)),
+            MetricsAccess::Hidden
+        );
+        // Not configured, the same header is just a header.
+        assert_eq!(metrics_access(None, &forwarded, local, None), MetricsAccess::Allowed);
+    }
+
+    #[test]
+    fn with_a_token_the_request_must_bring_it() {
+        let remote = peer("203.0.113.9:4000");
+        let with = |value: &str| headers(&[("authorization", value)]);
+        for good in [
+            format!("Bearer {TOKEN}"),
+            format!("bearer {TOKEN}"),
+            format!("BEARER {TOKEN}"),
+        ] {
+            assert_eq!(
+                metrics_access(Some(TOKEN), &with(&good), remote, None),
+                MetricsAccess::Allowed,
+                "{good}"
+            );
+        }
+        for bad in [
+            TOKEN.to_owned(),
+            format!("Bearer {TOKEN}x"),
+            format!("Bearer {}", &TOKEN[..31]),
+            format!("Bearer  {TOKEN}"),
+            format!("Bearer {TOKEN} "),
+            format!("Basic {TOKEN}"),
+            "Bearer".to_owned(),
+            "Bearer ".to_owned(),
+            String::new(),
+        ] {
+            assert_eq!(
+                metrics_access(Some(TOKEN), &with(&bad), remote, None),
+                MetricsAccess::Unauthorized,
+                "{bad:?}"
+            );
+        }
+        // No header, or two of them.
+        assert_eq!(
+            metrics_access(Some(TOKEN), &HeaderMap::new(), remote, None),
+            MetricsAccess::Unauthorized
+        );
+        let good = format!("Bearer {TOKEN}");
+        let twice = headers(&[("authorization", "Bearer wrong"), ("authorization", &good)]);
+        assert_eq!(
+            metrics_access(Some(TOKEN), &twice, remote, None),
+            MetricsAccess::Unauthorized
+        );
+        // With a token, being on this machine is not enough any more.
+        assert_eq!(
+            metrics_access(Some(TOKEN), &HeaderMap::new(), peer("127.0.0.1:4000"), None),
+            MetricsAccess::Unauthorized
+        );
+        // And the token works through any proxy.
+        let mut forwarded = with(&good);
+        forwarded.insert(header::FORWARDED, HeaderValue::from_static("for=203.0.113.9"));
+        assert_eq!(
+            metrics_access(Some(TOKEN), &forwarded, remote, None),
+            MetricsAccess::Allowed
+        );
+    }
 
     #[test]
     fn metrics_export_only_aggregate_operational_stats() {

@@ -1,5 +1,6 @@
 //! End-to-end tests for a server behind a hosting platform and inside another
-//! site's page: framing, CORS, and the client address a platform proxy reports.
+//! site's page: framing, CORS, the client address a platform proxy reports,
+//! and who may read the metrics.
 
 use axum::http::HeaderName;
 use openradlr_server::app;
@@ -448,4 +449,84 @@ async fn the_platform_header_means_nothing_unless_configured() {
         open_game(addr, &[("fly-client-ip", "198.51.100.7")]).await.err(),
         Some(TOO_MANY)
     );
+}
+
+const METRICS_TOKEN: &str = "0123456789abcdef0123456789abcdef";
+
+#[tokio::test]
+async fn metrics_are_for_this_machine_only_without_a_token() {
+    let addr = start_server(behind_a_platform_proxy()).await;
+    // The test itself is a loopback peer, as `curl` on the server would be.
+    let local = get(addr, "/internal/metrics", &[]).await;
+    assert_eq!(local.status, 200);
+    assert!(local.body.contains("openradlr_players 0\n"), "{}", local.body);
+    assert!(local.header("content-type").unwrap().starts_with("text/plain"));
+    // What a reverse proxy or the platform's proxy passes on is somebody else's request.
+    for forwarded in [
+        ("X-Forwarded-For", "203.0.113.9"),
+        ("Forwarded", "for=203.0.113.9"),
+        ("X-Real-IP", "203.0.113.9"),
+        ("Fly-Client-IP", "203.0.113.9"),
+    ] {
+        let reply = get(addr, "/internal/metrics", &[forwarded]).await;
+        assert_eq!(reply.status, 404, "{forwarded:?}");
+        assert!(!reply.body.contains("openradlr_"), "{forwarded:?}");
+    }
+    // A token nobody configured opens nothing.
+    let bearer = format!("Bearer {METRICS_TOKEN}");
+    let reply = get(
+        addr,
+        "/internal/metrics",
+        &[("Authorization", &bearer), ("X-Forwarded-For", "203.0.113.9")],
+    )
+    .await;
+    assert_eq!(reply.status, 404);
+}
+
+#[tokio::test]
+async fn metrics_are_hidden_when_the_peer_is_unknown() {
+    // Served without connection info, nothing proves a request is local.
+    let router = app::build(&test_config()).expect("app builds");
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    assert_eq!(get(addr, "/internal/metrics", &[]).await.status, 404);
+    assert_eq!(get(addr, "/healthz", &[]).await.status, 200);
+}
+
+#[tokio::test]
+async fn metrics_need_the_token_when_one_is_set() {
+    let addr = start_server(Config {
+        metrics_token: Some(METRICS_TOKEN.into()),
+        ..test_config()
+    })
+    .await;
+    let bearer = format!("Bearer {METRICS_TOKEN}");
+    let scraped = get(addr, "/internal/metrics", &[("Authorization", &bearer)]).await;
+    assert_eq!(scraped.status, 200);
+    assert!(scraped.body.contains("openradlr_player_capacity 50\n"));
+    // Through a proxy too: this is how a scraper outside the machine reads them.
+    let proxied = get(
+        addr,
+        "/internal/metrics",
+        &[("Authorization", &bearer), ("X-Forwarded-For", "203.0.113.9")],
+    )
+    .await;
+    assert_eq!(proxied.status, 200);
+
+    let wrong = format!("Bearer {METRICS_TOKEN}0");
+    for headers in [
+        vec![],
+        vec![("Authorization", wrong.as_str())],
+        vec![("Authorization", METRICS_TOKEN)],
+        vec![("Authorization", "Basic dXNlcjpwYXNz")],
+    ] {
+        let reply = get(addr, "/internal/metrics", &headers).await;
+        assert_eq!(reply.status, 401, "{headers:?}");
+        assert_eq!(reply.all("www-authenticate"), ["Bearer"]);
+        assert!(!reply.body.contains("openradlr_"), "{headers:?}");
+    }
+    // Not in the address either, where it would end up in logs.
+    let in_query = get(addr, &format!("/internal/metrics?token={METRICS_TOKEN}"), &[]).await;
+    assert_eq!(in_query.status, 401);
 }

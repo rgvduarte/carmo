@@ -7,10 +7,12 @@
 //! * [`Slots`] — counted permits: the global player cap and connections per IP
 //! * [`client_ip`] — the client's address, optionally from a trusted reverse proxy
 //! * [`platform_client_ip`] — the same from the header of a hosting platform's proxy
+//! * [`same_secret`] — compares a presented secret with the configured one
 //!
 //! Everything here is synchronous and takes time as plain seconds, so it is
 //! tested without a clock.
 
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::net::{IpAddr, SocketAddr};
@@ -148,6 +150,19 @@ pub fn platform_client_ip<'a>(values: impl IntoIterator<Item = &'a str>) -> Opti
     let ip = values.next()?.trim().parse::<IpAddr>().ok()?;
     // `::ffff:203.0.113.9` and `203.0.113.9` are one client.
     values.next().is_none().then(|| ip.to_canonical())
+}
+
+/// True if `presented` is the `expected` secret. Takes the same time wherever
+/// the two differ, so response times do not give the secret away piece by
+/// piece: both are hashed (which also hides their lengths) and every byte of
+/// the hashes is compared.
+pub fn same_secret(presented: &str, expected: &str) -> bool {
+    let (presented, expected) = (Sha256::digest(presented), Sha256::digest(expected));
+    presented
+        .iter()
+        .zip(expected.iter())
+        .fold(0u8, |differences, (a, b)| differences | (a ^ b))
+        == 0
 }
 
 /// True if a WebSocket `Origin` may connect. An empty allow-list allows every
@@ -307,6 +322,15 @@ mod tests {
         }
         // A client that sent the header itself, next to the proxy's.
         assert_eq!(platform_client_ip(["198.51.100.7", "203.0.113.9"]), None);
+    }
+
+    #[test]
+    fn secrets_match_only_when_equal() {
+        assert!(same_secret("correct horse battery", "correct horse battery"));
+        assert!(!same_secret("correct horse batterx", "correct horse battery"));
+        assert!(!same_secret("correct horse", "correct horse battery"));
+        assert!(!same_secret("", "correct horse battery"));
+        assert!(!same_secret("correct horse battery ", "correct horse battery"));
     }
 
     #[test]
