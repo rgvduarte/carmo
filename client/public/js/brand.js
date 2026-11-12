@@ -5,6 +5,13 @@
  */
 export const APP_NAME = "GOCARMO Ride"; // i18n-ok (a name, not prose)
 
+/**
+ * How the app names itself to a device or service that asks for an identifier
+ * (OpenBikeControl's App Information): the fork's name, not upstream's, written
+ * the way such identifiers are (lower case, no space).
+ */
+export const APP_ID = "gocarmo-ride";
+
 /** The two words of the lockup, as set next to the symbol: the name in ink, the tag in gold. */
 export const BRAND_WORD = "GOCARMO"; // i18n-ok (a name)
 export const BRAND_TAG = "RIDE"; // i18n-ok (a name)

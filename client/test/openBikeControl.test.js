@@ -149,6 +149,8 @@ test("a device with the OpenBikeControl service connects as one and is told whic
   assert.equal(fake.buttons.notifying, true);
   const [info] = fake.appInfo.writes;
   assert.equal(info[0], 0x04);
+  // The fork names itself, not upstream: [opcode, version, length, "gocarmo-ride", …].
+  assert.equal(new TextDecoder().decode(Uint8Array.from(info.slice(3, 3 + info[2]))), "gocarmo-ride");
   assert.deepEqual(info.slice(-OBC_BUTTONS.size - 1), [OBC_BUTTONS.size, ...OBC_BUTTONS.keys()]);
 });
 
