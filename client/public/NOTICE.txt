@@ -483,6 +483,9 @@ describes the original's artwork, not GOCARMO's. Of the folders it lists:
 - Strava, Wahoo, Garmin and the other product names the game mentions belong
   to their owners and only say what the game works with; GOCARMO Ride is not
   affiliated with, sponsored or endorsed by any of them.
+- The bots are the original's cast, unchanged, including the rare "Goldie
+  Lemon" of team "Zitrone" (a nod to the original's mascot; it is a name, not
+  its logo).
 - Internal names are the original's: the settings start with `OPENRADLR_`,
   the server binary is `openradlr-server`, and the Docker Compose project,
   the image, the volumes and the cookies keep their names.
