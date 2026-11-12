@@ -7006,8 +7006,13 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
   display: inline;
 }
 
-/* Narrow frames: the symbol alone, as large as a finger needs. */
+/* Narrow frames: the symbol alone, as large as a finger needs; the ride's row of buttons is
+   full already, so there the control stays on the start screen only. */
 @media (max-width: 600px) {
+  html.framed.can-fullscreen .hud-actions [data-fullscreen-toggle] {
+    display: none;
+  }
+
   .start-head .fullscreen-toggle {
     padding: 8px;
   }
