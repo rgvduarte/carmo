@@ -81,13 +81,19 @@ Measured with the values in `render.yaml`
 | --- | --- |
 | One rider riding for one hour | 34 to 38 MB |
 | One first visit (the game's files) | 0.9 MB |
-| One browser tab left open on the start screen, per hour | 1.5 MB (it asks `/api/info` every 5 s; 2 kB per answer) |
+| One start screen in use, per hour | 0.25 MB (it asks `/api/info` every 30 s; 2 kB per answer) |
 
 5 GB are about 130 rider-hours a month: for example 10 riders for one hour,
 three times a week. A full house of 30 riders uses 1 GB in one hour.
 
-A tab left open on the start screen also keeps the service awake. One
-forgotten tab is 1 GB and 720 instance hours in a month.
+The start screen asks the server only while its tab is visible, and stops
+five minutes after the last key or pointer movement
+(`client/public/js/net/infoPoll.js`). A tab forgotten on the start screen
+therefore costs nothing and lets the service sleep. The original asked every
+5 s for as long as the tab was open: 1.5 MB an hour, and a service that never
+slept. During a ride the same question is asked every 30 s, which adds
+0.25 MB to a rider-hour (the 34 to 38 MB above are the game connection
+alone).
 
 To use less: `OPENRADLR_MAX_VISIBLE_RIDERS=15` with `OPENRADLR_TARGET_RIDERS=4`
 measured 25 to 28 MB per rider-hour (a rider then sees at most 15 others and

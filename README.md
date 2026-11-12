@@ -25,6 +25,7 @@ with or endorsed by its authors.
 | [README-upstream.md](README-upstream.md) | The original project's README, unchanged: what the game does, how to build and run it, every setting. It describes OpenRadlr; its links to `landing/` and `app/` lead nowhere here, because this fork does not ship those two folders. |
 | [docs/gocarmo-deploy.md](docs/gocarmo-deploy.md) | How GOCARMO Ride is deployed: the free pilot on Render, the paid fallbacks, Strava, the source link. |
 | [docs/gocarmo-server-settings.md](docs/gocarmo-server-settings.md) | What the fork's server does differently and the settings it adds. |
+| [docs/gocarmo-strava.md](docs/gocarmo-strava.md) | The end of a ride: the finish dialog, the ride image, what goes to Strava and under which of Strava's rules. |
 | [docs/README.md](docs/README.md) | Which pages in `docs/` are the original project's. |
 
 ## Run it

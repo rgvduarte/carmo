@@ -294,7 +294,10 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   "Connect with Strava" button (see "Third-party material added by this
   fork"); the original's hand-drawn Strava mark and its buttons in Strava's
   orange are gone; links to Strava read "View on Strava"; an empty rider name
-  is no longer filled in from the Strava account.
+  is no longer filled in from the Strava account. On the start screen the
+  offer to connect comes after "How are you riding?" (where the server asks
+  for Strava it still leads), and says so while Strava limits the accounts
+  of the server's application.
 - **Ride files**: a `.fit` file names the program that wrote it
   (`product_name` "GOCARMO Ride" in `file_id`, `js/ride/fitFile.js`), as the
   `.tcx` and `.gpx` files already did.
