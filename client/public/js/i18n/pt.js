@@ -917,4 +917,5 @@ export default {
   "frame.exitFullscreen": "Sair do ecrã inteiro",
   "strava.frame.opened": "O Strava abre num separador novo. Autoriza a ligação lá e volta a este separador.",
   "strava.frame.blocked": "O navegador bloqueou o separador novo. Permite janelas pop-up nesta página ou abre o jogo num separador só para ele.",
+  "about.osm": "OpenStreetMap: direitos de autor e licença",
 };

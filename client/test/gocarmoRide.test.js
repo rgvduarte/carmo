@@ -39,6 +39,24 @@ test("the source link names the running commit when the build knows it, else the
   assert.equal(sourceUrl("main; rm"), BRANCH, "anything that is not a commit id falls back to the branch");
 });
 
+test("every source link takes its address from the one helper, the dev gallery's too", () => {
+  const about = read("../public/js/view/about.js");
+  assert.match(about, /querySelectorAll\("\[data-source-link\]"\)\) link\.href = sourceUrl\(\)/);
+  const gallery = read("../public/gallery.html");
+  const offers = [...gallery.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
+  assert.equal(offers.length, 1);
+  assert.ok(offers[0].includes("data-source-link") && offers[0].includes(`href="${BRANCH}"`), "gallery.html carries the offer, also without script");
+  assert.match(read("../public/js/gallery.js"), /querySelectorAll\("\[data-source-link\]"\)\) link\.href = sourceUrl\(\)/);
+  // No other address of the repository is written anywhere in the client.
+  const stray = [];
+  for (const file of ["../public/index.html", "../public/gallery.html", "../public/js/main.js", "../public/js/view/about.js", "../public/js/gallery.js"]) {
+    for (const m of read(file).matchAll(/github\.com\/rgvduarte\/carmo[^"'`\s<]*/g)) {
+      if (m[0] !== "github.com/rgvduarte/carmo/tree/gocarmo-ride" && m[0] !== "github.com/rgvduarte/carmo") stray.push(`${file}: ${m[0]}`);
+    }
+  }
+  assert.deepEqual(stray, []);
+});
+
 test("the source code is offered on the start screen, in the ride menu and in the About dialog", () => {
   const links = [...html.matchAll(/<a\b[^>]*data-source-link[^>]*>/g)].map((m) => m[0]);
   assert.equal(links.length, 3);
@@ -64,6 +82,20 @@ test("the credits say which licence, that later versions apply, what a rider may
   assert.match(pt["about.modified"], /Não é o OpenRadlr oficial/);
   assert.match(pt["about.modified"], /podes usá-lo, alterá-lo e partilhá-lo/);
   assert.match(en["about.modified"], /not the official OpenRadlr/);
+});
+
+test("the credits say the licence in full words and that there is no warranty, in the three languages", () => {
+  assert.match(pt["about.modified"], /versão modificada do OpenRadlr/);
+  assert.match(pt["about.modified"], /licença GNU AGPL, versão 3 ou posterior/);
+  assert.match(pt["about.modified"], /sem garantia/);
+  assert.match(en["about.modified"], /modified version of OpenRadlr/);
+  assert.match(en["about.modified"], /GNU AGPL, version 3 or any later version/);
+  assert.match(en["about.modified"], /no warranty/);
+  assert.match(de["about.modified"], /veränderte Fassung von OpenRadlr/);
+  assert.match(de["about.modified"], /GNU AGPL, Version 3 oder später/);
+  assert.match(de["about.modified"], /Ohne Gewährleistung/);
+  assert.match(de["about.modified"], /nicht das offizielle OpenRadlr/);
+  assert.match(html, /<a href="https:\/\/www\.openstreetmap\.org\/copyright"[^>]*data-i18n="about\.osm"/, "the map data credit links OpenStreetMap's copyright page");
 });
 
 test("no file of upstream's artwork folder is shipped: the fork's own marks live in brand/", () => {

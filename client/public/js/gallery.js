@@ -10,6 +10,10 @@ import { BIOME_IDS, BIOMES, resolveBiome } from "./view3d/biomes/index.js";
 import { MeshBuilder } from "./view3d/meshBuilder.js";
 import { seededRandom } from "./view3d/noise.js";
 import { t } from "./i18n/i18n.js";
+import { sourceUrl } from "./view/about.js";
+
+// The source offer of this page names the running version, as the app's links do.
+for (const link of document.querySelectorAll("[data-source-link]")) link.href = sourceUrl();
 
 const params = new URLSearchParams(location.search);
 const biome = resolveBiome(params.get("biome") ?? undefined);

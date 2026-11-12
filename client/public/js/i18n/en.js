@@ -915,4 +915,5 @@ export default {
   "frame.exitFullscreen": "Exit full screen",
   "strava.frame.opened": "Strava opens in a new tab. Allow the connection there, then come back to this tab.",
   "strava.frame.blocked": "The browser blocked the new tab. Allow pop-ups for this page, or open the game in a tab of its own.",
+  "about.osm": "OpenStreetMap: copyright and licence",
 };
