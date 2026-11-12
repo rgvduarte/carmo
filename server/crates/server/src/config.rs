@@ -347,6 +347,7 @@ impl Config {
                     client_secret,
                     redirect_uri: format!("{url}/auth/strava/callback"),
                     public_url: url.clone(),
+                    api_url: crate::strava::STRAVA_URL.into(),
                 })
             }
             (Some(_), None) | (None, Some(_)) => {

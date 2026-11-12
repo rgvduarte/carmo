@@ -91,6 +91,29 @@ fn error(status: StatusCode, code: &str, message: &str) -> Response {
     (status, Json(serde_json::json!({ "code": code, "message": message }))).into_response()
 }
 
+fn not_connected() -> Response {
+    error(
+        StatusCode::UNAUTHORIZED,
+        "not_connected",
+        "connect your Strava account first",
+    )
+}
+
+/// Strava no longer accepts this session's tokens: the rider withdrew this
+/// server's access in their Strava settings, or the tokens are stale. Trying
+/// again cannot work, so the session is forgotten and the answer is the one
+/// for no session: the client keeps the ride and offers to connect again.
+fn disconnected(strava: &Strava, session: &str) -> Response {
+    tracing::info!("strava refused a session's tokens; the rider has to connect again");
+    strava.accounts.remove(session);
+    let clear = cookie(SESSION_COOKIE, "", "/", 0, strava.secure_cookies);
+    let mut response = not_connected();
+    if let Ok(value) = clear.parse() {
+        response.headers_mut().insert(header::SET_COOKIE, value);
+    }
+    response
+}
+
 fn not_configured() -> Response {
     error(
         StatusCode::NOT_FOUND,
@@ -311,11 +334,7 @@ pub async fn me(State(state): State<AppState>, headers: HeaderMap) -> Response {
             can_upload: account.can_upload,
         })
         .into_response(),
-        None => error(
-            StatusCode::UNAUTHORIZED,
-            "not_connected",
-            "connect your Strava account first",
-        ),
+        None => not_connected(),
     }
 }
 
@@ -333,12 +352,10 @@ pub async fn upload(
     let Some(strava) = state.strava.as_deref() else {
         return not_configured();
     };
-    let Some((_, account)) = strava.account(&headers) else {
-        return error(
-            StatusCode::UNAUTHORIZED,
-            "not_connected",
-            "connect your Strava account first",
-        );
+    // Also after a restart without a data directory: the cookie is from a
+    // session this server no longer knows.
+    let Some((session, account)) = strava.account(&headers) else {
+        return not_connected();
     };
     if !account.can_upload {
         return error(
@@ -356,13 +373,14 @@ pub async fn upload(
     };
     let name: String = query
         .name
-        .unwrap_or_else(|| "OpenRadlr".into())
+        .unwrap_or_else(|| strava_api::DEFAULT_ACTIVITY_NAME.into())
         .chars()
         .filter(|c| !c.is_control())
         .take(100)
         .collect();
     let access_token = match strava.access_token(&account).await {
         Ok(token) => token,
+        Err(e) if e.refresh_rejected() => return disconnected(strava, &session),
         Err(e) => {
             tracing::warn!(error = %e, "strava token refresh failed");
             return error(
@@ -372,9 +390,10 @@ pub async fn upload(
             );
         }
     };
-    let external_id = format!("openradlr-{}-{}", account.athlete_id, now_s());
+    let external_id = format!("{}-{}-{}", strava_api::EXTERNAL_ID_PREFIX, account.athlete_id, now_s());
     match strava_api::upload(
         &strava.http,
+        &strava.config,
         &access_token,
         ride,
         &name,
@@ -384,6 +403,7 @@ pub async fn upload(
     .await
     {
         Ok(status) => Json(status).into_response(),
+        Err(e) if e.unauthorized() => disconnected(strava, &session),
         Err(e) => {
             tracing::warn!(error = %e, "strava upload failed");
             error(
@@ -399,28 +419,28 @@ pub async fn upload_status(State(state): State<AppState>, headers: HeaderMap, Pa
     let Some(strava) = state.strava.as_deref() else {
         return not_configured();
     };
-    let Some((_, account)) = strava.account(&headers) else {
-        return error(
-            StatusCode::UNAUTHORIZED,
-            "not_connected",
-            "connect your Strava account first",
-        );
+    let Some((session, account)) = strava.account(&headers) else {
+        return not_connected();
     };
     let access_token = match strava.access_token(&account).await {
         Ok(token) => token,
+        Err(e) if e.refresh_rejected() => return disconnected(strava, &session),
         Err(_) => return error(StatusCode::BAD_GATEWAY, "strava_unavailable", "could not reach Strava"),
     };
-    match strava_api::upload_status(&strava.http, &access_token, id).await {
+    match strava_api::upload_status(&strava.http, &strava.config, &access_token, id).await {
         Ok(status) => {
             // The client stops polling once the activity exists, so this runs
             // about once per upload; the update is idempotent anyway.
             if let Some(activity_id) = status.activity_id {
-                if let Err(e) = strava_api::mark_virtual_ride(&strava.http, &access_token, activity_id).await {
+                if let Err(e) =
+                    strava_api::mark_virtual_ride(&strava.http, &strava.config, &access_token, activity_id).await
+                {
                     tracing::warn!(error = %e, activity_id, "marking strava activity as virtual ride failed");
                 }
             }
             Json(status).into_response()
         }
+        Err(e) if e.unauthorized() => disconnected(strava, &session),
         Err(e) => {
             tracing::warn!(error = %e, "strava upload status failed");
             error(

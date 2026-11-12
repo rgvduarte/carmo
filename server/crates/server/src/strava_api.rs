@@ -3,16 +3,39 @@
 
 use crate::strava::{StravaConfig, TokenResponse, UploadStatus};
 
-const TOKEN_URL: &str = "https://www.strava.com/oauth/token";
-const UPLOADS_URL: &str = "https://www.strava.com/api/v3/uploads";
-const ACTIVITIES_URL: &str = "https://www.strava.com/api/v3/activities";
-
+/// A call to Strava that did not work: what happened (never a token), and the
+/// HTTP status if Strava answered at all.
 #[derive(Debug)]
-pub struct StravaError(pub String);
+pub struct StravaError {
+    pub message: String,
+    pub status: Option<u16>,
+}
+
+impl StravaError {
+    fn http(what: &str, status: reqwest::StatusCode) -> Self {
+        Self {
+            message: format!("{what} failed with HTTP {status}"),
+            status: Some(status.as_u16()),
+        }
+    }
+
+    /// Strava does not accept the access token (any more): the rider withdrew
+    /// this server's access, or the token is stale. Trying again cannot help;
+    /// connecting again does.
+    pub fn unauthorized(&self) -> bool {
+        self.status == Some(401)
+    }
+
+    /// The same for a token refresh, where Strava answers a refresh token it
+    /// no longer knows with 400.
+    pub fn refresh_rejected(&self) -> bool {
+        matches!(self.status, Some(400 | 401))
+    }
+}
 
 impl std::fmt::Display for StravaError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.message)
     }
 }
 
@@ -20,17 +43,25 @@ impl std::error::Error for StravaError {}
 
 impl From<reqwest::Error> for StravaError {
     fn from(error: reqwest::Error) -> Self {
-        StravaError(error.to_string())
+        Self {
+            message: error.to_string(),
+            status: None,
+        }
     }
 }
 
-async fn token_request(http: &reqwest::Client, form: &[(&str, &str)]) -> Result<TokenResponse, StravaError> {
-    let response = http.post(TOKEN_URL).form(form).send().await?;
+async fn token_request(
+    http: &reqwest::Client,
+    config: &StravaConfig,
+    form: &[(&str, &str)],
+) -> Result<TokenResponse, StravaError> {
+    let response = http
+        .post(format!("{}/oauth/token", config.api_url))
+        .form(form)
+        .send()
+        .await?;
     if !response.status().is_success() {
-        return Err(StravaError(format!(
-            "token request failed with HTTP {}",
-            response.status()
-        )));
+        return Err(StravaError::http("token request", response.status()));
     }
     Ok(response.json().await?)
 }
@@ -43,6 +74,7 @@ pub async fn exchange_code(
 ) -> Result<TokenResponse, StravaError> {
     token_request(
         http,
+        config,
         &[
             ("client_id", config.client_id.as_str()),
             ("client_secret", config.client_secret.as_str()),
@@ -60,6 +92,7 @@ pub async fn refresh(
 ) -> Result<TokenResponse, StravaError> {
     token_request(
         http,
+        config,
         &[
             ("client_id", config.client_id.as_str()),
             ("client_secret", config.client_secret.as_str()),
@@ -94,15 +127,23 @@ impl RideFile {
 }
 
 /// The activity description. Strava descriptions are plain text, but it turns
-/// full URLs into links, so the server links to itself.
+/// full URLs into links, so the server links to itself. Just the fork's name
+/// and the address: it reads the same in every rider's language.
 pub fn description(public_url: &str) -> String {
-    format!("Ridden on OpenRadlr: {public_url}")
+    format!("{}: {public_url}", crate::APP_NAME)
 }
+
+/// The activity's name when the client sent none (it sends the route's name).
+pub const DEFAULT_ACTIVITY_NAME: &str = crate::APP_NAME;
+
+/// The start of the `external_id` Strava keeps with an upload.
+pub const EXTERNAL_ID_PREFIX: &str = "gocarmo-ride";
 
 /// Uploads a ride file. A TCX ride is turned into a virtual ride by
 /// [`mark_virtual_ride`] once it is processed (where Strava allows it).
 pub async fn upload(
     http: &reqwest::Client,
+    config: &StravaConfig,
     access_token: &str,
     ride: RideFile,
     name: &str,
@@ -112,13 +153,13 @@ pub async fn upload(
     let (file, data_type) = match ride {
         RideFile::Fit(bytes) => (
             reqwest::multipart::Part::bytes(bytes)
-                .file_name("openradlr.fit")
+                .file_name("gocarmo-ride.fit")
                 .mime_str("application/vnd.ant.fit")?,
             "fit",
         ),
         RideFile::Tcx(text) => (
             reqwest::multipart::Part::text(text)
-                .file_name("openradlr.tcx")
+                .file_name("gocarmo-ride.tcx")
                 .mime_str("application/vnd.garmin.tcx+xml")?,
             "tcx",
         ),
@@ -130,13 +171,13 @@ pub async fn upload(
         .text("description", description.to_owned())
         .text("external_id", external_id.to_owned());
     let response = http
-        .post(UPLOADS_URL)
+        .post(format!("{}/api/v3/uploads", config.api_url))
         .bearer_auth(access_token)
         .multipart(form)
         .send()
         .await?;
     if !response.status().is_success() {
-        return Err(StravaError(format!("upload failed with HTTP {}", response.status())));
+        return Err(StravaError::http("upload", response.status()));
     }
     Ok(response.json().await?)
 }
@@ -146,20 +187,18 @@ pub async fn upload(
 /// field for the sport type, and TCX only knows "Biking".)
 pub async fn mark_virtual_ride(
     http: &reqwest::Client,
+    config: &StravaConfig,
     access_token: &str,
     activity_id: u64,
 ) -> Result<(), StravaError> {
     let response = http
-        .put(format!("{ACTIVITIES_URL}/{activity_id}"))
+        .put(format!("{}/api/v3/activities/{activity_id}", config.api_url))
         .bearer_auth(access_token)
         .json(&serde_json::json!({ "sport_type": "VirtualRide" }))
         .send()
         .await?;
     if !response.status().is_success() {
-        return Err(StravaError(format!(
-            "updating the activity failed with HTTP {}",
-            response.status()
-        )));
+        return Err(StravaError::http("updating the activity", response.status()));
     }
     Ok(())
 }
@@ -167,19 +206,17 @@ pub async fn mark_virtual_ride(
 /// Asks Strava whether an upload became an activity yet.
 pub async fn upload_status(
     http: &reqwest::Client,
+    config: &StravaConfig,
     access_token: &str,
     upload_id: u64,
 ) -> Result<UploadStatus, StravaError> {
     let response = http
-        .get(format!("{UPLOADS_URL}/{upload_id}"))
+        .get(format!("{}/api/v3/uploads/{upload_id}", config.api_url))
         .bearer_auth(access_token)
         .send()
         .await?;
     if !response.status().is_success() {
-        return Err(StravaError(format!(
-            "upload status failed with HTTP {}",
-            response.status()
-        )));
+        return Err(StravaError::http("upload status", response.status()));
     }
     Ok(response.json().await?)
 }
@@ -189,10 +226,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn description_links_to_the_server() {
+    fn description_names_the_fork_and_links_to_the_server() {
         assert_eq!(
             description("https://ride.example.com"),
-            "Ridden on OpenRadlr: https://ride.example.com"
+            "GOCARMO Ride: https://ride.example.com"
+        );
+        assert_eq!(DEFAULT_ACTIVITY_NAME, "GOCARMO Ride");
+    }
+
+    #[test]
+    fn only_strava_saying_no_to_the_tokens_means_connect_again() {
+        let answered = |status: u16| StravaError::http("upload", reqwest::StatusCode::from_u16(status).unwrap());
+        assert!(answered(401).unauthorized());
+        assert!(answered(401).refresh_rejected() && answered(400).refresh_rejected());
+        // A bad request on an upload is a bad file, not a withdrawn permission.
+        assert!(!answered(400).unauthorized());
+        for other in [403, 404, 429, 500, 503] {
+            assert!(
+                !answered(other).unauthorized() && !answered(other).refresh_rejected(),
+                "{other}"
+            );
+        }
+        assert_eq!(
+            answered(503).to_string(),
+            "upload failed with HTTP 503 Service Unavailable"
         );
     }
 
