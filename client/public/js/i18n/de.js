@@ -740,6 +740,7 @@ export default {
   "menu.tab.studio": "Studio",
   "strava.line.required": "Dieser Server braucht ein Strava-Konto zum Fahren. So bleiben Bots draußen; das Hochladen bleibt deine Entscheidung.",
   "strava.line.optional": "Lade deine Fahrten zu Strava hoch",
+  "strava.line.limited": "Strava begrenzt, wie viele Konten sich mit einer neuen Anwendung verbinden können. Wenn deins sich nicht verbindet, lade nach der Fahrt die .fit-Datei herunter und lade sie selbst bei Strava hoch.",
   "menu.join.board": "{code} einsteigen",
   "start.loadingTheIsland": "Lade die Insel …",
   "start.howAreYouRiding": "Wie fährst du?",

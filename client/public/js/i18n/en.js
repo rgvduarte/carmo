@@ -740,6 +740,7 @@ export default {
   "menu.tab.studio": "Studio",
   "strava.line.required": "This server needs a Strava account to ride. It keeps bots out; uploading stays your choice.",
   "strava.line.optional": "Upload your rides to Strava",
+  "strava.line.limited": "Strava limits how many accounts can connect to a new application. If yours does not connect, download the .fit file after the ride and upload it to Strava yourself.",
   "menu.join.board": "Board {code}",
   "start.loadingTheIsland": "Loading the island…",
   "start.howAreYouRiding": "How are you riding?",

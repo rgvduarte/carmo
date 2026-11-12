@@ -238,11 +238,19 @@ test("the Strava line: hidden without Strava, a connect offer, the account once 
   const offer = stravaLine({ strava: { enabled: true } }, null);
   assert.deepEqual([offer.shown, offer.connected, offer.required], [true, false, false]);
   assert.match(offer.text, /Upload your rides/);
+  // An offer comes after how the rider rides; while Strava limits the application it says so before the button is pressed.
+  assert.equal(offer.last, true);
+  assert.match(offer.note, /limits how many accounts.*\.fit file/, "no server said the limit is gone: it is assumed");
+  assert.match(stravaLine({ strava: { enabled: true, limited: true } }, null).note, /limits how many accounts/);
+  assert.equal(stravaLine({ strava: { enabled: true, limited: false } }, null).note, "");
   const required = stravaLine({ strava: { enabled: true, required: true } }, null);
   assert.equal(required.required, true);
   assert.match(required.text, /needs a Strava account/);
+  assert.deepEqual([required.last, required.note], [false, ""], "where the server asks for Strava the line leads the Rider section");
   const connected = stravaLine({ strava: { enabled: true, required: true } }, { name: "Thore K.", can_upload: true });
   assert.deepEqual([connected.connected, connected.required, connected.text], [true, false, "Thore K."]);
+  assert.equal(connected.last, false);
+  assert.deepEqual([stravaLine({ strava: { enabled: true } }, { name: "Thore K." }).last, stravaLine({ strava: { enabled: true } }, { name: "Thore K." }).note], [true, ""]);
 });
 
 test("the main button does one thing: ride, start the workout, board a friend's vehicle or connect Strava first", () => {

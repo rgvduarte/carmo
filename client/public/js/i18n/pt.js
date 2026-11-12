@@ -742,6 +742,7 @@ export default {
   "menu.tab.studio": "Estúdio",
   "strava.line.required": "Este servidor pede uma conta Strava para pedalar. Serve para afastar bots; enviar atividades continua a ser escolha tua.",
   "strava.line.optional": "Envia as tuas atividades para o Strava",
+  "strava.line.limited": "O Strava limita o número de contas que se podem ligar a uma aplicação nova. Se a tua não ligar, transfere o ficheiro .fit no fim do treino e carrega-o tu no Strava.",
   "menu.join.board": "Entrar em {code}",
   "start.loadingTheIsland": "A carregar a ilha…",
   "start.howAreYouRiding": "Como vais pedalar?",

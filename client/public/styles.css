@@ -3518,6 +3518,11 @@ body.riding {
   color: var(--text);
 }
 
+/* An offer (the server does not ask for Strava): it comes after "How are you riding?", spaced like a section of the form. */
+.strava-line.offer {
+  margin: 0 0 18px;
+}
+
 /* The server rides with Strava only: a callout; the Ride button connects. */
 .strava-line.required .device-line {
   border-color: var(--accent);

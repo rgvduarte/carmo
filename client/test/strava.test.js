@@ -16,9 +16,11 @@ function client(responses) {
 
 test("me is null when not connected", async () => {
   // 204: this browser never signed in (the fork's server; no body to read). 401: its login is gone.
-  const nobody = { ok: true, status: 204, json: async () => { throw new SyntaxError("Unexpected end of JSON input"); } };
+  let read = 0;
+  const nobody = { ok: true, status: 204, text: async () => ((read += 1), ""), json: async () => { throw new SyntaxError("Unexpected end of JSON input"); } };
   const { strava } = client([nobody, reply(401, { code: "not_connected" }), reply(200, { athlete_id: 1, name: "Leon F.", can_upload: true })]);
   assert.equal(await strava.me(), null);
+  assert.equal(read, 1, "the empty answer is read to its end");
   assert.equal(await strava.me(), null);
   assert.equal((await strava.me()).name, "Leon F.");
 });

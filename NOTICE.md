@@ -42,8 +42,8 @@ this fork").
 
 ## Where the credits show in the game
 
-Start screen, foot of the page: "Sobre" / "About" and, beside it, a direct
-link "Código-fonte" / "Source code". Ride menu: Settings → "About" →
+Start screen, foot of the page: "Privacidade" / "Privacy", "Sobre" / "About"
+and, beside them, a direct link "Código-fonte" / "Source code". Ride menu: Settings → "About" →
 "Credits and licences", with the same direct link beside the button. Both
 buttons open the same dialog: fork name, maintainer, "based on OpenRadlr,
 © The OpenRadlr contributors, AGPL-3.0-or-later licence", that it is a
@@ -206,28 +206,109 @@ Keep this list up to date with every change.
   are the original's). `Makefile` and `deploy/Caddyfile`: one message and the
   comments name the fork.
 
-### Still to be listed here before the branch is made public
+### 12.11.2026 — server (`server/`)
 
-**For whoever merges the branches (delete this heading when done):** the
-changes below are in the branch but not yet described in this notice. Add one
-dated entry for each, in the style of the entries above.
+The original's server is modified too. What changed, each with the reason,
+is described in `docs/gocarmo-server-settings.md`; in short:
 
-- [ ] **Server (`server/`)**: framing by listed sites and CORS on the public
-  JSON API, the client address from a platform proxy's header, the bound on
-  what a stalled client can hold, the closed `/internal/metrics`, the
-  server's identity towards Strava and OpenBikeNet, the Strava answers
-  changed by the fork. Source: `docs/gocarmo-server-settings.md` and the
-  commits that touch `server/`.
-- [ ] **Client, second round (`client/`)**: running inside a frame, the
-  privacy text, the licence statement of the GOCARMO artwork
-  (`client/public/brand/README.md`), the app id sent to OpenBikeControl
-  devices, and what else the commits that touch `client/` changed.
-- [ ] **Third-party material**: if the client branch brings Strava's
-  "Connect with Strava" button file (`client/public/strava/`), list it under
-  "Third-party material added by this fork": Strava's own artwork, unmodified,
-  used under Strava's API Agreement and Brand Guidelines, not under this
-  repository's licences.
-- [ ] Copy this file to `client/public/NOTICE.txt` again.
+- **Shown by another site, read by another site** (`headers.rs`, `http.rs`,
+  `config.rs`): new setting `OPENRADLR_FRAME_ANCESTORS` lists the sites that
+  may show the game in a frame (unset: forbidden, as in the original). Pages
+  on the origins of `OPENRADLR_ALLOWED_ORIGINS` may now also read the four
+  public JSON routes (`/api/info`, `/api/route`, `/api/map`, `/api/studio`)
+  from another origin; both lists are checked when the server starts.
+- **Client address behind a hosting platform** (`guard.rs`, `http.rs`): new
+  setting `OPENRADLR_CLIENT_IP_HEADER` names the header in which the
+  platform's proxy reports the visitor's address; the limit of connections
+  per address counts by it.
+- **Clients that stop reading** (`runtime.rs`, `connection.rs`, `protocol.rs`,
+  `app.rs`): a state snapshot that a client has not read yet is replaced by
+  the next one instead of being queued, a write without progress for 20 s
+  closes the connection, and the new setting `OPENRADLR_SEND_BUFFER_BYTES`
+  bounds the kernel's buffer per connection. A client that keeps up gets the
+  same messages in the same order as before.
+- **`/internal/metrics`** (`http.rs`, `guard.rs`): no longer open to
+  everyone. With the new setting `OPENRADLR_METRICS_TOKEN` it asks for that
+  token; without it only the machine itself may read it.
+- **Name** (`lib.rs`, `auth.rs`, `config.rs`, `obn/link.rs`, `app.rs`): the
+  server calls itself "GOCARMO Ride" where it called itself "OpenRadlr": its
+  default name, the `User-Agent` of its requests to Strava, and its `hello`
+  to an OpenBikeNet server, whose app id now comes from the new setting
+  `OPENRADLR_OBN_APP_ID` (no default; the original sent its own id).
+- **Strava** (`strava_api.rs`, `auth.rs`, `strava.rs`, `http.rs`): an
+  uploaded ride is described as "GOCARMO Ride: <address of the server>", and
+  its file name and upload id start with `gocarmo-ride`. A login that Strava
+  no longer accepts is forgotten and answered with `not_connected` instead of
+  "try again". `/api/me` answers `204` to a browser that never signed in
+  (the original: `401`). `/api/info` says whether Strava's limit of athletes
+  still holds for the server's Strava application, from the new setting
+  `OPENRADLR_STRAVA_LIMITED`.
+- **Tests** (`server/crates/server/tests/`): new `hosting.rs`,
+  `stalled_client.rs` and `strava_flow.rs`; `websocket_flow.rs` and
+  `openbikenet.rs` follow the changes.
+- Not changed: the simulation (`server/crates/sim/`), the messages between
+  the game and the server, the names of the original's settings, of the
+  binary, of the cookies and of the database file.
+  `server/Cargo.lock` is the original's: no library was added (one more
+  feature of `tower-http`, which was already there).
+
+### 12.11.2026 — client, second round (`client/`)
+
+- **Inside a frame** (`js/util/frame.js`, `main.js`, `styles.css`): when
+  another page shows the game in a frame, links that would replace the game
+  open in a new tab, the Strava sign-in opens in a tab of its own, a
+  full-screen control shows where the frame allows it, and copying and
+  sharing fall back to plain text or a download. With the tab to itself the
+  game behaves as before.
+- **Name sent to devices**: OpenBikeControl controllers are told the app id
+  `gocarmo-ride` (`APP_ID` in `js/brand.js`; the original sends its own).
+- **Privacy text**: a dialog of the game's own (`index.html`,
+  `js/view/about.js`, keys `privacy.*` in the three dictionaries), opened from
+  the foot of the start screen and from the About dialog. It says what the
+  server receives and keeps, what stays in the browser, and what Strava gets.
+  The original links an operator's policy only; that link is kept inside the
+  dialog.
+- **Licence items**: the model gallery takes its source link from the same
+  helper as the game; the About dialog links OpenStreetMap's copyright page
+  and states the licence of the GOCARMO artwork (new
+  `client/public/brand/README.md`).
+- **Studio and phone riders**: the instructor's cues are shown and spoken in
+  the rider's language (`js/studio/cueText.js`; the server still sends them
+  in English); the phone emoji next to phone riders is a drawn icon; texts
+  that sat on a light background are readable (paddle ride, start screen on
+  a phone held sideways).
+- **End of a ride** (`js/ride/finishPlan.js`, `main.js`, `index.html`,
+  `js/view/stravaUploadView.js`, `js/net/strava.js`): the finish dialog puts
+  one way in front, sending to Strava from the game or the `.fit` file with
+  the two steps to upload it by hand, and says why; a ride finished on the
+  simulated trainer or the phone paddles is not sent to Strava, as in the
+  original. Going to Strava's sign-in and back keeps the finished ride, and
+  a ride saved in the browser can still be sent or downloaded from the start
+  screen after a reload.
+- **Ride image** (`js/view/rideCardModel.js`, `js/view/rideCard.js`): one
+  image per ride, upright (1080 × 1350) or wide (1600 × 900), with the route
+  on a map, the profile with the power, the time in power zones and up to
+  twelve numbers. It replaces the summary card of the entries above. The
+  rider saves or shares it; nothing sends it anywhere.
+- **Strava's rules** (`docs/gocarmo-strava.md`): connecting is Strava's own
+  "Connect with Strava" button (see "Third-party material added by this
+  fork"); the original's hand-drawn Strava mark and its buttons in Strava's
+  orange are gone; links to Strava read "View on Strava"; an empty rider name
+  is no longer filled in from the Strava account.
+- **Ride files**: a `.fit` file names the program that wrote it
+  (`product_name` "GOCARMO Ride" in `file_id`, `js/ride/fitFile.js`), as the
+  `.tcx` and `.gpx` files already did.
+- **Asking the server less often** (`js/net/infoPoll.js`): the start screen
+  asked `/api/info` every 5 s for as long as the tab was open; it now asks
+  every 30 s, only while the tab is visible and in use. During a ride: every
+  30 s (the original: 10 s).
+- **Build label**: the foot of the start screen shows the first seven
+  characters of the commit; the source link keeps all of it
+  (`js/view/startMenu.js`).
+- **Tests**: new `frame.test.js`, `finishPlan.test.js`, `rideCard.test.js`,
+  `rideCardModel.test.js`, `stravaRules.test.js`, `infoPoll.test.js`; more in
+  `gocarmoRide.test.js` (privacy, logo licence, source links, cues); others
+  follow the changes above.
 
 ## Third-party material added by this fork
 
@@ -239,6 +320,16 @@ dated entry for each, in the style of the entries above.
   for this fork: it holds only the digit 1, widened to the width of the other
   digits so that live numbers do not shift. Same licence (SIL OFL 1.1,
   `anton-OFL.txt`); Anton declares no Reserved Font Name.
+
+- **Strava's "Connect with Strava" button**:
+  `client/public/strava/btn_strava_connect_with_orange.svg` is Strava's own
+  artwork, not modified, taken from Strava's developer site on 12.11.2026 (the
+  note next to the file gives the address and the checksum). It is **not**
+  under this repository's licences: neither the AGPL nor CC BY-SA 4.0 covers
+  it. The Strava name and logos belong to Strava, Inc. and are used under
+  Strava's API Agreement and Brand Guidelines only. GOCARMO Ride is not
+  developed, sponsored or endorsed by Strava. Whoever redistributes this
+  repository without using Strava's API should remove the folder.
 
 ## Third-party material inherited from upstream
 

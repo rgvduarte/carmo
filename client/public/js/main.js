@@ -1061,6 +1061,11 @@ function renderAccount() {
   const line = stravaLine(app.info, app.stravaAccount);
   $("account").hidden = !line.shown;
   if (!line.shown) return;
+  // An offer comes after "How are you riding?"; where the server asks for Strava the line leads the Rider section.
+  const account = $("account");
+  if (line.last && account.previousElementSibling !== $("devices")) $("devices").after(account);
+  if (!line.last && account.nextElementSibling !== $("name").closest("label")) $("name").closest("label").before(account);
+  $("account").classList.toggle("offer", line.last);
   $("account").classList.toggle("required", line.required);
   $("strava-connected").hidden = !line.connected;
   $("strava-logout").hidden = !line.connected;
@@ -1069,8 +1074,9 @@ function renderAccount() {
   $("strava-connect").hidden = line.connected || line.required;
   if (line.connected) $("strava-name").textContent = line.text;
   else $("strava-disconnected").textContent = line.required ? t("strava.accountNeeded") : line.text;
-  $("strava-hint").hidden = !line.required;
-  $("strava-hint").textContent = line.required ? line.text : "";
+  const hint = line.required ? line.text : line.note;
+  $("strava-hint").hidden = !hint;
+  $("strava-hint").textContent = hint;
 }
 
 function renderStartMenu() {

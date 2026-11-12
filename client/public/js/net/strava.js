@@ -142,7 +142,12 @@ export class StravaClient {
   /** The connected account, or null. The server answers 204 to a browser that never signed in, 401 when a login is gone. */
   async me() {
     const response = await this.fetch("/api/me", { cache: "no-store", credentials: "same-origin" });
-    if (!response.ok || response.status === 204) return null;
+    if (response.status === 204) {
+      // Read the empty answer to its end: the browser's network log shows an answer nobody read as cancelled.
+      await response.text();
+      return null;
+    }
+    if (!response.ok) return null;
     return response.json();
   }
 

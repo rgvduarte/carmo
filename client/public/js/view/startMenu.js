@@ -9,6 +9,7 @@ import { PRESETS } from "../workout/presets.js";
 import { planDuration } from "../workout/plan.js";
 import { distanceUnit, formatDistance, formatDistanceWithUnit, formatDuration, formatElevation } from "../util/format.js";
 import { t, tn } from "../i18n/i18n.js";
+import { stravaLimited } from "../net/strava.js";
 
 /** "3 riding now · 50 max" style status, or a hint when the server is unreachable. */
 export function serverStatus(info) {
@@ -333,16 +334,20 @@ export function renderActivityTabs(list, tabs, current, onSelect) {
 
 /**
  * The Strava line of the start menu. `required`: the server rides with Strava
- * accounts only and this rider has none connected yet.
- * @returns {{shown: boolean, connected: boolean, required: boolean, text: string}}
+ * accounts only and this rider has none connected yet; the line then leads the
+ * Rider section. Otherwise connecting is an offer and the line comes `last`,
+ * after how the rider rides, so that choice stays in view on a short screen.
+ * `note`: what a rider should know before pressing Strava's button while
+ * Strava still limits the accounts of this server's application.
+ * @returns {{shown: boolean, connected: boolean, required: boolean, last: boolean, text: string, note: string}}
  */
 export function stravaLine(info, account) {
   const strava = info?.strava;
-  if (!strava?.enabled) return { shown: false, connected: false, required: false, text: "" };
-  if (account) return { shown: true, connected: true, required: false, text: account.name };
+  if (!strava?.enabled) return { shown: false, connected: false, required: false, last: false, text: "", note: "" };
+  if (account) return { shown: true, connected: true, required: false, last: !strava.required, text: account.name, note: "" };
   return strava.required
-    ? { shown: true, connected: false, required: true, text: t("strava.line.required") }
-    : { shown: true, connected: false, required: false, text: t("strava.line.optional") };
+    ? { shown: true, connected: false, required: true, last: false, text: t("strava.line.required"), note: "" }
+    : { shown: true, connected: false, required: false, last: true, text: t("strava.line.optional"), note: stravaLimited(info) ? t("strava.line.limited") : "" };
 }
 
 /**
