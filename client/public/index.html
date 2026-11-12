@@ -72,6 +72,7 @@
     <link rel="modulepreload" href="js/studio/classClock.js" />
     <link rel="modulepreload" href="js/studio/studioSession.js" />
     <link rel="modulepreload" href="js/util/format.js" />
+    <link rel="modulepreload" href="js/util/frame.js" />
     <link rel="modulepreload" href="js/util/wakeLock.js" />
     <link rel="modulepreload" href="js/view/about.js" />
     <link rel="modulepreload" href="js/view/canvas.js" />
@@ -190,6 +191,11 @@
             <span class="brand-word">GOCARMO <span>Ride</span></span>
           </div>
           <select id="lang-select" class="lang-select" aria-label="Language" data-i18n-attr="aria-label:menu.language"></select>
+          <!-- Shown only inside a frame that allows full screen (js/util/frame.js). -->
+          <button type="button" class="fullscreen-toggle" data-fullscreen-toggle data-nav-skip>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
+            <span class="fs-enter" data-i18n="frame.fullscreen">Full screen</span><span class="fs-exit" data-i18n="frame.exitFullscreen">Exit full screen</span>
+          </button>
           <div class="server-status" aria-live="polite">
             <span id="server-dot" class="status-dot" aria-hidden="true"></span>
             <strong id="server-label" data-i18n="menu.server.connecting">Connecting…</strong>
@@ -529,6 +535,9 @@
             <button type="button" class="icon-button glass photo-button" id="take-photo" aria-label="Take a photo (P)" title="Photo (P)" data-i18n-attr="title:ride.photoP,aria-label:ride.takeAPhotoP">
               <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5" /><path d="M8.5 6l1.5-2.5h4L15.5 6" /><circle cx="12" cy="12.5" r="3.5" /></svg>
               <span id="photo-count" class="photo-badge" hidden>0</span>
+            </button>
+            <button type="button" class="icon-button glass fullscreen-toggle" data-fullscreen-toggle aria-label="Full screen" title="Full screen" data-i18n-attr="title:frame.fullscreen,aria-label:frame.fullscreen">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" /></svg>
             </button>
             <button type="button" class="text-button glass" id="hud-view" title="View: camera, layout, time of day" aria-haspopup="dialog" aria-controls="view-popover" aria-expanded="false" data-i18n-attr="title:ride.viewTitle">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>

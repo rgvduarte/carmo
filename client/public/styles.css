@@ -6940,3 +6940,66 @@ body.paddling .cluster .caption {
     overflow-wrap: anywhere;
   }
 }
+
+/* --- inside a frame (gocarmo.com/ride/): the "Full screen" control ---------------------
+   js/util/frame.js sets the classes on <html>. Outside a frame, or in a frame without
+   allow="fullscreen", the control does not exist for the rider. */
+[data-fullscreen-toggle] {
+  display: none;
+}
+
+html.framed.can-fullscreen [data-fullscreen-toggle] {
+  display: inline-flex;
+}
+
+.start-head .fullscreen-toggle {
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.start-head .fullscreen-toggle:hover {
+  color: var(--text);
+}
+
+.start-head .fullscreen-toggle svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fullscreen-toggle .fs-exit,
+html.is-fullscreen .fullscreen-toggle .fs-enter {
+  display: none;
+}
+
+html.is-fullscreen .fullscreen-toggle .fs-exit {
+  display: inline;
+}
+
+/* Narrow frames: the symbol alone, as large as a finger needs. */
+@media (max-width: 600px) {
+  .start-head .fullscreen-toggle {
+    padding: 8px;
+  }
+
+  .start-head .fullscreen-toggle span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

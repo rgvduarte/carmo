@@ -911,4 +911,8 @@ export default {
   "about.fonts": "Schriften: Anton, Inter und JetBrains Mono, SIL Open Font License 1.1.",
   "about.data": "Lanzarote Lava 180: Straßengeometrie © OpenStreetMap contributors, ODbL. Höhendaten: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA.",
   "about.notice": "Änderungen und Mitwirkende",
+  "frame.fullscreen": "Vollbild",
+  "frame.exitFullscreen": "Vollbild beenden",
+  "strava.frame.opened": "Strava öffnet sich in einem neuen Tab. Erlaube dort die Verbindung und komm dann in diesen Tab zurück.",
+  "strava.frame.blocked": "Der Browser hat den neuen Tab blockiert. Erlaube Pop-ups für diese Seite oder öffne das Spiel in einem eigenen Tab.",
 };

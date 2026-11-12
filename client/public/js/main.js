@@ -110,6 +110,7 @@ import { applyTranslations } from "./i18n/apply.js";
 import { getLocale, initLocale, intlLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
 import { languageOptions } from "./i18n/selector.js";
 import { initAbout } from "./view/about.js";
+import { copyText, initFrame, leaveTo } from "./util/frame.js";
 import { APP_NAME, withServer } from "./brand.js";
 
 // Inside the OpenRadlr app: native Bluetooth, wake lock and file saving (docs/app.md).
@@ -441,6 +442,10 @@ const app = {
   wakeLock: new ScreenWakeLock(),
   /** undefined = not checked yet, null = not connected. */
   stravaAccount: undefined,
+  /** Inside another page's frame (js/util/frame.js). */
+  framed: false,
+  /** Framed, with the Strava sign-in open in another tab: stops watching for the rider's return. */
+  stravaWatch: null,
   recorder: null,
   /** Humans on the whole server, refreshed from /api/info during the ride. */
   serverPlayers: null,
@@ -688,6 +693,12 @@ function initSetup() {
   });
   initDiagnostics();
   initAbout();
+  // Inside a frame (gocarmo.com/ride/): links and the Strava sign-in open in a new tab, never in the frame.
+  app.framed = initFrame({
+    onLeave: (anchor) => {
+      if (anchor.getAttribute("href") === STRAVA_SIGN_IN) stravaOpenedInTab();
+    },
+  });
   initStartVehicle();
   initStartMenu();
   initRecovery();
@@ -695,7 +706,7 @@ function initSetup() {
     event.preventDefault();
     const action = $("join").dataset.action;
     // The server rides with Strava accounts only: the button takes the rider there.
-    if (action === "strava") return nativeApp?.signIn ? connectStravaInApp() : location.assign("/auth/strava");
+    if (action === "strava") return nativeApp?.signIn ? connectStravaInApp() : goToStravaSignIn();
     if (action === "board") return boardFromMenu();
     const typed = $("board-code").value.trim();
     if (typed && action !== "workout") return showSetupError(normaliseCode(typed).error);
@@ -960,6 +971,54 @@ async function connectStravaInApp() {
   } catch (error) {
     if (error.name !== "AbortError") showMessage(t("strava.connectFailed", { message: error.message }));
   }
+}
+
+/** The server's Strava sign-in; it ends on the game's own host ("/"), whoever started it. */
+const STRAVA_SIGN_IN = "/auth/strava";
+
+/**
+ * Starts the Strava sign-in from a script. With the tab to itself the game
+ * goes there; inside a frame it opens a new tab (Strava refuses to be framed)
+ * and stays as it is.
+ */
+function goToStravaSignIn() {
+  const went = leaveTo(STRAVA_SIGN_IN);
+  if (went === "tab") stravaOpenedInTab();
+  if (went === "blocked") showStravaNote(t("strava.frame.blocked"));
+}
+
+/** Says where a Strava note is read: on the start screen, or in the finished ride's Strava panel. */
+function showStravaNote(text) {
+  const detail = app.finished ? $("finish-strava-detail") : null;
+  const target = detail ?? $("strava-message");
+  if (!target) return;
+  target.textContent = text;
+  target.hidden = !text;
+}
+
+/**
+ * Framed: the sign-in runs in another tab. Each time the rider comes back to
+ * this one, ask the server who is connected, until an answer differs.
+ */
+function stravaOpenedInTab() {
+  showStravaNote(t("strava.frame.opened"));
+  if (app.stravaWatch) return;
+  const before = JSON.stringify(app.stravaAccount ?? null);
+  const check = async () => {
+    if (document.visibilityState !== "visible" || !app.stravaWatch) return;
+    const account = await app.strava.me().catch(() => null);
+    if (JSON.stringify(account ?? null) === before || !app.stravaWatch) return;
+    app.stravaWatch();
+    showStravaNote("");
+    await loadStravaAccount();
+  };
+  document.addEventListener("visibilitychange", check);
+  window.addEventListener("focus", check);
+  app.stravaWatch = () => {
+    document.removeEventListener("visibilitychange", check);
+    window.removeEventListener("focus", check);
+    app.stravaWatch = null;
+  };
 }
 
 async function loadStravaAccount() {
@@ -1530,7 +1589,7 @@ function notify(text, kind = "event") {
 function initDiagnostics() {
   $("build-label").addEventListener("click", () => {
     const details = buildLabel(app.info, BUILD).details;
-    navigator.clipboard?.writeText(details).then(
+    copyText(details).then(
       () => notify(t("diagnostics.copiedNotice", { details })),
       () => notify(details),
     );
@@ -1566,7 +1625,7 @@ function initDiagnostics() {
   const copy = async (button) => {
     const text = deviceLog.report({ userAgent: navigator.userAgent });
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       button.textContent = t("diagnostics.copied");
     } catch {
       $("diagnostics").open = true;
@@ -2888,9 +2947,11 @@ function setupFinishUpload() {
   app.finishUpload = mountUpload("finish-strava", recorder, rideName(), {
     indoor: Boolean(app.studio), splits: app.finishSplits,
     onConnect: async () => {
+      // In a frame the sign-in opens in another tab and this ride stays on screen: nothing to save first.
+      if (app.framed) return goToStravaSignIn();
       await app.finishSave;
       if (!app.finishRecoverable && !confirm(t("strava.connectUnsaved"))) return;
-      location.assign("/auth/strava");
+      goToStravaSignIn();
     },
     onSuccess: () => {
       if (app.recorder !== recorder) return;
@@ -3323,6 +3384,8 @@ async function sharePhotos() {
     const files = app.album.images.map(({ blob, name }) => new File([blob], name, { type: "image/png" }));
     await navigator.share({ files, title: rideName() });
   } catch (error) {
+    // Sharing refused (a frame without the permission, a browser rule): save the files instead, no error shown.
+    if (error.name === "NotAllowedError") return saveFiles(app.album.images);
     if (error.name !== "AbortError") notify(t("photos.shareFailed", { message: error.message }), "error");
   }
 }
