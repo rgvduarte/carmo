@@ -183,6 +183,15 @@ test("privacy, the browser side: only power and cadence go out while riding, no 
   assert.doesNotMatch(html, /<script[^>]+src="https?:|<link[^>]+href="https?:\/\/(?!github\.com)/, "no script, style or font from another host");
 });
 
+test("privacy, Strava in the browser: the notes the text names are the ones the client keeps", () => {
+  const keys = new Set();
+  for (const path of clientSources()) for (const m of readFileSync(path, "utf8").matchAll(/"(openradlr\.strava-[a-z-]+)\.?"/g)) keys.add(m[1]);
+  assert.deepEqual([...keys].sort(), ["openradlr.strava-connect", "openradlr.strava-return", "openradlr.strava-tab", "openradlr.strava-upload"], "a new Strava note in the browser has to be said in privacy.strava");
+  assert.match(pt["privacy.strava"], /que atividades já enviaste .*número de atleta.*se a última tentativa de ligar falhou.*com uma atividade à espera/);
+  assert.match(en["privacy.strava"], /which rides you have already uploaded .*athlete number.*last attempt to connect failed.*with a ride waiting/);
+  assert.match(de["privacy.strava"], /welche Fahrten du schon hochgeladen hast .*Athletennummer.*Verbindungsversuch fehlgeschlagen.*wartenden Fahrt/);
+});
+
 test("privacy, the server side: what the text says about logs, memory and the Strava session", () => {
   // "the name you joined with": the one log line with a rider's name.
   const named = [...server("runtime.rs").matchAll(/tracing::\w+!\([^;]*\bname\b[^;]*;/g)].map((m) => m[0]);

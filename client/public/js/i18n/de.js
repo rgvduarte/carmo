@@ -917,7 +917,7 @@ export default {
   "privacy.cookies.title": "Cookies und Analyse",
   "privacy.cookies": "Das Spiel setzt keine Tracking-Cookies, betreibt keine Besuchsanalyse und lädt nichts von anderen Websites. Die einzigen Cookies sind die der Strava-Sitzung unten, falls du Strava verbindest.",
   "privacy.strava.title": "Strava",
-  "privacy.strava": "Nur wenn dieser Server es anbietet und du dich verbindest. Der Server behält dann deinen Strava-Namen, deine Athletennummer und die Zugangsschlüssel, die Strava ihm gibt, und dein Browser erhält ein Sitzungs-Cookie, das höchstens 30 Tage hält. Sie dienen dazu, die Fahrten hochzuladen, die du hochladen lässt: Die Fahrtdatei läuft auf dem Weg zu Strava über den Server und wird nicht gespeichert. Mit Trennen wird die Sitzung auf dem Server gelöscht.",
+  "privacy.strava": "Nur wenn dieser Server es anbietet und du dich verbindest. Der Server behält dann deinen Strava-Namen, deine Athletennummer und die Zugangsschlüssel, die Strava ihm gibt, und dein Browser erhält ein Sitzungs-Cookie, das höchstens 30 Tage hält. Sie dienen dazu, die Fahrten hochzuladen, die du hochladen lässt: Die Fahrtdatei läuft auf dem Weg zu Strava über den Server und wird nicht gespeichert. Dein Browser merkt sich dazu Kleinigkeiten: welche Fahrten du schon hochgeladen hast (mit deiner Athletennummer und der Nummer der Aktivität bei Strava), ob der letzte Verbindungsversuch fehlgeschlagen ist und ob du mit einer wartenden Fahrt zu Strava gewechselt bist. Mit Trennen wird die Sitzung auf dem Server gelöscht.",
   "privacy.operator": "Datenschutzerklärung dieses Servers",
   "privacy.site": "Datenschutz der Website gocarmo.com",
   "privacy.updated": "Stand: 12.11.2026.",

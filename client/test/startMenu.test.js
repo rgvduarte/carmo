@@ -71,6 +71,13 @@ test("the build label shows version and commit, and flags a stale cached client"
   assert.equal(buildLabel(info, { sha: "aaa1111", date: "" }).stale, true);
   assert.equal(buildLabel(info, { sha: "dev", date: "" }).stale, false);
   assert.equal(buildLabel(null, { sha: "dev", date: "" }).text, "dev");
+  // A deploy stamps the whole commit: seven characters on screen, all of it in the details and for the comparison.
+  const whole = "1f32bfe0c0ffee0c0ffee0c0ffee0c0ffee0c0ff";
+  const deployed = buildLabel({ ...info, build: { sha: whole, date: "" } }, { sha: whole, date: "" });
+  assert.equal(deployed.text, "v0.1.0 · 1f32bfe");
+  assert.equal(deployed.stale, false);
+  assert.ok(deployed.details.includes(`client ${whole}`));
+  assert.equal(buildLabel({ ...info, build: { sha: whole.replace(/^1/, "2"), date: "" } }, { sha: whole, date: "" }).stale, true);
   assert.match(buildLabel(null, { sha: "dev", date: "" }).details, /server unreachable/);
 });
 

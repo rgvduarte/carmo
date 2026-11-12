@@ -48,7 +48,9 @@ export function buildLabel(info, client) {
     .concat(info?.protocol_version ? [`protocol ${info.protocol_version}`] : [])
     .filter(Boolean)
     .join(" · ");
-  return { text: [version, client?.sha ?? "dev"].filter(Boolean).join(" · "), details, stale };
+  // A deploy stamps the whole commit id (the source link needs it); the foot of the page shows its first seven characters.
+  const shown = client?.sha ?? "dev";
+  return { text: [version, /^[0-9a-f]{8,40}$/.test(shown) ? shown.slice(0, 7) : shown].filter(Boolean).join(" · "), details, stale };
 }
 
 /**

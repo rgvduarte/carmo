@@ -917,7 +917,7 @@ export default {
   "privacy.cookies.title": "Cookies and analytics",
   "privacy.cookies": "The game sets no tracking cookies, runs no visit analytics and loads nothing from other sites. The only cookies are the Strava session ones below, if you connect Strava.",
   "privacy.strava.title": "Strava",
-  "privacy.strava": "Only if this server offers it and you choose to connect. The server then keeps your Strava name, your athlete number and the access keys Strava hands it, and your browser gets a session cookie that lasts 30 days at most. They are used to upload the rides you tell it to upload: the ride file passes through the server on its way to Strava and is not kept. Disconnect removes the session from the server.",
+  "privacy.strava": "Only if this server offers it and you choose to connect. The server then keeps your Strava name, your athlete number and the access keys Strava hands it, and your browser gets a session cookie that lasts 30 days at most. They are used to upload the rides you tell it to upload: the ride file passes through the server on its way to Strava and is not kept. Your browser keeps small notes about this: which rides you have already uploaded (with your athlete number and the activity's number on Strava), whether the last attempt to connect failed, and whether you left for Strava with a ride waiting. Disconnect removes the session from the server.",
   "privacy.operator": "This server's privacy policy",
   "privacy.site": "Privacy of the site gocarmo.com",
   "privacy.updated": "Updated on 12.11.2026.",

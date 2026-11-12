@@ -22,6 +22,7 @@ import { Reconnector } from "./net/reconnector.js";
 import { RidePause } from "./ride/ridePause.js";
 import { AfkPrompt } from "./ride/afkPrompt.js";
 import { defaultServerUrl } from "./net/protocol.js";
+import { InfoPoll, RIDE_INFO_MS, START_IDLE_MS, START_INFO_MS } from "./net/infoPoll.js";
 import { ConnectMemory, StravaClient, appLoginResult, stravaLimited, stravaMessage } from "./net/strava.js";
 import { UploadReceipts, uploadKey } from "./net/stravaUpload.js";
 import { bindStravaUpload } from "./view/stravaUploadView.js";
@@ -138,7 +139,6 @@ const COACH_VOICE_KEY = "openradlr.coach-voice";
 const LEMONS_KEY = "openradlr.lemons";
 /** The climbs' tops this browser's rider has been over ("routeId:metres"), for the first-time banner. */
 const SUMMITS_KEY = "openradlr.summits";
-const INFO_REFRESH_MS = 5000;
 const TICKER_ITEMS = 3;
 const TICKER_SECONDS = 9;
 const readSetting = (key) => {
@@ -436,7 +436,8 @@ const app = {
   rideRouteId: readSetting(ROUTE_KEY),
   /** How the rider rides: "trainer", "paddles" or "sim" (null: what this browser does best). */
   rideMode: readSetting(RIDE_MODE_KEY),
-  infoTimer: null,
+  /** Keeps `info` fresh: often enough for the start screen, seldom enough for a small host (net/infoPoll.js). */
+  infoPoll: null,
   strava: new StravaClient(),
   uploadReceipts: new UploadReceipts(),
   finishUpload: null,
@@ -839,9 +840,10 @@ function openStartMenu() {
   // The menu learns the pick, so opening the Workout tab shows its gym.
   app.menu?.showWorkout(pickedWorkout(), app.workoutFigure);
   renderStartMenu();
-  refresh();
-  clearInterval(app.infoTimer);
-  app.infoTimer = setInterval(refresh, INFO_REFRESH_MS);
+  // Asks now, then only while the page is visible and in use (net/infoPoll.js); the countdowns run on the page's clock.
+  app.infoPoll?.stop();
+  app.infoPoll = new InfoPoll({ ask: refresh, tick: renderStartMenu, everyMs: START_INFO_MS, idleAfterMs: START_IDLE_MS });
+  app.infoPoll.start();
 }
 
 /**
@@ -2097,9 +2099,9 @@ function startRide() {
   setDifficultyInputs(app.profile.difficulty);
   $("setup").hidden = true;
   $("ride").hidden = false;
-  clearInterval(app.infoTimer);
-  app.infoTimer = setInterval(refreshServerPlayers, INFO_REFRESH_MS * 2);
-  refreshServerPlayers();
+  app.infoPoll?.stop();
+  app.infoPoll = new InfoPoll({ ask: refreshServerPlayers, everyMs: RIDE_INFO_MS });
+  app.infoPoll.start();
   $("power-only").hidden = canControl(app.trainer) || app.trainer instanceof PaddleTrainer;
   $("power-only").textContent = app.trainer?.controlBlocked ? t("hud.resistanceBlocked") : t("hud.powerOnly");
   document.body.classList.add("riding");
