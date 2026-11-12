@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-E1VM059AALBAVQHu1HDCzJkThbA1JL6/2+gsiSJcVvk='; style-src 'self'; font-src 'self'; img-src 'self'; connect-src https://ride.gocarmo.com; frame-src https://ride.gocarmo.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-lThezepYmFWfpV28y7mx4ssxKVuuEBtY/GV+FmTV234='; style-src 'self'; font-src 'self'; img-src 'self'; connect-src https://ride.gocarmo.com; frame-src https://ride.gocarmo.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
 <meta name="robots" content="noindex, nofollow">
 <title>GOCARMO Ride · Gonçalo Carmo</title>
 <meta name="description" content="Ciclismo indoor no browser: ligas um rolo inteligente por Bluetooth, ou experimentas sem bicicleta.">
@@ -21,10 +21,12 @@
 <meta property="og:locale" content="pt_PT">
 <link rel="icon" href="../assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="../assets/img/apple-touch-icon.png">
+<link rel="preload" as="font" type="font/woff2" href="../assets/fonts/anton-latin.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="../assets/fonts/inter-latin.woff2" crossorigin>
 <link rel="stylesheet" href="../assets/css/fonts.css?v=38c3202f">
 <link rel="stylesheet" href="../assets/css/style.css?v=ca5304c7">
 <link rel="stylesheet" href="../assets/css/privacy.css?v=f1927f64">
-<link rel="stylesheet" href="../assets/css/ride.css?v=38a0a6d2">
+<link rel="stylesheet" href="../assets/css/ride.css?v=e31b6b64">
 <script type="importmap">
 { "imports": {
   "../assets/js/admin-3d.js": "../assets/js/admin-3d.js?v=f6109481",
@@ -60,7 +62,7 @@
   "../assets/js/admin-worker.js": "../assets/js/admin-worker.js?v=ad096645",
   "../assets/js/admin.js": "../assets/js/admin.js?v=3c6f2e33",
   "../assets/js/adspace.js": "../assets/js/adspace.js?v=56884042",
-  "../assets/js/analytics.js": "../assets/js/analytics.js?v=177cfede",
+  "../assets/js/analytics.js": "../assets/js/analytics.js?v=06b096bd",
   "../assets/js/apoiantes-core.js": "../assets/js/apoiantes-core.js?v=530b4786",
   "../assets/js/apoiantes-import.js": "../assets/js/apoiantes-import.js?v=fa3a3b9b",
   "../assets/js/apoiantes.js": "../assets/js/apoiantes.js?v=a1847332",
@@ -83,7 +85,7 @@
   "../assets/js/races.js": "../assets/js/races.js?v=de409e59",
   "../assets/js/receipt.js": "../assets/js/receipt.js?v=75c9ad8f",
   "../assets/js/ride-config.js": "../assets/js/ride-config.js?v=5fb0ba1d",
-  "../assets/js/ride.js": "../assets/js/ride.js?v=553c52d5",
+  "../assets/js/ride.js": "../assets/js/ride.js?v=e576c45f",
   "../assets/js/room.js": "../assets/js/room.js?v=b0ef85a2",
   "../assets/js/season-rules.js": "../assets/js/season-rules.js?v=432c3db2",
   "../assets/js/stats-fb.js": "../assets/js/stats-fb.js?v=87cd2e59",
@@ -99,7 +101,7 @@
   "../assets/js/vault-words.js": "../assets/js/vault-words.js?v=db8927d5"
 } }
 </script>
-<script type="module" src="../assets/js/ride.js?v=553c52d5"></script>
+<script type="module" src="../assets/js/ride.js?v=e576c45f"></script>
 </head>
 <body class="legal-page rd-page">
 <a class="skip" href="#main" data-i18n="skip">Saltar para o conteúdo</a>
@@ -122,8 +124,12 @@
     by node scripts/stamp.mjs.
   - HIDDEN UNTIL LAUNCH: noindex, nofollow above, no link from any other page, not in a sitemap, nothing in the admin
     hub. scripts/stamp.mjs keeps it so while its RIDE_HIDDEN is true.
-  - The poster is our own screenshot of the game (poster-*.webp, og.jpg). The frame is never in this file: ride.js makes
-    it when the visitor presses «Pedalar», and only on a wide window with a mouse or trackpad.
+  - The poster is our own picture of the game (poster-*.webp: the game's own photo of a ride, no numbers on it; og.jpg
+    is a screenshot of a ride). The frame is never in this file: ride.js makes it when the visitor presses «Pedalar»,
+    and only on a wide window with a mouse or trackpad. It is sandboxed: the game cannot navigate this window.
+  - What the page says the game needs and receives is checked against the game's own client and server; if the game
+    changes (Bluetooth support, paddles, simulator, what «join» carries), change «Do que precisas» and the privacy
+    page (privacidade/index.html, «GOCARMO Ride») with it.
   - No visit counting on this page and nothing kept in the browser (only gc.lang, as on the rest of the site).
 -->
 <main id="main" class="wrap rd" tabindex="-1">
@@ -140,42 +146,44 @@
       <picture class="rd-poster" id="rd-poster">
         <source media="(max-width: 599px)" type="image/webp" srcset="poster-m-640.webp 640w, poster-m-1040.webp 1040w" sizes="100vw">
         <source type="image/webp" srcset="poster-800.webp 800w, poster-1280.webp 1280w" sizes="(min-width: 1320px) 1208px, 100vw">
-        <img src="poster-800.jpg" width="800" height="450" alt="Imagem do jogo: um ciclista de costas numa estrada entre colinas verdes, com a velocidade, a potência e a inclinação no ecrã." data-en-alt="A picture of the game: a rider seen from behind on a road between green hills, with speed, power and gradient on screen." decoding="async">
+        <img src="poster-800.jpg" width="800" height="450" alt="Imagem do jogo: um ciclista de camisola amarela, visto de costas, numa estrada entre colinas verdes." data-en-alt="A picture of the game: a rider in a yellow jersey, seen from behind, on a road between green hills." decoding="async">
       </picture>
       <div class="rd-over" id="rd-over">
-        <a class="btn gold rd-go" id="rd-link" href="https://ride.gocarmo.com/" data-ride><span data-l="pt">Pedalar</span><span data-l="en" lang="en" hidden>Ride</span></a>
-        <button type="button" class="btn gold rd-go" id="rd-play" hidden><span data-l="pt">Pedalar</span><span data-l="en" lang="en" hidden>Ride</span></button>
+        <a class="btn gold rd-go" id="rd-link" href="https://ride.gocarmo.com/" data-ride><span data-l="pt">Pedalar</span><span data-l="en" lang="en" hidden>Ride</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+        <button type="button" class="btn gold rd-go" id="rd-play" hidden><span data-l="pt">Pedalar</span><span data-l="en" lang="en" hidden>Ride</span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         <p class="rd-status" id="rd-status" role="status" aria-live="polite"></p>
+        <a class="btn ghost sm" id="rd-out" href="https://ride.gocarmo.com/" data-ride hidden><span data-l="pt">Abrir em página inteira</span><span data-l="en" lang="en" hidden>Open as a full page</span></a>
         <button type="button" class="btn ghost sm" id="rd-retry" hidden><span data-l="pt">Tentar outra vez</span><span data-l="en" lang="en" hidden>Try again</span></button>
       </div>
     </div>
-    <div class="rd-bar">
+    <div class="rd-bar" id="rd-bar">
       <p class="rd-hint" id="rd-hint" hidden><span data-l="pt">Se o teclado deixar de responder, clica dentro do jogo.</span><span data-l="en" lang="en" hidden>If the keyboard stops responding, click inside the game.</span></p>
-      <a class="rd-full" id="rd-full" href="https://ride.gocarmo.com/" data-ride hidden><span data-l="pt">Abrir em ecrã inteiro</span><span data-l="en" lang="en" hidden>Open full screen</span></a>
+      <button type="button" class="rd-full" id="rd-fs" hidden><span data-l="pt">Ecrã inteiro</span><span data-l="en" lang="en" hidden>Full screen</span></button>
+      <a class="rd-full" id="rd-full" href="https://ride.gocarmo.com/" data-ride hidden><span data-l="pt">Abrir em página inteira</span><span data-l="en" lang="en" hidden>Open as a full page</span></a>
     </div>
   </section>
 
   <section class="rd-need" aria-labelledby="rd-need-h">
-    <h2 class="display rd-need-h" id="rd-need-h"><span data-l="pt">O que precisas</span><span data-l="en" lang="en" hidden>What you need</span></h2>
+    <h2 class="display rd-need-h" id="rd-need-h"><span data-l="pt">Do que precisas</span><span data-l="en" lang="en" hidden>What you need</span></h2>
     <ul class="rd-list">
       <li>
         <span class="rd-k"><span data-l="pt">Com rolo</span><span data-l="en" lang="en" hidden>With a trainer</span></span>
-        <p><span data-l="pt">Chrome ou Edge, no computador ou em Android, para ligares um rolo inteligente por Bluetooth.</span><span data-l="en" lang="en" hidden>Chrome or Edge, on a computer or on Android, to connect a smart trainer over Bluetooth.</span></p>
+        <p><span data-l="pt">Chrome ou Edge, em Windows, macOS, ChromeOS ou Android, para ligares um rolo inteligente por Bluetooth.</span><span data-l="en" lang="en" hidden>Chrome or Edge, on Windows, macOS, ChromeOS or Android, to connect a smart trainer over Bluetooth.</span></p>
       </li>
       <li>
         <span class="rd-k"><span data-l="pt">iPhone e iPad</span><span data-l="en" lang="en" hidden>iPhone and iPad</span></span>
-        <p><span data-l="pt">No iPhone e no iPad o browser não tem Bluetooth, tal como o Safari e o Firefox em qualquer aparelho. Aí pedalas com as patilhas no ecrã, sem bicicleta, ou com o simulador.</span><span data-l="en" lang="en" hidden>On iPhone and iPad the browser has no Bluetooth, and neither do Safari and Firefox on any device. There you ride with the paddles on the screen, without a bike, or with the simulator.</span></p>
+        <p><span data-l="pt">No iPhone e no iPad, o browser não consegue ligar um rolo por Bluetooth. O Safari e o Firefox também não, em nenhum aparelho. Nesses casos pedalas sem bicicleta, com as patilhas no telemóvel, ou usas o simulador.</span><span data-l="en" lang="en" hidden>On iPhone and iPad, the browser cannot connect a trainer over Bluetooth. Neither can Safari or Firefox, on any device. In those cases you ride without a bike, with the phone paddles, or use the simulator.</span></p>
       </li>
       <li>
         <span class="rd-k"><span data-l="pt">Os teus dados</span><span data-l="en" lang="en" hidden>Your details</span></span>
-        <p><span data-l="pt">Um nome, o teu peso e o teu FTP. Escreves no ecrã inicial e ficam guardados no teu browser. O servidor do jogo recebe-os quando começas a pedalar.</span><span data-l="en" lang="en" hidden>A name, your weight and your FTP. You type them on the start screen and they stay saved in your browser. The game server receives them when you start to ride.</span></p>
+        <p><span data-l="pt">Um nome, o teu peso e o teu FTP. Preenches os três no ecrã inicial e ficam guardados no teu browser. O servidor do jogo recebe-os quando começas a pedalar, e os outros ciclistas veem o teu nome. Enquanto pedalas, recebe também a tua potência e a tua cadência.</span><span data-l="en" lang="en" hidden>A name, your weight and your FTP. You enter all three on the start screen and they stay saved in your browser. The game server receives them when you start to ride, and other riders see your name. While you ride it also receives your power and cadence.</span></p>
       </li>
     </ul>
   </section>
 
   <div class="rd-credits" id="rd-credits">
     <span class="rd-k"><span data-l="pt">Baseado em OpenRadlr</span><span data-l="en" lang="en" hidden>Based on OpenRadlr</span></span>
-    <p><span data-l="pt">O GOCARMO Ride é uma versão modificada do OpenRadlr, software livre sob a licença GNU AGPL, versão 3 ou posterior.</span><span data-l="en" lang="en" hidden>GOCARMO Ride is a modified version of OpenRadlr, free software under the GNU AGPL, version 3 or later.</span> <a href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener"><span data-l="pt">Código-fonte</span><span data-l="en" lang="en" hidden>Source code</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a> · <a href="https://github.com/Lethonium/OpenRadlr" target="_blank" rel="noopener"><span data-l="pt">Projeto original</span><span data-l="en" lang="en" hidden>Original project</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a></p>
+    <p><span data-l="pt">O GOCARMO Ride é uma versão modificada do OpenRadlr. É software livre, sob a licença GNU AGPL, versão 3 ou posterior. Não é o OpenRadlr oficial nem tem ligação aos seus autores.</span><span data-l="en" lang="en" hidden>GOCARMO Ride is a modified version of OpenRadlr. It is free software under the GNU AGPL, version 3 or later. It is not the official OpenRadlr and is not affiliated with its authors.</span> <a href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener"><span data-l="pt">Código-fonte</span><span data-l="en" lang="en" hidden>Source code</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a> · <a href="https://github.com/Lethonium/OpenRadlr" target="_blank" rel="noopener"><span data-l="pt">Projeto original</span><span data-l="en" lang="en" hidden>Original project</span><span class="sr-only" data-i18n="tb.new"> (abre noutro separador)</span></a></p>
   </div>
 
 </div>

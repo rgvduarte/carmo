@@ -1297,32 +1297,42 @@ iPhone tem como «O meu cartão», não esta página. Para ser o do cartão:
 
 O GOCARMO Ride é um jogo de ciclismo indoor que corre no browser: uma versão modificada do
 [OpenRadlr](https://github.com/Lethonium/OpenRadlr), software livre sob a licença GNU AGPL, versão 3 ou posterior (o
-código desta versão está no ramo [`gocarmo-ride`](https://github.com/rgvduarte/carmo/tree/gocarmo-ride)). O jogo
-inteiro (cliente e servidor) é servido por um servidor próprio, fora do GitHub Pages. O site só tem **uma página**,
-`/ride/`, que o apresenta e o mostra numa moldura.
+código desta versão está no ramo [`gocarmo-ride`](https://github.com/rgvduarte/carmo/tree/gocarmo-ride)). Não é o
+OpenRadlr oficial nem tem ligação aos seus autores. O jogo inteiro (cliente e servidor) é servido por um servidor
+próprio, fora do GitHub Pages. O site só tem **uma página**, `/ride/`, que o apresenta e o mostra numa moldura.
 
 | Peça | Onde | O que faz |
 |---|---|---|
-| Página `gocarmo.com/ride/` | `ride/index.html`, `assets/css/ride.css`, `assets/js/ride.js` | Título, uma frase, o palco do jogo, «O que precisas» e os créditos. PT e EN na mesma página, como no cartão (botões PT / EN, `?lang=en`). |
-| Endereço do jogo | `assets/js/ride-config.js` (`RIDE_ORIGIN`) | O único sítio onde o endereço está escrito. O `stamp.mjs` passa-o para as ligações da página e para a política de segurança (CSP). |
-| Imagens | `ride/poster-*.webp`, `ride/poster-800.jpg`, `ride/og.jpg` | Uma captura nossa do jogo: o cartaz do palco (16:9, e 4:3 no telemóvel) e a imagem de partilha. |
+| Página `gocarmo.com/ride/` | `ride/index.html`, `assets/css/ride.css`, `assets/js/ride.js` | Título, uma frase, o palco do jogo, «Do que precisas» e os créditos. PT e EN na mesma página, como no cartão (botões PT / EN, `?lang=en`). |
+| Endereço do jogo | `assets/js/ride-config.js` (`RIDE_ORIGIN`) | O único sítio do código onde o endereço está escrito. O `stamp.mjs` passa-o para as ligações da página e para a política de segurança (CSP). A página de privacidade também o diz, em texto. |
+| Imagens | `ride/poster-*.webp`, `ride/poster-800.jpg`, `ride/og.jpg` | Imagens nossas do jogo. O cartaz do palco (16:9, e 4:3 no telemóvel) é a fotografia que o próprio jogo tira de um treino, sem números por cima; a imagem de partilha é uma captura de um treino. |
+| Privacidade | `privacidade/index.html`, secção «GOCARMO Ride» (PT e EN) | O que a página e o jogo enviam ao servidor do jogo e o que o jogo guarda no browser. |
 
 **Como funciona a página.**
 
 - Ao abrir, pergunta uma vez ao servidor do jogo se está ligado (`GET /api/info`, sem cookies, 4 segundos no máximo).
-  Ligado: «Servidor ligado · N ciclistas» e o botão dourado «Pedalar» fica ativo. Sem resposta: o botão dá lugar a «O
-  servidor está parado. Volta mais tarde.», com «Tentar outra vez» (uma pergunta por cada toque; nada volta a
-  perguntar sozinho).
-- Num computador (janela larga, com rato ou trackpad), «Pedalar» troca o cartaz pela moldura do jogo e põe lá o
-  teclado. A moldura só é criada nesse momento: nada do jogo carrega antes de o visitante pedir. Ao lado fica «Abrir em
-  ecrã inteiro», que abre o jogo sozinho no separador.
-- Num telemóvel, num tablet sem rato ou numa janela estreita não há moldura: «Pedalar» é uma ligação que abre o jogo
-  em página inteira (as patilhas precisam do ecrã todo). Sem JavaScript a página é assim também.
+  Ligado: «Servidor ligado · N ciclistas» e o botão dourado «Pedalar» fica ativo. Sem resposta: o botão dá lugar a
+  «Servidor inacessível. Volta mais tarde.», com «Tentar outra vez» (uma pergunta por cada toque; nada volta a
+  perguntar sozinho), e o cartaz fica sem cor.
+- Num computador (janela de 1280 × 720 ou maior, com rato ou trackpad), «Pedalar» cria a moldura do jogo por baixo do
+  cartaz e põe lá o teclado. O cartaz fica, com «A abrir o jogo…», até a página do jogo ter chegado; se ao fim de 12
+  segundos não tiver chegado, a página diz «O jogo não abriu aqui.» e oferece «Abrir em página inteira». A moldura só é
+  criada nesse momento: nada do jogo carrega antes de o visitante pedir.
+- Com o jogo no palco, por baixo fica «Ecrã inteiro»: põe o palco (não a página) no ecrã inteiro do browser, sem
+  interromper o treino; Esc sai. Enquanto o rato está em cima do jogo, a página por baixo não rola. Antes de «Pedalar»,
+  nesse sítio está «Abrir em página inteira», uma ligação que abre o jogo sozinho no separador.
+- A moldura tem `sandbox`: o jogo fica com os seus scripts, o seu armazenamento e as suas janelas, mas não consegue
+  mandar a janela do site para outro endereço. Não lhe acrescentes `allow-top-navigation` (o `stamp.mjs` recusa).
+- Num telemóvel, num tablet sem rato ou numa janela mais pequena não há moldura: «Pedalar» é uma ligação que abre o
+  jogo em página inteira (as patilhas precisam do ecrã todo), e a linha do estado fica por baixo do cartaz. Sem
+  JavaScript a página é assim também.
 - A página não conta visitas e não guarda nada no browser (só `gc.lang`, a língua, como o resto do site).
 
-**Mudar o endereço do jogo.** Muda a linha `RIDE_ORIGIN` em `assets/js/ride-config.js` (um endereço `https://`, sem
-caminho e sem barra no fim) e corre `node scripts/stamp.mjs`: as duas ligações da página e as diretivas `frame-src` e
-`connect-src` da CSP passam a ter o endereço novo. O servidor do jogo tem de aceitar o site: ver abaixo.
+**Mudar o endereço do jogo.** Muda a linha `RIDE_ORIGIN` em `assets/js/ride-config.js` (um endereço `https://` com o
+nome de um só servidor, sem caminho, sem barra no fim e sem `*`), muda o nome do servidor no texto da secção «GOCARMO
+Ride» da página de privacidade (PT e EN) e corre `node scripts/stamp.mjs`: as três ligações da página e as diretivas
+`frame-src` e `connect-src` da CSP passam a ter o endereço novo. Enquanto a página de privacidade disser o nome antigo,
+o `stamp.mjs` para. O servidor do jogo tem de aceitar o site: ver abaixo.
 
 **O que o servidor do jogo tem de enviar** (configuração do servidor, fora deste repositório):
 
@@ -1331,18 +1341,29 @@ caminho e sem barra no fim) e corre `node scripts/stamp.mjs`: as duas ligações
   a página do site não consegue saber: confirma sempre à mão depois de mexer no servidor.
 - `OPENRADLR_ALLOWED_ORIGINS=https://ride.gocarmo.com,https://gocarmo.com,https://www.gocarmo.com`: deixa o site ler
   `/api/info` (`Access-Control-Allow-Origin`). A lista também decide quem pode ligar-se ao jogo, por isso o endereço do
-  próprio jogo tem de lá estar. Sem o site na lista, a página diz «O servidor está parado».
+  próprio jogo tem de lá estar. Sem o site na lista, a página diz «Servidor inacessível».
+
+**O que a página diz do jogo tem de continuar verdade.** «Do que precisas» e a secção «GOCARMO Ride» da página de
+privacidade foram escritos a partir do código do jogo: os browsers que ligam um rolo por Bluetooth, as patilhas no
+telemóvel e o simulador (ligados no servidor), e o que o jogo envia ao servidor quando alguém começa a pedalar (o nome,
+o peso, o FTP, o nível, uma chave criada no browser, e depois a potência e a cadência). Se o jogo ou a configuração do
+servidor mudarem nisto (por exemplo, ligar o Strava, que usa um cookie), muda os dois textos.
 
 **Escondida até ao lançamento.** A página tem `<meta name="robots" content="noindex, nofollow">`, nenhuma outra
-página aponta para ela e não há cartão no Painel. Enquanto `RIDE_HIDDEN` for `true` em `scripts/stamp.mjs`, o
-`node scripts/stamp.mjs --check` recusa publicar se alguma destas coisas mudar. No dia do lançamento: põe `RIDE_HIDDEN`
-a `false`, tira a linha `robots` de `ride/index.html`, acrescenta as ligações (rodapé ou menu de `index.html`, com o
-texto inglês em `assets/js/i18n.js`) e corre `node scripts/stamp.mjs`. Antes disso, acrescenta à página de privacidade
-o que o servidor do jogo recebe (o nome, o peso e o FTP que a pessoa escreve, e o endereço IP).
+página aponta para ela nem para o servidor do jogo e não há cartão no Painel. Enquanto `RIDE_HIDDEN` for `true` em
+`scripts/stamp.mjs`, o `node scripts/stamp.mjs --check` recusa publicar se alguma destas coisas mudar. No dia do
+lançamento: põe `RIDE_HIDDEN` a `false`, tira a linha `robots` de `ride/index.html`, acrescenta as ligações (rodapé ou
+menu de `index.html`, com o texto inglês em `assets/js/i18n.js`) e corre `node scripts/stamp.mjs`. Antes disso, na
+página de privacidade, escreve quem aloja o servidor do jogo, em que país, o que os registos guardam e durante quanto
+tempo, em PT e em EN, e apaga a nota `RIDE-HOST-TODO` que lá está: com `RIDE_HIDDEN` a `false`, o `stamp.mjs` não
+passa enquanto a nota existir.
 
-O `stamp.mjs` verifica também, sempre: a CSP da página palavra a palavra, que a moldura não está no HTML, que
-`ride.js` não tem nenhum endereço escrito, e que os créditos dizem «Baseado em OpenRadlr», a licença e as duas ligações
-(código-fonte e projeto original), em PT e em EN.
+O `stamp.mjs` verifica também, sempre: a CSP da página palavra a palavra (e que vem antes de qualquer script ou folha
+de estilos), que o endereço do jogo é o nome de um só servidor, que a moldura não está no HTML, que `ride.js` não tem
+nenhum endereço escrito, põe `sandbox` na moldura sem `allow-top-navigation`, não escreve HTML na página nem lê nada do
+endereço, que os créditos dizem «Baseado em OpenRadlr», a licença, «Não é o OpenRadlr oficial» e as duas ligações
+(código-fonte e projeto original), em PT e em EN, e que a página de privacidade tem a secção «GOCARMO Ride» com o nome
+do servidor do jogo, nas duas línguas.
 
 ## Ligar o Strava (uma vez)
 
@@ -1638,7 +1659,8 @@ falta à escolha); se o browser não deixar guardar, o aviso volta na visita seg
 Control ou Do Not Track conta como «Recusar» e não vê o aviso (pode aceitar em «Definições de cookies»); um sinal
 ligado depois de «Aceitar» também conta como «Recusar». «Definições de cookies», no rodapé, volta a abrir o aviso;
 recusar aí apaga os cookies `_ga` e para o envio na hora. Esvaziar `SITE.ga` desliga tudo e apaga os cookies `_ga`
-que tenham ficado.
+que tenham ficado. Os cookies `_ga` ficam só em `gocarmo.com` (`cookie_domain: 'none'` em `assets/js/analytics.js`),
+nunca no domínio inteiro: assim o browser não os envia a um serviço do site que esteja noutro nome do mesmo domínio.
 A página `/privacidade/` (PT e EN) explica isto ao visitante: se mudares o que o site mede, atualiza-a. O que ainda
 falta confirmar está num comentário `[CONFIRMAR]` no início do ficheiro, que não aparece na página.
 

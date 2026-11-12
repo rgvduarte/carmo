@@ -119,6 +119,10 @@ function load({ idle = false } = {}) {
     // GA renews the cookies on every hit: they end when the choice does, never later
     cookie_expires: Math.max(60, Math.round((since + KEEP - Date.now()) / 1000)),
     cookie_flags: location.protocol === 'https:' ? 'SameSite=Lax;Secure' : 'SameSite=Lax',
+    // host-only: this host and never its subdomains. gtag's default writes the cookies on the whole domain, and the
+    // browser would then send them to every subdomain (a service of the site on a host of its own would receive
+    // them). The privacy page says the cookies go to Google and to nobody else.
+    cookie_domain: 'none',
     // gocarmo.com/?ga_debug=1 shows this visit in GA's DebugView
     ...(/[?&]ga_debug=1(&|#|$)/.test(RAW) ? { debug_mode: true } : {}),
   });
