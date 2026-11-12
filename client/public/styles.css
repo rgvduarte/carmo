@@ -201,6 +201,16 @@ kbd {
     linear-gradient(90deg, rgba(11, 11, 12, 0.35) 0%, transparent 40%, transparent 60%, rgba(11, 11, 12, 0.55) 100%);
 }
 
+/* A phone on its side: the route's title and text sit at 50 to 75 % of a 390 px screen, where the
+   veil above has thinned out (2.5:1 measured against the fog). The dark part reaches further down. */
+@media (max-height: 520px) {
+  .menu-world::after {
+    background:
+      linear-gradient(180deg, rgba(11, 11, 12, 0.88) 0%, rgba(11, 11, 12, 0.84) 62%, rgba(11, 11, 12, 0.74) 82%, rgba(11, 11, 12, 0.88) 100%),
+      linear-gradient(90deg, rgba(11, 11, 12, 0.35) 0%, transparent 40%, transparent 60%, rgba(11, 11, 12, 0.55) 100%);
+  }
+}
+
 .start.world-ready .menu-world {
   opacity: 1;
 }
