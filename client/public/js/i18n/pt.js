@@ -78,7 +78,7 @@ export default {
   "ride.race": "Corrida",
   "ride.joinRace": "Entrar na corrida",
   "ride.joinJ": "Entrar (J)",
-  "ride.sim": "Simulado",
+  "ride.sim": "Simul.",
   "ride.grade": "inclinação",
   "ride.roadAhead": "Estrada à frente",
   "ride.power": "Potência",

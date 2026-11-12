@@ -34,7 +34,7 @@ const RISER = 0.35;
 const STAGE = Object.freeze({ z: -5.4, height: 0.55, halfWidth: 2.4, depth: 2.6 });
 
 /** The instructor: id 0 (riders start at 1), on the stage, facing the room. */
-export const INSTRUCTOR = Object.freeze({ id: 0, name: "Coach", position: [0, STAGE.height, STAGE.z], yaw: Math.PI }); // i18n-ok (English id label; the UI translates by mode)
+export const INSTRUCTOR = Object.freeze({ id: 0, name: "Coach Sol", position: [0, STAGE.height, STAGE.z], yaw: Math.PI }); // i18n-ok (English id label; the UI translates by mode)
 
 export const STUDIO_CAMERAS = Object.freeze(["seat", "wide", "coach"]);
 export const STUDIO_CAMERA_LABELS = Object.freeze({ seat: "Behind me", wide: "Whole room", coach: "Coach's view" }); // i18n-ok (English id label; the UI translates by mode)

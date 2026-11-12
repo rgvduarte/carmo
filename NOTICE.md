@@ -73,10 +73,12 @@ Keep this list up to date with every change.
   accent; danger, climb, sprint, human, bot and zone colours are upstream's.
   Titles and numbers are set in Anton, text in Inter, code in JetBrains
   Mono, all served from `client/public/fonts/` (no request to a font
-  service). In the 3D world: the start arch and the halfway banner are gold,
-  the studio's neon is cream and gold, the bot team "zitrone" rides in lime
-  (it was too close to the rider's gold), the studio instructor is called
-  "Coach".
+  service). In the 3D world: the start arch, the halfway banner, the picked
+  route's highlight on the island and the café's awning, parasols and sign
+  are gold where upstream has its orange; the studio's neon is cream and
+  gold; the bot team "zitrone" rides in lime and "kreide" lost its warm tint
+  (both sat on the hue of the rider's gold); the studio instructor is called
+  "Coach Sol" (upstream: "Coach Lemon").
 - **Portuguese**: new locale `js/i18n/pt.js` (European Portuguese, every key
   of `en.js`), offered in the language selector and picked for browsers set
   to any Portuguese; English and German stay. `intlLocale()` in
@@ -86,6 +88,8 @@ Keep this list up to date with every change.
   `about.*` in the three dictionaries.
 - **Pixel font**: glyphs `C` and `G` added (`js/view3d/pixelFont.js`), needed
   to write the arch.
+- **Summary card**: its legend ("Power", "Elevation") is in the rider's
+  language (new key `photos.stat.elevation`).
 - **Tests** (`client/test/`): expectations that named "OpenRadlr", the old
   file names, the old colours or two languages follow the changes above;
   new `i18nPortuguese.test.js`.
