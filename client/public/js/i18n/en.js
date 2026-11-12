@@ -915,5 +915,6 @@ export default {
   "frame.exitFullscreen": "Exit full screen",
   "strava.frame.opened": "Strava opens in a new tab. Allow the connection there, then come back to this tab.",
   "strava.frame.blocked": "The browser blocked the new tab. Allow pop-ups for this page, or open the game in a tab of its own.",
+  "about.brand": "GOCARMO symbol and logo (the image files): © Gonçalo Carmo, CC BY-SA 4.0. The name GOCARMO and its use as a brand are reserved.",
   "about.osm": "OpenStreetMap: copyright and licence",
 };

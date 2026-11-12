@@ -20,6 +20,10 @@ export const BRAND_TAG = "RIDE"; // i18n-ok (a name)
  * GOCARMO's symbol, the moon and the sun, as SVG path data on a 64 × 64 box:
  * the same two paths as `#gc-symbol` in index.html (a test keeps them equal).
  * The images drawn on a canvas (ride photos, the summary card) take it from here.
+ *
+ * Whose it is (brand/README.md): the image files in brand/ are © Gonçalo Carmo,
+ * CC BY-SA 4.0; this outline, drawn in code, is under the AGPL like the rest of
+ * the code; the name GOCARMO and the use of the symbol as a brand are reserved.
  */
 export const BRAND_SYMBOL = Object.freeze({
   size: 64,

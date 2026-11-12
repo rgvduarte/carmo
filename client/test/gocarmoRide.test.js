@@ -98,6 +98,31 @@ test("the credits say the licence in full words and that there is no warranty, i
   assert.match(html, /<a href="https:\/\/www\.openstreetmap\.org\/copyright"[^>]*data-i18n="about\.osm"/, "the map data credit links OpenStreetMap's copyright page");
 });
 
+test("the GOCARMO artwork says whose it is: image files CC BY-SA 4.0, name and brand reserved", () => {
+  const holder = "© Gonçalo Carmo, CC BY-SA 4.0";
+  for (const [name, dictionary, reserved] of [["en", en, /name GOCARMO and its use as a brand are reserved/], ["de", de, /Name GOCARMO und seine Verwendung als Marke bleiben vorbehalten/], ["pt", pt, /nome GOCARMO e o seu uso como marca ficam reservados/]]) {
+    assert.ok(dictionary["about.brand"].includes(holder), `${name}: rights holder and licence of the image files`);
+    assert.match(dictionary["about.brand"], reserved, `${name}: the name and the brand stay reserved`);
+  }
+  assert.match(html, /<p class="muted" data-i18n="about\.brand">/, "shown in the About dialog");
+  const note = read("../public/brand/README.md");
+  assert.ok(note.includes("© Gonçalo Carmo"));
+  assert.match(note, /CC BY-SA 4\.0/);
+  assert.match(note, /https:\/\/creativecommons\.org\/licenses\/by-sa\/4\.0\//);
+  assert.match(note, /under the GNU AGPL, version 3 or\s+later/, "the symbol drawn in code follows the code's licence");
+  assert.match(note, /Name and brand: reserved/);
+  assert.match(note, /not upstream \(OpenRadlr\) artwork/);
+  for (const file of ["favicon.svg", "gocarmo-ride.svg", "gocarmo-ride-stacked.svg"]) {
+    const svg = read(`../public/brand/${file}`);
+    assert.ok(svg.includes("GOCARMO artwork © Gonçalo Carmo, licensed under CC BY-SA 4.0"), `${file} carries its notice`);
+    assert.ok(svg.includes("its use as a brand are reserved"), file);
+  }
+  // Nothing in the client claims more: no "all rights reserved", no other holder of the GOCARMO files.
+  for (const dictionary of [en, de, pt]) {
+    for (const [key, text] of Object.entries(dictionary)) assert.doesNotMatch(text, /© GOCARMO|all rights reserved|todos os direitos|alle Rechte vorbehalten/i, key);
+  }
+});
+
 test("no file of upstream's artwork folder is shipped: the fork's own marks live in brand/", () => {
   assert.equal(existsSync(new URL("../public/icons", import.meta.url)), false, "ASSETS-LICENSE.md lists client/public/icons/ for upstream's artwork");
   for (const file of ["favicon.svg", "favicon-32.png", "favicon-64.png", "apple-touch-icon.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "gocarmo-ride.svg"]) {
