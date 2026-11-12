@@ -1,17 +1,21 @@
-name: CI
+# GOCARMO Ride: checks for the fork's branch.
+#
+# Runs on every push to `gocarmo-ride` and on nothing else. The branch lives in
+# the site's repository, whose default branch is the site itself. It tests the
+# client and the server, builds the Docker image WITHOUT pushing it anywhere
+# and checks the built image. It uses no secrets and can only read the
+# repository.
+name: Ride CI
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: [gocarmo-ride]
 
-# Read-only token: CI only checks out and tests, and pull requests from forks
-# must not get write access.
 permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ride-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -23,9 +27,13 @@ jobs:
         working-directory: server
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
-          components: rustfmt, clippy
+          persist-credentials: false
+      # rustup is part of the runner image: no third-party action for the toolchain.
+      - name: Install the stable Rust toolchain
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy --no-self-update
+          rustup default stable
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: server
@@ -41,6 +49,8 @@ jobs:
         working-directory: client
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
@@ -49,18 +59,24 @@ jobs:
       - run: npm test
 
   image:
-    name: Docker image
+    name: Docker image (built, not pushed)
     runs-on: ubuntu-latest
     needs: [server, client]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           push: false
-          tags: openradlr-server:ci
+          # Into the runner's own Docker, for the check below. Nothing leaves the runner.
+          load: true
+          tags: gocarmo-ride:ci
           build-args: |
             OPENRADLR_BUILD_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Check the image (user, licence files, build label, health, clean stop)
+        run: sh deploy/check-image.sh gocarmo-ride:ci "$GITHUB_SHA"
