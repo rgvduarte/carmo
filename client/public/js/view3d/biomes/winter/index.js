@@ -44,7 +44,8 @@ export const winter = Object.freeze({
   }),
   arch: Object.freeze({
     post: Object.freeze([0.9, 0.93, 0.97]),
-    start: Object.freeze([0.9, 0.71, 0.31]),
+    start: Object.freeze([0.05, 0.05, 0.055]),
+    startEdge: Object.freeze([0.9, 0.71, 0.31]),
     climb: Object.freeze([0.8, 0.3, 0.35]),
     sprint: Object.freeze([0.35, 0.65, 0.95]),
     chequer: Object.freeze([SNOW, WINTER_PALETTE.dark]),

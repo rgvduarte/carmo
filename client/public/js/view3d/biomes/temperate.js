@@ -50,7 +50,9 @@ export const COLORS = Object.freeze({
   rock: [0.52, 0.51, 0.49],
   postWhite: [0.94, 0.94, 0.92],
   postRed: [0.82, 0.18, 0.16],
-  start: [0.9, 0.71, 0.31],
+  // The start/finish arch as the page of gocarmo.com: a near-black band, the lockup on it, a gold edge.
+  start: [0.05, 0.05, 0.055],
+  startEdge: [0.9, 0.71, 0.31],
   climb: [0.86, 0.3, 0.3],
   sprint: [0.3, 0.7, 0.95],
   post: [0.92, 0.92, 0.92],
@@ -220,6 +222,7 @@ export const temperate = Object.freeze({
   arch: Object.freeze({
     post: COLORS.post,
     start: COLORS.start,
+    startEdge: COLORS.startEdge,
     climb: COLORS.climb,
     sprint: COLORS.sprint,
     /** The light and dark squares of the start/finish strip. */

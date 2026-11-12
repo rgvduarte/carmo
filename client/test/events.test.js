@@ -24,7 +24,7 @@ test("lists events sorted by start with local labels", () => {
   const rows = eventRows(info, 1000 * 1000, fmt);
   assert.deepEqual(rows.map((r) => r.id), ["now", "run", "soon", "late"]);
   const soon = rows.find((r) => r.id === "soon");
-  assert.equal(soon.icon, "👥");
+  assert.equal(soon.kind, "group_ride");
   assert.equal(soon.routeName, "Riverside Flats");
   assert.equal(soon.countdown, "in 12:40");
   assert.equal(soon.startLabel, "00:29");
@@ -32,7 +32,7 @@ test("lists events sorted by start with local labels", () => {
   assert.equal(soon.joinable, true);
   assert.equal(soon.note, "");
   const late = rows.find((r) => r.id === "late");
-  assert.equal(late.icon, "🏁");
+  assert.equal(late.kind, "race");
   assert.equal(late.joinable, false);
   assert.equal(late.note, "Lobby opens 01:23");
   assert.equal(rows[0].joinable, true);

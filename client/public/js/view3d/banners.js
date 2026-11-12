@@ -6,6 +6,7 @@
  */
 import { add, normalize, scale } from "./math.js";
 import { pixelText, textWidth } from "./pixelFont.js";
+import { ARCH_MARK } from "./gocarmoMark.js";
 import { temperate } from "./biomes/index.js";
 import { roadFrame, roadHalfWidth } from "./world.js";
 
@@ -27,6 +28,12 @@ export const BANNERS = Object.freeze({
 });
 
 const INK = Object.freeze({ light: [1, 1, 1], dark: [0.12, 0.12, 0.14] });
+
+/** How tall an arch's beam is (metres): the start/finish band is taller, so the lockup on it reads from further off. */
+export const archBand = (type) => (type === "start_finish" ? 1.4 : 1.0);
+
+/** The lockup on the start arch: the moon and the letters in the site's off-white, the sun in its gold. */
+export const MARK_COLORS = Object.freeze({ "#": Object.freeze([0.95, 0.945, 0.925]), o: Object.freeze([0.9, 0.71, 0.31]) });
 
 /**
  * Where banners hang on a route: `{distance, kind, text}` in riding order —
@@ -71,6 +78,44 @@ export function letterBeam(mesh, beam, text, color) {
   }
 }
 
+/**
+ * Draws a bitmap (rows of "#", "o", ".", see gocarmoMark.js) on both faces of
+ * a beam, as large as fits: one quad per run of equal cells, so the lockup
+ * costs a few hundred triangles. Each face reads left to right for the rider
+ * looking at it.
+ * @param {{center: number[], right: number[], forward: number[], width: number, height: number, depth: number}} beam
+ * @param {readonly string[]} rows
+ */
+export function markBeam(mesh, beam, rows, colors = MARK_COLORS) {
+  const columns = rows[0].length;
+  const pixel = Math.min((beam.height * 0.84) / rows.length, (beam.width * 0.88) / columns);
+  const left = (-columns * pixel) / 2;
+  const top = (rows.length * pixel) / 2;
+  for (const side of [-1, 1]) {
+    const facing = scale(beam.forward, side);
+    const origin = add(beam.center, scale(beam.forward, side * (beam.depth / 2 + 0.015)));
+    const right = scale(beam.right, -side);
+    const at = (x, y) => [origin[0] + right[0] * x, origin[1] + y, origin[2] + right[2] * x];
+    rows.forEach((row, r) => {
+      for (let c = 0; c < columns; ) {
+        const cell = row[c];
+        let end = c + 1;
+        while (end < columns && row[end] === cell) end += 1;
+        const color = colors[cell];
+        if (color) {
+          const x0 = left + c * pixel;
+          const x1 = left + end * pixel;
+          const y0 = top - (r + 1) * pixel;
+          const y1 = top - r * pixel;
+          mesh.triangleFacing(at(x0, y0), at(x1, y0), at(x1, y1), color, facing);
+          mesh.triangleFacing(at(x0, y0), at(x1, y1), at(x0, y1), color, facing);
+        }
+        c = end;
+      }
+    });
+  }
+}
+
 /** The road's frame at `distance` with its level forward direction. */
 function levelFrame(route, distance) {
   const frame = roadFrame(route, distance);
@@ -95,10 +140,15 @@ export function buildBanners(mesh, route, { biome = temperate } = {}) {
   }
 }
 
-/** The name on an arch's beam (see `ARCH_TEXT`), white on its colour; dark on the gold start arch. */
+/**
+ * The name on an arch's beam (see `ARCH_TEXT`), white on its colour. The start/finish
+ * arch carries the GOCARMO lockup itself, drawn from its outlines (gocarmoMark.js).
+ */
 export function letterArch(mesh, route, marker, { height, halfWidth, depth }) {
   const text = ARCH_TEXT[marker.type];
   if (!text) return;
   const frame = levelFrame(route, marker.distance);
-  letterBeam(mesh, { center: add(frame.center, [0, height, 0]), right: frame.right, forward: frame.level, width: 2 * halfWidth, height: 1.0, depth }, text, marker.type === "start_finish" ? INK.dark : INK.light);
+  const beam = { center: add(frame.center, [0, height, 0]), right: frame.right, forward: frame.level, width: 2 * halfWidth, height: archBand(marker.type), depth };
+  if (marker.type === "start_finish") markBeam(mesh, beam, ARCH_MARK);
+  else letterBeam(mesh, beam, text, INK.light);
 }

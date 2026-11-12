@@ -26,7 +26,7 @@ import { StravaClient, appLoginResult, stravaMessage } from "./net/strava.js";
 import { UploadReceipts, uploadKey } from "./net/stravaUpload.js";
 import { bindStravaUpload } from "./view/stravaUploadView.js";
 import { levelAfterRace, levelAfterRide, levelLabel, levelOf } from "./profile/level.js";
-import { eventBanner, groupGapLine, eventResultRows, eventRideName, eventRows, renderEventList, sharingLine } from "./view/events.js";
+import { eventBanner, groupGapLine, eventResultRows, eventRideName, eventRows, eventTitle, renderEventList, sharingLine } from "./view/events.js";
 import { ProfileStore, keepValid, validateProfile } from "./profile/profileStore.js";
 import { draftInfo } from "./ride/draft.js";
 import { applyDifficulty } from "./ride/difficulty.js";
@@ -72,7 +72,7 @@ import {
   splitLine,
 } from "./view/hud.js";
 import { appendFeed, describeEvent, inRace, nearbyRiders, onlineSummary, raceCaption, raceStatus, renderResults, renderRiderList, riderName, riderSections } from "./view/panels.js";
-import { PhotoAlbum, canShareFiles, canvasToPng, composePhoto, composeSummary, downloadBlob, grabScene, photoActions, photoFileName, photoStats } from "./view/photos.js";
+import { PhotoAlbum, canShareFiles, canvasToPng, composePhoto, composeSummary, downloadBlob, grabScene, photoActions, photoFileName, photoFontsReady, photoStats } from "./view/photos.js";
 import { drawRideMap } from "./view/rideMapView.js";
 import { renderSplits } from "./view/splitsView.js";
 import { drawProfile, drawUpcoming } from "./view/profileView.js";
@@ -110,7 +110,7 @@ import { applyTranslations } from "./i18n/apply.js";
 import { getLocale, initLocale, intlLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
 import { languageOptions } from "./i18n/selector.js";
 import { initAbout } from "./view/about.js";
-import { APP_NAME } from "./brand.js";
+import { APP_NAME, withServer } from "./brand.js";
 
 // Inside the OpenRadlr app: native Bluetooth, wake lock and file saving (docs/app.md).
 const nativeApp = installNativeApp();
@@ -2817,7 +2817,7 @@ function openFinish() {
       return item;
     }),
   );
-  $("finish-route").textContent = `${app.rideRoute.name} · ${app.finishedServerName}`;
+  $("finish-route").textContent = withServer(app.rideRoute.name, app.finishedServerName);
   const empty = app.recorder.empty;
   app.finishSplits = empty ? [] : rideSplits(true);
   renderSplits($("finish-splits"), app.finishSplits, app.splitUnitM);
@@ -3229,6 +3229,7 @@ function takePhoto() {
   requestScene(async (scene) => {
     try {
       const takenAt = Date.now();
+      await photoFontsReady();
       const photo = composePhoto(scene, { routeName: app.route.name, stats, when: new Date(takenAt) });
       const blob = await canvasToPng(photo);
       const name = photoFileName(takenAt, app.rideRoute.id, app.album.size + 1);
@@ -3292,6 +3293,7 @@ async function refreshSummaryImage() {
 
 async function summaryImage() {
   const samples = app.recorder.samples;
+  await photoFontsReady();
   const canvas = composeSummary({
     routeName: app.rideRoute.name,
     serverName: app.finishedServerName,
@@ -4323,7 +4325,7 @@ function updatePanels() {
   // The race banner covers the countdown; the pill shows the rest.
   $("race-status").hidden = !race.phase || race.phase === "idle" || race.phase === "countdown";
   if (event?.phase === "running" && event.entered && (!race.phase || race.phase === "idle")) {
-    $("race-status").textContent = t("race.running", { name: event.name });
+    $("race-status").textContent = t("race.running", { name: eventTitle(event, app.route.name) });
     $("race-status").hidden = false;
   }
   $("start-race").disabled = race.phase === "countdown" || race.phase === "running";

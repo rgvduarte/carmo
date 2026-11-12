@@ -162,7 +162,7 @@ export class PaddleView {
     // Milestones earn a bonus: make them pop.
     if ((state.combo === 20 || state.combo === 50) && this.#lastCombo !== state.combo) this.#flash(parts.combo, "milestone");
     this.#lastCombo = state.combo;
-    const spm = state.spm ? `${state.spm} spm` : "";
+    const spm = state.spm ? t("ride.paddleRate", { n: state.spm }) : "";
     if (parts.spm.textContent !== spm) parts.spm.textContent = spm;
     for (const side of ["left", "right"]) parts[side].classList.toggle("next", state.nextSide === side || (state.nextSide === null && side === "left"));
   }

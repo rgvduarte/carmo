@@ -1,38 +1,54 @@
 /**
  * The golden collectible floating over the road (see ride/lemons.js). Upstream
  * OpenRadlr draws a lemon here, its mascot; GOCARMO Ride draws a golden sun,
- * after the sun of its own symbol: a ball with short rays around it, centred
- * on the origin. The rays stand in two upright rings at right angles, so the
- * sun reads as one from every side while it spins. Drawn bright, so it glows a
- * little in any light. The file and function names stay as upstream has them.
+ * after the sun of its own symbol: a flat disc with eight short rays around
+ * it, all in one upright plane (local XY), centred on the origin. The world
+ * turns that plane across the road, so a rider coming up sees the sun face on
+ * (view3d.js). Both faces are drawn. Drawn bright, so it glows a little in any
+ * light. The file and function names stay as upstream has them.
  */
 import { MeshBuilder } from "./meshBuilder.js";
 
 export const LEMON_COLORS = Object.freeze({ peel: [0.95, 0.74, 0.3], nub: [0.9, 0.66, 0.22] });
 
-/** Rays per ring. */
+/** Rays around the disc, and the disc's corners (a 16-gon reads as round at this size). */
 const RAYS = 8;
+const SIDES = 16;
+const DISC = 0.3;
+/** A ray: from just off the disc to its blunt tip, narrowing a little, as in the symbol. */
+const RAY = Object.freeze({ from: 0.36, to: 0.54, footHalf: 0.07, tipHalf: 0.04 });
+/** Half the thickness of the plate: enough to keep an edge when seen from the side. */
+const HALF_DEPTH = 0.03;
 
 /** About 1 m across: easy to spot close up, a golden dot further on (an easter egg, not a beacon). */
 export function buildLemon() {
   const m = new MeshBuilder();
-  m.ellipsoid([0, 0, 0], [0.3, 0.3, 0.3], LEMON_COLORS.peel, 5, 10);
-  for (let i = 0; i < RAYS; i += 1) {
-    const angle = (i / RAYS) * Math.PI * 2;
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    // The ring facing the road, then the ring across it (its upright rays are the first ring's).
-    spike(m, [cos, sin, 0], [-sin, cos, 0], [0, 0, 1]);
-    if (Math.abs(cos) > 1e-6) spike(m, [0, sin, cos], [0, cos, -sin], [1, 0, 0]);
+  for (const face of [1, -1]) {
+    const z = face * HALF_DEPTH;
+    const facing = [0, 0, face];
+    const at = (radius, angle, across = 0) => [Math.cos(angle) * radius - Math.sin(angle) * across, Math.sin(angle) * radius + Math.cos(angle) * across, z];
+    for (let i = 0; i < SIDES; i += 1) {
+      const a0 = (i / SIDES) * Math.PI * 2;
+      const a1 = ((i + 1) / SIDES) * Math.PI * 2;
+      m.triangleFacing([0, 0, z], at(DISC, a0), at(DISC, a1), LEMON_COLORS.peel, facing);
+    }
+    for (let i = 0; i < RAYS; i += 1) {
+      const angle = (i / RAYS) * Math.PI * 2;
+      const foot = [at(RAY.from, angle, -RAY.footHalf), at(RAY.from, angle, RAY.footHalf)];
+      const tip = [at(RAY.to, angle, RAY.tipHalf), at(RAY.to, angle, -RAY.tipHalf)];
+      m.triangleFacing(foot[0], foot[1], tip[0], LEMON_COLORS.nub, facing);
+      m.triangleFacing(foot[0], tip[0], tip[1], LEMON_COLORS.nub, facing);
+    }
+  }
+  // The rim of the disc, so the plate is not a hairline when the road bends away.
+  for (let i = 0; i < SIDES; i += 1) {
+    const a0 = (i / SIDES) * Math.PI * 2;
+    const a1 = ((i + 1) / SIDES) * Math.PI * 2;
+    const mid = (a0 + a1) / 2;
+    const p = (angle, z) => [Math.cos(angle) * DISC, Math.sin(angle) * DISC, z];
+    const out = [Math.cos(mid), Math.sin(mid), 0];
+    m.triangleFacing(p(a0, -HALF_DEPTH), p(a1, -HALF_DEPTH), p(a1, HALF_DEPTH), LEMON_COLORS.nub, out);
+    m.triangleFacing(p(a0, -HALF_DEPTH), p(a1, HALF_DEPTH), p(a0, HALF_DEPTH), LEMON_COLORS.nub, out);
   }
   return m.build();
-}
-
-/** A four-sided spike along `out`: a square foot just off the ball (sides along `a` and `b`), narrowing to the tip. */
-function spike(m, out, a, b) {
-  const at = (r, u, v) => [0, 1, 2].map((k) => out[k] * r + a[k] * u + b[k] * v);
-  const tip = at(0.56, 0, 0);
-  const foot = [at(0.36, 0.075, 0.075), at(0.36, -0.075, 0.075), at(0.36, -0.075, -0.075), at(0.36, 0.075, -0.075)];
-  const facing = [b, a.map((x) => -x), b.map((x) => -x), a];
-  foot.forEach((corner, k) => m.triangleFacing(corner, foot[(k + 1) % 4], tip, LEMON_COLORS.nub, facing[k]));
 }

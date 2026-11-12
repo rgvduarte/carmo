@@ -10,7 +10,7 @@
  *
  * World axes: X = route x (east), Y = up, Z = −route y (north is −Z).
  */
-import { buildBanners, letterArch } from "./banners.js";
+import { archBand, buildBanners, letterArch } from "./banners.js";
 import { ChunkedMesh } from "./chunks.js";
 import {
   BRIDGE_HALF_LENGTH,
@@ -713,7 +713,12 @@ export function buildArches(route, { biome = temperate } = {}) {
     const left = add(frame.center, scale(frame.right, -halfWidth));
     const right = add(frame.center, scale(frame.right, halfWidth));
     const beamCenter = add(scale(add(left, right), 0.5), [0, height, 0]);
-    mesh.orientedBox(beamCenter, scale(frame.right, 2 * halfWidth + 0.4), [0, 1.0, 0], along, color);
+    const band = archBand(color === colors.start ? "start_finish" : "");
+    mesh.orientedBox(beamCenter, scale(frame.right, 2 * halfWidth + 0.4), [0, band, 0], along, color);
+    if (color === colors.start) {
+      // A gold edge above and below the dark band (GOCARMO Ride), a little proud of it.
+      for (const side of [-1, 1]) mesh.orientedBox(add(beamCenter, [0, side * (band / 2 + 0.04), 0]), scale(frame.right, 2 * halfWidth + 0.46), [0, 0.08, 0], scale(along, 1.15), colors.startEdge ?? colors.start);
+    }
     // Chequered strip on the start/finish line.
     if (color === colors.start) {
       const squares = 12;

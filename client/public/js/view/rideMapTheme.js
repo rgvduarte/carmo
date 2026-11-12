@@ -14,7 +14,7 @@ import { TIME_MODES, resolvePreset, resolvedLight } from "../view3d/lighting.js"
 
 /** The start menu's map palette, kept from the original top-down map. */
 export const MAP_COLORS = Object.freeze({
-  sea: "#163a4e",
+  sea: "#11272f",
   land: "#2d5b3b",
   sand: "#cdb98a",
   road: "rgba(232, 236, 241, 0.5)",

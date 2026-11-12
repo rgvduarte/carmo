@@ -10,10 +10,10 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <link rel="manifest" href="manifest.webmanifest" />
-    <link rel="icon" href="icons/favicon.svg" type="image/svg+xml" />
-    <link rel="icon" href="icons/favicon-32.png" type="image/png" sizes="32x32" />
-    <link rel="icon" href="icons/favicon-64.png" type="image/png" sizes="64x64" />
-    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="icon" href="brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="brand/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="brand/favicon-64.png" type="image/png" sizes="64x64" />
+    <link rel="apple-touch-icon" href="brand/apple-touch-icon.png" />
     <link rel="preload" href="fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="fonts/anton-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="styles.css" />
@@ -172,6 +172,7 @@
     <link rel="modulepreload" href="js/view3d/zones.js" />
     <link rel="modulepreload" href="js/view3d/biomes/helpers.js" />
     <link rel="modulepreload" href="js/view3d/biomes/winter/animals.js" />
+    <link rel="modulepreload" href="js/view3d/gocarmoMark.js" />
     <link rel="modulepreload" href="js/view3d/pixelFont.js" />
     <!-- /modulepreload -->
   </head>
@@ -422,6 +423,7 @@
           <button type="button" id="build-label" class="build-label" title="Copy the build details" data-nav-skip data-i18n-attr="title:menu.build.copy"></button>
           <a id="privacy-link" class="build-label" target="_blank" rel="noopener" data-nav-skip hidden data-i18n="menu.privacy">Privacy</a>
           <button type="button" id="about-open" class="build-label" data-about-open data-nav-skip data-i18n="about.title">About</button>
+          <a class="build-label" data-source-link href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener" data-nav-skip data-i18n="about.source">Source code</a>
         </footer>
 
         <!-- A newer build is live: a toast over the page, not a line to hunt for -->
@@ -453,8 +455,8 @@
             <div class="paddle-rhythm" aria-hidden="true"><span class="paddle-band"></span><span class="paddle-marker"></span></div>
             <strong class="paddle-hint" data-i18n="ride.tapLeftThenRight">Tap left, then right · swipe for lanes</strong>
           </div>
-          <div class="paddle paddle-left" data-side="left" role="button" aria-label="Left paddle" data-i18n-attr="aria-label:ride.leftPaddle"><span class="paddle-label">L</span></div>
-          <div class="paddle paddle-right" data-side="right" role="button" aria-label="Right paddle" data-i18n-attr="aria-label:ride.rightPaddle"><span class="paddle-label">R</span></div>
+          <div class="paddle paddle-left" data-side="left" role="button" aria-label="Left paddle" data-i18n-attr="aria-label:ride.leftPaddle"><span class="paddle-label" data-i18n="ride.paddleLetterLeft">L</span></div>
+          <div class="paddle paddle-right" data-side="right" role="button" aria-label="Right paddle" data-i18n-attr="aria-label:ride.rightPaddle"><span class="paddle-label" data-i18n="ride.paddleLetterRight">R</span></div>
         </div>
 
         <!-- Café workout (#77): replaces the ride HUD while body.working-out -->
@@ -621,6 +623,11 @@
                 <span class="num-l grade" data-m="grade">0.0 %</span><span class="caption" data-i18n="ride.grade">grade</span>
                 <span class="num-m" data-m="hr">–</span><span class="caption">bpm</span>
               </div>
+            </div>
+            <!-- The lockup, small, where a phone hides the route card that carries it (styles.css). -->
+            <div class="hud-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" focusable="false"><use href="#gc-symbol" /></svg>
+              <span class="hud-brand">GOCARMO <span>Ride</span></span>
             </div>
             <div class="upcoming">
               <span class="upcoming-label" data-m="next-marker" data-i18n="ride.roadAhead">Road ahead</span>
@@ -952,8 +959,9 @@
                   </div>
                   <div class="panel">
                     <h2 data-i18n="about.title">About</h2>
-                    <p class="hint" data-i18n="about.short">GOCARMO Ride · maintained by GOCARMO · based on OpenRadlr, © The OpenRadlr contributors, AGPL-3.0 licence</p>
+                    <p class="hint" data-i18n="about.short">GOCARMO Ride · maintained by GOCARMO · based on OpenRadlr, © The OpenRadlr contributors, AGPL-3.0-or-later licence</p>
                     <button type="button" class="secondary" data-about-open data-i18n="about.open">Credits and licences</button>
+                    <a class="hint about-source" data-source-link href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener" data-i18n="about.source">Source code</a>
                   </div>
                 </div>
               </div>
@@ -1062,14 +1070,16 @@
             <span class="brand-word">GOCARMO <span>Ride</span></span>
           </div>
           <h2 id="about-title" data-i18n="about.title">About</h2>
-          <p data-i18n="about.credit">GOCARMO Ride · maintained by GOCARMO · based on OpenRadlr, © The OpenRadlr contributors, AGPL-3.0 licence.</p>
-          <p class="muted" data-i18n="about.modified">This is a modified version of OpenRadlr (from commit 2b09a79), changed since 12.11.2026. Free software, provided without warranty.</p>
+          <p data-i18n="about.credit">GOCARMO Ride · maintained by GOCARMO · based on OpenRadlr, © The OpenRadlr contributors, AGPL-3.0-or-later licence.</p>
+          <p class="muted" data-i18n="about.modified">This is a modified version of OpenRadlr (from commit 2b09a79), changed since 12.11.2026. It is not the official OpenRadlr and is not affiliated with its authors. Free software: you may use, change and share it under the GNU AGPL, version 3 or any later version. It comes with no warranty.</p>
           <p class="about-links">
-            <a href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener" data-i18n="about.source">Source code</a>
+            <a href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener" data-source-link data-i18n="about.source">Source code</a>
             <a href="https://github.com/Lethonium/OpenRadlr" target="_blank" rel="noopener" data-i18n="about.original">Original project</a>
-            <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener" data-i18n="about.licence">Licence text</a>
+            <a href="LICENSE.txt" target="_blank" rel="noopener" data-i18n="about.licence">Licence text</a>
+            <a href="NOTICE.txt" target="_blank" rel="noopener" data-i18n="about.notice">Changes and credits</a>
           </p>
           <p class="muted" data-i18n="about.fonts">Fonts: Anton, Inter and JetBrains Mono, SIL Open Font License 1.1.</p>
+          <p class="muted" data-i18n="about.data">Lanzarote Lava 180: Road geometry © OpenStreetMap contributors, ODbL. Elevation: Copernicus DEM GLO-30 © DLR e.V. 2010–2014 and © Airbus Defence and Space GmbH 2014–2018, provided under COPERNICUS by the European Union and ESA.</p>
           <div class="modal-actions"><button type="button" id="about-close" class="primary-small" data-i18n="drawer.close">Close</button></div>
         </div>
       </dialog>

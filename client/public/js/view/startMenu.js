@@ -21,7 +21,8 @@ export function serverStatus(info) {
   const full = max > 0 && seated >= max;
   const phoneMax = info.max_phone_players ?? 0;
   const phoneFull = phoneMax > 0 && phones >= phoneMax;
-  const riders = tn("menu.riders", players) + (phones > 0 ? ` (${phones} 📱)` : "");
+  const count = tn("menu.riders", players);
+  const riders = phones > 0 ? t("menu.server.withPhones", { riders: count, phones }) : count;
   const text = full ? t("menu.server.full", { riders }) : t("menu.server.room", { riders, n: Math.max(0, max - seated) });
   return { text, full, phoneFull, online: true };
 }

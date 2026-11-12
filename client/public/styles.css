@@ -148,8 +148,7 @@ kbd {
   min-height: 100vh;
   padding: 0 24px 40px;
   background:
-    radial-gradient(1200px 500px at 15% -10%, rgba(230, 180, 80, 0.08), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(76, 195, 255, 0.05), transparent 60%),
+    radial-gradient(1200px 500px at 15% -10%, rgba(230, 180, 80, 0.06), transparent 60%),
     var(--bg);
 }
 
@@ -160,9 +159,10 @@ kbd {
 }
 
 /*
- * Before the island is there (the first visit loads it, then builds it): dusk over
- * the sea, drifting slowly. Only a transform animates, which the compositor does
- * without repainting; the island covers it once it fades in.
+ * Before the island is there (the first visit loads it, then builds it): one faint
+ * gold glow on the near-black page of gocarmo.com, drifting slowly. Only a transform
+ * animates, which the compositor does without repainting; the island covers it once
+ * it fades in.
  */
 .start::before {
   content: "";
@@ -170,10 +170,7 @@ kbd {
   inset: -15%;
   z-index: -2;
   pointer-events: none;
-  background:
-    radial-gradient(40% 35% at 25% 20%, rgba(255, 140, 50, 0.16), transparent 70%),
-    radial-gradient(45% 40% at 80% 15%, rgba(76, 195, 255, 0.12), transparent 70%),
-    radial-gradient(60% 50% at 50% 95%, rgba(22, 58, 78, 0.55), transparent 75%);
+  background: radial-gradient(40% 35% at 25% 20%, rgba(230, 180, 80, 0.06), transparent 70%);
   animation: dusk-drift 26s ease-in-out infinite alternate;
 }
 
@@ -200,7 +197,7 @@ kbd {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(11, 11, 12, 0.6) 0%, rgba(11, 11, 12, 0.05) 28%, rgba(11, 11, 12, 0.15) 55%, rgba(11, 11, 12, 0.88) 100%),
+    linear-gradient(180deg, rgba(11, 11, 12, 0.88) 0%, rgba(11, 11, 12, 0.82) 30%, rgba(11, 11, 12, 0.66) 42%, rgba(11, 11, 12, 0.2) 60%, rgba(11, 11, 12, 0.2) 70%, rgba(11, 11, 12, 0.88) 100%),
     linear-gradient(90deg, rgba(11, 11, 12, 0.35) 0%, transparent 40%, transparent 60%, rgba(11, 11, 12, 0.55) 100%);
 }
 
@@ -232,7 +229,7 @@ kbd {
 .start.world-ready .activity-tabs,
 .start.world-ready .server-status,
 .start.world-ready .menu-profile {
-  background: rgba(20, 24, 30, 0.86);
+  background: rgba(18, 18, 20, 0.88);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 6px 20px rgba(0, 0, 0, 0.22);
 }
@@ -272,7 +269,7 @@ kbd {
   border-radius: 14px;
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #163a4e;
+  background: #11272f;
   transition:
     background-color 1.2s ease,
     border-color 1.2s ease;
@@ -1320,8 +1317,8 @@ button.small {
   margin: 0;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(255, 210, 31, 0.35);
-  background: rgba(255, 210, 31, 0.08);
+  border: 1px solid rgba(230, 180, 80, 0.35);
+  background: rgba(230, 180, 80, 0.08);
   font-size: 14px;
   line-height: 1.45;
   color: var(--muted);
@@ -2592,7 +2589,7 @@ body.riding {
   grid-template-columns: 212px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas: "head head" "nav page" "foot foot";
-  background: rgba(17, 20, 25, 0.97);
+  background: rgba(18, 18, 20, 0.97);
   border: 1px solid var(--glass-line);
   border-radius: 14px;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
@@ -4923,7 +4920,7 @@ body:not(.riding)::after {
 }
 
 .paddle.next .paddle-label {
-  color: rgba(255, 210, 31, 0.55);
+  color: rgba(230, 180, 80, 0.6);
 }
 
 .paddle.hit .paddle-label {
@@ -4941,7 +4938,7 @@ body:not(.riding)::after {
   height: 140px;
   margin: -70px 0 0 -70px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 210, 31, 0.8);
+  border: 3px solid rgba(230, 180, 80, 0.8);
   pointer-events: none;
   animation: paddle-ripple 0.45s ease-out forwards;
 }
@@ -6701,4 +6698,245 @@ h1,
 
 .route-tag {
   white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------- */
+/* Closer to gocarmo.com (brand review of 12.11.2026)                     */
+/* --------------------------------------------------------------------- */
+
+/* Titles as the site's `.display`: Anton, slanted, upper case. Anton has no italic, so the
+   slant is synthesised here and only here; numbers stay upright. */
+h1,
+.modal-card h2,
+.menu-head h2,
+.about-card h2,
+.route-name {
+  font-style: italic;
+  font-synthesis: style;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  /* The slanted last letter leans out of its box. */
+  padding-right: 0.08em;
+}
+
+.about-card h2 {
+  font-family: var(--display);
+  font-size: 22px;
+  font-weight: 400;
+  color: var(--text);
+  display: block;
+}
+
+/* Small caps labels in the mono face, tracked, as the site's eyebrows. Every plain h2 of
+   the page is such a label; the titles above name their own face. */
+h2,
+.caption,
+.route-tag,
+.rider-subhead,
+.summary dt,
+.view-row h3,
+.photos h3 {
+  font-family: var(--mono);
+  font-weight: 500;
+  letter-spacing: 0.1em;
+}
+
+.caption {
+  font-size: 11px;
+}
+
+/* One gold button per screen, the thing to do next; it is a pill, as on the site. */
+button.primary,
+.primary-small {
+  border-radius: 999px;
+}
+
+/* What is switched on is paper-white, not gold: tabs, toggles, view options. */
+.activity-tab[aria-selected="true"],
+.toggle[aria-pressed="true"],
+.view-option[aria-pressed="true"],
+.studio-controls > .toggle[aria-pressed="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+/* The live dot on the paper-white tab: a green dark enough to be seen on it. */
+.activity-tab[aria-selected="true"] .tab-live {
+  background: #0b7a4b;
+  box-shadow: 0 0 0 3px rgba(11, 122, 75, 0.22);
+}
+
+/* The start screen's words sit on the island's haze: full-strength ink on the darker veil. */
+.start.world-ready .lede {
+  color: var(--text);
+}
+
+.start.world-ready .start-routes h1,
+.start.world-ready .lede,
+.start.world-ready .stage-stats {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85), 0 0 14px rgba(11, 11, 12, 0.9);
+}
+
+/* The source code, one tap from the start screen and from the ride menu (the licence asks for a prominent offer). */
+a.build-label {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.build-line {
+  flex-wrap: wrap;
+}
+
+.about-source {
+  display: inline-block;
+  margin: 10px 0 0 14px;
+  color: var(--gold);
+  text-underline-offset: 3px;
+}
+
+/* Over a bright sky the lighter glass read grey: the ride's top-left card and its buttons take the darker one. */
+.hud-info.glass,
+.hud-actions .glass {
+  background: var(--glass-strong);
+}
+
+/* The decimal comma of the speed reached into its label. */
+.cluster-side .caption {
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  /* "INCLINAÇÃO" ran to the edge of a phone. */
+  .cluster-side .caption {
+    font-size: 10px;
+    letter-spacing: 0.06em;
+  }
+}
+
+/* Phone paddles: the numbers stand in the sky, so they get a card of their own instead of a
+   gradient that had faded out where they are. */
+body.paddling .cluster {
+  padding: 8px 14px 10px;
+  background: var(--glass-strong);
+  border: 1px solid var(--glass-line);
+  border-radius: 14px;
+  text-shadow: none;
+}
+
+body.paddling .cluster .caption {
+  color: var(--hud-muted);
+}
+
+/* The combo counts good taps: gold, it is not a warning. */
+.paddle-combo {
+  color: var(--gold);
+}
+
+.paddle-label {
+  font-weight: 400;
+}
+
+/* Room for a Portuguese hint on two lines beside the counter. */
+@media (max-width: 760px) and (orientation: portrait) {
+  .paddle-meter {
+    width: min(340px, calc(100% - 24px));
+    background: var(--glass);
+  }
+
+  .paddle-meter-head {
+    width: auto;
+    min-width: 74px;
+  }
+}
+
+/* The mark stays in view on a phone, where the route card with the wordmark is hidden:
+   small, at the foot of the cockpit, out of the way of every control. */
+.hud-mark {
+  display: none;
+}
+
+@media (max-width: 760px) and (orientation: portrait) {
+  .ride[data-layout="cockpit"] .hud-mark {
+    position: absolute;
+    left: 50%;
+    bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--hud-text);
+    opacity: 0.85;
+    pointer-events: none;
+  }
+
+  .hud-mark svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+
+  .hud-mark .hud-brand {
+    font-size: 11px;
+  }
+
+  /* Not where another screen takes over (the gym workout, the studio). Over the paddles it
+     stays, on the line between them: the paddle ride is the phone's own way to ride. */
+  body.working-out .ride .hud-mark,
+  .ride[data-mode="studio"] .hud-mark {
+    display: none;
+  }
+}
+
+/* Paddle ride on a phone: the numbers' card is the lowest panel at the top, so the notices
+   (status pills, a milestone, a junction) start below it, not on it. */
+@media (max-width: 760px) and (orientation: portrait) {
+  body.paddling .ride {
+    --top-stack: calc(var(--gap) + 54px + 92px);
+  }
+}
+
+/* Studio: the instructor's name on glass (gold is the rider's own), and every label of the targets in caps. */
+.label3d.coach {
+  --label-bg: rgba(11, 11, 12, 0.86);
+  color: var(--hud-text);
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(242, 241, 236, 0.35) inset;
+}
+
+.studio-targets .caption span[data-i18n] {
+  text-transform: uppercase;
+}
+
+/* Race page of the ride menu: the laps picker and its button on one line, the same height. */
+.race-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.race-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.race-controls select,
+.race-controls button {
+  min-height: 40px;
+}
+
+/* Gym workout on a phone: the ring's card keeps to its column (its "next" line wraps), so
+   the stats and the guide beside it no longer cover it. */
+@media (max-width: 640px) {
+  .workout-main {
+    width: 132px;
+    max-width: 132px;
+  }
+
+  .workout-next {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
 }

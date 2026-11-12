@@ -4,7 +4,19 @@ import { getLocale, intlLocale, t, tn } from "../i18n/i18n.js";
 
 /** Pure helpers for scheduled events: the menu list, lobby banner, power sharing and results. */
 
-const ICONS = { race: "🏁", group_ride: "👥" };
+/** What the unmodified server calls an event it made up itself: "Group ride · Cape Loop", "Race · Velodrome" (server/crates/server/src/events_file.rs). */
+const SERVER_DEFAULT_NAME = /^(?:Group ride|Race) · /;
+
+/**
+ * The event's name in the rider's language. A name an organiser wrote is kept;
+ * the server's own English default is rebuilt from the kind and the route.
+ */
+export function eventTitle(event, routeName) {
+  const name = event.name ?? "";
+  if (!SERVER_DEFAULT_NAME.test(name)) return name;
+  const kind = event.kind === "race" ? t("events.kind.race") : t("events.kind.groupRide");
+  return `${kind} · ${routeName ?? name.replace(SERVER_DEFAULT_NAME, "")}`;
+}
 
 /** Seconds → "12:40" / "1:02:05"; negative counts as zero. */
 export const formatCountdown = (seconds) => formatDuration(seconds);
@@ -26,8 +38,8 @@ export function eventRows(info, nowMs = Date.now(), { locale = intlLocale(), tim
     .sort((a, b) => a.starts_at_s - b.starts_at_s)
     .map((event) => ({
       id: event.id,
-      icon: ICONS[event.kind] ?? ICONS.race,
-      name: event.name,
+      kind: event.kind,
+      name: eventTitle(event, routeNames.get(event.route_id)),
       routeId: event.route_id,
       routeName: routeNames.get(event.route_id) ?? event.route_id,
       startLabel: label(event.starts_at_s),
@@ -101,7 +113,7 @@ export function renderEventList(list, rows, onJoin, onLeave) {
       const text = document.createElement("span");
       text.className = "event-text";
       const title = document.createElement("strong");
-      title.textContent = `${row.icon} ${row.name}`;
+      title.textContent = row.name;
       const detail = document.createElement("span");
       detail.className = "muted";
       detail.textContent = eventDetail(row);

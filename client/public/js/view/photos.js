@@ -7,13 +7,23 @@
  */
 
 import { formatDistanceWithUnit, formatDuration, formatNumber, formatSpeed, speedUnit } from "../util/format.js";
-import { APP_NAME } from "../brand.js";
+import { BRAND_SYMBOL, BRAND_TAG, BRAND_WORD, withServer } from "../brand.js";
 import { intlLocale, t } from "../i18n/i18n.js";
 
 export const MAX_PHOTOS = 30;
 const SANS = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'; // i18n-ok
 const NUM = '"GC Anton Tab", "Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+const DISPLAY = '"Anton", "Impact", "Arial Narrow Bold", sans-serif'; // i18n-ok
+const MONO = '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace'; // i18n-ok
+// gocarmo.com's palette: near-black, off-white ink, muted, gold.
+const BG = "#0b0b0c";
+const INK = "#f2f1ec";
+const MUTED = "#a3a29c";
+const DIM = "#8a8983";
+const MUTED_ON_PHOTO = "rgba(242, 241, 236, 0.78)";
 const ACCENT = "#e6b450";
+/** The slant of the site's titles and of the lockup: 10 degrees. */
+const SLANT = Math.tan((10 * Math.PI) / 180);
 
 /** "gocarmo-ride-2026-10-14-1530-rolling-hills-3.png" */
 export function photoFileName(t, routeId = "ride", suffix = "") {
@@ -133,8 +143,64 @@ export function grabScene(source, doc = document) {
   return canvas;
 }
 
+/** The fonts the images are drawn in; a canvas falls back silently when one is not loaded yet. */
+export function photoFontsReady(doc = document) {
+  if (!doc.fonts?.load) return Promise.resolve();
+  return Promise.all([`400 40px ${DISPLAY}`, `400 40px ${NUM}`, `500 20px ${MONO}`, `500 20px ${SANS}`].map((font) => doc.fonts.load(font))).catch(() => {});
+}
+
+/** Sets the tracking of caps labels where the canvas supports it. */
+function track(ctx, em, size) {
+  if ("letterSpacing" in ctx) ctx.letterSpacing = `${(em * size).toFixed(2)}px`;
+}
+
+/** Text slanted like the site's titles (Anton has no italic of its own): sheared about its baseline, so `x`, `y` stay real page coordinates. */
+function slanted(ctx, text, x, y) {
+  ctx.save();
+  ctx.transform(1, 0, -SLANT, 1, SLANT * y, 0);
+  ctx.fillText(text, x, y);
+  ctx.restore();
+}
+
 /**
- * Draws a ride photo: the scene with a stats band along the bottom.
+ * The GOCARMO Ride lockup: the symbol (moon in ink, sun in gold), the name and
+ * "RIDE" in gold. `height` is the symbol's; the baseline of the name is `y`.
+ * @returns {number} the width drawn
+ */
+function lockup(ctx, x, y, height) {
+  let at = x;
+  if (typeof Path2D === "function") {
+    const k = height / BRAND_SYMBOL.size;
+    ctx.save();
+    ctx.translate(x, y - height * 0.86);
+    ctx.scale(k, k);
+    ctx.fillStyle = INK;
+    ctx.fill(new Path2D(BRAND_SYMBOL.moon));
+    ctx.fillStyle = ACCENT;
+    ctx.fill(new Path2D(BRAND_SYMBOL.sun));
+    ctx.restore();
+    at += height * 1.22;
+  }
+  const size = height * 0.74;
+  ctx.textAlign = "left";
+  ctx.fillStyle = INK;
+  ctx.font = `400 ${size}px ${DISPLAY}`;
+  track(ctx, 0.01, size);
+  slanted(ctx, BRAND_WORD, at, y);
+  at += ctx.measureText(BRAND_WORD).width + size * 0.3;
+  ctx.fillStyle = ACCENT;
+  ctx.font = `400 ${size * 0.5}px ${DISPLAY}`;
+  track(ctx, 0.16, size * 0.5);
+  slanted(ctx, BRAND_TAG, at, y);
+  at += ctx.measureText(BRAND_TAG).width;
+  track(ctx, 0, 1);
+  return at - x;
+}
+
+/**
+ * Draws a ride photo: the scene with a stats band along the bottom. A wide
+ * photo has the name left and the stats right; an upright one (a phone) stacks
+ * them, so the route's name and three stats fit its width.
  * @param {HTMLCanvasElement} scene from grabScene
  * @param {{routeName: string, stats: [string, string][], when: Date}} info
  */
@@ -147,47 +213,80 @@ export function composePhoto(scene, { routeName, stats, when }, doc = document) 
   const h = canvas.height;
   ctx.drawImage(scene, 0, 0);
 
-  const u = Math.max(w, h * 1.6) / 1280; // layout unit, 1 at 1280 px wide
-  const band = 92 * u;
+  const upright = h > w * 1.15;
+  const u = upright ? w / 430 : Math.max(w, h * 1.6) / 1280; // layout unit: 1 at 430 px wide upright, at 1280 px wide otherwise
+  const band = (upright ? 190 : 92) * u;
   const fade = ctx.createLinearGradient(0, h - band * 1.8, 0, h);
-  fade.addColorStop(0, "rgba(8, 10, 13, 0)");
-  fade.addColorStop(0.45, "rgba(8, 10, 13, 0.55)");
-  fade.addColorStop(1, "rgba(8, 10, 13, 0.82)");
+  fade.addColorStop(0, "rgba(11, 11, 12, 0)");
+  fade.addColorStop(0.45, "rgba(11, 11, 12, 0.6)");
+  fade.addColorStop(1, "rgba(11, 11, 12, 0.88)");
   ctx.fillStyle = fade;
   ctx.fillRect(0, h - band * 1.8, w, band * 1.8);
 
-  const pad = 28 * u;
+  const pad = (upright ? 22 : 28) * u;
   const baseline = h - pad;
+  const title = routeName.toUpperCase();
   ctx.textBaseline = "alphabetic";
-  ctx.fillStyle = ACCENT;
-  ctx.font = `800 ${14 * u}px ${SANS}`;
-  ctx.fillText(APP_NAME.toUpperCase(), pad, baseline - 30 * u);
-  ctx.fillStyle = "#fff";
-  ctx.font = `600 ${24 * u}px ${SANS}`;
-  ctx.fillText(fit(ctx, routeName, w * 0.3), pad, baseline);
+  const label = (text, x, y) => {
+    ctx.fillStyle = MUTED_ON_PHOTO;
+    ctx.font = `500 ${(upright ? 10 : 11) * u}px ${MONO}`;
+    track(ctx, 0.1, 11 * u);
+    ctx.fillText(text.toUpperCase(), x, y);
+    track(ctx, 0, 1);
+  };
 
-  // Stats from the right edge leftwards.
-  let x = w - pad;
-  for (const [label, value] of [...stats].reverse()) {
-    ctx.font = `700 ${36 * u}px ${NUM}`;
-    const valueWidth = ctx.measureText(value).width;
-    ctx.font = `700 ${12 * u}px ${SANS}`;
-    const width = Math.max(valueWidth, ctx.measureText(label.toUpperCase()).width);
-    if (x - width < w * 0.36) break; // keep clear of the route name on narrow screens
-    ctx.textAlign = "right";
-    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
-    ctx.fillText(label.toUpperCase(), x, baseline - 38 * u);
-    ctx.fillStyle = "#fff";
-    ctx.font = `700 ${36 * u}px ${NUM}`;
-    ctx.fillText(value, x, baseline);
-    ctx.textAlign = "left";
-    x -= width + 30 * u;
+  if (upright) {
+    lockup(ctx, pad, baseline - 104 * u, 22 * u);
+    ctx.fillStyle = INK;
+    ctx.font = `400 ${30 * u}px ${DISPLAY}`;
+    slanted(ctx, fit(ctx, title, w - 2 * pad), pad, baseline - 62 * u);
+    // Three stats in equal columns: distance, time, power.
+    const column = (w - 2 * pad) / 3;
+    stats.slice(0, 3).forEach(([name, value], i) => {
+      const x = pad + i * column;
+      label(name, x, baseline - 34 * u);
+      ctx.fillStyle = INK;
+      let size = 30 * u;
+      do ctx.font = `400 ${size}px ${NUM}`;
+      while (ctx.measureText(value).width > column - 8 * u && (size -= 2 * u) > 14 * u);
+      ctx.fillText(value, x, baseline);
+    });
+  } else {
+    lockup(ctx, pad, baseline - 36 * u, 20 * u);
+    ctx.fillStyle = INK;
+    ctx.font = `400 ${28 * u}px ${DISPLAY}`;
+    slanted(ctx, fit(ctx, title, w * 0.32), pad, baseline);
+
+    // Stats from the right edge leftwards.
+    let x = w - pad;
+    for (const [name, value] of [...stats].reverse()) {
+      ctx.font = `400 ${36 * u}px ${NUM}`;
+      const valueWidth = ctx.measureText(value).width;
+      ctx.font = `500 ${11 * u}px ${MONO}`;
+      track(ctx, 0.1, 11 * u);
+      const width = Math.max(valueWidth, ctx.measureText(name.toUpperCase()).width);
+      track(ctx, 0, 1);
+      if (x - width < w * 0.38) break; // keep clear of the route name on narrow screens
+      ctx.textAlign = "right";
+      label(name, x, baseline - 40 * u);
+      ctx.fillStyle = INK;
+      ctx.font = `400 ${36 * u}px ${NUM}`;
+      ctx.fillText(value, x, baseline);
+      ctx.textAlign = "left";
+      x -= width + 30 * u;
+    }
   }
 
+  // The date stands on the sky: a faint veil from the top keeps it readable on a bright one.
+  const veil = ctx.createLinearGradient(0, 0, 0, pad + 60 * u);
+  veil.addColorStop(0, "rgba(11, 11, 12, 0.42)");
+  veil.addColorStop(1, "rgba(11, 11, 12, 0)");
+  ctx.fillStyle = veil;
+  ctx.fillRect(0, 0, w, pad + 60 * u);
   ctx.textAlign = "right";
-  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-  ctx.font = `500 ${13 * u}px ${SANS}`;
-  ctx.fillText(when.toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 13 * u);
+  ctx.fillStyle = INK;
+  ctx.font = `500 ${12 * u}px ${MONO}`;
+  ctx.fillText(when.toLocaleString(intlLocale(), { dateStyle: "medium", timeStyle: "short" }), w - pad, pad + 12 * u);
   ctx.textAlign = "left";
   return canvas;
 }
@@ -208,7 +307,7 @@ export function composeSummary({ routeName, serverName, when, stats, power, elev
   canvas.height = H;
   const ctx = canvas.getContext("2d");
 
-  ctx.fillStyle = "#0f1216";
+  ctx.fillStyle = BG;
   ctx.fillRect(0, 0, W, H);
   if (scene && scene.width > 0 && scene.height > 0) {
     // Cover: scale to fill, crop the overflow.
@@ -218,51 +317,62 @@ export function composeSummary({ routeName, serverName, when, stats, power, elev
     ctx.drawImage(scene, (scene.width - sw) / 2, (scene.height - sh) / 2, sw, sh, 0, 0, W, H);
   }
   const shade = ctx.createLinearGradient(0, 0, W, 0);
-  shade.addColorStop(0, "rgba(15, 18, 22, 0.94)");
-  shade.addColorStop(0.62, "rgba(15, 18, 22, 0.86)");
-  shade.addColorStop(1, "rgba(15, 18, 22, 0.6)");
+  shade.addColorStop(0, "rgba(11, 11, 12, 0.95)");
+  shade.addColorStop(0.62, "rgba(11, 11, 12, 0.88)");
+  shade.addColorStop(1, "rgba(11, 11, 12, 0.62)");
   ctx.fillStyle = shade;
   ctx.fillRect(0, 0, W, H);
 
   const left = 100;
   const width = W - 2 * left;
   ctx.textBaseline = "alphabetic";
+  // The lockup names the app once; the kicker says what the card is.
+  lockup(ctx, left, 140, 54);
+  ctx.textAlign = "right";
   ctx.fillStyle = ACCENT;
-  ctx.font = `800 24px ${SANS}`;
-  ctx.fillText(t("photos.cardTitle"), left, 140);
-  ctx.fillStyle = "#fff";
-  ctx.font = `700 64px ${SANS}`;
-  ctx.fillText(fit(ctx, routeName, width), left, 220);
-  ctx.fillStyle = "#aab3c0";
+  ctx.font = `500 22px ${MONO}`;
+  track(ctx, 0.16, 22);
+  ctx.fillText(t("photos.cardTitle"), left + width, 136);
+  track(ctx, 0, 1);
+  ctx.textAlign = "left";
+  ctx.fillStyle = INK;
+  ctx.font = `400 84px ${DISPLAY}`;
+  slanted(ctx, fit(ctx, routeName.toUpperCase(), width - 20), left, 258);
+  ctx.fillStyle = MUTED;
   ctx.font = `500 28px ${SANS}`;
-  ctx.fillText(fit(ctx, `${when.toLocaleString(intlLocale(), { dateStyle: "long", timeStyle: "short" })} · ${serverName}`, width), left, 270);
+  ctx.fillText(fit(ctx, withServer(when.toLocaleString(intlLocale(), { dateStyle: "long", timeStyle: "short" }), serverName), width), left, 308);
 
   // Totals in a grid of up to 4 columns.
   const columns = 4;
   const cellW = width / columns;
   stats.slice(0, 8).forEach(([label, value], i) => {
     const x = left + (i % columns) * cellW;
-    const y = 390 + Math.floor(i / columns) * 160;
-    ctx.fillStyle = "#8a94a3";
-    ctx.font = `700 20px ${SANS}`;
+    const y = 410 + Math.floor(i / columns) * 160;
+    ctx.fillStyle = DIM;
+    ctx.font = `500 19px ${MONO}`;
+    track(ctx, 0.1, 19);
     ctx.fillText(label.toUpperCase(), x, y);
-    ctx.fillStyle = "#fff";
+    track(ctx, 0, 1);
+    ctx.fillStyle = INK;
     let size = 80;
-    do ctx.font = `700 ${size}px ${NUM}`;
+    // Anton has one weight: asking a canvas for bold would smear the digits.
+    do ctx.font = `400 ${size}px ${NUM}`;
     while (ctx.measureText(value).width > cellW - 32 && (size -= 4) > 28);
-    ctx.fillText(value, x, y + 80);
+    ctx.fillText(value, x, y + 84);
   });
 
   // Elevation (filled) and power (line) over the ride.
   const chart = { x: left, y: 800, w: width, h: 280 };
-  ctx.fillStyle = "#8a94a3";
-  ctx.font = `700 20px ${SANS}`;
+  ctx.fillStyle = DIM;
+  ctx.font = `500 19px ${MONO}`;
+  track(ctx, 0.1, 19);
   // The legend in the rider's language; the second label starts after the first, however long that is.
   const powerLabel = t("photos.stat.power").toUpperCase();
   ctx.fillText(powerLabel, chart.x, chart.y - 20);
-  const elevationX = chart.x + Math.max(110, ctx.measureText(powerLabel).width + 36);
+  const elevationX = chart.x + Math.max(110, ctx.measureText(powerLabel).width + 40);
   ctx.fillStyle = "#5fb47c";
   ctx.fillText(t("photos.stat.elevation").toUpperCase(), elevationX, chart.y - 20);
+  track(ctx, 0, 1);
   const heights = elevation.filter((v) => v !== null && Number.isFinite(v));
   if (heights.length > 1) {
     const series = downsample(elevation.map((v) => (v === null || !Number.isFinite(v) ? heights[0] : v)), 240);

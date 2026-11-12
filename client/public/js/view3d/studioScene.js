@@ -24,8 +24,9 @@ import {
   uploadBodyParts,
   variantLook,
 } from "./riderModel.js";
-import { hexToRgb, projectToScreen, visibleLabels } from "./view3d.js";
+import { hexToRgb, jerseyTint, projectToScreen, visibleLabels } from "./view3d.js";
 import { sunShadowMatrix } from "./lighting.js";
+import { t } from "../i18n/i18n.js";
 
 export const ROOM = Object.freeze({ halfWidth: 7.5, front: -9.5, back: 6.5, height: 4.6 });
 const ROW_GAP = 2.6;
@@ -246,7 +247,8 @@ export class StudioView3D {
     const viewProjection = multiply(perspective(FOV_Y, width / height, 0.1, 60), lookAt(eye, target));
     const inverseViewProjection = invert(viewProjection);
 
-    const tints = { me: hexToRgb(colors.me), human: hexToRgb(colors.human), bot: hexToRgb(colors.bot), coach: hexToRgb(colors.accent) };
+    // The instructor rides in cream: gold stays the rider's own colour, the only gold kit in the room.
+    const tints = { me: jerseyTint(colors.me), human: hexToRgb(colors.human), bot: hexToRgb(colors.bot), coach: CREAM };
     const placed = riders.map((rider) => ({ rider, position: seatPosition(rider.seat), yaw: 0 }));
     placed.push({ rider: { id: INSTRUCTOR.id, name: INSTRUCTOR.name, is_bot: false, coach: true }, position: INSTRUCTOR.position, yaw: INSTRUCTOR.yaw });
     const visible = placed.filter(({ rider, position }) => rider.id === myId || Math.hypot(position[0] - eye[0], position[2] - eye[2]) > NEAR_CAMERA_HIDE);
@@ -314,12 +316,14 @@ export class StudioView3D {
       element = document.createElement("div");
       element.className = rider.coach ? "label3d coach" : rider.id === myId ? "label3d me" : "label3d";
       const name = document.createElement("span");
-      name.textContent = rider.name;
+      // The instructor is named in the rider's language ("Treinador Sol"); `INSTRUCTOR.name` is its id label.
+      name.textContent = rider.coach ? t("studio.coachName") : rider.name;
       element.append(name);
-      if (rider.is_bot || rider.coach) {
+      // The instructor's name says who it is ("Coach Sol"): no badge beside it.
+      if (rider.is_bot) {
         const badge = document.createElement("span");
         badge.className = "badge";
-        badge.textContent = rider.coach ? "coach" : "bot";
+        badge.textContent = "bot";
         element.append(badge);
       }
       this.labelLayer.append(element);

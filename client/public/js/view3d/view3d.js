@@ -70,6 +70,15 @@ export function hexToRgb(hex) {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
+/**
+ * The rider's own jersey in the 3D world. The world's light dims and cools a
+ * flat colour, so gocarmo.com's gold read as khaki on the rider's back; it is
+ * lifted towards warm before lighting (a tint may pass 1, the shader clamps
+ * at the end) and comes out as the gold of the page.
+ */
+const JERSEY_LIFT = Object.freeze([1.2, 1.1, 0.9]);
+export const jerseyTint = (hex) => hexToRgb(hex).map((channel, i) => channel * JERSEY_LIFT[i]);
+
 /** Bot teams' kit colours as tints (#64). */
 const KIT_TINTS = new Map(Object.entries(TEAM_KITS).map(([team, hex]) => [team, hexToRgb(hex)]));
 
@@ -720,7 +729,7 @@ export class View3D {
     const viewProjection = multiply(projection, lookAt(this.camera.eye, this.camera.target));
     const inverseViewProjection = invert(viewProjection);
 
-    const tints = { me: hexToRgb(colors.me), human: hexToRgb(colors.human), bot: hexToRgb(colors.bot), remote: hexToRgb(colors.remote ?? colors.human) };
+    const tints = { me: jerseyTint(colors.me), human: hexToRgb(colors.human), bot: hexToRgb(colors.bot), remote: hexToRgb(colors.remote ?? colors.human) };
     const visible = [];
     for (const { rider, position, forward, gym } of placed.filter((p) => !p.rider.vehicle)) {
       const fromCamera = Math.hypot(position[0] - this.camera.eye[0], position[2] - this.camera.eye[2]);
@@ -922,7 +931,11 @@ export class View3D {
     }
   }
 
-  /** Model matrices of the lemons not yet collected near my rider on my route: spinning slowly, bobbing at handlebar height. */
+  /**
+   * Model matrices of the golden suns (upstream: lemons) not yet collected near my rider on my
+   * route: bobbing at handlebar height, their flat face across the road so the rider coming up
+   * sees it face on, swaying a little.
+   */
   #lemonModels(me, timeS) {
     if (!this.lemons.length || (me.route && me.route !== this.route.id)) return [];
     const { behind, ahead } = SCENE.lemonReach;
@@ -931,9 +944,10 @@ export class View3D {
       if (lemon.collected) continue;
       const gap = this.route.signedGap(me.distance, lemon.distance);
       if (gap < -behind || gap > ahead) continue;
-      const { position } = riderPosition(this.route, lemon.distance, lemon.lane);
+      const { position, forward } = riderPosition(this.route, lemon.distance, lemon.lane);
       const bob = Math.sin(timeS * 2.2 + lemon.distance) * 0.1;
-      models.push(placement([position[0], position[1] + 1.25 + bob, position[2]], timeS * 1.6 + lemon.distance, 0.35));
+      const sway = Math.sin(timeS * 1.3 + lemon.distance) * 0.3;
+      models.push(placement([position[0], position[1] + 1.25 + bob, position[2]], Math.atan2(forward[0], forward[2]) + sway, 0));
     }
     return models;
   }
