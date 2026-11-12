@@ -49,6 +49,14 @@
 //    #race-partner) names the price, the helmet's price, the 6 weeks (RACE_LEAD_DAYS) and the 5 weeks (RACE_LOGO_DAYS),
 //    CARMO PROVA, every race that can be booked, day 1 of a race that has only its month, and every race on proposal
 //    next to «sob proposta» / «on request»; the home page's card shows the price and the helmet's and links to #parceiro.
+// 9. GOCARMO Ride (/ride/, since 12.11.2026): the page that presents the game and shows it in a frame. The game is served
+//    from its own host, named in one place, assets/js/ride-config.js (RIDE_ORIGIN, an https:// origin). From that line
+//    come the page's plain links (every <a data-ride>) and frame-src and connect-src of its Content-Security-Policy (the
+//    frame, and the status call GET /api/info); the rest of the policy is checked word for word, and the page gets the
+//    same import map and hashes as the others. The frame is never in the HTML (ride.js makes it when the visitor asks),
+//    ride.js names no host of its own, and the credits name OpenRadlr, the GNU AGPL and both repositories in PT and EN.
+//    While RIDE_HIDDEN is true (until the launch) the page is noindex, nofollow, no other page or module links to it and
+//    no sitemap names it; once it is false the page may not keep its noindex. A mismatch stops it (also with --check).
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 
@@ -438,6 +446,96 @@ CONNECT['admin/documentos/index.html'] = ["'self'", 'https://api.github.com', 'h
 // fetch in Chrome) and the booking Worker for the wall's published names (GET /apoiantes/nomes, a public route)
 CONNECT['admin/merch/index.html'] = ["'self'", 'blob:', worker];
 const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Policy" content="[^"]*?connect-src )[^;"]*/, (m, head) => `${head}${list.filter(Boolean).join(' ')}`);
+
+// ---------- GOCARMO Ride (/ride/) ----------
+// Hidden until the launch: set to false on the day the page is linked from the site (and then take the robots meta out
+// of ride/index.html). While true, the checks below keep the page out of the index, the sitemap and every other page.
+const RIDE_HIDDEN = true;
+const RIDE_PAGE = 'ride/index.html';
+// the game's host: one line of assets/js/ride-config.js
+function rideOrigin() {
+  const m = readFileSync('assets/js/ride-config.js', 'utf8').match(/^export const RIDE_ORIGIN = '([^']*)';/m);
+  if (!m) throw new Error("assets/js/ride-config.js: no «export const RIDE_ORIGIN = '…';» line (keep it on one line)");
+  let u;
+  try { u = new URL(m[1]); } catch (_) { throw new Error(`assets/js/ride-config.js: RIDE_ORIGIN is not an address (${m[1]})`); }
+  if (u.protocol !== 'https:' || u.origin !== m[1]) throw new Error(`assets/js/ride-config.js: RIDE_ORIGIN has to be an https:// origin, with no path and no slash at the end (${m[1]})`);
+  return u.origin;
+}
+// the page as it has to be: import map and hashes as every page, the host in its links and in its policy
+function stampRide(was, ride) {
+  let links = 0;
+  let now = stamp(was, '../').replace(/<a\b[^>]*\bdata-ride\b[^>]*>/g, (tag) => {
+    if (!/\bhref="[^"]*"/.test(tag)) throw new Error(`${RIDE_PAGE}: an <a data-ride> without href`);
+    links++;
+    return tag.replace(/\bhref="[^"]*"/, `href="${ride}/"`);
+  });
+  if (!links) throw new Error(`${RIDE_PAGE}: no <a data-ride> (the plain link to the game: it is the page without JavaScript)`);
+  for (const name of ['connect-src', 'frame-src']) {
+    const re = new RegExp(`(<meta http-equiv="Content-Security-Policy" content="[^"]*?\\b${name} )[^;"]*`);
+    if (!re.test(now)) throw new Error(`${RIDE_PAGE}: its Content-Security-Policy has no ${name}`);
+    now = now.replace(re, (m, head) => `${head}${ride}`);
+  }
+  return now;
+}
+function checkRide(page, ride) {
+  const out = [];
+  const html = page.replace(/<!--[\s\S]*?-->/g, ' ');
+  const plain = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  // the policy, word for word: nothing but the page's own files, the game's frame and the status call
+  const policy = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/) || [, ''])[1].replace(/ 'sha256-[^']+'/g, '');
+  const want = `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src ${ride}; frame-src ${ride}; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'`;
+  if (policy !== want) out.push(`${RIDE_PAGE}: its Content-Security-Policy is «${policy}», want «${want}» (plus the import map's hash)`);
+  if (/<i?frame\b/i.test(html)) out.push(`${RIDE_PAGE}: a frame in the HTML (ride.js makes the game's frame when the visitor asks for it, never before)`);
+  if (/<script\b(?![^>]*\b(src|type="importmap"))/i.test(html) || /\sstyle="/i.test(html) || /<style\b/i.test(html)) out.push(`${RIDE_PAGE}: an inline script or style (the policy refuses them)`);
+  // the host lives in one place: the page's script takes it from ride-config.js and names none itself
+  // (without its comment lines; a «//» inside a line is left alone, since an address has one)
+  const js = readFileSync('assets/js/ride.js', 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  if (!/import \{ RIDE_ORIGIN \} from '\.\/ride-config\.js';/.test(js)) out.push("assets/js/ride.js: has to import { RIDE_ORIGIN } from './ride-config.js'");
+  if (/https?:\/\//.test(js)) out.push('assets/js/ride.js: names an address of its own (the game\'s host is in assets/js/ride-config.js only)');
+  if (/sandbox/i.test(js)) out.push('assets/js/ride.js: no sandbox on the frame (it would break the game\'s storage and its pop-ups)');
+  // the credits, in both languages: a modified version of OpenRadlr, under the GNU AGPL, with both repositories
+  const credits = (html.match(/<div class="rd-credits"[^>]*>([\s\S]*?)<\/div>/) || [, ''])[1];
+  for (const [l, words] of [['pt', ['Baseado em OpenRadlr', 'versão modificada do OpenRadlr', 'GNU AGPL, versão 3 ou posterior', 'Código-fonte', 'Projeto original']],
+    ['en', ['Based on OpenRadlr', 'modified version of OpenRadlr', 'GNU AGPL, version 3 or later', 'Source code', 'Original project']]]) {
+    const text = plain([...credits.matchAll(new RegExp(`<span data-l="${l}"[^>]*>([\\s\\S]*?)</span>`, 'g'))].map((m) => m[1]).join(' '));
+    for (const w of words) if (!text.includes(w)) out.push(`${RIDE_PAGE} (${l}): the credits have to say «${w}»`);
+  }
+  for (const href of ['https://github.com/rgvduarte/carmo/tree/gocarmo-ride', 'https://github.com/Lethonium/OpenRadlr']) {
+    if (!credits.includes(`href="${href}"`)) out.push(`${RIDE_PAGE}: the credits have to link to ${href}`);
+  }
+  // launched: the page must not still ask the search engines to stay away
+  if (!RIDE_HIDDEN && /<meta name="robots"[^>]*noindex/i.test(html)) out.push(`${RIDE_PAGE}: still has <meta name="robots" content="noindex…"> (RIDE_HIDDEN is false: the page is live)`);
+  if (RIDE_HIDDEN) {
+    if (!/<meta name="robots" content="noindex, nofollow">/.test(html)) out.push(`${RIDE_PAGE}: no <meta name="robots" content="noindex, nofollow"> (the page is hidden until the launch: RIDE_HIDDEN)`);
+    // no way in from the rest of the site: no page, stylesheet or module of another page names /ride/ (as a path:
+    // «ride/», «../ride», «/ride» or «gocarmo.com/ride»; the word «ride» in a sentence is not one)
+    const toRide = /(?:["'`(=\s]|gocarmo\.com\/)(?:\.{0,2}\/)*ride\/(?:index\.html)?["'`#?)\s<\\]|(?:\.\.\/|["'`(=]\/)ride["'`#?)\\]|gocarmo\.com\/ride(?![\w\/-])/;
+    const pages = (dir) => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = dir === '.' ? e.name : `${dir}/${e.name}`;
+      if (e.isDirectory()) return /^(\.git|node_modules|ride|worker|stats-worker|wallet|scripts|data)$/.test(p) || p === 'assets/vendor' || p === 'assets/img' || p === 'assets/fonts' ? [] : pages(p);
+      return /\.(html|js|css|xml|txt|webmanifest)$/.test(e.name) && !/^assets\/(js\/ride(-config)?\.js|css\/ride\.css)$/.test(p) ? [p] : [];
+    });
+    for (const p of pages('.')) {
+      const text = readFileSync(p, 'utf8');
+      // the import map names the page's modules (assets/js/ride.js), never the page
+      const body = p.endsWith('.html') ? text.replace(/<script type="importmap">[\s\S]*?<\/script>/, '') : text;
+      if (toRide.test(body)) out.push(`${p}: names /ride/ (the page is hidden until the launch: RIDE_HIDDEN)`);
+    }
+  }
+  return out;
+}
+{
+  const ride = rideOrigin(), was = readFileSync(RIDE_PAGE, 'utf8'), now = stampRide(was, ride);
+  const problems = checkRide(now, ride);
+  if (problems.length) {
+    console.error(`GOCARMO Ride (/ride/):\n  ${problems.join('\n  ')}`);
+    process.exit(1);
+  }
+  if (now !== was) {
+    stale.push(RIDE_PAGE);
+    if (!check) writeFileSync(RIDE_PAGE, now);
+  }
+}
 
 for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/espacos/index.html', '../../', false], ['admin/apoiantes/index.html', '../../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false], ['imprensa/index.html', '../', false], ['press/index.html', '../', false]]) {
   const was = readFileSync(page, 'utf8');

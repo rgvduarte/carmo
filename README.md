@@ -69,6 +69,9 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 - **Cartão de contacto** (`/cartao/`, para o Gonçalo mostrar e partilhar): foto, contactos, «Guardar contacto», o QR
   do cartão e, depois de ligado, «Adicionar à Apple Wallet». Ver «Cartão de contacto», mais abaixo.
+- **GOCARMO Ride** (`/ride/`, **ainda escondida**: sem ligações a partir do site, fora dos motores de pesquisa): a
+  página que apresenta o jogo de ciclismo indoor e o mostra numa moldura. O jogo corre noutro servidor. Ver «GOCARMO
+  Ride», mais abaixo.
 
 PT e EN (botão no topo; a língua também segue o browser).
 
@@ -96,6 +99,7 @@ PT e EN (botão no topo; a língua também segue o browser).
 | Página de imprensa | `imprensa/index.html` (PT), `press/index.html` (EN), `assets/css/press.css`; os ficheiros para descarga (PDF, ZIP, fotografias, logótipos, textos) em `imprensa/files/`. As fotografias são do Gonçalo e não levam crédito (`imprensa/files/fotos/USO.txt` diz como podem ser usadas). As páginas e os ficheiros saem do gerador do kit de imprensa (`kit/out/press/_tools/`): depois de os refazer, `node scripts/stamp.mjs` |
 | Fotografias | `assets/img/` (WebP + JPG, 800/1600 px; as da montra em `assets/img/montra/`, feitas pelo editor, 600/1200 px) |
 | Cartão de contacto (página, vCard, QR, Apple Wallet) | `cartao/`, `wallet/cartao/pass.json` e `python3 scripts/cartao.py` (ver «Cartão de contacto») |
+| GOCARMO Ride (página do jogo) | `ride/index.html` (PT e EN), `assets/css/ride.css`, `assets/js/ride.js`; o endereço do jogo numa só linha, em `assets/js/ride-config.js` (depois de mudar, `node scripts/stamp.mjs`; ver «GOCARMO Ride») |
 | Imagens do fato e do capacete (cartões e partes do 05) | `assets/img/model-*`, geradas a partir dos modelos 3D: depois de mudar um modelo, `node scripts/model-shots.mjs` (com o servidor local ligado) |
 
 ## Vender um espaço
@@ -1289,6 +1293,57 @@ iPhone tem como «O meu cartão», não esta página. Para ser o do cartão:
 - O `.pkpass` é público (só tem os contactos que já estão no site e o certificado público). O `.p12`, a chave e a
   palavra-passe nunca vão para o repositório.
 
+## GOCARMO Ride
+
+O GOCARMO Ride é um jogo de ciclismo indoor que corre no browser: uma versão modificada do
+[OpenRadlr](https://github.com/Lethonium/OpenRadlr), software livre sob a licença GNU AGPL, versão 3 ou posterior (o
+código desta versão está no ramo [`gocarmo-ride`](https://github.com/rgvduarte/carmo/tree/gocarmo-ride)). O jogo
+inteiro (cliente e servidor) é servido por um servidor próprio, fora do GitHub Pages. O site só tem **uma página**,
+`/ride/`, que o apresenta e o mostra numa moldura.
+
+| Peça | Onde | O que faz |
+|---|---|---|
+| Página `gocarmo.com/ride/` | `ride/index.html`, `assets/css/ride.css`, `assets/js/ride.js` | Título, uma frase, o palco do jogo, «O que precisas» e os créditos. PT e EN na mesma página, como no cartão (botões PT / EN, `?lang=en`). |
+| Endereço do jogo | `assets/js/ride-config.js` (`RIDE_ORIGIN`) | O único sítio onde o endereço está escrito. O `stamp.mjs` passa-o para as ligações da página e para a política de segurança (CSP). |
+| Imagens | `ride/poster-*.webp`, `ride/poster-800.jpg`, `ride/og.jpg` | Uma captura nossa do jogo: o cartaz do palco (16:9, e 4:3 no telemóvel) e a imagem de partilha. |
+
+**Como funciona a página.**
+
+- Ao abrir, pergunta uma vez ao servidor do jogo se está ligado (`GET /api/info`, sem cookies, 4 segundos no máximo).
+  Ligado: «Servidor ligado · N ciclistas» e o botão dourado «Pedalar» fica ativo. Sem resposta: o botão dá lugar a «O
+  servidor está parado. Volta mais tarde.», com «Tentar outra vez» (uma pergunta por cada toque; nada volta a
+  perguntar sozinho).
+- Num computador (janela larga, com rato ou trackpad), «Pedalar» troca o cartaz pela moldura do jogo e põe lá o
+  teclado. A moldura só é criada nesse momento: nada do jogo carrega antes de o visitante pedir. Ao lado fica «Abrir em
+  ecrã inteiro», que abre o jogo sozinho no separador.
+- Num telemóvel, num tablet sem rato ou numa janela estreita não há moldura: «Pedalar» é uma ligação que abre o jogo
+  em página inteira (as patilhas precisam do ecrã todo). Sem JavaScript a página é assim também.
+- A página não conta visitas e não guarda nada no browser (só `gc.lang`, a língua, como o resto do site).
+
+**Mudar o endereço do jogo.** Muda a linha `RIDE_ORIGIN` em `assets/js/ride-config.js` (um endereço `https://`, sem
+caminho e sem barra no fim) e corre `node scripts/stamp.mjs`: as duas ligações da página e as diretivas `frame-src` e
+`connect-src` da CSP passam a ter o endereço novo. O servidor do jogo tem de aceitar o site: ver abaixo.
+
+**O que o servidor do jogo tem de enviar** (configuração do servidor, fora deste repositório):
+
+- `OPENRADLR_FRAME_ANCESTORS=https://gocarmo.com,https://www.gocarmo.com`: deixa o site mostrar o jogo numa moldura
+  (o cabeçalho `Content-Security-Policy: frame-ancestors …`). Sem isto a moldura fica com a página de erro do browser, e
+  a página do site não consegue saber: confirma sempre à mão depois de mexer no servidor.
+- `OPENRADLR_ALLOWED_ORIGINS=https://ride.gocarmo.com,https://gocarmo.com,https://www.gocarmo.com`: deixa o site ler
+  `/api/info` (`Access-Control-Allow-Origin`). A lista também decide quem pode ligar-se ao jogo, por isso o endereço do
+  próprio jogo tem de lá estar. Sem o site na lista, a página diz «O servidor está parado».
+
+**Escondida até ao lançamento.** A página tem `<meta name="robots" content="noindex, nofollow">`, nenhuma outra
+página aponta para ela e não há cartão no Painel. Enquanto `RIDE_HIDDEN` for `true` em `scripts/stamp.mjs`, o
+`node scripts/stamp.mjs --check` recusa publicar se alguma destas coisas mudar. No dia do lançamento: põe `RIDE_HIDDEN`
+a `false`, tira a linha `robots` de `ride/index.html`, acrescenta as ligações (rodapé ou menu de `index.html`, com o
+texto inglês em `assets/js/i18n.js`) e corre `node scripts/stamp.mjs`. Antes disso, acrescenta à página de privacidade
+o que o servidor do jogo recebe (o nome, o peso e o FTP que a pessoa escreve, e o endereço IP).
+
+O `stamp.mjs` verifica também, sempre: a CSP da página palavra a palavra, que a moldura não está no HTML, que
+`ride.js` não tem nenhum endereço escrito, e que os créditos dizem «Baseado em OpenRadlr», a licença e as duas ligações
+(código-fonte e projeto original), em PT e em EN.
+
 ## Ligar o Strava (uma vez)
 
 Os dados do Strava só são visíveis com sessão iniciada, por isso a página usa a API oficial com a autorização do Gonçalo.
@@ -1646,5 +1701,6 @@ O estúdio tenta várias vezes antes de desistir: se o iPhone tira o contexto We
 - Fato e capacete 3D procedimentais, feitos de raiz em [three.js](https://threejs.org) (MIT). Geometria, textura e espaços são gerados em código. O fato é um só corpo anatómico, contínuo nos ombros, nas axilas e nas ancas (`assets/js/suit-body.js`), malhado num worker (`suit-mesh.js`). O capacete é o EKOI Pure Aero do Gonçalo, medido nas fotografias do produto.
 - Scroll suave com [Lenis](https://github.com/darkroomengineering/lenis) (MIT) e cenas de scroll com [GSAP ScrollTrigger](https://gsap.com).
 - T-shirt 3D da página Merch (só no admin): o modelo `shirt_baked.glb` de github.com/Starklord17/threejs-t-shirt (MIT, © 2023 MaxSM; design de Anderson Mancini e Paul Henschel), com a origem e a licença em `admin/merch/model/`. A licença do próprio modelo está por confirmar antes de uma página pública.
+- GOCARMO Ride (o jogo, servido fora deste site): baseado em [OpenRadlr](https://github.com/Lethonium/OpenRadlr), GNU AGPL, versão 3 ou posterior; o código da versão modificada está no ramo `gocarmo-ride` deste repositório. A página `/ride/` só o apresenta e o mostra numa moldura, e as imagens em `ride/` são capturas nossas do jogo.
 - Tipografia: Anton, Inter e JetBrains Mono (OFL), servidas pelo próprio site: `assets/fonts/` (os ficheiros do Google Fonts, só latin e latin-ext, com as licenças ao lado) e `assets/css/fonts.css`.
 - Fotografias: portefólio do atleta.
