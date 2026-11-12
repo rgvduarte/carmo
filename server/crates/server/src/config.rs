@@ -6,6 +6,7 @@
 use crate::guard::ConnectionLimits;
 use crate::obn::link::Heartbeat;
 use crate::strava::StravaConfig;
+use axum::http::HeaderName;
 use openradlr_sim::SimConfig;
 use std::fmt;
 use std::net::SocketAddr;
@@ -63,6 +64,10 @@ pub struct Config {
     pub auth_mode: AuthMode,
     /// Take client IPs from `X-Forwarded-For` (only behind a reverse proxy).
     pub trust_proxy: bool,
+    /// Take client IPs from this header of a hosting platform's proxy
+    /// (`OPENRADLR_CLIENT_IP_HEADER`, e.g. `Fly-Client-IP`); only when that proxy
+    /// is the only way in. `None` (default): the header means nothing.
+    pub client_ip_header: Option<HeaderName>,
     pub max_connections_per_ip: usize,
     pub messages_per_second: f64,
     /// Seconds a rider lingers (coasting) after their socket dies before
@@ -74,8 +79,23 @@ pub struct Config {
     pub afk_reminder_s: f64,
     /// Seconds a rider has to answer a warning (no environment variable; for tests).
     pub afk_answer_s: f64,
-    /// WebSocket origins allowed to connect; empty allows all.
+    /// Seconds a client may take none of the server's messages before its
+    /// connection is closed (no environment variable; for tests).
+    pub write_timeout_s: f64,
+    /// What `/internal/metrics` asks for as `Authorization: Bearer …`
+    /// (`OPENRADLR_METRICS_TOKEN`). `None` (default): only requests from this
+    /// machine itself are answered.
+    pub metrics_token: Option<String>,
+    /// The kernel's send buffer of every client connection, in bytes
+    /// (`OPENRADLR_SEND_BUFFER_BYTES`). `None` (default) leaves it to the
+    /// system, which may grow it to megabytes for a client that stopped reading.
+    pub send_buffer_bytes: Option<u32>,
+    /// WebSocket origins allowed to connect; empty allows all. Pages on these
+    /// origins may also read the public JSON API from elsewhere (CORS).
     pub allowed_origins: Vec<String>,
+    /// Origins that may show the client in an `<iframe>` (`OPENRADLR_FRAME_ANCESTORS`);
+    /// empty forbids framing.
+    pub frame_ancestors: Vec<String>,
     /// The address riders use, e.g. `https://ride.example.com` (needed for Strava).
     pub public_url: Option<String>,
     /// "Connect with Strava", if a Strava API app is configured.
@@ -105,6 +125,10 @@ pub struct Config {
     pub privacy_url: Option<String>,
     /// The OpenBikeNet server to share the velodrome with (`OPENRADLR_OBN_URL`); `None` = not connected.
     pub obn_url: Option<String>,
+    /// The app id this server says `hello` with there (`OPENRADLR_OBN_APP_ID`).
+    /// No default: the id is agreed with the OpenBikeNet server's operator, and
+    /// upstream's own id is not this fork's to use. Needed with `obn_url`.
+    pub obn_app_id: Option<String>,
     /// Base of the reconnect delay to OpenBikeNet (no environment variable; for tests).
     pub obn_backoff_unit: Duration,
     /// When a quiet OpenBikeNet server is pinged and given up on (no environment variable;
@@ -230,6 +254,15 @@ impl Config {
             "must be between 1 and 1000",
         )?;
 
+        let client_ip_header = match reader.raw("OPENRADLR_CLIENT_IP_HEADER").filter(|v| !v.is_empty()) {
+            None => None,
+            Some(name) => Some(HeaderName::from_bytes(name.as_bytes()).map_err(|_| ConfigError {
+                key: "OPENRADLR_CLIENT_IP_HEADER",
+                value: name.clone(),
+                reason: "must be the name of one HTTP header, e.g. Fly-Client-IP".into(),
+            })?),
+        };
+
         let messages_per_second: f64 = reader.parse("OPENRADLR_MESSAGES_PER_SECOND", 20.0)?;
         reader.check(
             "OPENRADLR_MESSAGES_PER_SECOND",
@@ -261,13 +294,28 @@ impl Config {
             "must be a finite number of seconds above 0",
         )?;
 
-        let allowed_origins: Vec<String> = reader
-            .raw("OPENRADLR_ALLOWED_ORIGINS")
-            .unwrap_or_default()
-            .split(',')
-            .map(|origin| origin.trim().trim_end_matches('/').to_owned())
-            .filter(|origin| !origin.is_empty())
-            .collect();
+        let metrics_token = reader.raw("OPENRADLR_METRICS_TOKEN").filter(|v| !v.is_empty());
+        if let Some(token) = &metrics_token {
+            reader.check(
+                "OPENRADLR_METRICS_TOKEN",
+                "(hidden)",
+                token.len() >= 16 && token.chars().all(|c| c.is_ascii_graphic()),
+                "must be at least 16 characters without spaces (try `openssl rand -hex 32`)",
+            )?;
+        }
+
+        let send_buffer_bytes: Option<u32> = reader.parse_optional("OPENRADLR_SEND_BUFFER_BYTES")?;
+        if let Some(bytes) = send_buffer_bytes {
+            reader.check(
+                "OPENRADLR_SEND_BUFFER_BYTES",
+                bytes,
+                (4096..=16 * 1024 * 1024).contains(&bytes),
+                "must be between 4096 and 16777216 bytes",
+            )?;
+        }
+
+        let allowed_origins = reader.origins("OPENRADLR_ALLOWED_ORIGINS")?;
+        let frame_ancestors = reader.origins("OPENRADLR_FRAME_ANCESTORS")?;
 
         let public_url = reader
             .raw("OPENRADLR_PUBLIC_URL")
@@ -299,6 +347,7 @@ impl Config {
                     client_secret,
                     redirect_uri: format!("{url}/auth/strava/callback"),
                     public_url: url.clone(),
+                    api_url: crate::strava::STRAVA_URL.into(),
                 })
             }
             (Some(_), None) | (None, Some(_)) => {
@@ -338,7 +387,7 @@ impl Config {
 
         let server_name = reader
             .raw("OPENRADLR_SERVER_NAME")
-            .unwrap_or_else(|| "OpenRadlr".into());
+            .unwrap_or_else(|| crate::APP_NAME.into());
         reader.check(
             "OPENRADLR_SERVER_NAME",
             &server_name,
@@ -405,6 +454,28 @@ impl Config {
             )?;
         }
 
+        let obn_app_id = reader.raw("OPENRADLR_OBN_APP_ID").filter(|id| !id.is_empty());
+        if let Some(id) = &obn_app_id {
+            reader.check(
+                "OPENRADLR_OBN_APP_ID",
+                id,
+                id.len() <= 64
+                    && id
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '.')),
+                "must be 1 to 64 lower-case letters, digits, '-', '_' or '.'",
+            )?;
+        }
+        if obn_url.is_some() && obn_app_id.is_none() {
+            return Err(ConfigError {
+                key: "OPENRADLR_OBN_APP_ID",
+                value: String::new(),
+                reason: "is required with OPENRADLR_OBN_URL: the app id this server introduces itself with, as \
+                         agreed with the OpenBikeNet server's operator (there is no default)"
+                    .into(),
+            });
+        }
+
         Ok(Self {
             bind_addr: reader.parse("OPENRADLR_BIND", SocketAddr::from(([0, 0, 0, 0], 8080)))?,
             route_file: reader
@@ -430,13 +501,18 @@ impl Config {
             max_race_laps,
             auth_mode,
             trust_proxy: reader.flag("OPENRADLR_TRUST_PROXY", false)?,
+            client_ip_header,
             max_connections_per_ip,
             messages_per_second,
             grace_s,
             afk_timeout_s,
             afk_reminder_s,
             afk_answer_s: 120.0,
+            write_timeout_s: ConnectionLimits::default().write_timeout_s,
+            metrics_token,
+            send_buffer_bytes,
             allowed_origins,
+            frame_ancestors,
             public_url,
             strava,
             data_dir,
@@ -451,6 +527,7 @@ impl Config {
             analytics,
             privacy_url,
             obn_url,
+            obn_app_id,
             obn_backoff_unit: Duration::from_secs(1),
             obn_heartbeat: Heartbeat::default(),
         })
@@ -464,6 +541,7 @@ impl Config {
             afk_timeout_s: self.afk_timeout_s,
             afk_reminder_s: self.afk_reminder_s,
             afk_answer_s: self.afk_answer_s,
+            write_timeout_s: self.write_timeout_s,
             ..ConnectionLimits::default()
         }
     }
@@ -479,6 +557,48 @@ impl Config {
     }
 }
 
+/// A web origin as browsers send it, in lower case: `scheme://host[:port]` and
+/// nothing else. Strict, because the lists are compared with `Origin` headers
+/// and written into a response header (`frame-ancestors`): no wildcard, no path,
+/// and no character that could start another directive or header.
+fn parse_origin(text: &str) -> Option<String> {
+    let origin = text.trim_end_matches('/').to_ascii_lowercase();
+    let (scheme, rest) = origin.split_once("://")?;
+    let scheme_ok = scheme.starts_with(|c: char| c.is_ascii_lowercase())
+        && scheme
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '+' | '-' | '.'));
+    let (host, port) = match rest.strip_prefix('[') {
+        // An IPv6 address in brackets.
+        Some(bracketed) => {
+            let (address, after) = bracketed.split_once(']')?;
+            address.parse::<std::net::Ipv6Addr>().ok()?;
+            match after.strip_prefix(':') {
+                Some(port) => (None, Some(port)),
+                None if after.is_empty() => (None, None),
+                None => return None,
+            }
+        }
+        None => match rest.split_once(':') {
+            Some((host, port)) => (Some(host), Some(port)),
+            None => (Some(rest), None),
+        },
+    };
+    let host_ok = host.is_none_or(|host| {
+        host.split('.').all(|label| {
+            !label.is_empty()
+                && !label.starts_with('-')
+                && !label.ends_with('-')
+                && label
+                    .chars()
+                    .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        })
+    });
+    let port_ok = port
+        .is_none_or(|port| port.chars().all(|c| c.is_ascii_digit()) && port.parse::<u16>().is_ok_and(|port| port > 0));
+    (scheme_ok && host_ok && port_ok).then_some(origin)
+}
+
 struct Reader<'a> {
     lookup: &'a dyn Fn(&str) -> Option<String>,
 }
@@ -486,6 +606,26 @@ struct Reader<'a> {
 impl Reader<'_> {
     fn raw(&self, key: &str) -> Option<String> {
         (self.lookup)(key).map(|v| v.trim().to_owned())
+    }
+
+    /// A comma-separated list of origins; a malformed entry is an error, so a
+    /// typing mistake never becomes a list that silently matches nothing.
+    fn origins(&self, key: &'static str) -> Result<Vec<String>, ConfigError> {
+        self.raw(key)
+            .unwrap_or_default()
+            .split(',')
+            .map(str::trim)
+            .filter(|entry| !entry.is_empty())
+            .map(|entry| {
+                parse_origin(entry).ok_or_else(|| ConfigError {
+                    key,
+                    value: entry.to_owned(),
+                    reason: "must be a list of origins like https://ride.example.com, separated by commas \
+                             (scheme://host[:port]; no path, no wildcard)"
+                        .into(),
+                })
+            })
+            .collect()
     }
 
     fn parse<T: FromStr>(&self, key: &'static str, default: T) -> Result<T, ConfigError> {
@@ -686,10 +826,46 @@ mod tests {
     fn obn_url_must_be_websocket() {
         assert_eq!(config(&[]).unwrap().obn_url, None);
         assert_eq!(config(&[("OPENRADLR_OBN_URL", "")]).unwrap().obn_url, None);
-        let c = config(&[("OPENRADLR_OBN_URL", "wss://obn.example/v0")]).unwrap();
+        let c = config(&[
+            ("OPENRADLR_OBN_URL", "wss://obn.example/v0"),
+            ("OPENRADLR_OBN_APP_ID", "example-ride"),
+        ])
+        .unwrap();
         assert_eq!(c.obn_url.as_deref(), Some("wss://obn.example/v0"));
         let err = config(&[("OPENRADLR_OBN_URL", "https://x")]).unwrap_err();
         assert_eq!(err.key, "OPENRADLR_OBN_URL");
+    }
+
+    #[test]
+    fn the_obn_link_needs_an_app_id_of_its_own() {
+        assert_eq!(config(&[]).unwrap().obn_app_id, None);
+        let c = config(&[
+            ("OPENRADLR_OBN_URL", "wss://obn.example/v0"),
+            ("OPENRADLR_OBN_APP_ID", "example-ride"),
+        ])
+        .unwrap();
+        assert_eq!(c.obn_app_id.as_deref(), Some("example-ride"));
+        // No default id: without one the link is refused, not opened under a made-up name.
+        let err = config(&[("OPENRADLR_OBN_URL", "wss://obn.example/v0")]).unwrap_err();
+        assert_eq!(err.key, "OPENRADLR_OBN_APP_ID");
+        // An id alone connects nothing.
+        let alone = config(&[("OPENRADLR_OBN_APP_ID", "example-ride")]).unwrap();
+        assert_eq!(alone.obn_url, None);
+        for bad in ["Example Ride", "ride/1", "ü"] {
+            let err = config(&[
+                ("OPENRADLR_OBN_URL", "wss://obn.example/v0"),
+                ("OPENRADLR_OBN_APP_ID", bad),
+            ])
+            .expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_OBN_APP_ID");
+        }
+    }
+
+    #[test]
+    fn the_server_is_named_after_the_fork_unless_the_operator_names_it() {
+        assert_eq!(config(&[]).unwrap().server_name, "GOCARMO Ride");
+        let c = config(&[("OPENRADLR_SERVER_NAME", "Club Night")]).unwrap();
+        assert_eq!(c.server_name, "Club Night");
     }
 
     #[test]
@@ -766,6 +942,116 @@ mod tests {
             config(&[("OPENRADLR_MAX_CONNECTIONS_PER_IP", "0")]).unwrap_err().key,
             "OPENRADLR_MAX_CONNECTIONS_PER_IP"
         );
+    }
+
+    #[test]
+    fn the_metrics_token_is_optional_and_never_echoed() {
+        assert_eq!(config(&[]).unwrap().metrics_token, None);
+        assert_eq!(config(&[("OPENRADLR_METRICS_TOKEN", " ")]).unwrap().metrics_token, None);
+        let c = config(&[("OPENRADLR_METRICS_TOKEN", "0123456789abcdef")]).unwrap();
+        assert_eq!(c.metrics_token.as_deref(), Some("0123456789abcdef"));
+        for bad in ["short", "sixteen chars but spaced"] {
+            let err = config(&[("OPENRADLR_METRICS_TOKEN", bad)]).expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_METRICS_TOKEN");
+            assert!(!err.to_string().contains(bad), "{err}");
+        }
+    }
+
+    #[test]
+    fn the_send_buffer_is_the_systems_unless_set() {
+        assert_eq!(config(&[]).unwrap().send_buffer_bytes, None);
+        assert_eq!(
+            config(&[("OPENRADLR_SEND_BUFFER_BYTES", "")])
+                .unwrap()
+                .send_buffer_bytes,
+            None
+        );
+        assert_eq!(
+            config(&[("OPENRADLR_SEND_BUFFER_BYTES", "131072")])
+                .unwrap()
+                .send_buffer_bytes,
+            Some(131_072)
+        );
+        for bad in ["0", "100", "99999999", "64k", "-1"] {
+            let err = config(&[("OPENRADLR_SEND_BUFFER_BYTES", bad)]).expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_SEND_BUFFER_BYTES");
+        }
+        // The stall timeout has a default and reaches the connection limits.
+        assert_eq!(config(&[]).unwrap().connection_limits().write_timeout_s, 20.0);
+    }
+
+    #[test]
+    fn the_platform_client_ip_header_is_off_unless_named() {
+        assert_eq!(config(&[]).unwrap().client_ip_header, None);
+        assert_eq!(
+            config(&[("OPENRADLR_CLIENT_IP_HEADER", " ")]).unwrap().client_ip_header,
+            None
+        );
+        let c = config(&[("OPENRADLR_CLIENT_IP_HEADER", "Fly-Client-IP")]).unwrap();
+        assert_eq!(c.client_ip_header.unwrap().as_str(), "fly-client-ip");
+        for bad in ["Fly Client IP", "Fly-Client-IP: 1.2.3.4", "a,b", "naïve"] {
+            let err = config(&[("OPENRADLR_CLIENT_IP_HEADER", bad)]).expect_err(bad);
+            assert_eq!(err.key, "OPENRADLR_CLIENT_IP_HEADER");
+        }
+    }
+
+    #[test]
+    fn origins_are_normalised() {
+        let c = config(&[(
+            "OPENRADLR_FRAME_ANCESTORS",
+            " https://Example.org/ ,https://www.example.org:8443,, http://[::1]:8080 , capacitor://localhost",
+        )])
+        .unwrap();
+        assert_eq!(
+            c.frame_ancestors,
+            vec![
+                "https://example.org".to_owned(),
+                "https://www.example.org:8443".to_owned(),
+                "http://[::1]:8080".to_owned(),
+                "capacitor://localhost".to_owned(),
+            ]
+        );
+        assert!(config(&[]).unwrap().frame_ancestors.is_empty());
+        assert!(config(&[("OPENRADLR_FRAME_ANCESTORS", " , ")])
+            .unwrap()
+            .frame_ancestors
+            .is_empty());
+    }
+
+    #[test]
+    fn malformed_origins_stop_the_server_from_starting() {
+        for bad in [
+            "example.org",
+            "https://",
+            "https://*.example.org",
+            "*",
+            "'self'",
+            "https://example.org/ride",
+            "https://example.org?x=1",
+            "https://user@example.org",
+            "https://example.org:0",
+            "https://example.org:99999",
+            "https://example.org:+80",
+            "https://example.org:",
+            "https://exa mple.org",
+            "https://example.org; script-src *",
+            "https://example.org\r\nSet-Cookie: a=b",
+            "https://example.org\tx",
+            "https://-example.org",
+            "https://example..org",
+            "https://[::1",
+            "https://[::1]x",
+            "https://[not-an-address]",
+            "https://exämple.org",
+            "1https://example.org",
+        ] {
+            for key in ["OPENRADLR_FRAME_ANCESTORS", "OPENRADLR_ALLOWED_ORIGINS"] {
+                let list = format!("https://fine.example, {bad}");
+                let err = config(&[(key, &list)]).expect_err(bad);
+                assert_eq!(err.key, key, "{bad}");
+                assert!(err.to_string().contains("scheme://host"), "{err}");
+            }
+        }
     }
 
     #[test]

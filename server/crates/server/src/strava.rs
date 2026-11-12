@@ -32,7 +32,8 @@ pub const APP_CALLBACK_URL: &str = "openradlr://strava";
 /// Refresh the access token when it expires within this many seconds.
 const REFRESH_MARGIN_S: i64 = 300;
 
-const AUTHORIZE_URL: &str = "https://www.strava.com/oauth/authorize";
+/// Where Strava is.
+pub const STRAVA_URL: &str = "https://www.strava.com";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StravaConfig {
@@ -42,6 +43,8 @@ pub struct StravaConfig {
     pub redirect_uri: String,
     /// The server's own address (`OPENRADLR_PUBLIC_URL`, no trailing slash); linked from uploaded rides.
     pub public_url: String,
+    /// Where Strava is: [`STRAVA_URL`] (no environment variable; tests put a stand-in here).
+    pub api_url: String,
 }
 
 /// Percent-encodes everything except RFC 3986 unreserved characters.
@@ -60,7 +63,8 @@ pub fn url_encode(text: &str) -> String {
 /// Where "Connect with Strava" sends the browser.
 pub fn authorize_url(config: &StravaConfig, state: &str) -> String {
     format!(
-        "{AUTHORIZE_URL}?client_id={}&response_type=code&redirect_uri={}&approval_prompt=auto&scope={}&state={}",
+        "{}/oauth/authorize?client_id={}&response_type=code&redirect_uri={}&approval_prompt=auto&scope={}&state={}",
+        config.api_url,
         url_encode(&config.client_id),
         url_encode(&config.redirect_uri),
         url_encode("read,activity:write"),
@@ -391,6 +395,7 @@ mod tests {
             client_secret: "secret".into(),
             redirect_uri: "https://ride.example.com/auth/strava/callback".into(),
             public_url: "https://ride.example.com".into(),
+            api_url: STRAVA_URL.into(),
         }
     }
 

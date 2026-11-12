@@ -1,5 +1,6 @@
 //! Security headers for every response, so a server is hardened without the
-//! bundled Caddy too: no MIME sniffing, no framing, no referrer, and a
+//! bundled Caddy too: no MIME sniffing, no framing (except by the origins the
+//! operator lists in `OPENRADLR_FRAME_ANCESTORS`), no referrer, and a
 //! Content-Security-Policy that only allows the server's own scripts (plus
 //! the analytics script's origin when the operator enabled analytics).
 
@@ -13,8 +14,14 @@ fn origin_of(url: &str) -> Option<&str> {
     (!scheme.is_empty() && host_len > 0).then(|| &url[..scheme.len() + 3 + host_len])
 }
 
-/// The Content-Security-Policy for the browser client.
-pub fn content_security_policy(analytics: Option<&Analytics>, public_url: Option<&str>) -> String {
+/// The Content-Security-Policy for the browser client. `frame_ancestors` are
+/// the origins that may show the client in an `<iframe>` (validated by the
+/// configuration); empty forbids framing.
+pub fn content_security_policy(
+    analytics: Option<&Analytics>,
+    public_url: Option<&str>,
+    frame_ancestors: &[String],
+) -> String {
     let analytics_origin = analytics.and_then(|a| origin_of(&a.script));
     let mut script = vec!["'self'"];
     // 'self' covers same-origin WebSockets in current browsers; the public
@@ -42,22 +49,36 @@ pub fn content_security_policy(analytics: Option<&Analytics>, public_url: Option
         "object-src 'none'".to_owned(),
         "base-uri 'self'".to_owned(),
         "form-action 'self'".to_owned(),
-        "frame-ancestors 'none'".to_owned(),
+        if frame_ancestors.is_empty() {
+            "frame-ancestors 'none'".to_owned()
+        } else {
+            format!("frame-ancestors {}", frame_ancestors.join(" "))
+        },
     ]
     .join("; ")
 }
 
 /// Headers set on every response (unless a handler set them already).
-pub fn security_headers(analytics: Option<&Analytics>, public_url: Option<&str>) -> Vec<(HeaderName, String)> {
-    vec![
+///
+/// X-Frame-Options can only forbid framing or allow the same origin, so with
+/// `frame_ancestors` it is left out and the policy's `frame-ancestors` decides.
+pub fn security_headers(
+    analytics: Option<&Analytics>,
+    public_url: Option<&str>,
+    frame_ancestors: &[String],
+) -> Vec<(HeaderName, String)> {
+    let mut headers = vec![
         (header::X_CONTENT_TYPE_OPTIONS, "nosniff".to_owned()),
-        (header::X_FRAME_OPTIONS, "DENY".to_owned()),
         (header::REFERRER_POLICY, "no-referrer".to_owned()),
         (
             header::CONTENT_SECURITY_POLICY,
-            content_security_policy(analytics, public_url),
+            content_security_policy(analytics, public_url, frame_ancestors),
         ),
-    ]
+    ];
+    if frame_ancestors.is_empty() {
+        headers.insert(1, (header::X_FRAME_OPTIONS, "DENY".to_owned()));
+    }
+    headers
 }
 
 #[cfg(test)]
@@ -72,7 +93,7 @@ mod tests {
 
     #[test]
     fn only_own_scripts_without_analytics() {
-        let csp = content_security_policy(None, None);
+        let csp = content_security_policy(None, None, &[]);
         assert_eq!(directive(&csp, "script-src"), "script-src 'self'");
         assert_eq!(directive(&csp, "connect-src"), "connect-src 'self'");
         assert_eq!(directive(&csp, "frame-ancestors"), "frame-ancestors 'none'");
@@ -85,7 +106,7 @@ mod tests {
             domain: "ride.example.org".into(),
             script: "https://stats.example.org:8443/js/script.js".into(),
         };
-        let csp = content_security_policy(Some(&analytics), None);
+        let csp = content_security_policy(Some(&analytics), None, &[]);
         assert_eq!(
             directive(&csp, "script-src"),
             "script-src 'self' https://stats.example.org:8443"
@@ -98,12 +119,12 @@ mod tests {
 
     #[test]
     fn the_public_address_allows_its_websocket() {
-        let csp = content_security_policy(None, Some("https://ride.example.org"));
+        let csp = content_security_policy(None, Some("https://ride.example.org"), &[]);
         assert_eq!(
             directive(&csp, "connect-src"),
             "connect-src 'self' wss://ride.example.org"
         );
-        let csp = content_security_policy(None, Some("http://192.168.1.5:8080"));
+        let csp = content_security_policy(None, Some("http://192.168.1.5:8080"), &[]);
         assert_eq!(
             directive(&csp, "connect-src"),
             "connect-src 'self' ws://192.168.1.5:8080"
@@ -112,11 +133,36 @@ mod tests {
 
     #[test]
     fn every_response_is_hardened() {
-        let headers = security_headers(None, None);
+        let headers = security_headers(None, None, &[]);
         let get = |name: HeaderName| headers.iter().find(|(n, _)| *n == name).map(|(_, v)| v.as_str());
         assert_eq!(get(header::X_CONTENT_TYPE_OPTIONS), Some("nosniff"));
         assert_eq!(get(header::X_FRAME_OPTIONS), Some("DENY"));
         assert_eq!(get(header::REFERRER_POLICY), Some("no-referrer"));
         assert!(get(header::CONTENT_SECURITY_POLICY).is_some());
+    }
+
+    #[test]
+    fn listed_origins_may_frame_the_client() {
+        let sites = ["https://example.org".to_owned(), "https://www.example.org".to_owned()];
+        let headers = security_headers(None, None, &sites);
+        let get = |name: HeaderName| headers.iter().find(|(n, _)| *n == name).map(|(_, v)| v.as_str());
+        assert_eq!(
+            get(header::X_FRAME_OPTIONS),
+            None,
+            "it would forbid the listed sites too"
+        );
+        let csp = get(header::CONTENT_SECURITY_POLICY).unwrap();
+        assert_eq!(
+            directive(csp, "frame-ancestors"),
+            "frame-ancestors https://example.org https://www.example.org"
+        );
+        assert!(csp.ends_with("frame-ancestors https://example.org https://www.example.org"));
+        // Everything else stays as without framing.
+        assert_eq!(
+            csp.rsplit_once("; ").unwrap().0,
+            content_security_policy(None, None, &[]).rsplit_once("; ").unwrap().0
+        );
+        assert_eq!(get(header::X_CONTENT_TYPE_OPTIONS), Some("nosniff"));
+        assert_eq!(get(header::REFERRER_POLICY), Some("no-referrer"));
     }
 }

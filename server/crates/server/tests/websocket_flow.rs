@@ -171,8 +171,13 @@ async fn a_wrong_protocol_version_is_refused() {
 
 /// Minimal HTTP GET without an extra client dependency; returns the body.
 async fn http_get(addr: SocketAddr, path: &str) -> (u16, String) {
+    http_get_with(addr, path, "").await
+}
+
+/// The same with extra header lines (each ending in `\r\n`).
+async fn http_get_with(addr: SocketAddr, path: &str, headers: &str) -> (u16, String) {
     let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
-    let request = format!("GET {path} HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n");
+    let request = format!("GET {path} HTTP/1.1\r\nHost: test\r\n{headers}Connection: close\r\n\r\n");
     stream.write_all(request.as_bytes()).await.unwrap();
     let mut response = String::new();
     stream.read_to_string(&mut response).await.unwrap();
@@ -1003,13 +1008,24 @@ async fn a_workout_is_seen_by_other_riders() {
     panic!("Anna never showed up doing squats");
 }
 
+const METRICS_TOKEN: &str = "a-test-token-for-the-metrics";
+
 fn afk_config() -> Config {
     Config {
         afk_timeout_s: 0.5,
         afk_reminder_s: 0.5,
         afk_answer_s: 0.5,
+        metrics_token: Some(METRICS_TOKEN.into()),
         ..test_config(0)
     }
+}
+
+/// The metrics, read the way a scraper with the token does.
+async fn metrics(addr: SocketAddr) -> String {
+    let authorization = format!("Authorization: Bearer {METRICS_TOKEN}\r\n");
+    let (status, body) = http_get_with(addr, "/internal/metrics", &authorization).await;
+    assert_eq!(status, 200);
+    body
 }
 
 async fn wait_for_close(socket: &mut Socket) {
@@ -1042,7 +1058,7 @@ async fn afk_rider_is_warned_then_removed_without_grace() {
     let riders = state["riders"].as_array().unwrap();
     assert!(riders.iter().all(|r| r["id"].as_u64() != Some(anna_id)));
 
-    let (_, metrics) = http_get(addr, "/internal/metrics").await;
+    let metrics = metrics(addr).await;
     assert!(
         metrics.contains(r#"openradlr_afk_events_total{event="timeout"} 1"#),
         "{metrics}"
@@ -1065,7 +1081,7 @@ async fn afk_stay_then_leave_counts_each_outcome() {
     send(&mut anna, r#"{"type":"leave"}"#).await;
     wait_for_close(&mut anna).await;
 
-    let (_, metrics) = http_get(addr, "/internal/metrics").await;
+    let metrics = metrics(addr).await;
     for (event, count) in [("warning", 2), ("stayed", 1), ("left", 1), ("timeout", 0)] {
         let line = format!(r#"openradlr_afk_events_total{{event="{event}"}} {count}"#);
         assert!(metrics.contains(&line), "{line} missing in {metrics}");

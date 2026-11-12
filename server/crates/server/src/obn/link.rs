@@ -54,9 +54,12 @@ pub fn backoff(attempt: u32, unit: Duration) -> Duration {
     unit.saturating_mul(factor.min(MAX_BACKOFF_UNITS))
 }
 
-/// Starts the link to `url` for the shared `route`. It ends when the game stops.
+/// Starts the link to `url` for the shared `route`, saying `hello` as app
+/// `app_id`. It ends when the game stops.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn_link(
     url: String,
+    app_id: String,
     route: String,
     route_length_m: f64,
     backoff_unit: Duration,
@@ -70,7 +73,7 @@ pub fn spawn_link(
         loop {
             // Frames queued while disconnected are stale: the next one tells the whole story.
             while frames.try_recv().is_ok() {}
-            let end = session(&url, &route, heartbeat, &mut outbox, &mut frames, &game).await;
+            let end = session(&url, &app_id, &route, heartbeat, &mut outbox, &mut frames, &game).await;
             if end.stopped {
                 return;
             }
@@ -105,13 +108,15 @@ fn resets_backoff(end: &End) -> bool {
     end.welcomed && !end.fatal
 }
 
-fn hello() -> AppMessage {
+/// How this server introduces itself: under the operator's app id
+/// (`OPENRADLR_OBN_APP_ID`), with the fork's own name and page.
+fn hello(app_id: &str) -> AppMessage {
     AppMessage::Hello {
         app: AppInfo {
-            id: "openradlr".into(),
+            id: app_id.to_owned(),
             version: env!("CARGO_PKG_VERSION").into(),
-            name: Some("OpenRadlr".into()),
-            url: Some("https://openradlr.com".into()),
+            name: Some(crate::APP_NAME.into()),
+            url: Some(crate::APP_URL.into()),
         },
     }
 }
@@ -123,6 +128,7 @@ fn text(message: &AppMessage) -> Message {
 /// One connection, from connecting to the first failure.
 async fn session(
     url: &str,
+    app_id: &str,
     route: &str,
     heartbeat: Heartbeat,
     outbox: &mut Outbox,
@@ -151,7 +157,7 @@ async fn session(
         route: route.to_owned(),
         room: OBN_ROOM.into(),
     };
-    for message in [hello(), subscribe] {
+    for message in [hello(app_id), subscribe] {
         if sink.send(text(&message)).await.is_err() {
             tracing::info!("OpenBikeNet: connection dropped");
             return end;

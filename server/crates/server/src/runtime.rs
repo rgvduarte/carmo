@@ -15,17 +15,108 @@ use tokio::sync::mpsc::error::TrySendError;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::MissedTickBehavior;
 
-/// Sink that forwards messages to a connection's writer task.
-pub struct ChannelSink(pub mpsc::Sender<ServerMessage>);
+/// What waits in a connection's queue for its writer task.
+enum Queued {
+    Message(ServerMessage),
+    /// The state snapshot with this number, which lies in the [`SnapshotSlot`].
+    Snapshot(u64),
+}
 
-impl MessageSink for ChannelSink {
-    fn deliver(&self, message: ServerMessage) -> Result<(), SinkClosed> {
-        match self.0.try_send(message) {
-            // A full buffer means a slow client; dropping a message is fine
-            // because the next state broadcast supersedes it.
+/// The newest state snapshot that is not written yet, and its number.
+#[derive(Default)]
+struct SnapshotSlot {
+    number: u64,
+    message: Option<ServerMessage>,
+}
+
+/// A connection's outgoing messages, sending half: a bounded queue, in which
+/// state snapshots only hold a place. The snapshot itself lies in one slot
+/// that every newer snapshot overwrites, so a client that reads slowly (or not
+/// at all) gets the newest state once instead of a backlog of old ones, and a
+/// connection never holds more than one snapshot in memory. A client that
+/// keeps up receives every message, in the order sent.
+#[derive(Clone)]
+pub struct Outbox {
+    queue: mpsc::Sender<Queued>,
+    snapshot: Arc<Mutex<SnapshotSlot>>,
+}
+
+/// The receiving half of an [`Outbox`], for the connection's writer task.
+pub struct Outgoing {
+    queue: mpsc::Receiver<Queued>,
+    snapshot: Arc<Mutex<SnapshotSlot>>,
+}
+
+/// A connection's outgoing messages; `capacity` bounds the queue.
+pub fn outbox(capacity: usize) -> (Outbox, Outgoing) {
+    let (sender, receiver) = mpsc::channel(capacity);
+    let snapshot = Arc::new(Mutex::new(SnapshotSlot::default()));
+    (
+        Outbox {
+            queue: sender,
+            snapshot: Arc::clone(&snapshot),
+        },
+        Outgoing {
+            queue: receiver,
+            snapshot,
+        },
+    )
+}
+
+impl Outbox {
+    /// What to queue for `message`; a snapshot goes into the slot first.
+    fn queued(&self, message: ServerMessage) -> Queued {
+        if !message.is_snapshot() {
+            return Queued::Message(message);
+        }
+        let mut slot = self.snapshot.lock().unwrap_or_else(|e| e.into_inner());
+        slot.number += 1;
+        slot.message = Some(message);
+        Queued::Snapshot(slot.number)
+    }
+
+    /// Queues `message`, waiting for room; `Err` once the writer is gone.
+    pub async fn send(&self, message: ServerMessage) -> Result<(), SinkClosed> {
+        self.queue.send(self.queued(message)).await.map_err(|_| SinkClosed)
+    }
+
+    /// Queues `message` without waiting. A full queue means a slow client:
+    /// the message is dropped (a snapshot stays in its slot until the next
+    /// one replaces it, and the next one supersedes it anyway).
+    pub fn try_send(&self, message: ServerMessage) -> Result<(), SinkClosed> {
+        match self.queue.try_send(self.queued(message)) {
             Ok(()) | Err(TrySendError::Full(_)) => Ok(()),
             Err(TrySendError::Closed(_)) => Err(SinkClosed),
         }
+    }
+}
+
+impl Outgoing {
+    /// The next message to write; `None` once every [`Outbox`] is dropped.
+    /// A snapshot that a newer one replaced meanwhile is skipped.
+    pub async fn recv(&mut self) -> Option<ServerMessage> {
+        loop {
+            match self.queue.recv().await? {
+                Queued::Message(message) => return Some(message),
+                Queued::Snapshot(number) => {
+                    let mut slot = self.snapshot.lock().unwrap_or_else(|e| e.into_inner());
+                    if slot.number == number {
+                        if let Some(message) = slot.message.take() {
+                            return Some(message);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Sink that forwards messages to a connection's writer task.
+pub struct ChannelSink(pub Outbox);
+
+impl MessageSink for ChannelSink {
+    fn deliver(&self, message: ServerMessage) -> Result<(), SinkClosed> {
+        self.0.try_send(message)
     }
 }
 
@@ -432,5 +523,129 @@ pub(crate) fn apply<G: Game>(core: &mut G, command: Command) {
             side,
         } => core.workout(rider_id, exercise, side),
         Command::Remote(event) => core.remote(event),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::ClassState;
+    use futures_util::FutureExt;
+
+    /// A state snapshot, told apart by its tick.
+    fn snapshot(tick: u64) -> ServerMessage {
+        ServerMessage::StudioState {
+            tick,
+            room: 0,
+            rooms: 1,
+            class: ClassState {
+                id: "c".into(),
+                name: "Class".into(),
+                starts_at_s: 0.0,
+                elapsed_s: 0.0,
+            },
+            riders: Vec::new(),
+        }
+    }
+
+    fn event(code: &str) -> ServerMessage {
+        ServerMessage::error(code, "")
+    }
+
+    /// What the writer would take now, without waiting.
+    fn waiting(outgoing: &mut Outgoing) -> Vec<ServerMessage> {
+        let mut messages = Vec::new();
+        while let Some(Some(message)) = outgoing.recv().now_or_never() {
+            messages.push(message);
+        }
+        messages
+    }
+
+    #[test]
+    fn a_client_that_keeps_up_gets_every_message_in_order() {
+        let (outbox, mut outgoing) = outbox(8);
+        let sink = ChannelSink(outbox);
+        let mut sent = Vec::new();
+        for tick in 0..50 {
+            // As a tick does: events first, then the state, then a one-off.
+            let round = [
+                event(&format!("before-{tick}")),
+                snapshot(tick),
+                event(&format!("after-{tick}")),
+            ];
+            for message in &round {
+                sink.deliver(message.clone()).unwrap();
+            }
+            assert_eq!(waiting(&mut outgoing), round);
+            sent.extend(round);
+        }
+        assert_eq!(sent.len(), 150);
+    }
+
+    #[test]
+    fn a_slow_client_gets_the_newest_snapshot_and_every_event() {
+        let (outbox, mut outgoing) = outbox(16);
+        let sink = ChannelSink(outbox);
+        for message in [snapshot(1), event("a"), snapshot(2), event("b"), snapshot(3)] {
+            sink.deliver(message).unwrap();
+        }
+        // Nothing overtakes: the result is the sent sequence without the old snapshots.
+        assert_eq!(waiting(&mut outgoing), [event("a"), event("b"), snapshot(3)]);
+        sink.deliver(snapshot(4)).unwrap();
+        assert_eq!(waiting(&mut outgoing), [snapshot(4)]);
+    }
+
+    #[test]
+    fn a_client_that_reads_nothing_holds_one_snapshot_not_a_backlog() {
+        let capacity = 16;
+        let (outbox, mut outgoing) = outbox(capacity);
+        let sink = ChannelSink(outbox.clone());
+        sink.deliver(event("first")).unwrap();
+        for tick in 0..10_000 {
+            assert_eq!(sink.deliver(snapshot(tick)), Ok(()), "a full queue is not an error");
+        }
+        let slot = outbox.snapshot.lock().unwrap();
+        assert_eq!(slot.message, Some(snapshot(9_999)));
+        drop(slot);
+        // Once it reads again: the event that was queued, then the game goes on.
+        assert_eq!(waiting(&mut outgoing), [event("first")]);
+        sink.deliver(snapshot(10_000)).unwrap();
+        assert_eq!(waiting(&mut outgoing), [snapshot(10_000)]);
+    }
+
+    #[test]
+    fn one_off_messages_beyond_the_capacity_are_dropped_without_blocking() {
+        let (outbox, mut outgoing) = outbox(4);
+        let sink = ChannelSink(outbox);
+        for n in 0..10 {
+            sink.deliver(event(&n.to_string())).unwrap();
+        }
+        assert_eq!(waiting(&mut outgoing), [event("0"), event("1"), event("2"), event("3")]);
+    }
+
+    #[tokio::test]
+    async fn waiting_senders_and_sinks_learn_that_the_writer_is_gone() {
+        let (outbox, outgoing) = outbox(1);
+        outbox.send(event("fills the queue")).await.unwrap();
+        let blocked = tokio::spawn({
+            let outbox = outbox.clone();
+            async move { outbox.send(event("waits for room")).await }
+        });
+        tokio::task::yield_now().await;
+        assert!(!blocked.is_finished());
+        drop(outgoing);
+        assert_eq!(blocked.await.unwrap(), Err(SinkClosed));
+        let sink = ChannelSink(outbox);
+        assert_eq!(sink.deliver(snapshot(1)), Err(SinkClosed));
+        assert_eq!(sink.deliver(event("x")), Err(SinkClosed));
+    }
+
+    #[test]
+    fn the_writer_stops_when_every_sender_is_gone() {
+        let (outbox, mut outgoing) = outbox(4);
+        outbox.try_send(event("last words")).unwrap();
+        drop(outbox);
+        assert_eq!(outgoing.recv().now_or_never(), Some(Some(event("last words"))));
+        assert_eq!(outgoing.recv().now_or_never(), Some(None));
     }
 }

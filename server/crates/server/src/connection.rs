@@ -7,15 +7,19 @@ use crate::guard::SlotPermit;
 use crate::http::AppState;
 use crate::protocol::ServerMessage;
 use crate::resume::JoinedRider;
-use crate::runtime::{ChannelSink, Command, GameHandle};
+use crate::runtime::{outbox, ChannelSink, Command, GameHandle};
 use crate::session::{Action, Phase, PlayerCommand, Session};
 use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use openradlr_sim::RiderId;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
 use tokio::time::MissedTickBehavior;
+
+/// One-off messages (events, chat, errors) a connection may have waiting.
+/// State snapshots take a place here but only the newest is kept (see
+/// [`crate::runtime::Outbox`]).
+const OUTBOX_CAPACITY: usize = 256;
 
 fn to_command(rider_id: RiderId, command: PlayerCommand) -> Command {
     match command {
@@ -53,12 +57,22 @@ fn to_command(rider_id: RiderId, command: PlayerCommand) -> Command {
 /// or times out.
 pub async fn serve(socket: WebSocket, state: AppState) {
     let (mut writer, mut reader) = socket.split();
-    let (outbox, mut outgoing) = mpsc::channel::<ServerMessage>(256);
+    let (outbox, mut outgoing) = outbox(OUTBOX_CAPACITY);
+    let write_timeout = Duration::from_secs_f64(state.protection.limits.write_timeout_s);
 
     let mut write_task = tokio::spawn(async move {
         while let Some(message) = outgoing.recv().await {
-            if writer.send(Message::Text(message.to_json().into())).await.is_err() {
-                break;
+            let frame = Message::Text(message.to_json().into());
+            match tokio::time::timeout(write_timeout, writer.send(frame)).await {
+                Ok(Ok(())) => {}
+                Ok(Err(_)) => break,
+                // The client takes nothing any more: closing would wait for it
+                // too, so the socket is just dropped. The loop below then ends
+                // and frees the rider's seat.
+                Err(_) => {
+                    tracing::info!("closing a connection that stopped reading");
+                    return;
+                }
             }
         }
         let _ = writer.close().await;

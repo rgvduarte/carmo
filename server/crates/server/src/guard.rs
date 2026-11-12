@@ -6,10 +6,13 @@
 //! * [`TokenBucket`] — per-connection message and chat rate limits
 //! * [`Slots`] — counted permits: the global player cap and connections per IP
 //! * [`client_ip`] — the client's address, optionally from a trusted reverse proxy
+//! * [`platform_client_ip`] — the same from the header of a hosting platform's proxy
+//! * [`same_secret`] — compares a presented secret with the configured one
 //!
 //! Everything here is synchronous and takes time as plain seconds, so it is
 //! tested without a clock.
 
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::net::{IpAddr, SocketAddr};
@@ -134,6 +137,34 @@ pub fn client_ip(peer: Option<SocketAddr>, forwarded_for: Option<&str>, trust_pr
     peer.map(|addr| addr.ip())
 }
 
+/// The client's IP address as a hosting platform's proxy reports it in a header
+/// of its own (`OPENRADLR_CLIENT_IP_HEADER`, e.g. `Fly-Client-IP`): there the
+/// last `X-Forwarded-For` address is the platform's proxy, the same for everyone.
+///
+/// `values` are all values of that header. The platform sets exactly one
+/// address; anything else (no value, several, a list, no address) is `None`,
+/// and the caller falls back to [`client_ip`]. Only meaningful when the proxy
+/// is the only way in, because any client can send the header itself.
+pub fn platform_client_ip<'a>(values: impl IntoIterator<Item = &'a str>) -> Option<IpAddr> {
+    let mut values = values.into_iter();
+    let ip = values.next()?.trim().parse::<IpAddr>().ok()?;
+    // `::ffff:203.0.113.9` and `203.0.113.9` are one client.
+    values.next().is_none().then(|| ip.to_canonical())
+}
+
+/// True if `presented` is the `expected` secret. Takes the same time wherever
+/// the two differ, so response times do not give the secret away piece by
+/// piece: both are hashed (which also hides their lengths) and every byte of
+/// the hashes is compared.
+pub fn same_secret(presented: &str, expected: &str) -> bool {
+    let (presented, expected) = (Sha256::digest(presented), Sha256::digest(expected));
+    presented
+        .iter()
+        .zip(expected.iter())
+        .fold(0u8, |differences, (a, b)| differences | (a ^ b))
+        == 0
+}
+
 /// True if a WebSocket `Origin` may connect. An empty allow-list allows every
 /// origin (the default); otherwise the origin must match one entry exactly,
 /// e.g. `https://ride.example.com`.
@@ -169,6 +200,9 @@ pub struct ConnectionLimits {
     pub handshake_timeout_s: f64,
     /// A joined connection that sends nothing for this long is closed.
     pub idle_timeout_s: f64,
+    /// A connection that takes none of the server's messages for this long
+    /// (a frozen or vanished client) is closed.
+    pub write_timeout_s: f64,
     /// Seconds of 0 W before the first "still riding?" warning; `0` turns it off.
     pub afk_timeout_s: f64,
     /// Seconds of 0 W after a "Stay" before the next warning.
@@ -189,6 +223,7 @@ impl Default for ConnectionLimits {
             vehicle_interval_s: 2.0,
             handshake_timeout_s: 15.0,
             idle_timeout_s: 120.0,
+            write_timeout_s: 20.0,
             afk_timeout_s: 1800.0,
             afk_reminder_s: 600.0,
             afk_answer_s: 120.0,
@@ -264,6 +299,38 @@ mod tests {
             client_ip(None, Some("2001:db8::1"), true),
             Some("2001:db8::1".parse().unwrap())
         );
+    }
+
+    #[test]
+    fn the_platform_header_must_hold_exactly_one_address() {
+        let ip = |text: &str| Some(text.parse::<IpAddr>().unwrap());
+        assert_eq!(platform_client_ip(["203.0.113.9"]), ip("203.0.113.9"));
+        assert_eq!(platform_client_ip([" 2001:db8::1 "]), ip("2001:db8::1"));
+        assert_eq!(platform_client_ip(["::ffff:203.0.113.9"]), ip("203.0.113.9"));
+        let none: [&str; 0] = [];
+        assert_eq!(platform_client_ip(none), None);
+        for bad in [
+            "",
+            "garbage",
+            "203.0.113.9, 198.51.100.7",
+            "203.0.113.9:1234",
+            "203.0.113.9 198.51.100.7",
+            "[2001:db8::1]",
+            "for=203.0.113.9",
+        ] {
+            assert_eq!(platform_client_ip([bad]), None, "{bad}");
+        }
+        // A client that sent the header itself, next to the proxy's.
+        assert_eq!(platform_client_ip(["198.51.100.7", "203.0.113.9"]), None);
+    }
+
+    #[test]
+    fn secrets_match_only_when_equal() {
+        assert!(same_secret("correct horse battery", "correct horse battery"));
+        assert!(!same_secret("correct horse batterx", "correct horse battery"));
+        assert!(!same_secret("correct horse", "correct horse battery"));
+        assert!(!same_secret("", "correct horse battery"));
+        assert!(!same_secret("correct horse battery ", "correct horse battery"));
     }
 
     #[test]
