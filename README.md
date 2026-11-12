@@ -1353,10 +1353,11 @@ servidor mudarem nisto (por exemplo, ligar o Strava, que usa um cookie), muda os
 página aponta para ela nem para o servidor do jogo e não há cartão no Painel. Enquanto `RIDE_HIDDEN` for `true` em
 `scripts/stamp.mjs`, o `node scripts/stamp.mjs --check` recusa publicar se alguma destas coisas mudar. No dia do
 lançamento: põe `RIDE_HIDDEN` a `false`, tira a linha `robots` de `ride/index.html`, acrescenta as ligações (rodapé ou
-menu de `index.html`, com o texto inglês em `assets/js/i18n.js`) e corre `node scripts/stamp.mjs`. Antes disso, na
-página de privacidade, escreve quem aloja o servidor do jogo, em que país, o que os registos guardam e durante quanto
-tempo, em PT e em EN, e apaga a nota `RIDE-HOST-TODO` que lá está: com `RIDE_HIDDEN` a `false`, o `stamp.mjs` não
-passa enquanto a nota existir.
+menu de `index.html`, com o texto inglês em `assets/js/i18n.js`) e corre `node scripts/stamp.mjs`. A página de
+privacidade já diz quem aloja o servidor do jogo (Render, máquina em Frankfurt), o que os registos guardam e durante
+quanto tempo (7 dias), em PT e em EN. Se o alojamento mudar, muda esse parágrafo nas duas línguas. Uma nota
+`RIDE-HOST-TODO` nessa página trava o lançamento: com `RIDE_HIDDEN` a `false`, o `stamp.mjs` não passa enquanto a nota
+existir.
 
 O `stamp.mjs` verifica também, sempre: a CSP da página palavra a palavra (e que vem antes de qualquer script ou folha
 de estilos), que o endereço do jogo é o nome de um só servidor, que a moldura não está no HTML, que `ride.js` não tem
