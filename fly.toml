@@ -1,0 +1,92 @@
+# GOCARMO Ride on Fly.io: the first paid fallback (always on, with a volume).
+#
+# Not used by the free pilot (that is render.yaml). The workflow
+# .github/workflows/ride-deploy-fly.yml deploys with this file once the
+# repository variable RIDE_DEPLOY is `fly`. The whole procedure is in
+# docs/gocarmo-deploy.md.
+#
+# Written from https://docs.fly.io/reference/configuration (read 12.11.2026).
+# Not tested against Fly: see "What only a first deploy can confirm" in the guide.
+
+# Placeholder: app names are unique across Fly. If this one is taken, change it
+# here or set the repository variable RIDE_FLY_APP.
+app = "gocarmo-ride"
+primary_region = "cdg" # Paris
+
+# The server stops cleanly on SIGTERM and saves the ride totals.
+kill_signal = "SIGTERM"
+kill_timeout = 30
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  # --- The game on its own host, shown by gocarmo.com ------------------------
+  OPENRADLR_PUBLIC_URL = "https://ride.gocarmo.com"
+  # Sites that may show the game in a frame.              (new in GOCARMO Ride)
+  OPENRADLR_FRAME_ANCESTORS = "https://gocarmo.com,https://www.gocarmo.com"
+  # Pages that may open game connections and read /api/info from another
+  # origin. The game's own origin has to be in the list.
+  OPENRADLR_ALLOWED_ORIGINS = "https://ride.gocarmo.com,https://gocarmo.com,https://www.gocarmo.com"
+
+  # --- Client address --------------------------------------------------------
+  # Fly Proxy reports the visitor in Fly-Client-IP; the last X-Forwarded-For
+  # entry is the app's own address (https://docs.fly.io/networking/request-headers).
+  #                                                       (new in GOCARMO Ride)
+  OPENRADLR_CLIENT_IP_HEADER = "Fly-Client-IP"
+  OPENRADLR_TRUST_PROXY = "false"
+  OPENRADLR_MAX_CONNECTIONS_PER_IP = "8"
+
+  # --- Capacity: values from docs/gocarmo-server-settings.md ("Fly small") -----
+  # Measured with these: 50 to 57 MB of traffic per rider-hour, 3 % of one core
+  # with 30 riders.
+  OPENRADLR_MAX_PLAYERS = "30"
+  OPENRADLR_MAX_PADDLE_PLAYERS = "10"
+  OPENRADLR_MAX_VISIBLE_RIDERS = "30"
+  OPENRADLR_TARGET_RIDERS = "6"
+  OPENRADLR_BROADCAST_HZ = "2"
+  # Bounds what a client that stopped reading can hold.   (new in GOCARMO Ride)
+  OPENRADLR_SEND_BUFFER_BYTES = "131072"
+
+  # --- Start screen ----------------------------------------------------------
+  OPENRADLR_ALLOW_SIMULATED_TRAINER = "true"
+  OPENRADLR_ALLOW_PADDLE_MODE = "true"
+
+  # Strava is off: its three values are Fly secrets, never written here
+  # (OPENRADLR_STRAVA_CLIENT_ID, OPENRADLR_STRAVA_CLIENT_SECRET,
+  # OPENRADLR_SECRET_KEY; see the guide). OpenBikeNet is off:
+  # OPENRADLR_OBN_URL is not set.
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Always on: a ride must not be cut, and waking takes time.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 100
+    hard_limit = 200
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "15s"
+    method = "GET"
+    timeout = "3s"
+    path = "/healthz"
+
+# The smallest shared machine.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# Ride totals and Strava logins. A new volume belongs to root, and the server
+# runs as user 10001: after the first deploy its folder is handed over once
+# (`chown 10001:10001 /app/data`; the workflow tries it, the guide has the
+# command).
+[[mounts]]
+  source = "ride_data"
+  destination = "/app/data"
+  initial_size = "1gb"

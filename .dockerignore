@@ -6,4 +6,5 @@
 client/test
 docs
 *.md
-app
+# The fork's notice goes into the image next to LICENSE.
+!NOTICE.md

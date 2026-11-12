@@ -1,0 +1,101 @@
+# GOCARMO Ride on Render: the free pilot.
+#
+# A Render Blueprint (https://render.com/docs/blueprint-spec, read 12.11.2026).
+# In the Render Dashboard: New > Blueprint, this repository, branch
+# `gocarmo-ride`. Render then builds the Dockerfile, serves the game on
+# https://ride.gocarmo.com and deploys again on every push to the branch.
+# The whole procedure is in docs/gocarmo-deploy.md.
+#
+# What the free plan means (https://render.com/docs/free, read 12.11.2026):
+#   - 0.1 CPU, 512 MB, no disk. Ride totals and Strava logins are lost when
+#     the service restarts, redeploys or wakes from sleep.
+#   - It sleeps after 15 minutes without a request or a WebSocket message and
+#     takes about one minute to wake. A connected rider keeps it awake.
+#   - 5 GB of outbound traffic a month for the whole workspace. Without a
+#     payment method Render then suspends every free service of the workspace
+#     until the next month. That is why the capacity values below are small.
+
+services:
+  - type: web
+    name: gocarmo-ride
+    runtime: docker
+    plan: free
+    # Cannot be changed after the service is created.
+    region: frankfurt
+    branch: gocarmo-ride
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    # Deploy on every push to the branch.
+    autoDeployTrigger: commit
+    domains:
+      - ride.gocarmo.com
+    envVars:
+      # Render routes traffic to the port named here; the server listens on 8080.
+      - key: PORT
+        value: "8080"
+
+      # --- The game on its own host, shown by gocarmo.com ---------------------
+      - key: OPENRADLR_PUBLIC_URL
+        value: https://ride.gocarmo.com
+      # Sites that may show the game in a frame.          (new in GOCARMO Ride)
+      - key: OPENRADLR_FRAME_ANCESTORS
+        value: https://gocarmo.com,https://www.gocarmo.com
+      # Pages that may open game connections and read /api/info from another
+      # origin. The game's own origin has to be in the list.
+      - key: OPENRADLR_ALLOWED_ORIGINS
+        value: https://ride.gocarmo.com,https://gocarmo.com,https://www.gocarmo.com
+
+      # --- Client address ----------------------------------------------------
+      # Render's edge (Cloudflare) writes the visitor's address into
+      # CF-Connecting-IP on every request to a web service and overwrites what
+      # the caller sent (https://render.com/articles/host-pocketbase-on-render,
+      # 08.07.2026). The per-IP limit counts by it.        (new in GOCARMO Ride)
+      - key: OPENRADLR_CLIENT_IP_HEADER
+        value: CF-Connecting-IP
+      - key: OPENRADLR_TRUST_PROXY
+        value: "false"
+      # Mobile operators put many riders behind one address: 8, not 4.
+      - key: OPENRADLR_MAX_CONNECTIONS_PER_IP
+        value: "8"
+
+      # --- Capacity: the "free pilot" values of docs/gocarmo-server-settings.md -
+      # Measured with these: 34 to 38 MB of traffic per rider-hour, 3 % of one
+      # core with 30 riders. 5 GB are about 130 rider-hours.
+      - key: OPENRADLR_MAX_PLAYERS
+        value: "30"
+      - key: OPENRADLR_MAX_PADDLE_PLAYERS
+        value: "10"
+      - key: OPENRADLR_MAX_VISIBLE_RIDERS
+        value: "20"
+      - key: OPENRADLR_TARGET_RIDERS
+        value: "6"
+      - key: OPENRADLR_BROADCAST_HZ
+        value: "2"
+      # Bounds what a client that stopped reading can hold.  (new in GOCARMO Ride)
+      - key: OPENRADLR_SEND_BUFFER_BYTES
+        value: "131072"
+
+      # --- Start screen ------------------------------------------------------
+      # A pilot: riders without a trainer can try it. Rides on the simulated
+      # trainer or the phone paddles are never uploaded to Strava.
+      - key: OPENRADLR_ALLOW_SIMULATED_TRAINER
+        value: "true"
+      - key: OPENRADLR_ALLOW_PADDLE_MODE
+        value: "true"
+
+      # --- Strava -------------------------------------------------------------
+      # Off until BOTH values exist. The owner types them in the Render
+      # Dashboard (asked once, when the Blueprint is created; later under the
+      # service's Environment page). Never write them into this file.
+      - key: OPENRADLR_STRAVA_CLIENT_ID
+        sync: false
+      - key: OPENRADLR_STRAVA_CLIENT_SECRET
+        sync: false
+      # Encrypts the stored Strava logins. Render makes a random value once and
+      # keeps it; nobody has to type or know it. Without a disk the logins are
+      # lost with every new container anyway.
+      - key: OPENRADLR_SECRET_KEY
+        generateValue: true
+
+      # OpenBikeNet stays off: OPENRADLR_OBN_URL is not set.

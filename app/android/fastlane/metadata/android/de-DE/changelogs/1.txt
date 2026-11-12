@@ -1,1 +1,0 @@
-Die erste OpenRadlr-App: Fahr mit Smart-Rolle, Herzfrequenzgurt und Zwift-Controllern per Bluetooth, lade zu Strava hoch und speichere Fahrten auf dem Handy.

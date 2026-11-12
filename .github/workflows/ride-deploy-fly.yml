@@ -1,0 +1,93 @@
+# GOCARMO Ride: deploy to Fly.io (the first paid fallback).
+#
+# Does nothing unless the repository variable RIDE_DEPLOY is `fly`: until then
+# every run is skipped, so the branch can be pushed before a Fly account
+# exists. The free pilot does not use this file: Render deploys the branch by
+# itself (render.yaml).
+#
+# Needs: the secret FLY_API_TOKEN (the owner creates it on fly.io and stores
+# it as a repository secret himself). Optional repository variables:
+# RIDE_FLY_APP (the app's name, default `gocarmo-ride`) and RIDE_FLY_ORG
+# (default `personal`).
+#
+# The manual trigger: GitHub lists a workflow's "Run workflow" button only
+# when the file is on the default branch. This file is on `gocarmo-ride`, so
+# after its first run start it with `gh workflow run ride-deploy-fly.yml --ref
+# gocarmo-ride`, or push a commit.
+#
+# Written from Fly's documentation (12.11.2026) and not yet run: see
+# docs/gocarmo-deploy.md, "What only a first deploy can confirm".
+name: Ride deploy (Fly.io)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [gocarmo-ride]
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push waits for the running one.
+concurrency:
+  group: ride-deploy-fly
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Fly.io
+    if: vars.RIDE_DEPLOY == 'fly'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      FLY_APP: ${{ vars.RIDE_FLY_APP || 'gocarmo-ride' }}
+      FLY_ORG: ${{ vars.RIDE_FLY_ORG || 'personal' }}
+      RIDE_HOST: ride.gocarmo.com
+      RIDE_VOLUME: ride_data
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Stop early without a token
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::error::RIDE_DEPLOY is 'fly' but the repository secret FLY_API_TOKEN is not set."
+            exit 1
+          fi
+
+      - uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1 # 1.6
+
+      # Creates only what is missing; on later runs these three do nothing.
+      - name: "First deploy: the app, its volume and the certificate"
+        run: |
+          region=$(sed -n 's/^primary_region *= *"\([a-z]*\)".*/\1/p' fly.toml)
+          if ! flyctl status --app "$FLY_APP" >/dev/null 2>&1; then
+            flyctl apps create "$FLY_APP" --org "$FLY_ORG"
+          fi
+          # Read each list in full first: with `pipefail`, a `grep -q` that stops
+          # early could make a list that holds the name look like a failure.
+          volumes=$(flyctl volumes list --app "$FLY_APP" --json)
+          case "$volumes" in
+            *"$RIDE_VOLUME"*) ;;
+            *) flyctl volumes create "$RIDE_VOLUME" --app "$FLY_APP" --region "$region" --size 1 --yes ;;
+          esac
+          certs=$(flyctl certs list --app "$FLY_APP")
+          case "$certs" in
+            *"$RIDE_HOST"*) ;;
+            *) flyctl certs add "$RIDE_HOST" --app "$FLY_APP" ;;
+          esac
+
+      # The commit goes into the image as its build label, so the game's
+      # "Source code" link points at exactly this commit.
+      - name: Deploy this commit
+        run: |
+          flyctl deploy --remote-only --ha=false --app "$FLY_APP" \
+            --build-arg OPENRADLR_BUILD_SHA="$GITHUB_SHA" \
+            --build-arg OPENRADLR_BUILD_DATE="$(date -u +%Y-%m-%dT%H:%MZ)"
+
+      # A new volume belongs to root; the server runs as user 10001.
+      - name: Hand the data folder to the server's user
+        run: |
+          flyctl ssh console --app "$FLY_APP" --command "chown 10001:10001 /app/data" \
+            || echo "::warning::Could not change the owner of /app/data. Run it by hand once: fly ssh console --app $FLY_APP --command 'chown 10001:10001 /app/data'"
