@@ -69,7 +69,7 @@ Site estático (HTML, CSS, JS) publicado no GitHub Pages, sem build nem servidor
   As notas para ti estão num comentário no topo da página (advogado, contabilista, capacete, equipa, Cloudflare).
 - **Cartão de contacto** (`/cartao/`, para o Gonçalo mostrar e partilhar): foto, contactos, «Guardar contacto», o QR
   do cartão e, depois de ligado, «Adicionar à Apple Wallet». Ver «Cartão de contacto», mais abaixo.
-- **GOCARMO Ride** (`/ride/`, **ainda escondida**: sem ligações a partir do site, fora dos motores de pesquisa): a
+- **GOCARMO Ride** (`/ride/`, no ar desde 14.11.2026, com ligação no rodapé das páginas públicas e cartão no Painel): a
   página que apresenta o jogo de ciclismo indoor e o mostra numa moldura. O jogo corre noutro servidor. Ver «GOCARMO
   Ride», mais abaixo.
 
@@ -1349,11 +1349,10 @@ telemóvel e o simulador (ligados no servidor), e o que o jogo envia ao servidor
 o peso, o FTP, o nível, uma chave criada no browser, e depois a potência e a cadência). Se o jogo ou a configuração do
 servidor mudarem nisto (por exemplo, ligar o Strava, que usa um cookie), muda os dois textos.
 
-**Escondida até ao lançamento.** A página tem `<meta name="robots" content="noindex, nofollow">`, nenhuma outra
-página aponta para ela nem para o servidor do jogo e não há cartão no Painel. Enquanto `RIDE_HIDDEN` for `true` em
-`scripts/stamp.mjs`, o `node scripts/stamp.mjs --check` recusa publicar se alguma destas coisas mudar. No dia do
-lançamento: põe `RIDE_HIDDEN` a `false`, tira a linha `robots` de `ride/index.html`, acrescenta as ligações (rodapé ou
-menu de `index.html`, com o texto inglês em `assets/js/i18n.js`) e corre `node scripts/stamp.mjs`. A página de
+**No ar desde 14.11.2026.** `RIDE_HIDDEN` está a `false` em `scripts/stamp.mjs`: a página não tem `noindex`, o
+rodapé de `index.html`, `cartao/`, `condicoes/` e `privacidade/` aponta para ela, e o Painel tem o cartão «Ride». Para a
+esconder de novo: `RIDE_HIDDEN` a `true`, a linha `robots` de volta, tirar essas ligações e correr
+`node scripts/stamp.mjs`. A página de
 privacidade já diz quem aloja o servidor do jogo (Render, máquina em Frankfurt), o que os registos guardam e durante
 quanto tempo (7 dias), em PT e em EN. Se o alojamento mudar, muda esse parágrafo nas duas línguas. Uma nota
 `RIDE-HOST-TODO` nessa página trava o lançamento: com `RIDE_HIDDEN` a `false`, o `stamp.mjs` não passa enquanto a nota

@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-lThezepYmFWfpV28y7mx4ssxKVuuEBtY/GV+FmTV234='; style-src 'self'; font-src 'self'; img-src 'self'; connect-src https://ride.gocarmo.com; frame-src https://ride.gocarmo.com; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'">
-<meta name="robots" content="noindex, nofollow">
 <title>GOCARMO Ride · Gonçalo Carmo</title>
 <meta name="description" content="Ciclismo indoor no browser: ligas um rolo inteligente por Bluetooth, ou experimentas sem bicicleta.">
 <meta name="theme-color" content="#0b0b0c">
@@ -122,8 +121,8 @@
   - The game is not here. It is served whole from its own host, named once in assets/js/ride-config.js; the links
     marked data-ride and the frame-src and connect-src of the Content-Security-Policy above are written from that line
     by node scripts/stamp.mjs.
-  - HIDDEN UNTIL LAUNCH: noindex, nofollow above, no link from any other page, not in a sitemap, nothing in the admin
-    hub. scripts/stamp.mjs keeps it so while its RIDE_HIDDEN is true.
+  - LIVE since 14.11.2026: linked from the footers of the public pages and from the admin hub. scripts/stamp.mjs
+    (RIDE_HIDDEN false) refuses a noindex here and a RIDE-HOST-TODO note on the privacy page.
   - The poster is our own picture of the game (poster-*.webp: the game's own photo of a ride, no numbers on it; og.jpg
     is a screenshot of a ride). The frame is never in this file: ride.js makes it when the visitor presses «Pedalar»,
     and only on a wide window with a mouse or trackpad. It is sandboxed: the game cannot navigate this window.

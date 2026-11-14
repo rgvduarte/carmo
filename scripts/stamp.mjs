@@ -456,7 +456,7 @@ const connect = (s, list) => s.replace(/(<meta http-equiv="Content-Security-Poli
 // ---------- GOCARMO Ride (/ride/) ----------
 // Hidden until the launch: set to false on the day the page is linked from the site (and then take the robots meta out
 // of ride/index.html). While true, the checks below keep the page out of the index, the sitemap and every other page.
-const RIDE_HIDDEN = true;
+const RIDE_HIDDEN = false;
 const RIDE_PAGE = 'ride/index.html';
 // the game's host: one line of assets/js/ride-config.js
 function rideOrigin() {
