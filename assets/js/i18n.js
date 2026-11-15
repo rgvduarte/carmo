@@ -15,6 +15,7 @@ const EN = {
   "hero.sub": "I raced motocross for more than ten years. I took up triathlon in 2025 and the following year I raced IRONMAN Portugal-Cascais in 9:35. Now I want to make triathlon my living, with brands on the team, as I had in motocross. In 2027, I'm going after a Kona slot at IRONMAN Japan South Hokkaido on 12 September.",
   "hero.cta1": "See the suit and helmet",
   "hero.cta2": "Support",
+  "hero.cta3": "Ride on GOCARMO Ride",
   "hero.t1": "Marathon",
   "hero.t2": "Middle distance",
   "hero.t1v": "SEVILLE 26",
