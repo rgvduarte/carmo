@@ -33,6 +33,8 @@ export const DEFAULT_PROFILE = Object.freeze({
   cog: 14,
   workoutPreset: null,
   workoutCues: true,
+  // A finished ride goes to Strava by itself after a countdown, once the rider is connected (they can switch it off).
+  stravaAutoSend: true,
   publicKey: null,
 });
 

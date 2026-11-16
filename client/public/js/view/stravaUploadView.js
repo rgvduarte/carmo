@@ -52,14 +52,37 @@ export function uploadPresentation(state, account, { canConnect = true } = {}) {
   }
 }
 
+/** How long the finish dialog waits before sending a ride by itself, so the rider can still say no. */
+export const AUTO_SEND_SECONDS = 10;
+
 /**
  * Bind a single ride's panel; disposing prevents late effects on another ride.
  * `onState` hears every change of the upload (the finish dialog re-plans on it).
+ * With `autoSend`, a ride not sent yet is sent after a visible countdown
+ * (`elements.countdown`, `countdownText`, `cancel`) unless the rider cancels;
+ * a ride whose upload already started, failed or is uncertain is never sent by
+ * itself. `clock` is injectable for tests.
  */
-export function bindStravaUpload({ elements, client, receipts, key, account, makeFile, name, query = {}, canConnect = true, onSuccess = () => {}, onState = () => {}, onConnect, confirm = () => false }) {
+export function bindStravaUpload({ elements, client, receipts, key, account, makeFile, name, query = {}, canConnect = true, onSuccess = () => {}, onState = () => {}, onConnect, confirm = () => false, autoSend = false, autoSendSeconds = AUTO_SEND_SECONDS, clock = globalThis }) {
   const job = account ? new StravaUpload({ client, receipts, key }) : null;
   let notified = false;
+  let countdown = null; // { left, timer } while the ride waits to be sent by itself
+  let last = { phase: "idle", persisted: true };
+  const showCountdown = () => {
+    if (!elements.countdown) return;
+    elements.countdown.hidden = !countdown;
+    if (countdown && elements.countdownText) elements.countdownText.textContent = t("strava.auto.countdown", { s: countdown.left });
+  };
+  const stopCountdown = () => {
+    if (!countdown) return;
+    clock.clearInterval(countdown.timer);
+    countdown = null;
+    showCountdown();
+  };
   const render = (state) => {
+    last = state;
+    // Anything but a ride still waiting to be sent ends the countdown (a click, a restored receipt).
+    if (countdown && state.phase !== "idle") stopCountdown();
     const view = uploadPresentation(state, account, { canConnect });
     elements.panel.dataset.state = state.phase;
     elements.panel.dataset.tone = state.persisted === false && view.tone === "neutral" ? "warning" : view.tone;
@@ -74,7 +97,8 @@ export function bindStravaUpload({ elements, client, receipts, key, account, mak
     elements.detail.textContent = view.detail;
     elements.detail.hidden = !view.detail;
     elements.action.textContent = view.action ?? "";
-    elements.action.hidden = !view.action;
+    // While the countdown runs, its own line (with Cancel) stands in for the button.
+    elements.action.hidden = !view.action || Boolean(countdown);
     elements.action.disabled = view.busy;
     elements.connect.hidden = !view.connect;
     // What connecting means, next to every button that does it (Strava API Policy 2.1).
@@ -97,6 +121,7 @@ export function bindStravaUpload({ elements, client, receipts, key, account, mak
   const unsubscribe = job?.subscribe(render);
   if (!job) render({ phase: "idle", persisted: true });
   const run = () => {
+    stopCountdown();
     const resubmit = job?.state.phase === "uncertain";
     if (resubmit && !confirm(t("strava.confirmAgain"))) return;
     return job?.run(makeFile, name, { resubmit, query });
@@ -106,11 +131,36 @@ export function bindStravaUpload({ elements, client, receipts, key, account, mak
     event.preventDefault();
     return onConnect();
   };
+  const cancel = () => {
+    if (!countdown) return;
+    stopCountdown();
+    render(last);
+    elements.action.focus?.();
+  };
   elements.action.addEventListener("click", run);
   elements.connect.addEventListener("click", connect);
+  elements.cancel?.addEventListener("click", cancel);
+  // Only a ride Strava has never been sent, by a rider who can upload: the same path as the button, by itself.
+  if (autoSend && job && account?.can_upload && job.state.phase === "idle" && elements.countdown) {
+    countdown = { left: Math.max(1, Math.round(autoSendSeconds)), timer: null };
+    countdown.timer = clock.setInterval(() => {
+      if (!countdown) return;
+      countdown.left -= 1;
+      if (countdown.left > 0) return showCountdown();
+      run();
+    }, 1000);
+    render(job.state);
+  }
+  showCountdown();
   return {
     get state() { return job?.state; },
+    /** The countdown is running. */
+    get counting() { return Boolean(countdown); },
+    /** Stops a running countdown and leaves the button (the rider switched the setting off). */
+    cancelAuto: cancel,
     dispose() {
+      stopCountdown();
+      elements.cancel?.removeEventListener("click", cancel);
       unsubscribe?.();
       job?.dispose();
       elements.action.removeEventListener("click", run);

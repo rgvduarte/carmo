@@ -233,6 +233,84 @@ export function parseZwo(xml) {
   return createWorkout({ name, description, segments });
 }
 
+// ----------------------------------------------------------- .erg / .mrc ---
+
+/**
+ * Parses the plain-text course files ERG and MRC (as TrainingPeaks and other
+ * planners export them): a [COURSE HEADER] that names the columns
+ * ("MINUTES WATTS" for ERG, absolute watts; "MINUTES PERCENT" for MRC,
+ * % of FTP) and a [COURSE DATA] list of "minutes value" points. The target
+ * moves in a straight line from one point to the next: two points at the same
+ * value are a steady block, different values a ramp, two points at the same
+ * minute a step. Watts become fractions of the header's FTP when it has one,
+ * else of the rider's `ftp`, so the rider gets the file's own watts.
+ * [COURSE TEXT] and other sections are ignored.
+ * @param {string} text
+ * @param {{ftp?: number, fileName?: string}} [options]
+ * @returns {Workout}
+ */
+export function parseCourseFile(text, { ftp, fileName = "" } = {}) {
+  if (typeof text !== "string") throw new Error(t("workout.error.notCourse"));
+  const lines = text.replace(/^\uFEFF/, "").split(/\r\n|\r|\n/).map((line) => line.trim());
+  const sectionAt = (name) => lines.findIndex((line) => line.toUpperCase().replace(/\s+/g, " ") === `[${name}]`);
+  const headerStart = sectionAt("COURSE HEADER"); // i18n-ok (a keyword of the file format)
+  const dataStart = sectionAt("COURSE DATA"); // i18n-ok (a keyword of the file format)
+  if (headerStart < 0 || dataStart < 0) throw new Error(t("workout.error.notCourse"));
+
+  const header = {};
+  let unit = null;
+  for (let i = headerStart + 1; i < lines.length && !lines[i].startsWith("["); i += 1) {
+    const columns = lines[i].toUpperCase().split(/\s+/).join(" ");
+    if (columns === "MINUTES WATTS") unit = "watts"; // i18n-ok (a keyword of the file format)
+    else if (columns === "MINUTES PERCENT") unit = "percent"; // i18n-ok (a keyword of the file format)
+    const field = /^([^=]+)=(.*)$/.exec(lines[i]);
+    if (field) header[field[1].trim().toUpperCase()] = field[2].trim();
+  }
+  if (!unit) throw new Error(t("workout.error.courseUnits"));
+  const headerFtp = number(header.FTP);
+  const base = unit === "percent" ? 100 : headerFtp > 0 ? headerFtp : Number(ftp);
+  if (!(base > 0)) throw new Error(t("workout.error.courseUnits"));
+
+  const points = [];
+  for (let i = dataStart + 1; i < lines.length && !lines[i].startsWith("["); i += 1) {
+    if (!lines[i]) continue;
+    const parts = lines[i].split(/[\s,;]+/);
+    const minutes = Number(parts[0]);
+    const value = Number(parts[1]);
+    if (parts.length < 2 || !Number.isFinite(minutes) || !Number.isFinite(value) || minutes < 0 || value < 0) {
+      throw new Error(t("workout.error.courseLine", { n: i + 1 }));
+    }
+    if (points.length && minutes < points.at(-1).minutes) throw new Error(t("workout.error.courseLine", { n: i + 1 }));
+    points.push({ minutes, value });
+  }
+  if (points.length < 2) throw new Error(t("workout.error.noBlocks"));
+
+  const segments = [];
+  for (let i = 1; i < points.length; i += 1) {
+    const [a, b] = [points[i - 1], points[i]];
+    // Whole seconds from the start, so rounding never adds or loses time over a long file.
+    const durationS = Math.round(b.minutes * 60) - Math.round(a.minutes * 60);
+    if (durationS <= 0) continue;
+    const from = a.value / base;
+    const to = b.value / base;
+    segments.push(from === to ? steady(durationS, from) : ramp(durationS, from, to));
+  }
+  const stem = String(fileName).replace(/^.*[\\/]/, "").replace(/\.(erg|mrc)$/i, "");
+  const name = header["FILE NAME"] || header.DESCRIPTION || stem || t("workout.imported"); // i18n-ok (a keyword of the file format)
+  const description = header["FILE NAME"] && header.DESCRIPTION ? header.DESCRIPTION : ""; // i18n-ok (a keyword of the file format)
+  return createWorkout({ name, description, segments });
+}
+
+/**
+ * Any workout file the game reads: .zwo (XML), .erg or .mrc (course text).
+ * @param {string} text @param {{ftp?: number, fileName?: string}} [options]
+ */
+export function parseWorkoutFile(text, options = {}) {
+  if (typeof text === "string" && /<workout_file[\s>]/i.test(text)) return parseZwo(text);
+  if (typeof text === "string" && /\[\s*COURSE\s+HEADER\s*\]/i.test(text)) return parseCourseFile(text, options);
+  throw new Error(t("workout.error.notWorkoutFile"));
+}
+
 // --------------------------------------------------------------- presets ---
 
 export const PRESET_WORKOUTS = Object.freeze([

@@ -1,2 +1,4 @@
 * text=auto eol=lf
 *.png binary
+# Workout fixtures keep their line endings: one tests Windows (CRLF) files.
+client/test/fixtures/workouts/* -text

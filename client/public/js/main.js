@@ -34,7 +34,7 @@ import { draftInfo } from "./ride/draft.js";
 import { applyDifficulty } from "./ride/difficulty.js";
 import { RideSession } from "./ride/rideSession.js";
 import { TrainingControl } from "./ride/trainingControl.js";
-import { PRESET_WORKOUTS, parseZwo, totalDuration, segmentLabel, workoutDescription, workoutName } from "./ride/workout.js";
+import { PRESET_WORKOUTS, parseWorkoutFile, totalDuration, segmentLabel, workoutDescription, workoutName } from "./ride/workout.js";
 import { Gearbox, shiftingCommand } from "./ride/virtualShifting.js";
 import { climbFeelVisible } from "./ride/climbFeel.js";
 import { RiderSmoother } from "./ride/smoothing.js";
@@ -815,6 +815,9 @@ function initStartMenu() {
       connectStravaInApp();
     });
   }
+  for (const id of ["strava-auto", "finish-strava-auto"]) {
+    $(id).addEventListener("change", (event) => setAutoSend(event.target.checked));
+  }
   $("strava-logout").addEventListener("click", async () => {
     const done = await app.strava.logout().catch(() => null);
     app.stravaAccount = null;
@@ -1065,7 +1068,7 @@ function renderAccount() {
   const line = stravaLine(app.info, app.stravaAccount, app.shownRideMode);
   // The account block also carries the messages after a sign-in or a disconnect: it stays while one shows.
   $("account").hidden = !line.shown && $("strava-message").hidden && $("strava-done").hidden;
-  for (const part of ["strava-connected", "strava-logout", "strava-disconnected", "strava-connect", "strava-hint", "strava-consent"]) $(part).hidden = true;
+  for (const part of ["strava-connected", "strava-logout", "strava-disconnected", "strava-connect", "strava-hint", "strava-consent", "strava-auto-line"]) $(part).hidden = true;
   if (!line.shown) return;
   // An offer comes after "How are you riding?"; where the server asks for Strava the line leads the Rider section.
   const account = $("account");
@@ -1075,6 +1078,9 @@ function renderAccount() {
   $("account").classList.toggle("required", line.required);
   $("strava-connected").hidden = !line.connected;
   $("strava-logout").hidden = !line.connected;
+  // Where the rider connects Strava: whether a finished ride goes there by itself.
+  $("strava-auto-line").hidden = !line.connected;
+  $("strava-auto").checked = autoSendOn();
   $("strava-disconnected").hidden = line.connected;
   // Where Strava is required, the Ride button is the way to connect: no second button.
   $("strava-connect").hidden = line.connected || line.required;
@@ -1084,6 +1090,16 @@ function renderAccount() {
   const hint = line.required ? line.text : line.note;
   $("strava-hint").hidden = !hint;
   $("strava-hint").textContent = hint;
+}
+
+/** The rider's "always send to Strava at the end": on unless they switched it off (kept with the profile). */
+const autoSendOn = () => app.profile.stravaAutoSend !== false;
+
+function setAutoSend(on) {
+  app.profile = profiles.save({ ...app.profile, stravaAutoSend: on });
+  for (const id of ["strava-auto", "finish-strava-auto"]) $(id).checked = on;
+  // Switched off while a finished ride counts down: it stops, and the button stays.
+  if (!on) app.finishUpload?.cancelAuto?.();
 }
 
 function renderStartMenu() {
@@ -2941,6 +2957,7 @@ function renderFinishPlan(upload = app.finishUpload?.state) {
     connectFailed: app.connectMemory.failed,
     phase: upload?.phase,
     code: upload?.code,
+    autoSend: autoSendOn(),
   });
   const toStrava = plan.strava || plan.manual !== "none";
   $("finish-send-title").textContent = t(toStrava ? "strava.sendTitle" : "finish.keepTitle");
@@ -2948,6 +2965,9 @@ function renderFinishPlan(upload = app.finishUpload?.state) {
   $("finish-note").textContent = plan.reason ? t(plan.reason) : "";
   $("finish-send").dataset.main = plan.manual === "main" ? "manual" : "strava";
   $("finish-strava").hidden = !plan.strava;
+  // The setting is shown to a rider whose rides go to Strava from here.
+  $("finish-strava-auto-line").hidden = plan.mode !== "send" && plan.mode !== "sent";
+  $("finish-strava-auto").checked = autoSendOn();
   // With the file in front, the button to connect comes after it, with a line that says for whom it is.
   $("finish-strava-lead").hidden = plan.mode !== "manual";
   const manual = $("finish-manual");
@@ -2981,10 +3001,11 @@ function saveFinishedSnapshot() {
 }
 
 /** The same panel renders a finished ride and a ride restored from browser recovery. */
-function mountUpload(prefix, recorder, name, { indoor, routeId = null, splits = [], onSuccess, onState, onConnect }) {
+function mountUpload(prefix, recorder, name, { indoor, routeId = null, splits = [], onSuccess, onState, onConnect, autoSend = false }) {
   const action = prefix === "finish-strava" ? "upload-strava" : "unfinished-strava";
   const status = prefix === "finish-strava" ? "upload-status" : "unfinished-upload-status";
-  const elements = Object.fromEntries(["account", "detail", "connect", "activity", "storage", "consent", "note"].map((part) => [part, document.getElementById(`${prefix}-${part}`)]));
+  const elements = Object.fromEntries(["account", "detail", "connect", "activity", "storage", "consent", "note", "countdown", "cancel"].map((part) => [part, document.getElementById(`${prefix}-${part}`)]));
+  elements.countdownText = document.getElementById(`${prefix}-countdown-text`);
   return bindStravaUpload({
     elements: { ...elements, panel: $(prefix), action: $(action), status: $(status) },
     client: app.strava,
@@ -3001,6 +3022,7 @@ function mountUpload(prefix, recorder, name, { indoor, routeId = null, splits = 
     onState,
     onConnect: nativeApp?.signIn ? () => connectStravaInApp() : onConnect,
     confirm: (message) => confirm(message),
+    autoSend,
   });
 }
 
@@ -3013,6 +3035,8 @@ function setupFinishUpload() {
   if (!plan.strava) return;
   app.finishUpload = mountUpload("finish-strava", recorder, rideName(), {
     indoor: Boolean(app.studio), routeId: app.rideRoute.id, splits: app.finishSplits,
+    // The rider's setting, for a ride that would be sent from here and has not been sent yet.
+    autoSend: plan.auto,
     onConnect: async () => {
       // In a frame the sign-in opens in another tab and this ride stays on screen: nothing to save first.
       if (app.framed) return goToStravaSignIn();
@@ -4025,7 +4049,8 @@ function initTraining({ simulated, setSimPower }) {
     if (!file) return;
     try {
       if (file.size > 512 * 1024) throw new Error(t("training.fileTooLarge"));
-      const workout = parseZwo(await file.text());
+      // .zwo, .erg or .mrc; watts in a file without its own FTP are the rider's watts.
+      const workout = parseWorkoutFile(await file.text(), { ftp: app.profile.ftp, fileName: file.name });
       app.workouts.push(workout);
       renderWorkoutOptions(app.workouts.length - 1);
       $("training-note").textContent = t("training.imported", { name: workout.name });

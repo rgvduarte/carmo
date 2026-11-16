@@ -7102,6 +7102,24 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
 
 .upload-action:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
+/* "Sending to Strava in 10 s · Cancel": the ride goes by itself unless the rider says no. */
+.upload-countdown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.upload-countdown[hidden] { display: none; }
+.upload-countdown > button { width: auto; min-height: 40px; }
+
 /* What the upload is doing, in words: always visible, never only a colour. */
 .upload-status { font-size: 14px; font-weight: 600; color: var(--text); }
 .strava-upload[data-tone="success"] .upload-status::before {

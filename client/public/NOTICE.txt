@@ -416,6 +416,30 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   It is not: the game shows it in English in all three languages, on purpose,
   because Strava's Brand Guidelines give that wording.
 
+### 16.11.2026 — automatic send to Strava, ERG and MRC workout files
+
+- **Always send to Strava at the end** (`js/view/stravaUploadView.js`,
+  `js/ride/finishPlan.js`, `js/profile/profileStore.js`, `main.js`,
+  `index.html`, `styles.css`, `js/i18n/`): a setting next to the Strava
+  account on the start screen and in the finish dialog, kept with the rider's
+  profile in the browser, on unless the rider switches it off. With it on, a
+  connected rider's finished ride that the game would send from the finish
+  dialog (a real trainer; never the simulated trainer or phone paddles) is
+  sent after a visible 10-second countdown with a Cancel button, through the
+  same upload as the "Send to Strava" button (same name, description,
+  external id, checks and errors). Cancel leaves the button. A ride already
+  sent, refused or whose upload may already be on Strava is never sent by
+  itself. Riders who cannot connect see no change. The image still goes to
+  Strava by hand only.
+- **ERG and MRC workout files** (`js/ride/workout.js`, `main.js`,
+  `index.html`, `js/i18n/`): the workout import also reads the plain-text
+  `.erg` (minutes and watts) and `.mrc` (minutes and % of FTP) files that
+  planners such as TrainingPeaks export, as steady blocks and ramps of the
+  same workout model as a `.zwo` file; watts are taken against the file's own
+  FTP when it gives one, else the rider's. Malformed files are refused with a
+  message. The button reads "Import workout", with a line on how to bring a
+  workout from TrainingPeaks.
+
 ## Third-party material added by this fork
 
 - **Fonts** in `client/public/fonts/`: Anton (© The Anton Project Authors),

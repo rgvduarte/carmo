@@ -277,6 +277,7 @@
                   <span id="strava-disconnected" class="device-status" hidden></span>
                   <button type="button" id="strava-logout" class="secondary small" hidden data-i18n="strava.disconnect">Disconnect</button>
                 </div>
+                <label id="strava-auto-line" class="check" hidden><input id="strava-auto" type="checkbox" /> <span data-i18n="strava.auto.setting">Always send to Strava at the end</span></label>
                 <a id="strava-connect" class="strava-connect" href="/auth/strava" hidden><img src="strava/btn_strava_connect_with_orange.svg" width="237" height="48" alt="Connect with Strava" data-i18n-attr="alt:strava.connectWith" /></a>
                 <p id="strava-consent" class="field-hint strava-consent" hidden><span data-i18n="strava.consent">When you connect, this server keeps your Strava athlete number and access keys, only to upload the rides you choose. Disconnect deletes them and withdraws the authorisation.</span> <button type="button" class="link-button" data-privacy-open data-i18n="strava.consentMore">More in Privacy</button></p>
                 <p id="strava-hint" class="field-hint" hidden></p>
@@ -920,11 +921,12 @@
                     </div>
                     <div id="workout-picker" class="workout-picker">
                       <select id="workout-select" aria-label="Workout" data-i18n-attr="aria-label:workout.title"></select>
-                      <input id="workout-file" type="file" accept=".zwo,.xml" hidden />
+                      <input id="workout-file" type="file" accept=".zwo,.xml,.erg,.mrc" hidden />
                       <div class="workout-actions">
                         <button type="button" id="workout-start" data-i18n="drawer.startWorkout">Start workout</button>
-                        <button type="button" id="workout-import" class="secondary" data-i18n="drawer.importZwo">Import .zwo</button>
+                        <button type="button" id="workout-import" class="secondary" data-i18n="drawer.importWorkout">Import workout</button>
                       </div>
+                      <p id="workout-import-help" class="field-hint" data-i18n="drawer.importHelp">Workouts from TrainingPeaks: open the workout in TrainingPeaks, download its workout file (.zwo, .erg or .mrc) and choose it with “Import workout”.</p>
                       <canvas id="workout-preview" class="canvas-workout-preview" aria-label="Power profile of the selected workout" data-i18n-attr="aria-label:drawer.workoutPreview"></canvas>
                       <p id="workout-description" class="field-hint"></p>
                     </div>
@@ -1022,12 +1024,14 @@
                 <p id="upload-status" class="upload-status" role="status" aria-live="polite" hidden></p>
                 <p id="finish-strava-detail" class="field-hint" hidden></p>
                 <p id="finish-strava-lead" class="field-hint" hidden data-i18n="finish.connectLead">If your account is one of those Strava already lets connect:</p>
+                <p id="finish-strava-countdown" class="upload-countdown" hidden><span id="finish-strava-countdown-text"></span> · <button type="button" id="finish-strava-cancel" class="secondary small" data-i18n="strava.auto.cancel">Cancel</button></p>
                 <div class="upload-actions">
                   <button type="button" id="upload-strava" aria-describedby="upload-status finish-strava-detail finish-strava-storage" class="primary upload-action" data-i18n="strava.send">Send to Strava</button>
                   <a id="finish-strava-connect" aria-describedby="finish-strava-detail" class="strava-connect" href="/auth/strava" hidden><img src="strava/btn_strava_connect_with_orange.svg" width="237" height="48" alt="Connect with Strava" data-i18n-attr="alt:strava.connectWith" /></a>
                   <a id="finish-strava-activity" class="strava-view" target="_blank" rel="noopener" hidden data-i18n="strava.view">View on Strava</a>
                 </div>
                 <p id="finish-strava-note" class="field-hint" hidden></p>
+                <label id="finish-strava-auto-line" class="check" hidden><input id="finish-strava-auto" type="checkbox" /> <span data-i18n="strava.auto.setting">Always send to Strava at the end</span></label>
                 <p id="finish-strava-consent" class="field-hint strava-consent" hidden><span data-i18n="strava.consent">When you connect, this server keeps your Strava athlete number and access keys, only to upload the rides you choose. Disconnect deletes them and withdraws the authorisation.</span> <button type="button" class="link-button" data-privacy-open data-i18n="strava.consentMore">More in Privacy</button></p>
                 <p id="finish-strava-storage" class="field-hint" hidden data-i18n="strava.storageWarning">Upload status can’t be saved in this browser. Keep this page open until confirmed, or download your ride.</p>
               </div>

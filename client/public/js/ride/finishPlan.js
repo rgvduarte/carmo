@@ -12,7 +12,10 @@
  * - a rider who cannot connect (Strava switched off on this server, or the
  *   application still under the athlete limit Strava gives a new application)
  *   gets the .fit file as the main action, with how to upload it by hand;
- * - there is never a button that leads nowhere.
+ * - there is never a button that leads nowhere;
+ * - with the rider's setting on, a ride that would be sent from here is sent
+ *   by itself after a countdown, the same way as the button; never one that
+ *   was sent before, failed, or may already be on Strava.
  */
 
 /** Upload phases after which the file by hand is offered again, in the open. */
@@ -29,6 +32,7 @@ const STUCK = new Set(["failed", "rejected", "uncertain", "check-failed"]);
  *   account: ?{can_upload: boolean}, the connected Strava account
  *   connectFailed: boolean, the last attempt to connect did not work
  *   phase?: string, code?: ?string, the upload so far (net/stravaUpload.js)
+ *   autoSend?: boolean, the rider's "always send to Strava at the end" setting
  * }} state
  * @returns {{
  *   mode: "empty" | "paddle" | "simulated" | "manual" | "connect" | "reconnect" | "send" | "sent",
@@ -38,10 +42,11 @@ const STUCK = new Set(["failed", "rejected", "uncertain", "check-failed"]);
  *   image: boolean, there is a ride image
  *   primary: "upload" | "connect" | "fit" | "image" | null,
  *   reason: ?string, the i18n key of the one line that says why
+ *   auto: boolean, the ride is sent by itself after a countdown the rider can cancel
  * }}
  */
-export function finishPlan({ empty, exportable, measured, stravaEnabled, stravaLimited, stravaOwnerOnly = false, account, connectFailed, phase = "idle", code = null }) {
-  const none = { strava: false, manual: "none", files: false, image: false, primary: null, reason: null };
+export function finishPlan({ empty, exportable, measured, stravaEnabled, stravaLimited, stravaOwnerOnly = false, account, connectFailed, phase = "idle", code = null, autoSend = false }) {
+  const none = { strava: false, manual: "none", files: false, image: false, primary: null, reason: null, auto: false };
   if (empty) return { ...none, mode: "empty", reason: "finish.note.tooShort" };
   if (!exportable) return { ...none, mode: "paddle", image: true, primary: "image", reason: "finish.note.paddle" };
   if (!measured) return { ...none, mode: "simulated", files: true, image: true, primary: "image", reason: "finish.note.simulated" };
@@ -63,5 +68,6 @@ export function finishPlan({ empty, exportable, measured, stravaEnabled, stravaL
   if (!account.can_upload || code === "upload_not_allowed") return { ...base, mode: "reconnect", strava: true, manual: "open", primary: "connect" };
 
   if (phase === "success") return { ...base, mode: "sent", strava: true, manual: "folded", primary: "image" };
-  return { ...base, mode: "send", strava: true, manual: STUCK.has(phase) ? "open" : "folded", primary: "upload" };
+  // By itself only a ride not sent yet: never again after a failure or an upload Strava may already have.
+  return { ...base, mode: "send", strava: true, manual: STUCK.has(phase) ? "open" : "folded", primary: "upload", auto: Boolean(autoSend) && phase === "idle" };
 }
