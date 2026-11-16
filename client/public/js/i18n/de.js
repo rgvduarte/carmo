@@ -428,7 +428,7 @@ export default {
   "strava.action.retryCheck": "Erneut prüfen",
   "strava.account": "Mit Strava verbunden",
   "strava.connected": "Mit Strava verbunden",
-  "strava.consent": "Beim Verbinden speichert dieser Server deine Strava-Athletennummer und die Zugangsschlüssel, nur um deine Fahrten auf dem Trainer hochzuladen: am Ende jeder Fahrt, solange „Am Ende immer an Strava senden“ an ist, oder wenn du auf „An Strava senden“ tippst. Trennen löscht sie und entzieht die Berechtigung.",
+  "strava.consent": "Beim Verbinden speichert dieser Server deine Strava-Athletennummer und die Zugangsschlüssel, nur um deine Fahrten auf dem Trainer hochzuladen: Jede geht am Ende von selbst an Strava, 10 Sekunden später, außer du tippst auf „Abbrechen“ oder schaltest „Am Ende immer an Strava senden“ aus. Trennen löscht sie und entzieht die Berechtigung.",
   "strava.consentMore": "Mehr unter Datenschutz",
   "strava.disconnected": "Du hast Strava getrennt. Dieser Server hat deine Athletennummer und die Zugangsschlüssel gelöscht und die Berechtigung bei Strava entzogen.",
   "strava.disconnectedLocal": "Du hast Strava getrennt. Dieser Server hat deine Athletennummer und die Zugangsschlüssel gelöscht. Strava war nicht erreichbar, um die Berechtigung zu entziehen: Entferne GOCARMO Ride unter strava.com/settings/apps.",

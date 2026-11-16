@@ -430,7 +430,7 @@ export default {
   "strava.action.retryCheck": "Verificar de novo",
   "strava.account": "Ligado ao Strava",
   "strava.connected": "Ligado ao Strava",
-  "strava.consent": "Ao ligar, este servidor guarda o teu número de atleta no Strava e as chaves de acesso, só para enviar as tuas atividades com rolo: no fim de cada uma, se «Enviar sempre para o Strava no fim» estiver ligado, ou quando carregas em «Enviar para o Strava». Desligar apaga-os e retira a autorização.",
+  "strava.consent": "Ao ligar, este servidor guarda o teu número de atleta no Strava e as chaves de acesso, só para enviar as tuas atividades com rolo: cada uma vai sozinha para o Strava no fim, 10 segundos depois, a não ser que carregues em «Cancelar» ou desligues «Enviar sempre para o Strava no fim». Desligar apaga-os e retira a autorização.",
   "strava.consentMore": "Mais em Privacidade",
   "strava.disconnected": "Desligaste o Strava. Este servidor apagou o teu número de atleta e as chaves de acesso, e retirou a autorização no Strava.",
   "strava.disconnectedLocal": "Desligaste o Strava. Este servidor apagou o teu número de atleta e as chaves de acesso. Não foi possível chegar ao Strava para retirar a autorização: remove o GOCARMO Ride em strava.com/settings/apps.",

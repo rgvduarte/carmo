@@ -193,3 +193,12 @@ test("the setting is in the start screen's Strava block and in the finish dialog
     }
   }
 });
+
+test("the consent next to the connect button says the send is automatic and how to stop it", () => {
+  for (const [dict, auto, cancel] of [[pt, /sozinha/, /«Cancelar»/], [en, /by itself/, /“Cancel”/], [de, /von selbst/, /„Abbrechen“/]]) {
+    assert.match(dict["strava.consent"], auto);
+    assert.match(dict["strava.consent"], cancel);
+    assert.ok(dict["strava.consent"].includes(dict["strava.auto.setting"]), "names the setting");
+    assert.match(dict["strava.consent"], new RegExp(String(AUTO_SEND_SECONDS)));
+  }
+});

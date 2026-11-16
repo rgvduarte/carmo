@@ -428,7 +428,7 @@ export default {
   "strava.action.retryCheck": "Retry check",
   "strava.account": "Connected to Strava",
   "strava.connected": "Connected to Strava",
-  "strava.consent": "When you connect, this server keeps your Strava athlete number and access keys, only to upload your trainer rides: at the end of each one while “Always send to Strava at the end” is on, or when you press “Send to Strava”. Disconnect deletes them and withdraws the authorisation.",
+  "strava.consent": "When you connect, this server keeps your Strava athlete number and access keys, only to upload your trainer rides: each one goes to Strava by itself at the end, 10 seconds later, unless you press “Cancel” or switch off “Always send to Strava at the end”. Disconnect deletes them and withdraws the authorisation.",
   "strava.consentMore": "More in Privacy",
   "strava.disconnected": "You disconnected Strava. This server deleted your athlete number and access keys, and withdrew its authorisation on Strava.",
   "strava.disconnectedLocal": "You disconnected Strava. This server deleted your athlete number and access keys. Strava could not be reached to withdraw the authorisation: remove GOCARMO Ride at strava.com/settings/apps.",
