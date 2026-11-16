@@ -3,19 +3,21 @@
  * in gold, the profile of what was ridden with the power over it, and the
  * ride's numbers, under the GOCARMO Ride lockup. Drawn on a 2D canvas in the
  * browser, in two sizes from one layout (view/rideCardModel.js): upright
- * 1080 × 1350 and wide 1600 × 900. Nothing is fetched and nothing leaves the
+ * 1080 × 1350 and wide 1600 × 900. In the bottom right corner, a QR code to
+ * the game (view/rideQr.js). Nothing is fetched and nothing leaves the
  * browser; the rider saves or shares the image and adds it to the Strava
  * activity by hand (Strava's API takes no pictures).
  */
 
 import { ACCENT, BG, DISPLAY, INK, MONO, MUTED, NUM, SLANT, lockup, photoFontsReady, slanted, track } from "./photos.js";
-import { CARD_FORMATS, CREDIT_LINE_H, CREDIT_SIZE, boundsOf, cardLayout, fitText, fitTitle, headerMetrics, mapProjection, metricGrids, scaleBar, thinTrack } from "./rideCardModel.js";
+import { CARD_FORMATS, CREDIT_LINE_H, CREDIT_SIZE, QR_MODULE, QR_QUIET_MODULES, boundsOf, cardLayout, fitText, fitTitle, headerMetrics, mapProjection, metricGrids, qrPanel, scaleBar, thinTrack } from "./rideCardModel.js";
+import { QR_URL, drawQr, qrMatrix } from "./rideQr.js";
 import { coastOutline, islandOf } from "./mapPreview.js";
 import { elevationUnit, formatDistanceWithUnit, formatDuration, formatNumber } from "../util/format.js";
 import { t } from "../i18n/i18n.js";
 
-/** The address under the image: where the game is. */
-export const CARD_FOOTER = "gocarmo.com/ride";
+/** The line under the image: whose it is and where the game is (the QR code beside it leads there too). */
+export const CARD_FOOTER = "by GOCARMO Ride · ride.gocarmo.com"; // i18n-ok (the brand's signature, the same in every language)
 
 const SURFACE = "#101012";
 const LAND = "#151517";
@@ -405,9 +407,11 @@ export function composeRideCard(model, format = CARD_FORMATS.portrait, doc = doc
   const wide = format.id === "landscape";
   // The data credit of the route, if it has one, wrapped to the footer's width.
   const creditSize = CREDIT_SIZE[format.id];
-  const footerW = cardLayout(format, { metricCount: model.metrics.length, zones: false, map: false }).footer.w;
+  const footerW = cardLayout(format, { metricCount: model.metrics.length, zones: false, map: false, qrSide: qrPanel(format) }).footer.w;
   const credit = model.credit ? wrapWords(measureWith(ctx, MONO, 500), model.credit, footerW, creditSize) : [];
-  const content = { metricCount: model.metrics.length, zones: Boolean(model.zones), map: Boolean(model.map), creditLines: credit.length };
+  const qr = qrMatrix(QR_URL);
+  const qrSide = qrPanel(format, qr.size);
+  const content = { metricCount: model.metrics.length, zones: Boolean(model.zones), map: Boolean(model.map), creditLines: credit.length, qrSide };
   const headerW = cardLayout(format, content).header.w;
   // A slanted line leans to the right by a part of its height: leave it that room.
   const display = measureWith(ctx, DISPLAY, 400);
@@ -425,5 +429,6 @@ export function composeRideCard(model, format = CARD_FORMATS.portrait, doc = doc
   if (layout.zones) drawZones(ctx, model, layout.zones);
   credit.forEach((line, i) => label(ctx, line, layout.footer.x, layout.footer.y + (i + 1) * CREDIT_LINE_H[format.id] - 4, { size: creditSize, tracking: 0 }));
   label(ctx, CARD_FOOTER, layout.footer.x, layout.footer.y + layout.footer.h - 3, { size: wide ? 17 : 19, colour: INK, tracking: 0.06 });
+  drawQr(ctx, qr, layout.qr.x, layout.qr.y, QR_MODULE[format.id], QR_QUIET_MODULES);
   return canvas;
 }

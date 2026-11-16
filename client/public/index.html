@@ -85,6 +85,7 @@
     <link rel="modulepreload" href="js/view/ftpPrompt.js" />
     <link rel="modulepreload" href="js/view/ftpProvenance.js" />
     <link rel="modulepreload" href="js/view/ftpTestView.js" />
+    <link rel="modulepreload" href="js/view/howItWorks.js" />
     <link rel="modulepreload" href="js/view/hud.js" />
     <link rel="modulepreload" href="js/view/mapPreview.js" />
     <link rel="modulepreload" href="js/view/menuDialog.js" />
@@ -146,6 +147,7 @@
     <link rel="modulepreload" href="js/view/remoteRiders.js" />
     <link rel="modulepreload" href="js/view/rideMapDecor.js" />
     <link rel="modulepreload" href="js/view/rideMapTheme.js" />
+    <link rel="modulepreload" href="js/view/rideQr.js" />
     <link rel="modulepreload" href="js/view3d/biomes/temperate.js" />
     <link rel="modulepreload" href="js/view3d/biomes/winter/index.js" />
     <link rel="modulepreload" href="js/view3d/chaseCamera.js" />
@@ -177,6 +179,7 @@
     <link rel="modulepreload" href="js/view3d/features.js" />
     <link rel="modulepreload" href="js/view3d/weather.js" />
     <link rel="modulepreload" href="js/view3d/zones.js" />
+    <link rel="modulepreload" href="vendor/qrcode-generator/qrcode.mjs" />
     <link rel="modulepreload" href="js/view3d/biomes/helpers.js" />
     <link rel="modulepreload" href="js/view3d/biomes/winter/animals.js" />
     <link rel="modulepreload" href="js/view3d/gocarmoMark.js" />
@@ -196,6 +199,9 @@
             <svg class="brand-mark" viewBox="0 0 64 64" width="46" height="46" aria-hidden="true" focusable="false"><use href="#gc-symbol" /></svg>
             <span class="brand-word">GOCARMO <span>Ride</span></span>
           </div>
+          <button type="button" class="how-open" data-how-open data-nav-skip aria-haspopup="dialog" aria-controls="how" title="How it works" data-i18n-attr="title:how.title">
+            <span class="how-mark" aria-hidden="true">?</span><span class="how-open-text" data-i18n="how.title">How it works</span>
+          </button>
           <select id="lang-select" class="lang-select" aria-label="Language" data-i18n-attr="aria-label:menu.language"></select>
           <!-- Shown only inside a frame that allows full screen (js/util/frame.js). -->
           <button type="button" class="fullscreen-toggle" data-fullscreen-toggle data-nav-skip>
@@ -433,6 +439,7 @@
         </div>
         <footer class="build-line">
           <button type="button" id="build-label" class="build-label" title="Copy the build details" data-nav-skip data-i18n-attr="title:menu.build.copy"></button>
+          <button type="button" id="how-open" class="build-label" data-how-open data-nav-skip data-i18n="how.title">How it works</button>
           <button type="button" id="privacy-open" class="build-label" data-privacy-open data-nav-skip data-i18n="menu.privacy">Privacy</button>
           <button type="button" id="about-open" class="build-label" data-about-open data-nav-skip data-i18n="about.title">About</button>
           <a class="build-label" data-source-link href="https://github.com/rgvduarte/carmo/tree/gocarmo-ride" target="_blank" rel="noopener" data-nav-skip data-i18n="about.source">Source code</a>
@@ -1157,6 +1164,44 @@
           </p>
           <p class="muted" data-i18n="privacy.updated">Updated on 12.11.2026.</p>
           <div class="modal-actions"><button type="button" id="privacy-close" class="primary-small" data-i18n="drawer.close">Close</button></div>
+        </div>
+      </dialog>
+
+      <!-- How it works: opens by itself on a browser's first visit, and from the start screen's header and foot (js/view/howItWorks.js). -->
+      <dialog id="how" class="about how" aria-labelledby="how-title">
+        <div class="about-card how-card">
+          <div class="brand about-brand">
+            <svg class="brand-mark" viewBox="0 0 64 64" width="46" height="46" aria-hidden="true" focusable="false"><use href="#gc-symbol" /></svg>
+            <span class="brand-word">GOCARMO <span>Ride</span></span>
+          </div>
+          <h2 id="how-title" tabindex="-1" data-i18n="how.title">How it works</h2>
+          <p class="how-lede" data-i18n="how.lede">Indoor cycling in the browser: connect a smart trainer over Bluetooth, or try it without a bike.</p>
+          <ol class="how-steps">
+            <li>
+              <h3 data-i18n="how.need.title">What you need</h3>
+              <p class="muted" data-i18n="how.need">A smart trainer and Chrome or Edge, on a computer (Windows, macOS, ChromeOS) or an Android phone or tablet. On iPhone and iPad, and in Safari or Firefox, the browser cannot connect a trainer over Bluetooth: ride with the phone paddles or try the simulator.</p>
+            </li>
+            <li>
+              <h3 data-i18n="how.connect.title">Connect the trainer</h3>
+              <p class="muted" data-i18n="how.connect">Under “How are you riding?” pick “Smart trainer” and press “Connect”: the browser lists the Bluetooth devices nearby and you choose yours. A heart-rate strap or a controller joins the same way, with “Add”. Next time the game remembers them.</p>
+            </li>
+            <li>
+              <h3 data-i18n="how.pick.title">Pick a route, a class or a workout</h3>
+              <p class="muted" data-i18n="how.pick">The tabs at the top: “Ride” (a route, with other riders and bots), “Studio” (a class), “Workout” and, when there are any, “Events”. Pick a card, check your name, weight and FTP, and press the gold button. Your own workout (.zwo, .erg or .mrc, for example from TrainingPeaks) is imported during the ride: Menu › Training › “Import workout”.</p>
+            </li>
+            <li>
+              <h3 data-i18n="how.end.title">At the end</h3>
+              <p class="muted" data-i18n="how.end">Menu › “Finish ride” shows the summary, the ride image, upright or wide, to save or share, and the .fit, .tcx and .gpx files. If you connected Strava (where this server offers it), the ride goes there by itself 10 seconds later, unless you press “Cancel”. Simulator rides are not sent to Strava; phone paddle rides keep only the image.</p>
+            </li>
+            <li>
+              <h3 data-i18n="how.data.title">What the server receives</h3>
+              <p class="muted"><span data-i18n="how.data">Your name, weight and FTP when you start, and your power and cadence while you ride; other riders see your name. There are no accounts: your profile and ride history stay in your browser.</span> <button type="button" class="link-button" data-privacy-open data-i18n="strava.consentMore">More in Privacy</button></p>
+            </li>
+          </ol>
+          <div class="modal-actions how-actions">
+            <button type="button" id="how-close" class="secondary" data-i18n="drawer.close">Close</button>
+            <button type="button" id="how-start" class="primary-small" data-i18n="how.start">Full screen and start</button>
+          </div>
         </div>
       </dialog>
     </main>

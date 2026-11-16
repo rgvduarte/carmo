@@ -178,6 +178,7 @@ export function fitMessages(bytes) {
 export function recordingDoc() {
   const texts = [];
   const fonts = [];
+  const rects = [];
   const state = { font: "10px sans-serif", textAlign: "left", letterSpacing: "0px" };
   const sizeOf = (font) => Number(/([\d.]+)px/.exec(font)[1]);
   const ctx = new Proxy(state, {
@@ -185,6 +186,7 @@ export function recordingDoc() {
       if (key in target) return target[key];
       if (key === "measureText") return (text) => ({ width: text.length * sizeOf(target.font) * 0.6 });
       if (key === "fillText") return (text, x, y) => texts.push({ text, x, y, align: target.textAlign, font: target.font, size: sizeOf(target.font), width: ctx.measureText(text).width });
+      if (key === "fillRect") return (x, y, w, h) => rects.push({ x, y, w, h, fill: target.fillStyle });
       if (key === "createLinearGradient") return () => ({ addColorStop() {} });
       return () => {};
     },
@@ -195,5 +197,5 @@ export function recordingDoc() {
     },
   });
   const canvas = { width: 0, height: 0, getContext: () => ctx };
-  return { doc: { createElement: () => canvas }, texts, fonts };
+  return { doc: { createElement: () => canvas }, texts, fonts, rects };
 }

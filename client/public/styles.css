@@ -7257,3 +7257,178 @@ html.is-fullscreen .fullscreen-toggle .fs-exit {
   #finish .summary dt { font-size: 10px; letter-spacing: 0.04em; }
   #finish .summary dd { font-size: 19px; }
 }
+
+/* --- How it works (js/view/howItWorks.js): the About card's frame, five numbered steps ------- */
+/* In the start screen's header, beside the language: a small pill; on a phone, the "?" alone. */
+.start-head .how-open {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 14px 4px 5px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.start-head .how-open:hover {
+  border-color: var(--gold);
+}
+
+.start-head .how-open:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* The language picker follows the button, not the far edge. */
+.start-head .how-open + .lang-select {
+  margin-left: -6px;
+}
+
+.how-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--gold);
+  color: var(--ink-dark);
+  font-family: var(--display);
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* A phone: the brand and the language keep the first row; the "?" ends the server's row below. */
+@media (max-width: 600px) {
+  .start-head .how-open {
+    order: 3;
+    margin-left: 0;
+  }
+
+  .start-head .server-status {
+    order: 2;
+    flex: 1 1 240px;
+    min-width: 0;
+  }
+
+  .start-head .how-open + .lang-select {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .start-head .how-open {
+    padding: 4px;
+    min-width: 40px;
+    min-height: 40px;
+    justify-content: center;
+  }
+
+  .start-head .how-open .how-open-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+.how-card {
+  width: min(560px, 100%);
+}
+
+.how-card .about-brand {
+  margin-bottom: 2px;
+}
+
+.how-card h2 {
+  font-size: 30px;
+  line-height: 1.05;
+  margin: 2px 0 0;
+}
+
+.how-card h2:focus {
+  outline: none;
+}
+
+.how-lede {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.how-steps {
+  list-style: none;
+  counter-reset: how;
+  margin: 4px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+
+/* Each step: its number in gold Anton, the title in tracked mono capitals, then the text. */
+.how-steps li {
+  counter-increment: how;
+  display: grid;
+  grid-template-columns: 30px 1fr;
+  column-gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.how-steps li::before {
+  content: counter(how);
+  grid-row: 1 / span 2;
+  font-family: var(--display);
+  font-size: 28px;
+  line-height: 1;
+  color: var(--gold);
+  font-style: italic;
+  font-synthesis: style;
+}
+
+.how-steps h3 {
+  margin: 2px 0 6px;
+  color: var(--gold);
+}
+
+.how-card .how-steps h3 {
+  margin: 3px 0 6px;
+}
+
+.how-steps .link-button {
+  padding: 0;
+  font: inherit;
+  color: var(--gold);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.how-steps .link-button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Start is the one gold button; Close sits beside it, quieter. */
+.how-actions {
+  flex-wrap: nowrap;
+}
+
+.how-actions > #how-close {
+  flex: 0 1 auto;
+  min-height: 40px;
+  padding: 0 18px;
+  border-radius: 999px;
+  color: var(--text);
+}
+
+.how-actions > #how-start {
+  flex: 1 1 auto;
+}

@@ -331,7 +331,7 @@ test("every block lies inside the image and none overlaps another, whatever the 
           for (const titleLines of [1, 2]) {
             const title = { size: titleLines === 1 ? 96 : 60, lines: Array(titleLines).fill("X") };
             const layout = cardLayout(format, { metricCount, zones, map, headerHeight: headerMetrics(format, title, true).height });
-            const blocks = Object.entries({ header: layout.header, map: layout.map, profile: layout.profile, primary: layout.primary, secondary: layout.secondary, zones: layout.zones, footer: layout.footer }).filter(([, rect]) => rect && rect.h > 0);
+            const blocks = Object.entries({ header: layout.header, map: layout.map, profile: layout.profile, primary: layout.primary, secondary: layout.secondary, zones: layout.zones, footer: layout.footer, qr: layout.qr }).filter(([, rect]) => rect && rect.h > 0);
             const where = `${format.id}, ${metricCount} metrics, zones ${zones}, map ${map}, ${titleLines} title lines`;
             for (const [name, rect] of blocks) {
               assert.ok(rect.x >= layout.margin && rect.y >= layout.margin && rect.x + rect.w <= format.width - layout.margin + 0.5 && rect.y + rect.h <= format.height - layout.margin + 0.5, `${name} leaves the image (${where})`);
@@ -339,7 +339,8 @@ test("every block lies inside the image and none overlaps another, whatever the 
             for (let i = 0; i < blocks.length; i += 1) {
               for (let j = i + 1; j < blocks.length; j += 1) assert.ok(!overlap(blocks[i][1], blocks[j][1]), `${blocks[i][0]} overlaps ${blocks[j][0]} (${where})`);
             }
-            if (map) assert.ok(layout.map.h >= 300, `the map is ${layout.map.h} px tall (${where})`);
+            // The QR code's row costs the upright map up to 66 px: about 270 px left with a two-line title over every number.
+            if (map) assert.ok(layout.map.h >= 270, `the map is ${layout.map.h} px tall (${where})`);
             assert.ok(layout.profile.h >= 160, `the chart is ${layout.profile.h} px tall (${where})`);
           }
         }

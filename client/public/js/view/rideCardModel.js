@@ -412,6 +412,19 @@ export function headerMetrics(format, title, hasName) {
   return { ...measures, lockup, titleBaselines, name, height: Math.ceil((name ?? lastTitle + title.size * 0.12) + 8) };
 }
 
+/**
+ * Pixels per module of the QR code, per format: whole pixels, about 2 points
+ * a module on a phone that shows the image across a feed 390 points wide (the
+ * upright image at a third of its size, the wide one at a quarter), which a
+ * second phone's camera reads; upright, no larger, so the map keeps its room.
+ */
+export const QR_MODULE = Object.freeze({ portrait: 6, landscape: 8 });
+/** Modules across the code to the game (version 2) and its quiet zone, in modules (see view/rideQr.js). */
+export const QR_MODULES = 25;
+export const QR_QUIET_MODULES = 2;
+/** The side of the QR code's light square on the image of `format`. */
+export const qrPanel = (format, modules = QR_MODULES) => (modules + 2 * QR_QUIET_MODULES) * QR_MODULE[format.id];
+
 /** The data credit's type size and line height, per format (see `cardLayout`). */
 export const CREDIT_SIZE = Object.freeze({ portrait: 13, landscape: 12 });
 export const CREDIT_LINE_H = Object.freeze({ portrait: 18, landscape: 17 });
@@ -421,10 +434,15 @@ export const CREDIT_LINE_H = Object.freeze({ portrait: 18, landscape: 17 });
  * metrics take what they need; the map (or the chart, on a ride without a
  * map) takes what is left, so a ride with fewer metrics has a larger map.
  * Every rectangle is `{x, y, w, h}` in pixels of the image.
+ *
+ * The QR code to the game sits in the bottom right corner, its light square
+ * `qrSide` pixels wide (see `QR_MODULE`): upright, beside the zones and the
+ * footer, which give it their width; wide, beside the chart, which grows to
+ * its height.
  * @param {{id: string, width: number, height: number}} format one of CARD_FORMATS
- * @param {{metricCount: number, zones: boolean, map: boolean, headerHeight?: number}} content
+ * @param {{metricCount: number, zones: boolean, map: boolean, headerHeight?: number, creditLines?: number, qrSide?: number}} content
  */
-export function cardLayout(format, { metricCount, zones, map, headerHeight = null, creditLines = 0 }) {
+export function cardLayout(format, { metricCount, zones, map, headerHeight = null, creditLines = 0, qrSide = qrPanel(format) }) {
   const { width: W, height: H } = format;
   const wide = format.id === "landscape";
   const margin = wide ? 56 : 64;
@@ -440,7 +458,9 @@ export function cardLayout(format, { metricCount, zones, map, headerHeight = nul
   const chartH = wide ? 190 : 168;
 
   const header = { x: margin, y: margin, w: columnW, h: headerH };
-  const footer = { x: margin, y: H - margin - footerH, w: wide ? columnW : W - 2 * margin, h: footerH };
+  const qr = { x: W - margin - qrSide, y: H - margin - qrSide, w: qrSide, h: qrSide };
+  // Upright, the footer and the zones stand left of the code.
+  const footer = { x: margin, y: H - margin - footerH, w: wide ? columnW : W - 2 * margin - qrSide - gap, h: footerH };
   const primaryH = primaryShape.rows * primaryRowH;
   const secondaryH = secondaryShape.rows * secondaryRowH;
   const block = (y, h) => ({ x: margin, y, w: columnW, h });
@@ -456,24 +476,29 @@ export function cardLayout(format, { metricCount, zones, map, headerHeight = nul
     const secondary = { ...block(primary.y + primary.h + (secondaryH ? gap * scale : 0), secondaryH * scale), ...secondaryShape, scale };
     const rightX = margin + columnW + 56;
     const rightW = W - margin - rightX;
-    const profile = map ? { x: rightX, y: H - margin - chartH, w: rightW, h: chartH } : { x: rightX, y: margin, w: rightW, h: H - 2 * margin };
+    // The chart shares the bottom row with the code, as tall as it; without a map it fills the column above the code.
+    const bottomH = Math.max(chartH, qrSide);
+    const profile = map ? { x: rightX, y: H - margin - bottomH, w: rightW - qrSide - gap, h: bottomH } : { x: rightX, y: margin, w: rightW, h: qr.y - gap - margin };
     const mapRect = map ? { x: rightX, y: margin, w: rightW, h: profile.y - gap - margin } : null;
-    return { format, wide, margin, header, primary, secondary, zones: zonesRect, footer, profile, map: mapRect };
+    return { format, wide, margin, header, primary, secondary, zones: zonesRect, footer, profile, map: mapRect, qr };
   }
 
   // Upright: one column from the bottom up; what is left above goes to the map.
-  let y = footer.y - gap;
-  const zonesRect = zones ? block((y -= zonesH), zonesH) : null;
-  if (zones) y -= gap;
+  // The bottom row: the zones over the footer on the left, the code on the right, as tall as the taller of the two.
+  // The zones' top meets the code's top; the footer's last line, the code's foot.
+  const leftH = (zones ? zonesH + gap : 0) + footerH;
+  const rowTop = H - margin - Math.max(leftH, qrSide);
+  let y = rowTop - gap;
+  const zonesRect = zones ? { x: margin, y: rowTop, w: footer.w, h: zonesH } : null;
   const secondary = { ...block((y -= secondaryH), secondaryH), ...secondaryShape, scale: 1 };
   if (secondaryH) y -= gap * 0.6;
   const primary = { ...block((y -= primaryH), primaryH), ...primaryShape, scale: 1 };
   y -= gap;
   const top = header.y + header.h + gap;
-  if (!map) return { format, wide, margin, header, primary, secondary, zones: zonesRect, footer, profile: block(top, y - top), map: null };
+  if (!map) return { format, wide, margin, header, primary, secondary, zones: zonesRect, footer, profile: block(top, y - top), map: null, qr };
   const profile = block((y -= chartH), chartH);
   y -= gap;
-  return { format, wide, margin, header, primary, secondary, zones: zonesRect, footer, profile, map: block(top, y - top) };
+  return { format, wide, margin, header, primary, secondary, zones: zonesRect, footer, profile, map: block(top, y - top), qr };
 }
 
 /**

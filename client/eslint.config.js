@@ -2,6 +2,8 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default [
+  // Third-party code kept exactly as published (see NOTICE.md): not ours to restyle.
+  { ignores: ["public/vendor/**"] },
   js.configs.recommended,
   {
     files: ["public/js/**/*.js"],

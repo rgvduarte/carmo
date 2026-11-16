@@ -440,6 +440,33 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   message. The button reads "Import workout", with a line on how to bring a
   workout from TrainingPeaks.
 
+### 16.11.2026 — "How it works" in the game, a QR code on the ride image
+
+- **"How it works"** ("Como funciona", "So funktioniert's";
+  `js/view/howItWorks.js`, `main.js`, `index.html`, `styles.css`,
+  `js/i18n/`): the site now sends people straight to the game, so the game
+  explains itself. A dialog in five short steps (what you need, connecting
+  the trainer, picking a route, class or workout and importing `.zwo`,
+  `.erg` or `.mrc` files, the end of the ride with the image, the files and
+  the Strava countdown, and what the server receives, with a link to
+  Privacy). It opens by itself on a browser's first visit (remembered in
+  the game's settings in `localStorage`, key `openride.howItWorksSeen`) and
+  from a "?" button in the start screen's header and a link in its foot.
+  It ends with "Full screen and start", which asks for full screen from that
+  click only, where the page may have it (else it reads "Start"), and closes
+  whatever the browser answers; and "Close". A native modal dialog: Escape
+  closes it, the focus stays inside.
+- **QR code on the ride image** (`js/view/rideQr.js`, `js/view/rideCard.js`,
+  `js/view/rideCardModel.js`): both sizes of the image carry, in the bottom
+  right corner, a QR code to `https://ride.gocarmo.com/` (dark modules on a
+  light square, 6 px a module upright, 8 px wide, so a phone camera reads it
+  off another phone showing the image in a feed), and the footer line now
+  reads "by GOCARMO Ride · ride.gocarmo.com" (it read "gocarmo.com/ride").
+  Upright, the zones and the footer (with the map data credit of Lanzarote,
+  same size) stand left of the code; wide, the chart stands left of it. The
+  code is made in the browser by the vendored encoder below; nothing is
+  fetched.
+
 ## Third-party material added by this fork
 
 - **Fonts** in `client/public/fonts/`: Anton (© The Anton Project Authors),
@@ -450,6 +477,13 @@ is described in `docs/gocarmo-server-settings.md`; in short:
   for this fork: it holds only the digit 1, widened to the width of the other
   digits so that live numbers do not shift. Same licence (SIL OFL 1.1,
   `anton-OFL.txt`); Anton declares no Reserved Font Name.
+
+- **QR code encoder**: `client/public/vendor/qrcode-generator/qrcode.mjs`
+  is `dist/qrcode.mjs` of the npm package `qrcode-generator` 2.0.4, QR Code
+  Generator for JavaScript, © 2009 Kazuhiko Arase, under the MIT licence
+  (text next to it, `LICENSE`), not modified (a test checks its checksum).
+  It draws the QR code on the ride image. "QR Code" is a registered
+  trademark of DENSO WAVE INCORPORATED.
 
 - **Strava's "Connect with Strava" button**:
   `client/public/strava/btn_strava_connect_with_orange.svg` is Strava's own

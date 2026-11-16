@@ -3,12 +3,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { CARD_FOOTER, composeRideCard, mapContext, rideCardFontsReady } from "../public/js/view/rideCard.js";
-import { CARD_FORMATS, rideCardModel } from "../public/js/view/rideCardModel.js";
+import { CARD_FORMATS, QR_MODULE, QR_QUIET_MODULES, cardLayout, rideCardModel } from "../public/js/view/rideCardModel.js";
+import { QR_DARK, QR_LIGHT, QR_URL, qrMatrix } from "../public/js/view/rideQr.js";
+import { decodeQr } from "./qrDecode.js";
 import { RideRecorder } from "../public/js/ride/rideRecorder.js";
 import { toLatLon } from "../public/js/route/geo.js";
 import { RoadNetwork } from "../public/js/route/network.js";
 import { setLocale } from "../public/js/i18n/i18n.js";
 import { setUnits } from "../public/js/util/format.js";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { recordingDoc, squareRoute, tinyNetworkFile } from "./helpers.js";
 
 const START = new Date(2026, 10, 12, 18, 42).getTime();
@@ -84,13 +88,13 @@ test("a long route name is fitted, not cut: every word of it is on the image", (
   }
 });
 
-test("the header is the lockup, the route in capitals, the date and the rider's name; the footer is the address", () => {
+test("the header is the lockup, the route in capitals, the date and the rider's name; the footer signs the image with the game's address", () => {
   const { doc, texts } = recordingDoc();
   composeRideCard(model(), CARD_FORMATS.portrait, doc);
   const written = texts.map((entry) => entry.text);
-  for (const expected of ["GOCARMO", "RIDE", "COL DE LA FORGE", "GONÇALO", "gocarmo.com/ride"]) assert.ok(written.includes(expected), `${expected} is missing: ${written.join(" | ")}`);
+  for (const expected of ["GOCARMO", "RIDE", "COL DE LA FORGE", "GONÇALO", "by GOCARMO Ride · ride.gocarmo.com"]) assert.ok(written.includes(expected), `${expected} is missing: ${written.join(" | ")}`);
   assert.ok(written.some((text) => /^12 NOV 2026 · /.test(text)));
-  assert.equal(CARD_FOOTER, "gocarmo.com/ride");
+  assert.equal(CARD_FOOTER, "by GOCARMO Ride · ride.gocarmo.com");
   const nameless = recordingDoc();
   composeRideCard(model({ riderName: "" }), CARD_FORMATS.portrait, nameless.doc);
   assert.ok(!nameless.texts.some((entry) => entry.text === "GONÇALO"));
@@ -111,7 +115,7 @@ test("a route made from OpenStreetMap and Copernicus data carries their notice o
     const written = texts.map((entry) => entry.text).join(" ");
     assert.ok(written.includes("© OpenStreetMap contributors, ODbL"), format.id);
     assert.ok(written.includes("Elevation produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved"), `${format.id}: the Copernicus notice, word for word`);
-    assert.ok(written.includes("gocarmo.com/ride"), format.id);
+    assert.ok(written.includes(CARD_FOOTER), format.id);
     const plain = recordingDoc();
     composeRideCard(model(), format, plain.doc);
     assert.ok(!plain.texts.some((entry) => /OpenStreetMap|Copernicus/.test(entry.text)), `${format.id}: a route GOCARMO Ride or the original drew carries none`);
@@ -203,4 +207,69 @@ test("the fonts are loaded for the very text the image writes", async () => {
   await rideCardFontsReady(model({ riderName: "Łukasz" }), { fonts: { load: (font, text) => (asked.push(text), Promise.resolve([])) } });
   assert.ok(asked.length >= 3);
   assert.ok(asked.every((text) => text.includes("ŁUKASZ") && text.includes("COL DE LA FORGE")));
+});
+
+/** The modules the image drew in the QR code's square, read back from the canvas calls as a grid. */
+function drawnQr(rects, format) {
+  const module = QR_MODULE[format.id];
+  const panel = rects.find((rect) => rect.fill === QR_LIGHT && rect.w === rect.h && rect.w >= 25 * module);
+  assert.ok(panel, `${format.id}: the light square of the QR code is drawn`);
+  const size = panel.w / module - 2 * QR_QUIET_MODULES;
+  const left = panel.x + QR_QUIET_MODULES * module;
+  const top = panel.y + QR_QUIET_MODULES * module;
+  const grid = Array.from({ length: size }, () => Array(size).fill(false));
+  for (const rect of rects) {
+    if (rect.fill !== QR_DARK || rect.x < panel.x || rect.y < panel.y || rect.x >= panel.x + panel.w || rect.y >= panel.y + panel.h) continue;
+    assert.ok(rect.w === module && rect.h === module, "a module is a whole square of pixels");
+    grid[(rect.y - top) / module][(rect.x - left) / module] = true;
+  }
+  return { panel, grid };
+}
+
+test("both sizes of the image carry a QR code to the game in the bottom right corner, and it reads as the address", () => {
+  assert.equal(QR_URL, "https://ride.gocarmo.com/");
+  for (const [name, options] of Object.entries(CASES)) {
+    for (const format of Object.values(CARD_FORMATS)) {
+      const { doc, rects } = recordingDoc();
+      const m = model(options);
+      composeRideCard(m, format, doc);
+      const { panel, grid } = drawnQr(rects, format);
+      const decoded = decodeQr(grid);
+      assert.equal(decoded.text, "https://ride.gocarmo.com/", `${name}, ${format.id}`);
+      assert.deepEqual([decoded.version, decoded.level], [2, "M"]);
+      // In the corner, inside the margins, the same square the layout keeps for it.
+      const layout = cardLayout(format, { metricCount: m.metrics.length, zones: Boolean(m.zones), map: Boolean(m.map) });
+      assert.deepEqual([panel.x + panel.w, panel.y + panel.h], [format.width - layout.margin, format.height - layout.margin], `${name}, ${format.id}`);
+      assert.deepEqual([panel.x, panel.y, panel.w], [layout.qr.x, layout.qr.y, layout.qr.w]);
+    }
+  }
+});
+
+test("the QR code is large enough to read off a phone that shows the image across a feed", () => {
+  const FEED_POINTS = 390;
+  for (const format of Object.values(CARD_FORMATS)) {
+    const points = (QR_MODULE[format.id] * FEED_POINTS) / format.width;
+    assert.ok(points >= 1.9, `${format.id}: ${points.toFixed(2)} points a module`);
+  }
+});
+
+test("the test reader reads what it should and refuses a damaged code", () => {
+  const matrix = qrMatrix("https://ride.gocarmo.com/");
+  const grid = Array.from({ length: matrix.size }, (_, r) => Array.from({ length: matrix.size }, (_, c) => matrix.dark(r, c)));
+  assert.equal(decodeQr(grid).text, "https://ride.gocarmo.com/");
+  grid[12][20] = !grid[12][20];
+  assert.throws(() => decodeQr(grid), /error correction/);
+});
+
+test("the QR encoder is vendored unmodified with its licence, and the image fetches nothing", () => {
+  const source = readFileSync(new URL("../public/vendor/qrcode-generator/qrcode.mjs", import.meta.url), "utf8");
+  assert.match(source, /Copyright \(c\) 2009 Kazuhiko Arase/);
+  assert.match(source, /Licensed under the MIT license/);
+  assert.doesNotMatch(source, /\bfetch\(|XMLHttpRequest|import\(/);
+  // dist/qrcode.mjs of the npm package qrcode-generator 2.0.4, byte for byte.
+  assert.equal(createHash("sha256").update(source).digest("hex"), "ea91d7118a5395289170da848b7c6758b996163bfbccf312591ab65a4911b7c0");
+  const licence = readFileSync(new URL("../public/vendor/qrcode-generator/LICENSE", import.meta.url), "utf8");
+  assert.match(licence, /^MIT License\n\nCopyright \(c\) 2009 Kazuhiko Arase/);
+  const notice = readFileSync(new URL("../../NOTICE.md", import.meta.url), "utf8");
+  assert.match(notice, /qrcode-generator/);
 });

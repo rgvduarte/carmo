@@ -116,6 +116,7 @@ import { applyTranslations } from "./i18n/apply.js";
 import { askedLocale, getLocale, initLocale, intlLocale, saveLocale, setLocale, t, tn } from "./i18n/i18n.js";
 import { languageOptions } from "./i18n/selector.js";
 import { initAbout, setSourceLinks } from "./view/about.js";
+import { initHowItWorks } from "./view/howItWorks.js";
 import { copyText, initFrame, leaveTo } from "./util/frame.js";
 import { APP_NAME, withServer } from "./brand.js";
 
@@ -710,6 +711,8 @@ function initSetup() {
   initStartVehicle();
   initStartMenu();
   initRecovery();
+  // How it works: by itself on this browser's first visit (the site sends newcomers straight here), else from its buttons.
+  initHowItWorks({ storage: browserStorage() });
   $("profile-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const action = $("join").dataset.action;
