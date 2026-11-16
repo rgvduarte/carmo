@@ -1031,9 +1031,9 @@ export default {
   "how.pick.title": "Escolhe um percurso, uma aula ou um treino",
   "how.pick": "Os separadores no topo: «Pedalar» (um percurso, com outros ciclistas e bots), «Estúdio» (uma aula), «Treino» e, quando os há, «Eventos». Escolhe um cartão, confirma o nome, o peso e o FTP e carrega no botão dourado. Um treino teu (.zwo, .erg ou .mrc, por exemplo do TrainingPeaks) importa-se durante a atividade: Menu › Treino › «Importar treino».",
   "how.end.title": "No fim",
-  "how.end": "Menu › «Terminar atividade» mostra o resumo, a imagem da atividade, vertical ou horizontal, para guardar ou partilhar, e os ficheiros .fit, .tcx e .gpx. Se ligaste o Strava (quando este servidor o oferece), a atividade segue sozinha para lá 10 segundos depois, a não ser que carregues em «Cancelar». As atividades no simulador não vão para o Strava; com as patilhas fica só a imagem.",
+  "how.end": "Menu › «Terminar atividade» mostra o resumo, a imagem da atividade, vertical ou horizontal, para guardar ou partilhar, e os ficheiros .fit, .tcx e .gpx. Se ligaste o Strava (quando este servidor o oferece), a atividade segue sozinha para lá 10 segundos depois, a não ser que carregues em «Cancelar» ou desligues «Enviar sempre para o Strava no fim». As atividades no simulador não vão para o Strava; com as patilhas fica só a imagem.",
   "how.data.title": "O que o servidor recebe",
-  "how.data": "O teu nome, peso e FTP quando começas, e a potência e a cadência enquanto pedalas; os outros ciclistas veem o teu nome. Não há contas: o perfil e o histórico ficam no teu browser.",
+  "how.data": "O teu endereço IP, o teu nome, peso e FTP quando começas, e a potência, a cadência e o que escreves no chat enquanto pedalas; os outros ciclistas veem o teu nome, a tua posição, velocidade e potência, e o chat. Não há contas: o perfil e o histórico ficam no teu browser.",
   "how.start": "Ecrã inteiro e começar",
   "how.startPlain": "Começar",
 };

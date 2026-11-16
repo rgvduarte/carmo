@@ -1029,9 +1029,9 @@ export default {
   "how.pick.title": "Pick a route, a class or a workout",
   "how.pick": "The tabs at the top: “Ride” (a route, with other riders and bots), “Studio” (a class), “Workout” and, when there are any, “Events”. Pick a card, check your name, weight and FTP, and press the gold button. Your own workout (.zwo, .erg or .mrc, for example from TrainingPeaks) is imported during the ride: Menu › Training › “Import workout”.",
   "how.end.title": "At the end",
-  "how.end": "Menu › “Finish ride” shows the summary, the ride image, upright or wide, to save or share, and the .fit, .tcx and .gpx files. If you connected Strava (where this server offers it), the ride goes there by itself 10 seconds later, unless you press “Cancel”. Simulator rides are not sent to Strava; phone paddle rides keep only the image.",
+  "how.end": "Menu › “Finish ride” shows the summary, the ride image, upright or wide, to save or share, and the .fit, .tcx and .gpx files. If you connected Strava (where this server offers it), the ride goes there by itself 10 seconds later, unless you press “Cancel” or switch off “Always send to Strava at the end”. Simulator rides are not sent to Strava; phone paddle rides keep only the image.",
   "how.data.title": "What the server receives",
-  "how.data": "Your name, weight and FTP when you start, and your power and cadence while you ride; other riders see your name. There are no accounts: your profile and ride history stay in your browser.",
+  "how.data": "Your IP address, your name, weight and FTP when you start, and your power, cadence and what you write in the chat while you ride; other riders see your name, position, speed and power, and the chat. There are no accounts: your profile and ride history stay in your browser.",
   "how.start": "Full screen and start",
   "how.startPlain": "Start",
 };

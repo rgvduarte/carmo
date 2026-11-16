@@ -190,7 +190,7 @@ test("what it says matches the game: the buttons it names, the file types it rea
     assert.deepEqual(quoted(dictionary["how.connect"]), names(["start.howAreYouRiding", "devices.smartTrainer", "start.connect", "start.add"]));
     assert.deepEqual(quoted(dictionary["how.pick"]), names(["menu.tab.ride", "menu.tab.studio", "menu.workout", "events.title", "drawer.importWorkout"]));
     assert.ok(dictionary["how.pick"].includes(`${dictionary["ride.menu"]} › ${dictionary["menuPage.training"]} › `));
-    assert.deepEqual(quoted(dictionary["how.end"]), names(["drawer.finishRide", "strava.auto.cancel"]));
+    assert.deepEqual(quoted(dictionary["how.end"]), names(["drawer.finishRide", "strava.auto.cancel", "strava.auto.setting"]));
     assert.ok(dictionary["how.end"].includes(`${dictionary["ride.menu"]} › `));
     assert.ok(dictionary["how.end"].includes(`10 `) && AUTO_SEND_SECONDS === 10);
     for (const ext of [".zwo", ".erg", ".mrc"]) assert.ok(dictionary["how.pick"].includes(ext), ext);
