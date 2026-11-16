@@ -270,6 +270,40 @@ section { position: relative; }
   .kpi:nth-child(odd) { padding-left: 0; border-left: 0; }
 }
 
+/* ---------- GOCARMO Ride (the section after the hero) ---------- */
+/* phone first: the name, the poster with the live line on it, the sentence and the gold button. From 1080 px the name
+   and the copy on the left, the poster on the right. The live line is laid over the poster, so nothing moves when it
+   comes in (ride.js shows it only with an answer and at least one rider). */
+.ride-home { padding: clamp(64px, 9vw, 128px) 0; border-top: 1px solid var(--line); }
+.rh { display: grid; grid-template-areas: "head" "media" "copy"; gap: 24px; }
+.rh-head { grid-area: head; }
+.rh-head .eyebrow { margin-bottom: 18px; }
+.rh-h { font-size: clamp(56px, 15vw, 132px); }
+.rh-media { grid-area: media; position: relative; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-2); }
+.rh-media img { width: 100%; height: 100%; object-fit: cover; }
+.rh-live { position: absolute; left: 12px; top: 12px; display: inline-flex; align-items: center; gap: 9px; max-width: calc(100% - 24px); margin: 0; padding: 8px 14px; border: 1px solid var(--line); border-radius: 17px; background: rgba(11, 11, 12, .86); font: 500 12px/1.35 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
+.rh-live::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); animation: rh-pulse 2.4s ease-in-out infinite; }
+@keyframes rh-pulse { 50% { opacity: .35; } }
+.rh-copy { grid-area: copy; display: grid; justify-items: start; gap: 24px; }
+.rh-lead { max-width: 46ch; color: var(--muted); text-wrap: pretty; }
+.rh-go { min-height: 56px; padding: 0 32px; font-size: 17px; }
+@media (max-width: 599px) {
+  .rh-go { width: 100%; }
+}
+@media (min-width: 600px) {
+  .rh-media { aspect-ratio: 16 / 9; }
+  .rh-live { left: 16px; top: 16px; }
+}
+@media (min-width: 1080px) {
+  .rh { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); grid-template-rows: auto auto; grid-template-areas: "head media" "copy media"; gap: 28px clamp(40px, 5vw, 80px); align-content: center; }
+  .rh-head { align-self: end; }
+  .rh-copy { align-self: start; }
+  .rh-media { align-self: center; }
+  .rh-h { font-size: clamp(72px, 7.2vw, 116px); }
+}
+@media (prefers-reduced-motion: reduce) { .rh-live::before { animation: none; } }
+@media print { .ride-home { display: none; } }
+
 /* ---------- story ---------- */
 .story { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(32px, 6vw, 100px); align-items: center; }
 .story-media { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: 4px; }

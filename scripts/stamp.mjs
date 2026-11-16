@@ -49,17 +49,18 @@
 //    #race-partner) names the price, the helmet's price, the 6 weeks (RACE_LEAD_DAYS) and the 5 weeks (RACE_LOGO_DAYS),
 //    CARMO PROVA, every race that can be booked, day 1 of a race that has only its month, and every race on proposal
 //    next to «sob proposta» / «on request»; the home page's card shows the price and the helmet's and links to #parceiro.
-// 9. GOCARMO Ride (/ride/, since 12.11.2026): the page that presents the game and shows it in a frame. The game is served
-//    from its own host, named in one place, assets/js/ride-config.js (RIDE_ORIGIN, an https:// origin). From that line
-//    come the page's plain links (every <a data-ride>) and frame-src and connect-src of its Content-Security-Policy (the
-//    frame, and the status call GET /api/info); the rest of the policy is checked word for word, and the page gets the
-//    same import map and hashes as the others. The host is a plain host name (no wildcard), and the policy's meta comes
-//    before every script and stylesheet. The frame is never in the HTML (ride.js makes it when the visitor asks),
-//    ride.js names no host of its own, sandboxes the frame without any allow-top-navigation (the game cannot navigate
-//    the site's window), has no HTML sink and reads nothing from the address; the credits name OpenRadlr, the GNU AGPL,
-//    «not the official OpenRadlr» and both repositories in PT and EN; and the privacy page (/privacidade/, both
-//    languages) says what the page sends to the game's host.
-//    While RIDE_HIDDEN is true (until the launch) the page is noindex, nofollow, no other page, module, stylesheet or
+// 9. GOCARMO Ride (since 12.11.2026; the game as a full page since 16.11.2026): the game is served whole from its own
+//    host, named in one place, assets/js/ride-config.js (RIDE_ORIGIN, an https:// origin, a plain host name). Every way
+//    into it is a plain link to that host: from that line come the href of every <a data-ride> (the home page's hero
+//    button, its section #ride and the public pages' footers) and the refresh meta of /ride/. /ride/ is a forwarder for
+//    the links already shared: no script, no frame, a policy checked word for word (only its own stylesheets, fonts and
+//    pictures) with its meta before every stylesheet, the refresh meta to the game, its og:image, and the credits
+//    (OpenRadlr, the GNU AGPL, «not the official OpenRadlr», © The OpenRadlr contributors and both repositories, in PT
+//    and EN). The home page's section has its poster, a link to the game and loads ride.js, which asks the game for
+//    its riders (GET /api/info): ride.js names no host of its own, makes no frame, has no HTML sink, reads nothing from
+//    the address, and calls without credentials, referrer or redirect. The privacy page (/privacidade/, both languages)
+//    says what is sent to the game's host.
+//    While RIDE_HIDDEN is true (until the launch) /ride/ is noindex, nofollow, no other page, module, stylesheet or
 //    data file links to it or to the game's host and no sitemap names it; once it is false the page may not keep its
 //    noindex, and the privacy page may not keep its note about the game server's hosting (RIDE-HOST-TODO). A mismatch
 //    stops it (also with --check).
@@ -469,54 +470,69 @@ function rideOrigin() {
   if (!/^https:\/\/(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d{1,5})?$/.test(m[1])) throw new Error(`assets/js/ride-config.js: RIDE_ORIGIN has to be a plain host name, no wildcard (${m[1]})`);
   return u.origin;
 }
-// the page as it has to be: import map and hashes as every page, the host in its links and in its policy
-function stampRide(was, ride) {
-  let links = 0;
-  let now = stamp(was, '../').replace(/<a\b[^>]*\bdata-ride\b[^>]*>/g, (tag) => {
-    if (!/\bhref="[^"]*"/.test(tag)) throw new Error(`${RIDE_PAGE}: an <a data-ride> without href`);
-    links++;
+const RIDE = rideOrigin();
+// every <a data-ride> of a page links to the game itself (its href is written from RIDE_ORIGIN); returns the page and
+// how many there are
+function rideLinks(s, page, ride) {
+  let n = 0;
+  const now = s.replace(/<a\b[^>]*\bdata-ride\b[^>]*>/g, (tag) => {
+    if (!/\bhref="[^"]*"/.test(tag)) throw new Error(`${page}: an <a data-ride> without href`);
+    n++;
     return tag.replace(/\bhref="[^"]*"/, `href="${ride}/"`);
   });
-  if (!links) throw new Error(`${RIDE_PAGE}: no <a data-ride> (the plain link to the game: it is the page without JavaScript)`);
-  for (const name of ['connect-src', 'frame-src']) {
-    const re = new RegExp(`(<meta http-equiv="Content-Security-Policy" content="[^"]*?\\b${name} )[^;"]*`);
-    if (!re.test(now)) throw new Error(`${RIDE_PAGE}: its Content-Security-Policy has no ${name}`);
-    now = now.replace(re, (m, head) => `${head}${ride}`);
-  }
-  return now;
+  return [now, n];
+}
+// the forwarder as it has to be: its stylesheets' hashes, the host in its links and in its refresh meta
+function stampRide(was, ride) {
+  const [now, links] = rideLinks(stamp(was, '../'), RIDE_PAGE, ride);
+  if (!links) throw new Error(`${RIDE_PAGE}: no <a data-ride> (the button to the game, for a browser that does not follow the refresh)`);
+  const re = /(<meta http-equiv="refresh" content=")[^"]*(")/;
+  if (!re.test(now)) throw new Error(`${RIDE_PAGE}: no <meta http-equiv="refresh" content="0; url=…"> (the page forwards to the game)`);
+  return now.replace(re, (m, a, z) => `${a}0; url=${ride}/${z}`);
 }
 function checkRide(page, ride) {
   const out = [];
   const html = page.replace(/<!--[\s\S]*?-->/g, ' ');
   const plain = (h) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
-  // the policy, word for word: nothing but the page's own files, the game's frame and the status call. One hash is
-  // let through, the import map's, and only in script-src
-  const policy = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/) || [, ''])[1].replace(/(script-src 'self') 'sha256-[A-Za-z0-9+\/]{43}='(?=;)/, '$1');
-  const want = `default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src ${ride}; frame-src ${ride}; object-src 'none'; base-uri 'none'; form-action 'none'; worker-src 'none'; manifest-src 'none'`;
-  if (policy !== want) out.push(`${RIDE_PAGE}: its Content-Security-Policy is «${policy}», want «${want}» (plus the import map's hash)`);
+  // the policy, word for word: nothing but the page's own stylesheets, fonts and pictures; no script at all, no call
+  // and no frame (the refresh meta is a navigation, which no directive of a policy in a <meta> governs)
+  const policy = (html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/) || [, ''])[1];
+  const want = "default-src 'none'; style-src 'self'; font-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'";
+  if (policy !== want) out.push(`${RIDE_PAGE}: its Content-Security-Policy is «${policy}», want «${want}»`);
   // a policy in a <meta> only governs what comes after it
   const first = html.search(/<(script|link)\b/), meta = html.search(/<meta http-equiv="Content-Security-Policy"/);
   if (meta < 0 || (first >= 0 && meta > first)) out.push(`${RIDE_PAGE}: the Content-Security-Policy meta has to come before every script and stylesheet`);
-  if (/<i?frame\b/i.test(html)) out.push(`${RIDE_PAGE}: a frame in the HTML (ride.js makes the game's frame when the visitor asks for it, never before)`);
-  if (/<script\b(?![^>]*\b(src|type="importmap"))/i.test(html) || /\sstyle="/i.test(html) || /<style\b/i.test(html)) out.push(`${RIDE_PAGE}: an inline script or style (the policy refuses them)`);
-  // the host lives in one place: the page's script takes it from ride-config.js and names none itself
+  if (/<i?frame\b/i.test(html)) out.push(`${RIDE_PAGE}: a frame in the HTML (the game opens as a full page on its own host)`);
+  if (/<script\b/i.test(html)) out.push(`${RIDE_PAGE}: a script (the forwarder has none: the refresh meta and the button do the work)`);
+  if (/\sstyle="/i.test(html) || /<style\b/i.test(html)) out.push(`${RIDE_PAGE}: an inline style (the policy refuses it)`);
+  const refresh = html.match(/<meta http-equiv="refresh"[^>]*>/gi) || [];
+  if (refresh.length !== 1 || refresh[0] !== `<meta http-equiv="refresh" content="0; url=${ride}/">`) out.push(`${RIDE_PAGE}: one <meta http-equiv="refresh" content="0; url=${ride}/">, no other`);
+  // a link shared before keeps its picture
+  const og = (html.match(/<meta property="og:image" content="([^"]*)"/) || [])[1];
+  if (og !== 'https://gocarmo.com/ride/og.jpg' || !existsSync('ride/og.jpg')) out.push(`${RIDE_PAGE}: <meta property="og:image" content="https://gocarmo.com/ride/og.jpg"> and the file ride/og.jpg (the picture of a shared link)`);
+  // the home page's module: the host lives in one place, ride-config.js, and the call is a plain one
   // (without its comment lines; a «//» inside a line is left alone, since an address has one)
   const js = readFileSync('assets/js/ride.js', 'utf8').replace(/^\s*\/\/.*$/gm, '');
   if (!/import \{ RIDE_ORIGIN \} from '\.\/ride-config\.js';/.test(js)) out.push("assets/js/ride.js: has to import { RIDE_ORIGIN } from './ride-config.js'");
   if (/https?:\/\//.test(js)) out.push('assets/js/ride.js: names an address of its own (the game\'s host is in assets/js/ride-config.js only)');
-  // the frame is sandboxed: the game keeps its scripts and its storage, and cannot navigate this window
-  const sb = (js.match(/^const SANDBOX = '([^']*)';/m) || [])[1];
-  if (!sb || !/\.setAttribute\('sandbox', SANDBOX\)/.test(js)) out.push("assets/js/ride.js: the frame needs a sandbox (const SANDBOX = '…'; and setAttribute('sandbox', SANDBOX): without one the game can navigate this window)");
+  if (/\biframe\b|\bframe\b|sandbox/i.test(js)) out.push('assets/js/ride.js: makes a frame (the game opens as a full page on its own host, never inside the site)');
+  if (/\b(innerHTML|outerHTML|insertAdjacentHTML|srcdoc|document\.write|eval|location|URLSearchParams|postMessage)\b/.test(js)) out.push('assets/js/ride.js: no HTML sink, no eval and nothing read from the address (the line is textContent)');
+  for (const need of ["credentials: 'omit'", "redirect: 'error'", "referrerPolicy: 'no-referrer'"]) if (!js.includes(need)) out.push(`assets/js/ride.js: the call to the game has to say ${need}`);
+  // live: the home page has the section, its link to the game and its module, and the hero button goes to the game
+  const IX = RIDE_HIDDEN ? '' : readFileSync('index.html', 'utf8').replace(/<!--[\s\S]*?-->/g, ' ');
+  const sec = (IX.match(/<section class="ride-home" id="ride"[\s\S]*?<\/section>/) || [''])[0];
+  if (RIDE_HIDDEN) { /* hidden: the checks at the end keep every way in out */ } else if (!sec) out.push('index.html: no <section class="ride-home" id="ride"> (the game on the home page)');
   else {
-    const tokens = sb.split(/\s+/);
-    for (const need of ['allow-scripts', 'allow-same-origin']) if (!tokens.includes(need)) out.push(`assets/js/ride.js: the sandbox needs ${need} (the game's scripts and its storage)`);
-    if (tokens.some((x) => /^allow-top-navigation/.test(x))) out.push('assets/js/ride.js: the sandbox must not let the game navigate this window (allow-top-navigation*)');
+    if (!/<a\b[^>]*\bdata-ride\b/.test(sec)) out.push('index.html #ride: no <a data-ride> (the button to the game)');
+    if (!/\bid="ride-live"[^>]*\bhidden\b/.test(sec)) out.push('index.html #ride: the live line (id="ride-live") has to start hidden (ride.js shows it only with an answer)');
+    if (!/src="ride\/poster-800\.jpg"/.test(sec)) out.push('index.html #ride: the poster (ride/poster-800.jpg)');
   }
-  if (/\b(innerHTML|outerHTML|insertAdjacentHTML|srcdoc|document\.write|eval|location|URLSearchParams|postMessage)\b/.test(js)) out.push('assets/js/ride.js: no HTML sink, no eval and nothing read from the address (the status line is textContent, the frame\'s src is RIDE_ORIGIN)');
+  if (!RIDE_HIDDEN && !/<script type="module" src="assets\/js\/ride\.js\?v=[0-9a-f]+" data-optional><\/script>/.test(IX)) out.push('index.html: no <script type="module" src="assets/js/ride.js" data-optional> (the live line; optional: its failure breaks nothing)');
+  if (!RIDE_HIDDEN && !/<a\b[^>]*\bdata-ride\b[^>]*data-i18n="hero\.cta3"/.test(IX)) out.push('index.html: the hero button «Pedalar no GOCARMO Ride» (hero.cta3) has to be an <a data-ride>');
   // the credits, in both languages: a modified version of OpenRadlr, under the GNU AGPL, with both repositories
   const credits = (html.match(/<div class="rd-credits"[^>]*>([\s\S]*?)<\/div>/) || [, ''])[1];
-  for (const [l, words] of [['pt', ['Baseado em OpenRadlr', 'versão modificada do OpenRadlr', 'GNU AGPL, versão 3 ou posterior', 'Não é o OpenRadlr oficial', 'Código-fonte', 'Projeto original']],
-    ['en', ['Based on OpenRadlr', 'modified version of OpenRadlr', 'GNU AGPL, version 3 or later', 'not the official OpenRadlr', 'Source code', 'Original project']]]) {
+  for (const [l, words] of [['pt', ['Baseado em OpenRadlr', 'versão modificada do OpenRadlr', '© The OpenRadlr contributors', 'GNU AGPL, versão 3 ou posterior', 'Não é o OpenRadlr oficial', 'Código-fonte', 'Projeto original']],
+    ['en', ['Based on OpenRadlr', 'modified version of OpenRadlr', '© The OpenRadlr contributors', 'GNU AGPL, version 3 or later', 'not the official OpenRadlr', 'Source code', 'Original project']]]) {
     const text = plain([...credits.matchAll(new RegExp(`<span data-l="${l}"[^>]*>([\\s\\S]*?)</span>`, 'g'))].map((m) => m[1]).join(' '));
     for (const w of words) if (!text.includes(w)) out.push(`${RIDE_PAGE} (${l}): the credits have to say «${w}»`);
   }
@@ -527,7 +543,7 @@ function checkRide(page, ride) {
   const host = new URL(ride).host, privacy = readFileSync('privacidade/index.html', 'utf8');
   for (const l of ['pt', 'en']) {
     const art = (privacy.replace(/<!--[\s\S]*?-->/g, ' ').match(new RegExp(`<article data-l="${l}"[\\s\\S]*?</article>`)) || [''])[0];
-    if (!/<h2[^>]*>GOCARMO Ride<\/h2>/.test(art) || !art.includes(host)) out.push(`privacidade/index.html (${l}): has to say what /ride/ sends to ${host} (a section «GOCARMO Ride» that names the host; after a change of host, change the name in that text too)`);
+    if (!/<h2[^>]*>GOCARMO Ride<\/h2>/.test(art) || !art.includes(host)) out.push(`privacidade/index.html (${l}): has to say what the site sends to ${host} (a section «GOCARMO Ride» that names the host; after a change of host, change the name in that text too)`);
   }
   // launched: the page must not still ask the search engines to stay away, and the privacy page names who hosts the game
   if (!RIDE_HIDDEN && /<meta name="robots"[^>]*noindex/i.test(html)) out.push(`${RIDE_PAGE}: still has <meta name="robots" content="noindex…"> (RIDE_HIDDEN is false: the page is live)`);
@@ -556,7 +572,7 @@ function checkRide(page, ride) {
   return out;
 }
 {
-  const ride = rideOrigin(), was = readFileSync(RIDE_PAGE, 'utf8'), now = stampRide(was, ride);
+  const ride = RIDE, was = readFileSync(RIDE_PAGE, 'utf8'), now = stampRide(was, ride);
   const problems = checkRide(now, ride);
   if (problems.length) {
     console.error(`GOCARMO Ride (/ride/):\n  ${problems.join('\n  ')}`);
@@ -570,7 +586,7 @@ function checkRide(page, ride) {
 
 for (const [page, base, withRaces] of [['index.html', './', true], ['admin/index.html', '../', false], ['admin/espacos/index.html', '../../', false], ['admin/apoiantes/index.html', '../../', false], ['admin/strava/index.html', '../../', false], ['admin/analytics/index.html', '../../', false], ['admin/patrocinios/index.html', '../../', false], ['privacidade/index.html', '../', false], ['condicoes/index.html', '../', false], ['cartao/index.html', '../', false], ['imprensa/index.html', '../', false], ['press/index.html', '../', false]]) {
   const was = readFileSync(page, 'utf8');
-  let now = stamp(withRaces ? bake(was) : was, base);
+  let now = rideLinks(stamp(withRaces ? bake(was) : was, base), page, RIDE)[0];
   if (CONNECT[page]) {
     if (!/connect-src /.test(now)) throw new Error(`${page}: its Content-Security-Policy has no connect-src`);
     now = connect(now, CONNECT[page]);

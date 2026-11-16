@@ -1,126 +1,24 @@
-/* GOCARMO Ride (/ride/): the title, the stage (a poster, then the game's frame), what you need and the credits, in one
-   column as wide as the stage. On the site's black, in its type. Loads after style.css and privacy.css (top bar and
-   footer). */
-
-/* --rd-fit: the tallest the stage may be, so the stage and the line under it fit in the window under the top bar */
-.rd { --rd-fit: max(220px, calc(100svh - var(--nav-h) - 88px)); padding-top: clamp(28px, 5vw, 40px); padding-bottom: clamp(56px, 8vw, 104px); }
-/* the column is a container: on a short, wide window it is narrow (as wide as the stage may be), and the title and
-   the lists follow the column, not the window */
-.rd-col { margin: 0 auto; container: rd / inline-size; }
-.rd-head { display: grid; gap: 14px 48px; margin: 0 0 clamp(20px, 3vw, 26px); }
-.rd-h { font-size: clamp(46px, 13vw, 80px); font-size: clamp(46px, 14cqw, 80px); }
-/* the sentence is the site's .lead, in its size */
-.rd-lead { max-width: 44ch; color: var(--muted); text-wrap: pretty; }
+/* GOCARMO Ride (/ride/): the forwarder. The game opens as a full page on its own host; this page is seen only for the
+   moment before the refresh meta takes the visitor there (or where a browser does not follow it): the title, one
+   line, the button to the game and the credits, on the site's black, in its type. Loads after style.css and
+   privacy.css (top bar and footer). No script: PT and EN are both shown. */
+.rd { padding-top: clamp(40px, 8vw, 96px); padding-bottom: clamp(56px, 8vw, 104px); }
+.rd-h { font-size: clamp(46px, 13vw, 96px); }
+.rd-lead { margin: 14px 0 0; color: var(--muted); }
+.rd-sep { color: var(--dim); }
+.rd-go { min-height: 56px; margin: clamp(28px, 4vw, 40px) 0 0; padding: 0 32px; font-size: 17px; }
+.rd-go .rd-sep { color: inherit; opacity: .55; }
+/* the gold ring on the gold button: a dark gap between the two keeps it apart */
+.rd-go:focus-visible { outline-offset: 4px; box-shadow: 0 0 0 4px var(--bg); }
 /* the name in the top bar is the way back to the site: a 44 px target, as on /cartao/ */
 .rd-page .legal-top .brand { min-height: 44px; }
 
-/* ---------- the stage ---------- */
-/* 4:3 on a phone (the poster is cut for it), 16:9 from 600 px. The box keeps its size when the poster gives way to
-   the frame: nothing under it moves. The frame is the stage's first child: it loads under the poster and its veil,
-   which go only when the game's document is in. */
-.rd-stage { position: relative; isolation: isolate; aspect-ratio: 4 / 3; overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--bg-2); }
-.rd-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-/* the server does not answer: the picture loses its colour, as the photographs of the main page have none */
-.rd-stage[data-state="down"] .rd-poster img { filter: grayscale(1) brightness(.7); }
-/* a light veil: the picture is a poster, not the game; darker when the server is stopped */
-.rd-over { position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 12px; padding: 16px; text-align: center; background: linear-gradient(rgba(11, 11, 12, .3), rgba(11, 11, 12, .2) 50%, rgba(11, 11, 12, .45)); }
-.rd-stage[data-state="down"] .rd-over, .rd-stage[data-state="opening"] .rd-over, .rd-stage[data-state="stuck"] .rd-over { background: rgba(11, 11, 12, .58); }
-.rd-go { min-height: 56px; padding: 0 36px; font-size: 17px; }
-/* waiting for the server's answer: the same button in a dimmed gold, opaque (a see-through one over a picture reads
-   as a smudge) */
-.rd-go:disabled, .rd-go[aria-disabled="true"] { --b: #6e572b; opacity: 1; pointer-events: none; }
-/* the gold ring on the gold button, over a picture: a dark gap between the two keeps it apart */
-.rd-go:focus-visible { outline-offset: 4px; box-shadow: 0 0 0 4px var(--bg); }
-/* the status line: small mono caps on a dark pill, readable on any part of the poster */
-.rd-status { display: inline-flex; align-items: center; gap: 9px; max-width: 100%; margin: 0; padding: 8px 14px; border: 1px solid var(--line); border-radius: 17px; background: rgba(11, 11, 12, .86); font: 500 12px/1.35 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); }
-/* the line has its place from the start, so «Pedalar» does not move when the first words come in */
-.rd-status { min-height: calc(1.35em + 18px); }
-.rd-status:empty { visibility: hidden; }
-.rd-status::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--dim); }
-.rd-stage[data-state="up"] .rd-status::before, .rd-stage[data-state="up"] + .rd-bar .rd-status::before { background: var(--ok); }
-/* «Servidor inacessível. Volta mais tarde.» and «O jogo não abriu aqui.»: a sentence in the page's type, in the
-   button's place */
-.rd-stage[data-state="down"] .rd-status, .rd-stage[data-state="stuck"] .rd-status { max-width: 26ch; padding: 14px 20px; border-color: var(--line-2); border-radius: var(--r); font: 500 16px/1.45 var(--sans); letter-spacing: 0; text-transform: none; text-wrap: balance; }
-.rd-stage[data-state="down"] .rd-status::before, .rd-stage[data-state="stuck"] .rd-status::before { content: none; }
-/* on a phone the status line sits under the stage (ride.js moves it there): a plain line on the page's black */
-.rd-bar .rd-status { min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; color: var(--muted); }
-.rd-over .btn.ghost { --b: var(--ink); min-height: 44px; background: rgba(11, 11, 12, .86); }
-.rd-over .btn.ghost[aria-disabled="true"] { opacity: .45; pointer-events: none; }
-.rd-frame { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: var(--bg); }
-/* the game has the keyboard: the edge of the stage says so, quietly (it stays for the whole ride) */
-.rd-stage[data-state="playing"]:focus-within { border-color: rgba(242, 241, 236, .5); }
-/* «Ecrã inteiro»: the stage alone fills the screen */
-.rd-stage:fullscreen { width: 100%; height: 100%; aspect-ratio: auto; border: 0; border-radius: 0; }
-/* the pointer is over the game: the page under it keeps still, and keeps the room its scrollbar took (ride.js
-   measures it: nothing where the browser draws the scrollbar over the page) */
-html.rd-lock { overflow: hidden; padding-right: var(--rd-bar-w, 0px); }
-
-/* ---------- the line under the stage ---------- */
-/* where the frame can be (the WIDE of ride.js) the line keeps its height while empty: «Abrir em página inteira» comes
-   in once the server has answered, and nothing under it moves. On a phone it keeps the height of the status line. */
-.rd-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 24px; margin: 8px 0 0; }
-.rd-hint { margin: 0; font-size: 14px; line-height: 1.45; color: var(--muted); }
-.rd-full { display: inline-flex; align-items: center; min-height: 44px; margin-left: auto; padding: 0; border: 0; background: none; font: 500 12px/1.3 var(--mono); letter-spacing: .12em; text-transform: uppercase; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; color: var(--muted); transition: color .2s; }
-.rd-full:hover { color: var(--ink); }
-
-/* ---------- what you need, and the credits ---------- */
-.rd-need { margin: clamp(48px, 7vw, 88px) 0 0; }
-.rd-need-h { margin: 0 0 clamp(18px, 2.4vw, 26px); font-size: clamp(30px, 4.4vw, 52px); }
-.rd-list { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line-2); }
-.rd-list li { display: grid; align-content: start; gap: 8px; padding: 18px 0 20px; border-bottom: 1px solid var(--line); }
-.rd-k { font: 500 12px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
-.rd-list p { max-width: 62ch; margin: 0; color: var(--muted); text-wrap: pretty; }
-.rd-credits { margin: clamp(40px, 6vw, 72px) 0 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
-.rd-credits p { max-width: 74ch; margin: 8px 0 0; text-wrap: pretty; }
-.rd-credits .rd-k { color: var(--muted); }
+/* ---------- the credits ---------- */
+.rd-credits { margin: clamp(48px, 7vw, 88px) 0 0; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.6; color: var(--muted); }
+.rd-credits p { max-width: 74ch; margin: 0; text-wrap: pretty; }
+.rd-credits p + p { margin-top: 18px; }
+.rd-k { font: 500 12px/1.3 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .rd-credits a { display: inline-block; padding: 10px 0; margin: -10px 0; color: var(--ink); }
-
-/* a small stage (a phone, upright or on its side; NARROW in ride.js): the button alone on the poster, in the middle
-   from the first paint, and the line under the stage keeps the height of the status line */
-@media (max-width: 599px), (orientation: landscape) and (max-height: 540px) {
-  .rd-over .rd-status:empty { display: none; }
-  .rd-bar { min-height: 30px; }
-}
-@media (min-width: 600px) {
-  .rd-col { width: min(100%, calc(var(--rd-fit) * 16 / 9)); }
-  .rd-stage { aspect-ratio: 16 / 9; }
-  .rd-go { min-height: 60px; padding: 0 44px; font-size: 18px; }
-  .rd-stage[data-state="down"] .rd-status, .rd-stage[data-state="stuck"] .rd-status { font-size: 18px; }
-}
-@media (min-width: 1280px) and (min-height: 720px) and (pointer: fine) {
-  .rd-bar { min-height: 44px; }
-}
-@media (max-width: 359px) {
-  .rd-status { gap: 7px; padding: 7px 11px; font-size: 11px; letter-spacing: .03em; }
-  /* the smallest phones: a narrower button, clear of the rider in the picture */
-  .rd-go { padding: 0 26px; }
-}
-/* a wide column: the title and the sentence side by side; wider still, the list in three */
-@container rd (min-width: 780px) {
-  .rd-head { grid-template-columns: auto minmax(0, 1fr); align-items: end; }
-  .rd-lead { justify-self: end; padding-bottom: .5em; }
-}
-@container rd (min-width: 860px) {
-  .rd-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 36px; border-top: 0; }
-  .rd-list li { border-top: 1px solid var(--line-2); border-bottom: 0; }
-}
-/* a phone on its side, or any short and wide window: the title and the sentence on the left, the stage on the right,
-   so the button and the status line are in the first screen */
-@media (orientation: landscape) and (max-height: 540px) and (min-width: 600px) {
-  .rd-col { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 0 28px; align-items: center; width: 100%; }
-  .rd-head { grid-template-columns: minmax(0, 1fr); margin: 0; }
-  .rd-h { font-size: clamp(40px, 6.4vw, 60px); }
-  .rd-lead { justify-self: start; padding-bottom: 0; }
-  .rd-game { justify-self: end; width: min(100%, calc(var(--rd-fit) * 16 / 9)); }
-  .rd-go { min-height: 52px; padding: 0 28px; font-size: 16px; }
-  .rd-need, .rd-credits { grid-column: 1 / -1; }
-}
-@media (forced-colors: active) {
-  .rd-over { background: none; }
-  .rd-status { background: Canvas; }
-}
 @media print {
-  .rd-over .btn, .rd-status, .rd-bar, .legal-top .lang { display: none !important; }
-  .rd-col { width: auto; }
-  .rd-stage { break-inside: avoid; border-color: #999; }
+  .rd-go { display: none !important; }
 }
