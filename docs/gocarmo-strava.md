@@ -144,7 +144,7 @@ At <https://www.strava.com/settings/api>, with the owner's own Strava account
 3. **Authorization Callback Domain:** `ride.gocarmo.com` (the host only).
 4. **Icon:** the game's own (`client/public/brand/icon-512.png`). No Strava mark.
 5. **Description:** what it does, in plain words, e.g. "Indoor cycling in the
-   browser. Uploads the rides you choose to your Strava account."
+   browser. Uploads your trainer rides to your Strava account, at the end of each ride or when you press Send."
 6. The client id and the client secret go into the host's secrets
    (`OPENRADLR_STRAVA_CLIENT_ID`, `OPENRADLR_STRAVA_CLIENT_SECRET`), with
    `OPENRADLR_PUBLIC_URL=https://ride.gocarmo.com`. Never into the repository.
