@@ -1,0 +1,23 @@
+{
+  "v": 1,
+  "kid": "94dd2a467b5fcbc6",
+  "created": "2026-10-30T08:50:10.508Z",
+  "updated": "2026-10-30T08:50:10.508Z",
+  "pub": {
+    "kty": "EC",
+    "crv": "P-256",
+    "x": "SHNZfiCR6SkpBjA6hA1LCGsv9br8Yy6xmrNgrdjfxvw",
+    "y": "Nq-eGKMAaQ-3HpXqpzADw1lBAj79oHfhfJgqcMLYkv8"
+  },
+  "kdf": {
+    "name": "PBKDF2",
+    "hash": "SHA-256",
+    "iterations": 1000000,
+    "salt": "kkJf4vQaqZDG0frtJ5AZ0A=="
+  },
+  "wrap": {
+    "alg": "A256GCM",
+    "iv": "GNkpan1W78FOkQiP",
+    "ct": "YRweiXUToTNam1rjjrwsxkg0JhmnUU1LwpfQj1s6d81Pr6kVZa8ckTKEt5/nPp77FICdAC1wKETxtlEalYGQ5lHPQdlzsQ5ncV409j9LY6daXnKL/CIwfC0PSV5PYinNSMOlffVZf5qyCDo4GwjZFkXSWFqJiEmBsUIvjMcTOe5u9WYu6JtgAazTi4T9iCHUThJofKTU+k+h/Q=="
+  }
+}
